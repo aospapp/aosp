@@ -18,22 +18,28 @@ package com.android.net.module.util
 
 import android.Manifest.permission.NETWORK_STACK
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_DENIED
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
 import com.android.net.module.util.PermissionUtils.checkAnyPermissionOf
+import com.android.net.module.util.PermissionUtils.enforceAnyPermissionOf
 import com.android.net.module.util.PermissionUtils.enforceNetworkStackPermission
 import com.android.net.module.util.PermissionUtils.enforceNetworkStackPermissionOr
-import com.android.net.module.util.PermissionUtils.enforceAnyPermissionOf
+import com.android.net.module.util.PermissionUtils.enforceSystemFeature
+import org.junit.Assert
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 /** Tests for PermissionUtils */
@@ -43,6 +49,12 @@ class PermissionUtilsTest {
     private val TEST_PERMISSION1 = "android.permission.TEST_PERMISSION1"
     private val TEST_PERMISSION2 = "android.permission.TEST_PERMISSION2"
     private val context = mock(Context::class.java)
+    private val packageManager = mock(PackageManager::class.java)
+
+    @Before
+    fun setup() {
+        doReturn(packageManager).`when`(context).packageManager
+    }
 
     @Test
     fun testEnforceAnyPermissionOf() {
@@ -89,5 +101,27 @@ class PermissionUtilsTest {
             enforceNetworkStackPermission(context) }
         assertFailsWith<SecurityException>("Expect fail but permission granted.") {
             enforceNetworkStackPermissionOr(context, TEST_PERMISSION2) }
+    }
+
+    private fun mockHasSystemFeature(featureName: String, hasFeature: Boolean) {
+        doReturn(hasFeature).`when`(packageManager)
+                .hasSystemFeature(ArgumentMatchers.eq(featureName))
+    }
+
+    @Test
+    fun testEnforceSystemFeature() {
+        val systemFeature = "test.system.feature"
+        val exceptionMessage = "test exception message"
+        mockHasSystemFeature(featureName = systemFeature, hasFeature = false)
+        val e = assertFailsWith<UnsupportedOperationException>("Should fail without feature") {
+            enforceSystemFeature(context, systemFeature, exceptionMessage) }
+        assertEquals(exceptionMessage, e.message)
+
+        mockHasSystemFeature(featureName = systemFeature, hasFeature = true)
+        try {
+            enforceSystemFeature(context, systemFeature, "")
+        } catch (e: UnsupportedOperationException) {
+            Assert.fail("Exception should have not been thrown with system feature enabled")
+        }
     }
 }

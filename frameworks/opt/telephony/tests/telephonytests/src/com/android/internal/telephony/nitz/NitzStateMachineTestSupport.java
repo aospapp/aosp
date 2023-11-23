@@ -23,9 +23,9 @@ import android.app.timezonedetector.TelephonyTimeZoneSuggestion;
 import android.icu.util.Calendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.TimeZone;
-import android.os.TimestampedValue;
 
 import com.android.internal.telephony.NitzData;
+import com.android.internal.telephony.NitzSignal;
 import com.android.internal.telephony.NitzStateMachine;
 import com.android.internal.telephony.NitzStateMachine.DeviceState;
 
@@ -34,9 +34,12 @@ import com.android.internal.telephony.NitzStateMachine.DeviceState;
  */
 final class NitzStateMachineTestSupport {
 
+    /** Used to indicate that a NitzSignal ageMillis is unimportant for the test. */
+    static final int ARBITRARY_AGE = 54321;
+
     // Values used to when initializing device state but where the value isn't important.
-    static final long ARBITRARY_SYSTEM_CLOCK_TIME = createUtcTime(1977, 1, 1, 12, 0, 0);
-    static final long ARBITRARY_REALTIME_MILLIS = 123456789L;
+    static final long ARBITRARY_SYSTEM_CLOCK_TIME = createUnixEpochTime(1977, 1, 1, 12, 0, 0);
+    static final long ARBITRARY_ELAPSED_REALTIME = 123456789L;
     static final String ARBITRARY_DEBUG_INFO = "Test debug info";
 
     // A country with a single zone : the zone can be guessed from the country.
@@ -120,9 +123,11 @@ final class NitzStateMachineTestSupport {
             mNetworkCountryIsoCode = countryIsoCode;
         }
 
-        /** Creates an NITZ signal to match the scenario. */
-        TimestampedValue<NitzData> createNitzSignal(long elapsedRealtimeClock) {
-            return new TimestampedValue<>(elapsedRealtimeClock, createNitzData());
+        /**
+         * Creates an NITZ signal to match the scenario with the specified receipt / age properties.
+         */
+        NitzSignal createNitzSignal(long receiptElapsedMillis, long ageMillis) {
+            return new NitzSignal(receiptElapsedMillis, createNitzData(), ageMillis);
         }
 
         /** Creates an NITZ signal to match the scenario. */
@@ -179,7 +184,7 @@ final class NitzStateMachineTestSupport {
 
             Builder setActualTimeUtc(int year, int monthInYear, int day, int hourOfDay,
                     int minute, int second) {
-                mActualTimeMillis = createUtcTime(year, monthInYear, day, hourOfDay, minute,
+                mActualTimeMillis = createUnixEpochTime(year, monthInYear, day, hourOfDay, minute,
                         second);
                 return this;
             }
@@ -206,6 +211,7 @@ final class NitzStateMachineTestSupport {
         public boolean ignoreNitz;
         public int nitzUpdateDiffMillis;
         public int nitzUpdateSpacingMillis;
+        public int nitzNetworkDisconnectRetentionMillis;
         public long elapsedRealtime;
         public long currentTimeMillis;
 
@@ -214,7 +220,8 @@ final class NitzStateMachineTestSupport {
             ignoreNitz = false;
             nitzUpdateDiffMillis = 2000;
             nitzUpdateSpacingMillis = 1000 * 60 * 10;
-            elapsedRealtime = ARBITRARY_REALTIME_MILLIS;
+            nitzNetworkDisconnectRetentionMillis = 1000 * 60 * 5;
+            elapsedRealtime = ARBITRARY_ELAPSED_REALTIME;
         }
 
         @Override
@@ -222,9 +229,27 @@ final class NitzStateMachineTestSupport {
             return nitzUpdateSpacingMillis;
         }
 
+        public void setNitzUpdateSpacingMillis(int nitzUpdateSpacingMillis) {
+            this.nitzUpdateSpacingMillis = nitzUpdateSpacingMillis;
+        }
+
         @Override
         public int getNitzUpdateDiffMillis() {
             return nitzUpdateDiffMillis;
+        }
+
+        public void setNitzUpdateDiffMillis(int nitzUpdateDiffMillis) {
+            this.nitzUpdateDiffMillis = nitzUpdateDiffMillis;
+        }
+
+        @Override
+        public int getNitzNetworkDisconnectRetentionMillis() {
+            return nitzNetworkDisconnectRetentionMillis;
+        }
+
+        public void setNitzNetworkDisconnectRetentionMillis(
+                int nitzNetworkDisconnectRetectionMillis) {
+            this.nitzNetworkDisconnectRetentionMillis = nitzNetworkDisconnectRetectionMillis;
         }
 
         @Override
@@ -233,7 +258,7 @@ final class NitzStateMachineTestSupport {
         }
 
         @Override
-        public long elapsedRealtime() {
+        public long elapsedRealtimeMillis() {
             return elapsedRealtime;
         }
 
@@ -254,8 +279,8 @@ final class NitzStateMachineTestSupport {
 
     private NitzStateMachineTestSupport() {}
 
-    private static long createUtcTime(int year, int monthInYear, int day, int hourOfDay, int minute,
-            int second) {
+    private static long createUnixEpochTime(int year, int monthInYear, int day, int hourOfDay,
+            int minute, int second) {
         Calendar cal = new GregorianCalendar(zone("Etc/UTC"));
         cal.clear();
         cal.set(year, monthInYear - 1, day, hourOfDay, minute, second);
@@ -275,18 +300,11 @@ final class NitzStateMachineTestSupport {
     }
 
     static TelephonyTimeSuggestion createTimeSuggestionFromNitzSignal(
-            int slotIndex, TimestampedValue<NitzData> nitzSignal) {
+            int slotIndex, NitzSignal nitzSignal) {
         return new TelephonyTimeSuggestion.Builder(slotIndex)
-                .setUtcTime(createTimeSignalFromNitzSignal(nitzSignal))
+                .setUnixEpochTime(nitzSignal.createTimeSignal())
                 .addDebugInfo("Test")
                 .build();
-    }
-
-    private static TimestampedValue<Long> createTimeSignalFromNitzSignal(
-            TimestampedValue<NitzData> nitzSignal) {
-        return new TimestampedValue<>(
-                nitzSignal.getReferenceTimeMillis(),
-                nitzSignal.getValue().getCurrentTimeInMillis());
     }
 
     private static TimeZone zone(String zoneId) {

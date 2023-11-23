@@ -32,7 +32,7 @@ cc_test {
         "libvndksupport",
     ],
     static_libs: [
-        "android.frameworks.stats-V1-ndk_platform",
+        "android.frameworks.stats-V1-ndk",
     ],
     test_suites: [
         "general-tests",

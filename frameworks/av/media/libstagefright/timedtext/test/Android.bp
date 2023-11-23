@@ -36,17 +36,17 @@ cc_test {
 
     static_libs: [
         "libstagefright_timedtext",
-        "libstagefright_foundation",
     ],
 
-    include_dirs: [
-        "frameworks/av/media/libstagefright",
+    header_libs: [
+        "libstagefright_headers",
     ],
 
     shared_libs: [
         "liblog",
         "libmedia",
         "libbinder",
+        "libstagefright_foundation",
     ],
 
     cflags: [

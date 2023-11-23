@@ -16,8 +16,6 @@
 
 package android.graphics.fonts;
 
-import com.android.ide.common.rendering.api.ILayoutLog;
-import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 
@@ -30,8 +28,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-
-import libcore.util.NativeAllocationRegistry_Delegate;
 
 /**
  * Delegate implementing the native methods of android.graphics.fonts.Font$Builder
@@ -46,20 +42,6 @@ import libcore.util.NativeAllocationRegistry_Delegate;
  * @see DelegateManager
  */
 public class Font_Builder_Delegate {
-    protected static final DelegateManager<Font_Builder_Delegate> sBuilderManager =
-            new DelegateManager<>(Font_Builder_Delegate.class);
-    private static long sFontFinalizer = -1;
-
-    protected ByteBuffer mBuffer;
-    protected int mWeight;
-    protected boolean mItalic;
-    protected int mTtcIndex;
-    protected String filePath;
-
-    @LayoutlibDelegate
-    /*package*/ static long nInitBuilder() {
-        return sBuilderManager.addNewDelegate(new Font_Builder_Delegate());
-    }
 
     @LayoutlibDelegate
     /*package*/ static ByteBuffer createBuffer(@NonNull AssetManager am, @NonNull String path,
@@ -79,36 +61,5 @@ public class Font_Builder_Delegate {
 
             return buffer;
         }
-    }
-
-    @LayoutlibDelegate
-    /*package*/ static void nAddAxis(long builderPtr, int tag, float value) {
-        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
-                "Font$Builder.nAddAxis is not supported.", null, null, null);
-    }
-
-    @LayoutlibDelegate
-    /*package*/ static long nBuild(long builderPtr, ByteBuffer buffer, String filePath, int weight,
-            boolean italic, int ttcIndex) {
-        Font_Builder_Delegate font = sBuilderManager.getDelegate(builderPtr);
-        if (font != null) {
-            font.mBuffer = buffer;
-            font.mWeight = weight;
-            font.mItalic = italic;
-            font.mTtcIndex = ttcIndex;
-            font.filePath = filePath;
-        }
-        return builderPtr;
-    }
-
-    @LayoutlibDelegate
-    /*package*/ static long nGetReleaseNativeFont() {
-        synchronized (Font_Builder_Delegate.class) {
-            if (sFontFinalizer == -1) {
-                sFontFinalizer = NativeAllocationRegistry_Delegate.createFinalizer(
-                        sBuilderManager::removeJavaReferenceFor);
-            }
-        }
-        return sFontFinalizer;
     }
 }

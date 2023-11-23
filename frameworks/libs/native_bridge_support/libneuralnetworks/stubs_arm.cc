@@ -19,6 +19,7 @@
 
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksBurst_create);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksBurst_free);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_addExtensionAttribute);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_create);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_createForDevices);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_finish);
@@ -41,6 +42,7 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_createFromSyncFenceFd);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_free);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_getSyncFenceFd);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_wait);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_addExtensionAttribute);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_burstCompute);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_compute);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_create);
@@ -94,6 +96,7 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworks_getRuntimeFeatureLevel);
 static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksBurst_create);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksBurst_free);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_addExtensionAttribute);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_create);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_createForDevices);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_finish);
@@ -116,6 +119,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_free);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_getSyncFenceFd);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_wait);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_addExtensionAttribute);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_burstCompute);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_compute);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_create);

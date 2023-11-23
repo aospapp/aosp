@@ -95,6 +95,9 @@ class CameraManagerGlobal final : public RefBase {
         virtual binder::Status onTorchStatusChanged(int32_t, const String16&) {
             return binder::Status::ok();
         }
+        virtual binder::Status onTorchStrengthLevelChanged(const String16&, int32_t) {
+            return binder::Status::ok();
+        }
 
         virtual binder::Status onCameraAccessPrioritiesChanged();
         virtual binder::Status onCameraOpened(const String16&, const String16&) {
@@ -139,6 +142,8 @@ class CameraManagerGlobal final : public RefBase {
             return !(*this == other);
         }
         bool operator < (const Callback& other) const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wordered-compare-function-pointers"
             if (*this == other) return false;
             if (mContext != other.mContext) return mContext < other.mContext;
             if (mPhysicalCamAvailable != other.mPhysicalCamAvailable) {
@@ -152,6 +157,7 @@ class CameraManagerGlobal final : public RefBase {
             }
             if (mAvailable != other.mAvailable) return mAvailable < other.mAvailable;
             return mUnavailable < other.mUnavailable;
+#pragma GCC diagnostic pop
         }
         bool operator > (const Callback& other) const {
             return (*this != other && !(*this < other));

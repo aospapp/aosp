@@ -24,6 +24,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import android.annotation.SuppressLint;
 import android.net.InetAddresses;
 import android.net.IpPrefix;
 import android.net.MacAddress;
@@ -31,7 +32,6 @@ import android.net.MacAddress;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.internal.util.HexDump;
 import com.android.net.module.util.Struct.Field;
 import com.android.net.module.util.Struct.Type;
 
@@ -454,6 +454,7 @@ public class StructTest {
         }
     }
 
+    @SuppressLint("NewApi")
     private void verifyPrefixByteArrayParsing(final PrefixMessage msg) throws Exception {
         // The original PREF64 option message has just 12 bytes for prefix byte array
         // (Highest 96 bits of the Prefix), copyOf pads the 128-bits IPv6 address with

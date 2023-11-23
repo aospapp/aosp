@@ -69,8 +69,6 @@ int write_java_methods_q_schema(FILE* out, const SignatureInfoMap& signatureInfo
                     fprintf(out, ", %s[] %s", java_type_name(chainField.javaType),
                             chainField.name.c_str());
                 }
-            } else if (*arg == JAVA_TYPE_KEY_VALUE_PAIR) {
-                fprintf(out, ", android.util.SparseArray<Object> valueMap");
             } else {
                 fprintf(out, ", %s arg%d", java_type_name(*arg), argIndex);
             }
@@ -155,89 +153,6 @@ int write_java_methods_q_schema(FILE* out, const SignatureInfoMap& signatureInfo
                             indent.c_str(), argIndex);
                     fprintf(out, "%s    }\n", indent.c_str());
                     fprintf(out, "%s    needed += attrSize;\n", indent.c_str());
-                    break;
-                }
-                case JAVA_TYPE_KEY_VALUE_PAIR: {
-                    fprintf(out, "%s    // Calculate bytes needed by Key Value Pairs.\n",
-                            indent.c_str());
-                    fprintf(out, "%s    final int count = valueMap.size();\n", indent.c_str());
-                    fprintf(out, "%s    android.util.SparseIntArray intMap = null;\n",
-                            indent.c_str());
-                    fprintf(out, "%s    android.util.SparseLongArray longMap = null;\n",
-                            indent.c_str());
-                    fprintf(out, "%s    android.util.SparseArray<String> stringMap = null;\n",
-                            indent.c_str());
-                    fprintf(out, "%s    android.util.SparseArray<Float> floatMap = null;\n",
-                            indent.c_str());
-                    fprintf(out, "%s    int keyValuePairSize = LIST_TYPE_OVERHEAD;\n",
-                            indent.c_str());
-                    fprintf(out, "%s    for (int i = 0; i < count; i++) {\n", indent.c_str());
-                    fprintf(out, "%s        final int key = valueMap.keyAt(i);\n", indent.c_str());
-                    fprintf(out, "%s        final Object value = valueMap.valueAt(i);\n",
-                            indent.c_str());
-                    fprintf(out, "%s        if (value instanceof Integer) {\n", indent.c_str());
-                    fprintf(out, "%s            keyValuePairSize += LIST_TYPE_OVERHEAD\n",
-                            indent.c_str());
-                    fprintf(out, "%s                    + INT_TYPE_SIZE + INT_TYPE_SIZE;\n",
-                            indent.c_str());
-                    fprintf(out, "%s            if (null == intMap) {\n", indent.c_str());
-                    fprintf(out, "%s                intMap = new android.util.SparseIntArray();\n",
-                            indent.c_str());
-                    fprintf(out, "%s            }\n", indent.c_str());
-                    fprintf(out, "%s            intMap.put(key, (Integer) value);\n",
-                            indent.c_str());
-                    fprintf(out, "%s        } else if (value instanceof Long) {\n", indent.c_str());
-                    fprintf(out, "%s            keyValuePairSize += LIST_TYPE_OVERHEAD\n",
-                            indent.c_str());
-                    fprintf(out, "%s                    + INT_TYPE_SIZE + LONG_TYPE_SIZE;\n",
-                            indent.c_str());
-                    fprintf(out, "%s            if (null == longMap) {\n", indent.c_str());
-                    fprintf(out,
-                            "%s                longMap = new "
-                            "android.util.SparseLongArray();\n",
-                            indent.c_str());
-                    fprintf(out, "%s            }\n", indent.c_str());
-                    fprintf(out, "%s            longMap.put(key, (Long) value);\n", indent.c_str());
-                    fprintf(out, "%s        } else if (value instanceof String) {\n",
-                            indent.c_str());
-                    fprintf(out,
-                            "%s            final String str = (value == null) ? \"\" : "
-                            "(String) value;\n",
-                            indent.c_str());
-                    fprintf(out,
-                            "%s            final int len = "
-                            "str.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;\n",
-                            indent.c_str());
-                    fprintf(out,
-                            "%s            keyValuePairSize += LIST_TYPE_OVERHEAD + "
-                            "INT_TYPE_SIZE\n",
-                            indent.c_str());
-                    fprintf(out, "%s                    + STRING_TYPE_OVERHEAD + len;\n",
-                            indent.c_str());
-                    fprintf(out, "%s            if (null == stringMap) {\n", indent.c_str());
-                    fprintf(out,
-                            "%s                stringMap = new "
-                            "android.util.SparseArray<>();\n",
-                            indent.c_str());
-                    fprintf(out, "%s            }\n", indent.c_str());
-                    fprintf(out, "%s            stringMap.put(key, str);\n", indent.c_str());
-                    fprintf(out, "%s        } else if (value instanceof Float) {\n",
-                            indent.c_str());
-                    fprintf(out, "%s            keyValuePairSize += LIST_TYPE_OVERHEAD\n",
-                            indent.c_str());
-                    fprintf(out, "%s                    + INT_TYPE_SIZE + FLOAT_TYPE_SIZE;\n",
-                            indent.c_str());
-                    fprintf(out, "%s            if (null == floatMap) {\n", indent.c_str());
-                    fprintf(out,
-                            "%s                floatMap = new "
-                            "android.util.SparseArray<>();\n",
-                            indent.c_str());
-                    fprintf(out, "%s            }\n", indent.c_str());
-                    fprintf(out, "%s            floatMap.put(key, (Float) value);\n",
-                            indent.c_str());
-                    fprintf(out, "%s        }\n", indent.c_str());
-                    fprintf(out, "%s    }\n", indent.c_str());
-                    fprintf(out, "%s    needed += keyValuePairSize;\n", indent.c_str());
                     break;
                 }
                 default:
@@ -339,16 +254,6 @@ int write_java_methods_q_schema(FILE* out, const SignatureInfoMap& signatureInfo
                     fprintf(out, "%s    pos += attrSize;\n", indent.c_str());
                     break;
                 }
-                case JAVA_TYPE_KEY_VALUE_PAIR:
-                    requiredHelpers |= JAVA_MODULE_REQUIRES_FLOAT;
-                    requiredHelpers |= JAVA_MODULE_REQUIRES_KEY_VALUE_PAIRS;
-                    fprintf(out,
-                            "%s    writeKeyValuePairs(buff, pos, (byte) count, intMap, "
-                            "longMap, "
-                            "stringMap, floatMap);\n",
-                            indent.c_str());
-                    fprintf(out, "%s    pos += keyValuePairSize;\n", indent.c_str());
-                    break;
                 default:
                     // Unsupported types: OBJECT, DOUBLE.
                     fprintf(stderr, "Object and Double are not supported in module logging");
@@ -448,108 +353,6 @@ void write_java_helpers_for_q_schema_methods(FILE* out, const AtomDecl& attribut
                 indent.c_str(), tagName, tagName);
         fprintf(out, "%s        pos += STRING_TYPE_OVERHEAD + %sByte.length;\n", indent.c_str(),
                 tagName);
-        fprintf(out, "%s    }\n", indent.c_str());
-        fprintf(out, "%s}\n", indent.c_str());
-        fprintf(out, "\n");
-    }
-
-    if (requiredHelpers & JAVA_MODULE_REQUIRES_KEY_VALUE_PAIRS) {
-        fprintf(out,
-                "%sprivate static void writeKeyValuePairs(byte[] buff, int pos, "
-                "byte numPairs,\n",
-                indent.c_str());
-        fprintf(out, "%s        final android.util.SparseIntArray intMap,\n", indent.c_str());
-        fprintf(out, "%s        final android.util.SparseLongArray longMap,\n", indent.c_str());
-        fprintf(out, "%s        final android.util.SparseArray<String> stringMap,\n",
-                indent.c_str());
-        fprintf(out, "%s        final android.util.SparseArray<Float> floatMap) {\n",
-                indent.c_str());
-
-        // Start list of lists.
-        fprintf(out, "%s    buff[pos] = LIST_TYPE;\n", indent.c_str());
-        fprintf(out, "%s    buff[pos + 1] = (byte) numPairs;\n", indent.c_str());
-        fprintf(out, "%s    pos += LIST_TYPE_OVERHEAD;\n", indent.c_str());
-
-        // Write integers.
-        fprintf(out, "%s    final int intMapSize = null == intMap ? 0 : intMap.size();\n",
-                indent.c_str());
-        fprintf(out, "%s    for (int i = 0; i < intMapSize; i++) {\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = LIST_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos + 1] = (byte) 2;\n", indent.c_str());
-        fprintf(out, "%s        pos += LIST_TYPE_OVERHEAD;\n", indent.c_str());
-        fprintf(out, "%s        final int key = intMap.keyAt(i);\n", indent.c_str());
-        fprintf(out, "%s        final int value = intMap.valueAt(i);\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = INT_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyInt(buff, pos + 1, key);\n", indent.c_str());
-        fprintf(out, "%s        pos += INT_TYPE_SIZE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = INT_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyInt(buff, pos + 1, value);\n", indent.c_str());
-        fprintf(out, "%s        pos += INT_TYPE_SIZE;\n", indent.c_str());
-        fprintf(out, "%s    }\n", indent.c_str());
-
-        // Write longs.
-        fprintf(out, "%s    final int longMapSize = null == longMap ? 0 : longMap.size();\n",
-                indent.c_str());
-        fprintf(out, "%s    for (int i = 0; i < longMapSize; i++) {\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = LIST_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos + 1] = (byte) 2;\n", indent.c_str());
-        fprintf(out, "%s        pos += LIST_TYPE_OVERHEAD;\n", indent.c_str());
-        fprintf(out, "%s        final int key = longMap.keyAt(i);\n", indent.c_str());
-        fprintf(out, "%s        final long value = longMap.valueAt(i);\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = INT_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyInt(buff, pos + 1, key);\n", indent.c_str());
-        fprintf(out, "%s        pos += INT_TYPE_SIZE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = LONG_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyLong(buff, pos + 1, value);\n", indent.c_str());
-        fprintf(out, "%s        pos += LONG_TYPE_SIZE;\n", indent.c_str());
-        fprintf(out, "%s    }\n", indent.c_str());
-
-        // Write Strings.
-        fprintf(out,
-                "%s    final int stringMapSize = null == stringMap ? 0 : "
-                "stringMap.size();\n",
-                indent.c_str());
-        fprintf(out, "%s    for (int i = 0; i < stringMapSize; i++) {\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = LIST_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos + 1] = (byte) 2;\n", indent.c_str());
-        fprintf(out, "%s        pos += LIST_TYPE_OVERHEAD;\n", indent.c_str());
-        fprintf(out, "%s        final int key = stringMap.keyAt(i);\n", indent.c_str());
-        fprintf(out, "%s        final String value = stringMap.valueAt(i);\n", indent.c_str());
-        fprintf(out,
-                "%s        final byte[] valueBytes = "
-                "value.getBytes(java.nio.charset.StandardCharsets.UTF_8);\n",
-                indent.c_str());
-        fprintf(out, "%s        buff[pos] = INT_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyInt(buff, pos + 1, key);\n", indent.c_str());
-        fprintf(out, "%s        pos += INT_TYPE_SIZE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = STRING_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyInt(buff, pos + 1, valueBytes.length);\n", indent.c_str());
-        fprintf(out,
-                "%s        System.arraycopy("
-                "valueBytes, 0, buff, pos + STRING_TYPE_OVERHEAD, "
-                "valueBytes.length);\n",
-                indent.c_str());
-        fprintf(out, "%s        pos += STRING_TYPE_OVERHEAD + valueBytes.length;\n",
-                indent.c_str());
-        fprintf(out, "%s    }\n", indent.c_str());
-
-        // Write floats.
-        fprintf(out,
-                "%s    final int floatMapSize = null == floatMap ? 0 : "
-                "floatMap.size();\n",
-                indent.c_str());
-        fprintf(out, "%s    for (int i = 0; i < floatMapSize; i++) {\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = LIST_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos + 1] = (byte) 2;\n", indent.c_str());
-        fprintf(out, "%s        pos += LIST_TYPE_OVERHEAD;\n", indent.c_str());
-        fprintf(out, "%s        final int key = floatMap.keyAt(i);\n", indent.c_str());
-        fprintf(out, "%s        final float value = floatMap.valueAt(i);\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = INT_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyInt(buff, pos + 1, key);\n", indent.c_str());
-        fprintf(out, "%s        pos += INT_TYPE_SIZE;\n", indent.c_str());
-        fprintf(out, "%s        buff[pos] = FLOAT_TYPE;\n", indent.c_str());
-        fprintf(out, "%s        copyFloat(buff, pos + 1, value);\n", indent.c_str());
-        fprintf(out, "%s        pos += FLOAT_TYPE_SIZE;\n", indent.c_str());
         fprintf(out, "%s    }\n", indent.c_str());
         fprintf(out, "%s}\n", indent.c_str());
         fprintf(out, "\n");

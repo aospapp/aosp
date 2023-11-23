@@ -370,4 +370,5 @@ subdirs = [
     "cpu_ref",
     "script_api",
     "support",
+    "toolkit",
 ]

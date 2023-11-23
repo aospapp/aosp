@@ -25,6 +25,8 @@ cc_test {
     static_libs: [
         "libasync_safe",
         "libdiskusage",
+        "libext2_uuid",
+        "libgmock",
         "libinstalld",
         "liblog",
     ],
@@ -53,7 +55,9 @@ cc_test {
     static_libs: [
         "libasync_safe",
         "libdiskusage",
+        "libext2_uuid",
         "libinstalld",
+        "libziparchive",
         "liblog",
         "liblogwrap",
     ],
@@ -92,14 +96,18 @@ cc_test {
         "libprocessgroup",
         "libselinux",
         "libutils",
+        "packagemanager_aidl-cpp",
         "server_configurable_flags",
     ],
     static_libs: [
         "libasync_safe",
         "libdiskusage",
+        "libext2_uuid",
         "libinstalld",
+        "libziparchive",
         "liblog",
         "liblogwrap",
+        "libc++fs",
     ],
     test_config: "installd_service_test.xml",
 
@@ -141,6 +149,7 @@ cc_test {
     static_libs: [
         "libasync_safe",
         "libdiskusage",
+        "libext2_uuid",
         "libinstalld",
         "liblog",
         "liblogwrap",
@@ -183,5 +192,26 @@ cc_test {
     static_libs: [
         "liblog",
         "libotapreoptparameters",
+    ],
+}
+
+cc_test {
+    name: "installd_file_test",
+    test_suites: ["device-tests"],
+    clang: true,
+    srcs: ["installd_file_test.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libbase",
+        "libcutils",
+        "libutils",
+    ],
+    static_libs: [
+        "libext2_uuid",
+        "libinstalld",
+        "liblog",
     ],
 }

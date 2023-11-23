@@ -21,31 +21,8 @@
 //
 
 package {
-    default_applicable_licenses: ["frameworks_layoutlib_license"],
-}
-
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-// See: http://go/android-license-faq
-license {
-    name: "frameworks_layoutlib_license",
-    visibility: [":__subpackages__"],
-    license_kinds: [
-        "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-EPL",
-    ],
-    // large-scale-change unable to identify any license_text files
+    // See: http://go/android-license-faq
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_genrule_host {
@@ -53,7 +30,7 @@ java_genrule_host {
     tools: ["layoutlib_create"],
     out: ["temp_layoutlib.jar"],
     srcs: [
-        ":atf-prebuilt{.jar}",
+        ":atf-prebuilt-371374941{.jar}",
         ":core-icu4j-for-host{.jar}",
         ":core-libart-for-host{.jar}",
         ":framework-all{.jar}",
@@ -62,4 +39,27 @@ java_genrule_host {
         ":icu4j-icutzdata-jarjar{.jar}", // HOST
     ],
     cmd: "rm -f $(out) && $(location layoutlib_create) --create-stub $(out) $(in)",
+}
+
+java_genrule_host {
+    name: "layoutlib-native-delegates",
+    tools: ["layoutlib_create"],
+    out: ["layoutlib-native-delegates.jar"],
+    srcs: [
+        ":framework{.jar}",
+    ],
+    cmd: "rm -f $(out) && $(location layoutlib_create) --create-native-only-delegates $(out) $(in)",
+}
+
+java_device_for_host {
+    name: "layoutlib_create-classpath",
+    libs: [
+        "conscrypt-for-host",
+        "core-icu4j-for-host",
+        "core-libart-for-host",
+        "ext",
+        "framework-all",
+        "icu4j-icudata-jarjar",
+        "icu4j-icutzdata-jarjar",
+    ],
 }

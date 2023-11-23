@@ -16,60 +16,40 @@
 
 #include <aidl/Gtest.h>
 #include <aidl/Vintf.h>
-#include <android/frameworks/automotive/powerpolicy/CarPowerPolicy.h>
-#include <android/frameworks/automotive/powerpolicy/CarPowerPolicyFilter.h>
-#include <android/frameworks/automotive/powerpolicy/ICarPowerPolicyChangeCallback.h>
-#include <android/frameworks/automotive/powerpolicy/ICarPowerPolicyServer.h>
-#include <android/frameworks/automotive/powerpolicy/PowerComponent.h>
+#include <aidl/android/frameworks/automotive/powerpolicy/BnCarPowerPolicyChangeCallback.h>
+#include <aidl/android/frameworks/automotive/powerpolicy/CarPowerPolicy.h>
+#include <aidl/android/frameworks/automotive/powerpolicy/CarPowerPolicyFilter.h>
+#include <aidl/android/frameworks/automotive/powerpolicy/ICarPowerPolicyServer.h>
+#include <aidl/android/frameworks/automotive/powerpolicy/PowerComponent.h>
+#include <android/binder_auto_utils.h>
+#include <android/binder_manager.h>
+#include <android/binder_status.h>
 #include <binder/IBinder.h>
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
-#include <gmock/gmock.h>
-#include <utils/StrongPointer.h>
 
 namespace {
 
-using ::android::BBinder;
-using ::android::IBinder;
+using ::aidl::android::frameworks::automotive::powerpolicy::BnCarPowerPolicyChangeCallback;
+using ::aidl::android::frameworks::automotive::powerpolicy::CarPowerPolicy;
+using ::aidl::android::frameworks::automotive::powerpolicy::CarPowerPolicyFilter;
+using ::aidl::android::frameworks::automotive::powerpolicy::ICarPowerPolicyServer;
+using ::aidl::android::frameworks::automotive::powerpolicy::PowerComponent;
 using ::android::OK;
 using ::android::ProcessState;
-using ::android::sp;
 using ::android::status_t;
 using ::android::String16;
-using ::android::wp;
-using ::android::binder::Status;
-using ::android::frameworks::automotive::powerpolicy::CarPowerPolicy;
-using ::android::frameworks::automotive::powerpolicy::CarPowerPolicyFilter;
-using ::android::frameworks::automotive::powerpolicy::ICarPowerPolicyChangeCallbackDefault;
-using ::android::frameworks::automotive::powerpolicy::ICarPowerPolicyServer;
-using ::android::frameworks::automotive::powerpolicy::PowerComponent;
-using ::testing::_;
-using ::testing::Return;
+using ::android::UNKNOWN_ERROR;
+using ::ndk::ScopedAStatus;
+using ::ndk::SpAIBinder;
 
-class MockBinder : public BBinder {
+class MockPowerPolicyChangeCallback : public BnCarPowerPolicyChangeCallback {
    public:
-    MOCK_METHOD(status_t, linkToDeath,
-                (const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags), (override));
-    MOCK_METHOD(status_t, unlinkToDeath,
-                (const wp<DeathRecipient>& recipient, void* cookie, uint32_t flags,
-                 wp<DeathRecipient>* outRecipient),
-                (override));
-};
+    MockPowerPolicyChangeCallback() {}
 
-class MockPowerPolicyChangeCallback : public ICarPowerPolicyChangeCallbackDefault {
-   public:
-    MockPowerPolicyChangeCallback() { mBinder = new MockBinder(); }
-
-    MOCK_METHOD(IBinder*, onAsBinder, (), (override));
-
-    void expectNormalBinder() {
-        EXPECT_CALL(*mBinder, linkToDeath(_, nullptr, 0)).WillRepeatedly(Return(OK));
-        EXPECT_CALL(*mBinder, unlinkToDeath(_, nullptr, 0, nullptr)).WillRepeatedly(Return(OK));
-        EXPECT_CALL(*this, onAsBinder()).WillRepeatedly(Return(mBinder.get()));
+    ScopedAStatus onPolicyChanged([[maybe_unused]] const CarPowerPolicy& policy) override {
+        return ScopedAStatus::ok();
     }
-
-   private:
-    sp<MockBinder> mBinder;
 };
 
 }  // namespace
@@ -77,26 +57,26 @@ class MockPowerPolicyChangeCallback : public ICarPowerPolicyChangeCallbackDefaul
 class PowerPolicyAidlTest : public ::testing::TestWithParam<std::string> {
    public:
     virtual void SetUp() override {
-        powerPolicyServer =
-            android::waitForDeclaredService<ICarPowerPolicyServer>(String16(GetParam().c_str()));
-        ASSERT_NE(powerPolicyServer.get(), nullptr);
+        SpAIBinder binder(AServiceManager_getService(GetParam().c_str()));
+        ASSERT_NE(binder.get(), nullptr);
+        powerPolicyServer = ICarPowerPolicyServer::fromBinder(binder);
     }
 
-    sp<ICarPowerPolicyServer> powerPolicyServer;
+    std::shared_ptr<ICarPowerPolicyServer> powerPolicyServer;
 };
 
 TEST_P(PowerPolicyAidlTest, TestGetCurrentPowerPolicy) {
     CarPowerPolicy policy;
 
-    Status status = powerPolicyServer->getCurrentPowerPolicy(&policy);
+    ScopedAStatus status = powerPolicyServer->getCurrentPowerPolicy(&policy);
 
-    ASSERT_TRUE(status.isOk() || status.exceptionCode() == Status::EX_ILLEGAL_STATE);
+    ASSERT_TRUE(status.isOk() || status.getServiceSpecificError() == EX_ILLEGAL_STATE);
 }
 
 TEST_P(PowerPolicyAidlTest, TestGetPowerComponentState) {
     bool state;
-    for (const auto componentId : android::enum_range<PowerComponent>()) {
-        Status status = powerPolicyServer->getPowerComponentState(componentId, &state);
+    for (const auto componentId : ndk::enum_range<PowerComponent>()) {
+        ScopedAStatus status = powerPolicyServer->getPowerComponentState(componentId, &state);
 
         ASSERT_TRUE(status.isOk());
     }
@@ -104,48 +84,49 @@ TEST_P(PowerPolicyAidlTest, TestGetPowerComponentState) {
 
 TEST_P(PowerPolicyAidlTest, TestGetPowerComponentState_invalidComponent) {
     bool state;
-    PowerComponent invalidComponent = (PowerComponent)-1;
+    PowerComponent invalidComponent = static_cast<PowerComponent>(-1);
 
-    Status status = powerPolicyServer->getPowerComponentState(invalidComponent, &state);
+    ScopedAStatus status = powerPolicyServer->getPowerComponentState(invalidComponent, &state);
 
     ASSERT_FALSE(status.isOk());
 }
 
 TEST_P(PowerPolicyAidlTest, TestRegisterCallback) {
-    sp<MockPowerPolicyChangeCallback> callback = new MockPowerPolicyChangeCallback();
-    callback->expectNormalBinder();
+    std::shared_ptr<MockPowerPolicyChangeCallback> callback =
+        ndk::SharedRefBase::make<MockPowerPolicyChangeCallback>();
     CarPowerPolicyFilter filter;
     filter.components.push_back(PowerComponent::AUDIO);
 
-    Status status = powerPolicyServer->registerPowerPolicyChangeCallback(callback, filter);
+    ScopedAStatus status = powerPolicyServer->registerPowerPolicyChangeCallback(callback, filter);
 
     ASSERT_TRUE(status.isOk());
 
-    status = powerPolicyServer->unregisterPowerPolicyChangeCallback(callback.get());
+    status = powerPolicyServer->unregisterPowerPolicyChangeCallback(callback);
 
     ASSERT_TRUE(status.isOk());
 }
 
 TEST_P(PowerPolicyAidlTest, TestRegisterCallback_doubleRegistering) {
-    sp<MockPowerPolicyChangeCallback> callback = new MockPowerPolicyChangeCallback();
-    callback->expectNormalBinder();
+    std::shared_ptr<MockPowerPolicyChangeCallback> callback =
+        ndk::SharedRefBase::make<MockPowerPolicyChangeCallback>();
     CarPowerPolicyFilter filter;
     filter.components.push_back(PowerComponent::AUDIO);
 
-    Status status = powerPolicyServer->registerPowerPolicyChangeCallback(callback, filter);
+    ScopedAStatus status = powerPolicyServer->registerPowerPolicyChangeCallback(callback, filter);
 
     ASSERT_TRUE(status.isOk());
 
     status = powerPolicyServer->registerPowerPolicyChangeCallback(callback, filter);
 
     ASSERT_FALSE(status.isOk());
-    ASSERT_EQ(status.exceptionCode(), Status::EX_ILLEGAL_ARGUMENT);
+    ASSERT_EQ(status.getServiceSpecificError(), EX_ILLEGAL_ARGUMENT);
 }
 
 TEST_P(PowerPolicyAidlTest, TestUnegisterNotRegisteredCallback) {
-    sp<MockPowerPolicyChangeCallback> callback = new MockPowerPolicyChangeCallback();
+    std::shared_ptr<MockPowerPolicyChangeCallback> callback =
+        ndk::SharedRefBase::make<MockPowerPolicyChangeCallback>();
 
-    Status status = powerPolicyServer->unregisterPowerPolicyChangeCallback(callback);
+    ScopedAStatus status = powerPolicyServer->unregisterPowerPolicyChangeCallback(callback);
 
     ASSERT_FALSE(status.isOk());
 }

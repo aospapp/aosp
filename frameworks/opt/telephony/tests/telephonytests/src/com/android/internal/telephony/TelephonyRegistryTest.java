@@ -47,9 +47,11 @@ import android.telephony.CellIdentity;
 import android.telephony.CellIdentityGsm;
 import android.telephony.CellLocation;
 import android.telephony.LinkCapacityEstimate;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.PhoneCapability;
 import android.telephony.PhysicalChannelConfig;
 import android.telephony.PreciseDataConnectionState;
+import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyCallback;
@@ -59,6 +61,7 @@ import android.telephony.data.ApnSetting;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 
@@ -68,7 +71,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -81,8 +83,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class TelephonyRegistryTest extends TelephonyTest {
-    @Mock
+    // Mocked classes
     private SubscriptionInfo mMockSubInfo;
+    private TelephonyRegistry.ConfigurationProvider mMockConfigurationProvider;
+
     private TelephonyCallbackWrapper mTelephonyCallback;
     private List<LinkCapacityEstimate> mLinkCapacityEstimateList;
     private TelephonyRegistry mTelephonyRegistry;
@@ -90,11 +94,11 @@ public class TelephonyRegistryTest extends TelephonyTest {
     private int mActiveSubId;
     private TelephonyDisplayInfo mTelephonyDisplayInfo;
     private int mSrvccState = -1;
+    private ServiceState mServiceState = null;
     private int mRadioPowerState = RADIO_POWER_UNAVAILABLE;
     private int mDataConnectionState = TelephonyManager.DATA_UNKNOWN;
     private int mNetworkType = TelephonyManager.NETWORK_TYPE_UNKNOWN;
     private List<PhysicalChannelConfig> mPhysicalChannelConfigs;
-    private TelephonyRegistry.ConfigurationProvider mMockConfigurationProvider;
     private CellLocation mCellLocation;
 
     // All events contribute to TelephonyRegistry#isPhoneStatePermissionRequired
@@ -161,7 +165,8 @@ public class TelephonyRegistryTest extends TelephonyTest {
             TelephonyCallback.DisplayInfoListener,
             TelephonyCallback.LinkCapacityEstimateChangedListener,
             TelephonyCallback.PhysicalChannelConfigListener,
-            TelephonyCallback.CellLocationListener {
+            TelephonyCallback.CellLocationListener,
+            TelephonyCallback.ServiceStateListener {
         // This class isn't mockable to get invocation counts because the IBinder is null and
         // crashes the TelephonyRegistry. Make a cheesy verify(times()) alternative.
         public AtomicInteger invocationCount = new AtomicInteger(0);
@@ -170,6 +175,12 @@ public class TelephonyRegistryTest extends TelephonyTest {
         public void onSrvccStateChanged(int srvccState) {
             invocationCount.incrementAndGet();
             mSrvccState = srvccState;
+        }
+
+        @Override
+        public void onServiceStateChanged(ServiceState serviceState) {
+            invocationCount.incrementAndGet();
+            mServiceState = serviceState;
         }
 
         @Override
@@ -224,16 +235,12 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mTelephonyRegistry.systemRunning();
     }
 
-    private Executor mSimpleExecutor = new Executor() {
-        @Override
-        public void execute(Runnable r) {
-            r.run();
-        }
-    };
+    private final Executor mSimpleExecutor = Runnable::run;
 
     @Before
     public void setUp() throws Exception {
-        super.setUp("TelephonyRegistryTest");
+        super.setUp(getClass().getSimpleName());
+        mMockSubInfo = mock(SubscriptionInfo.class);
         mMockConfigurationProvider = mock(TelephonyRegistry.ConfigurationProvider.class);
         when(mMockConfigurationProvider.getRegistrationLimit()).thenReturn(-1);
         when(mMockConfigurationProvider.isRegistrationLimitEnabledInPlatformCompat(anyInt()))
@@ -252,6 +259,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
         addTelephonyRegistryService();
         mTelephonyCallback = new TelephonyCallbackWrapper();
         mTelephonyCallback.init(mSimpleExecutor);
+        mContextFixture.putStringArrayResource(
+                com.android.internal.R.array.config_serviceStateLocationAllowedPackages,
+                new String[0]);
         processAllMessages();
         assertEquals(mTelephonyRegistry.asBinder(),
                 ServiceManager.getService("telephony.registry"));
@@ -260,6 +270,20 @@ public class TelephonyRegistryTest extends TelephonyTest {
     @After
     public void tearDown() throws Exception {
         mTelephonyRegistry = null;
+        mTelephonyCallback = null;
+        if (mLinkCapacityEstimateList != null) {
+            mLinkCapacityEstimateList.clear();
+            mLinkCapacityEstimateList = null;
+        }
+        mTelephonyRegistry = null;
+        mPhoneCapability = null;
+        mTelephonyDisplayInfo = null;
+        mServiceState = null;
+        if (mPhysicalChannelConfigs != null) {
+            mPhysicalChannelConfigs.clear();
+            mPhysicalChannelConfigs = null;
+        }
+        mCellLocation = null;
         super.tearDown();
     }
 
@@ -271,7 +295,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
         PhoneCapability phoneCapability = new PhoneCapability(1, 2, null, false, new int[0]);
         int[] events = {TelephonyCallback.EVENT_PHONE_CAPABILITY_CHANGED};
         mTelephonyRegistry.notifyPhoneCapabilityChanged(phoneCapability);
-        mTelephonyRegistry.listenWithEventList(0, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, 0, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
         processAllMessages();
         assertEquals(phoneCapability, mPhoneCapability);
@@ -291,8 +315,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
         when(mSubscriptionManager.getActiveSubscriptionIdList()).thenReturn(activeSubs);
         int activeSubId = 0;
         mTelephonyRegistry.notifyActiveDataSubIdChanged(activeSubId);
-        mTelephonyRegistry.listenWithEventList(activeSubId, mContext.getOpPackageName(),
-                mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+        mTelephonyRegistry.listenWithEventList(false, false, activeSubId,
+                mContext.getOpPackageName(), mContext.getAttributionTag(),
+                mTelephonyCallback.callback, events, true);
         processAllMessages();
         assertEquals(activeSubId, mActiveSubId);
 
@@ -318,8 +343,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
         int[] events = {TelephonyCallback.EVENT_SRVCC_STATE_CHANGED};
         mTelephonyRegistry.notifySrvccStateChanged(1 /*subId*/, srvccState);
         // Should receive callback when listen is called that contains the latest notify result.
-        mTelephonyRegistry.listenWithEventList(1 /*subId*/, mContext.getOpPackageName(),
-                mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+        mTelephonyRegistry.listenWithEventList(false, false, 1 /*subId*/,
+                mContext.getOpPackageName(), mContext.getAttributionTag(),
+                mTelephonyCallback.callback, events, true);
         processAllMessages();
         assertEquals(srvccState, mSrvccState);
 
@@ -328,6 +354,82 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mTelephonyRegistry.notifySrvccStateChanged(1 /*subId*/, srvccState);
         processAllMessages();
         assertEquals(srvccState, mSrvccState);
+    }
+
+    /**
+     * Test that we first receive a callback when listen(...) is called that contains the latest
+     * notify(...) response and then that the callback is called correctly when notify(...) is
+     * called.
+     */
+    @Test
+    @SmallTest
+    public void testSrvccStateChangedWithRenouncedLocationAccess() throws Exception {
+        // Return a slotIndex / phoneId of 0 for all sub ids given.
+        doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
+        doReturn(0/*slotIndex*/).when(mMockSubInfo).getSimSlotIndex();
+        int srvccState = TelephonyManager.SRVCC_STATE_HANDOVER_STARTED;
+        int[] events = {TelephonyCallback.EVENT_SRVCC_STATE_CHANGED};
+        mTelephonyRegistry.notifySrvccStateChanged(1 /*subId*/, srvccState);
+        // Should receive callback when listen is called that contains the latest notify result.
+        mTelephonyRegistry.listenWithEventList(true, true, 1 /*subId*/,
+                mContext.getOpPackageName(), mContext.getAttributionTag(),
+                mTelephonyCallback.callback, events, true);
+        processAllMessages();
+        assertEquals(srvccState, mSrvccState);
+        assertServiceStateForLocationAccessSanitization(mServiceState);
+
+        // trigger callback
+        srvccState = TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED;
+        mTelephonyRegistry.notifySrvccStateChanged(1 /*subId*/, srvccState);
+        processAllMessages();
+        assertEquals(srvccState, mSrvccState);
+    }
+
+    /**
+     * Test that we first receive a callback when listen(...) is called that contains the latest
+     * notify(...) response and then that the callback is called correctly when notify(...) is
+     * called.
+     */
+    @Test
+    @SmallTest
+    public void testSrvccStateChangedWithRenouncedFineLocationAccess() throws Exception {
+        // Return a slotIndex / phoneId of 0 for all sub ids given.
+        doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
+        doReturn(0/*slotIndex*/).when(mMockSubInfo).getSimSlotIndex();
+        int srvccState = TelephonyManager.SRVCC_STATE_HANDOVER_STARTED;
+        int[] events = {TelephonyCallback.EVENT_SRVCC_STATE_CHANGED};
+        mTelephonyRegistry.notifySrvccStateChanged(1 /*subId*/, srvccState);
+        // Should receive callback when listen is called that contains the latest notify result.
+        mTelephonyRegistry.listenWithEventList(false, true, 1 /*subId*/,
+                mContext.getOpPackageName(), mContext.getAttributionTag(),
+                mTelephonyCallback.callback, events, true);
+        processAllMessages();
+        assertEquals(srvccState, mSrvccState);
+        assertServiceStateForFineAccessSanitization(mServiceState);
+
+        // trigger callback
+        srvccState = TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED;
+        mTelephonyRegistry.notifySrvccStateChanged(1 /*subId*/, srvccState);
+        processAllMessages();
+        assertEquals(srvccState, mSrvccState);
+    }
+
+    private void assertServiceStateForFineAccessSanitization(ServiceState state) {
+        if (state == null) return;
+
+        if (state.getNetworkRegistrationInfoList() != null) {
+            for (NetworkRegistrationInfo nrs : state.getNetworkRegistrationInfoList()) {
+                assertEquals(nrs.getCellIdentity(), null);
+            }
+        }
+    }
+
+    private void assertServiceStateForLocationAccessSanitization(ServiceState state) {
+        if (state == null) return;
+        assertServiceStateForFineAccessSanitization(state);
+        assertEquals(TextUtils.isEmpty(state.getOperatorAlphaLong()), true);
+        assertEquals(TextUtils.isEmpty(state.getOperatorAlphaShort()), true);
+        assertEquals(TextUtils.isEmpty(state.getOperatorNumeric()), true);
     }
 
     /**
@@ -343,8 +445,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
         int[] events = {TelephonyCallback.EVENT_SRVCC_STATE_CHANGED};
         mTelephonyRegistry.notifySrvccStateChanged(0 /*subId*/, srvccState);
         try {
-            mTelephonyRegistry.listenWithEventList(0 /*subId*/, mContext.getOpPackageName(),
-                    mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+            mTelephonyRegistry.listenWithEventList(false, false, 0 /*subId*/,
+                    mContext.getOpPackageName(), mContext.getAttributionTag(),
+                    mTelephonyCallback.callback, events, true);
             fail();
         } catch (SecurityException e) {
             // pass test!
@@ -357,7 +460,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
     @Test
     public void testMultiSimConfigChange() {
         int[] events = {TelephonyCallback.EVENT_RADIO_POWER_STATE_CHANGED};
-        mTelephonyRegistry.listenWithEventList(1, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, 1, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
         processAllMessages();
         assertEquals(RADIO_POWER_UNAVAILABLE, mRadioPowerState);
@@ -410,7 +513,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
                         .setLinkProperties(new LinkProperties())
                         .setFailCause(0)
                         .build());
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
 
         assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
@@ -469,7 +572,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
         assertEquals(TelephonyManager.DATA_UNKNOWN, mDataConnectionState);
         assertEquals(TelephonyManager.NETWORK_TYPE_UNKNOWN, mNetworkType);
 
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
 
         mTelephonyRegistry.notifyDataConnectionForSubscriber(
@@ -686,7 +789,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
                         .setLinkProperties(new LinkProperties())
                         .setFailCause(0)
                         .build());
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
         processAllMessages();
         // Verify that the PDCS is reported for the only APN
@@ -713,12 +816,12 @@ public class TelephonyRegistryTest extends TelephonyTest {
         assertEquals(mTelephonyCallback.invocationCount.get(), 2);
 
         // Unregister the listener
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, new int[0], true);
         processAllMessages();
 
         // Re-register the listener and ensure that both APN types are reported
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
         processAllMessages();
         assertEquals(4, mTelephonyCallback.invocationCount.get());
@@ -763,7 +866,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
         configs.add(config);
 
         mTelephonyRegistry.notifyPhysicalChannelConfigForSubscriber(0, subId, configs);
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
         processAllMessages();
 
@@ -902,7 +1005,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
                 .putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, 0));
         processAllMessages();
         int[] events = {TelephonyCallback.EVENT_DISPLAY_INFO_CHANGED};
-        mTelephonyRegistry.listenWithEventList(2, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, 2, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
         when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
                 anyString(), any())).thenReturn(true);
@@ -928,7 +1031,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
                 .putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, 0));
         processAllMessages();
         int[] events = {TelephonyCallback.EVENT_DISPLAY_INFO_CHANGED};
-        mTelephonyRegistry.listenWithEventList(2, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, 2, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
         when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
                 anyString(), any())).thenReturn(false);
@@ -976,9 +1079,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
             }
         };
         telephonyCallback2.init(mSimpleExecutor2);
-        mTelephonyRegistry.listenWithEventList(2, "pkg1",
+        mTelephonyRegistry.listenWithEventList(false, false, 2, "pkg1",
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
-        mTelephonyRegistry.listenWithEventList(2, "pkg2",
+        mTelephonyRegistry.listenWithEventList(false, false, 2, "pkg2",
                 mContext.getAttributionTag(), telephonyCallback2.callback, events, false);
         when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
                 eq("pkg1"), any())).thenReturn(false);
@@ -1022,7 +1125,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
 
         // Listen to EVENT_CELL_LOCATION_CHANGED for the current user Id.
         int[] events = {TelephonyCallback.EVENT_CELL_LOCATION_CHANGED};
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
 
         // Broadcast ACTION_USER_SWITCHED for USER_SYSTEM. Callback should be triggered.
@@ -1046,8 +1149,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
     private void assertSecurityExceptionThrown(int[] event) {
         try {
             mTelephonyRegistry.listenWithEventList(
-                    SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, mContext.getOpPackageName(),
-                    mContext.getAttributionTag(), mTelephonyCallback.callback, event, true);
+                    false, false, SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+                    mContext.getOpPackageName(), mContext.getAttributionTag(),
+                    mTelephonyCallback.callback, event, true);
             fail("SecurityException should throw without permission");
         } catch (SecurityException expected) {
         }
@@ -1056,8 +1160,9 @@ public class TelephonyRegistryTest extends TelephonyTest {
     private void assertSecurityExceptionNotThrown(int[] event) {
         try {
             mTelephonyRegistry.listenWithEventList(
-                    SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, mContext.getOpPackageName(),
-                    mContext.getAttributionTag(), mTelephonyCallback.callback, event, true);
+                    false, false, SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+                    mContext.getOpPackageName(), mContext.getAttributionTag(),
+                    mTelephonyCallback.callback, event, true);
         } catch (SecurityException unexpected) {
             fail("SecurityException thrown with permission");
         }
@@ -1070,7 +1175,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
                 .putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, 0));
         processAllMessages();
         int[] events = {TelephonyCallback.EVENT_LINK_CAPACITY_ESTIMATE_CHANGED};
-        mTelephonyRegistry.listenWithEventList(2, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, 2, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback,
                 events, false);
 
@@ -1109,7 +1214,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
         doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
         doReturn(1).when(mMockSubInfo).getSimSlotIndex();
 
-        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
         processAllMessages();
 

@@ -19,8 +19,10 @@ package com.android.car.setupwizardlib;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.car.Car;
@@ -28,8 +30,11 @@ import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewStub;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import androidx.annotation.StyleRes;
@@ -38,7 +43,6 @@ import androidx.fragment.app.Fragment;
 import com.android.car.setupwizardlib.robolectric.BaseRobolectricTest;
 import com.android.car.setupwizardlib.robolectric.TestHelper;
 import com.android.car.setupwizardlib.shadows.ShadowCar;
-import com.android.car.setupwizardlib.test.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -194,6 +198,7 @@ public class BaseCompatActivityTest extends BaseRobolectricTest {
                 .isEqualTo(0);
         // Verify that onContentFragmentSet is called with the test fragment
         verify(spyBaseCompatActivity).onContentFragmentSet(fragment);
+        verify(spyBaseCompatActivity).getFragmentContainerViewId();
     }
 
     /**
@@ -213,6 +218,7 @@ public class BaseCompatActivityTest extends BaseRobolectricTest {
                 .isEqualTo(0);
         // Verify that onContentFragmentSet is not called
         verify(spyBaseCompatActivity, times(0)).onContentFragmentSet(fragment);
+        verify(spyBaseCompatActivity, times(0)).getFragmentContainerViewId();
     }
 
     /**
@@ -232,6 +238,7 @@ public class BaseCompatActivityTest extends BaseRobolectricTest {
                 .isEqualTo(1);
         // Verify that onContentFragmentSet is called with the test fragment
         verify(spyBaseCompatActivity).onContentFragmentSet(fragment);
+        verify(spyBaseCompatActivity).getFragmentContainerViewId();
     }
 
     /**
@@ -251,6 +258,7 @@ public class BaseCompatActivityTest extends BaseRobolectricTest {
                 .isEqualTo(0);
         // Verify that onContentFragmentSet is not called
         verify(spyBaseCompatActivity, times(0)).onContentFragmentSet(fragment);
+        verify(spyBaseCompatActivity, times(0)).getFragmentContainerViewId();
     }
 
     /**
@@ -294,9 +302,47 @@ public class BaseCompatActivityTest extends BaseRobolectricTest {
      */
     @Test
     public void testSetContentLayout() {
-        mBaseCompatActivity.setContentLayout(R.layout.base_activity_test_layout);
-        View contentLayout = mBaseCompatActivity.findViewById(R.id.content_layout);
+        BaseCompatActivity spyBaseCompatActivity = Mockito.spy(mBaseCompatActivity);
+
+        spyBaseCompatActivity.setContentLayout(R.layout.base_activity_test_layout);
+        View contentLayout = spyBaseCompatActivity.findViewById(R.id.content_layout);
+
         assertThat(contentLayout).isNotNull();
+    }
+
+    /**
+     * Test that {@link BaseSetupWizardActivity#setContentLayout(int)} adds the specified layout
+     * to the main content when layout_content_stub is null.
+     */
+    @Test
+    public void testSetContentLayoutWhenViewStubIsNull() {
+        BaseCompatActivity spyBaseCompatActivity = Mockito.spy(mBaseCompatActivity);
+        LayoutInflater mockLayoutInflater = mock(LayoutInflater.class);
+        when(spyBaseCompatActivity.findViewById(R.id.layout_content_stub)).thenReturn(null);
+        when(spyBaseCompatActivity.getLayoutInflater()).thenReturn(mockLayoutInflater);
+
+        spyBaseCompatActivity.setContentLayout(R.layout.base_activity_test_layout);
+
+        verify(mockLayoutInflater, times(1))
+                .inflate(R.layout.base_activity_test_layout,
+                        mBaseCompatActivity.getCarSetupWizardLayout());
+    }
+
+    /**
+     * Test that {@link BaseCompatActivity#setContentLayout(int)} adds the specified layout to
+     * the main content when layout_content_stub is not null.
+     */
+    @Test
+    public void testSetContentLayoutWhenViewStubNotNull() {
+        BaseCompatActivity spyBaseCompatActivity = Mockito.spy(mBaseCompatActivity);
+        ViewStub mockViewStub = mock(ViewStub.class);
+        when(spyBaseCompatActivity.findViewById(R.id.layout_content_stub)).thenReturn(mockViewStub);
+
+        spyBaseCompatActivity.setContentLayout(R.layout.base_activity_test_layout);
+
+        verify(mockViewStub, times(1))
+                .setLayoutResource(R.layout.base_activity_test_layout);
+        verify(mockViewStub, times(1)).inflate();
     }
 
     /**
@@ -580,5 +626,62 @@ public class BaseCompatActivityTest extends BaseRobolectricTest {
         spyBaseCompatActivity.onResume();
         spyBaseCompatActivity.nextAction(Activity.RESULT_OK);
         verify(spyBaseCompatActivity, times(2)).startActivity(Mockito.any());
+    }
+
+    /**
+     * Test that {@link BaseCompatActivity#getFragmentContainerViewId()} returns
+     * layout_content_fragment when split-nav is enabled and view stub is not inflated yet.
+     */
+    @Test
+    public void testGetFragmentContainerViewId_viewStubNotInflated() {
+        BaseCompatActivity spyBaseCompatActivity = createSpyBaseCompatActivity();
+        FrameLayout mockFrameLayout = mock(FrameLayout.class);
+        ViewStub mockViewStub = mock(ViewStub.class);
+        when(spyBaseCompatActivity.findViewById(R.id.empty_fragment_frame_layout))
+                .thenReturn(mockFrameLayout);
+        when(spyBaseCompatActivity.findViewById(R.id.layout_content_stub)).thenReturn(mockViewStub);
+
+        int fragmentContainerViewId = spyBaseCompatActivity.getFragmentContainerViewId();
+
+        verify(mockViewStub, times(1)).inflate();
+        assertThat(fragmentContainerViewId).isEqualTo(R.id.empty_fragment_frame_layout);
+    }
+
+    /**
+     * Test that {@link BaseCompatActivity#getFragmentContainerViewId()} returns
+     * layout_content_fragment when split-nav is enabled and view stub is already inflated
+     * with frame layout for fragment attachment.
+     */
+    @Test
+    public void testGetFragmentContainerViewId_viewStubInflatedFrameLayout() {
+        BaseCompatActivity spyBaseCompatActivity = createSpyBaseCompatActivity();
+        FrameLayout mockFrameLayout = mock(FrameLayout.class);
+        when(spyBaseCompatActivity.findViewById(R.id.empty_fragment_frame_layout))
+                .thenReturn(mockFrameLayout);
+        when(spyBaseCompatActivity.findViewById(R.id.layout_content_stub))
+                .thenReturn(null);
+
+        int fragmentContainerViewId = spyBaseCompatActivity.getFragmentContainerViewId();
+
+        assertThat(fragmentContainerViewId).isEqualTo(R.id.empty_fragment_frame_layout);
+    }
+
+    /**
+     * Test that {@link BaseCompatActivity#getFragmentContainerViewId()} returns
+     * layout_content_fragment when split-nav is enabled and view stub is already inflated
+     * with some other view than fragment layout. The frame layout is not available for fragment
+     * attachment.
+     */
+    @Test
+    public void testGetFragmentContainerViewId_frameLayoutNotAvailable() {
+        BaseCompatActivity spyBaseCompatActivity = createSpyBaseCompatActivity();
+        when(spyBaseCompatActivity.findViewById(R.id.layout_content_stub))
+                .thenReturn(null);
+        when(spyBaseCompatActivity.findViewById(R.id.empty_fragment_frame_layout))
+                .thenReturn(null);
+
+        int fragmentContainerViewId = spyBaseCompatActivity.getFragmentContainerViewId();
+
+        assertThat(fragmentContainerViewId).isEqualTo(R.id.car_setup_wizard_layout);
     }
 }

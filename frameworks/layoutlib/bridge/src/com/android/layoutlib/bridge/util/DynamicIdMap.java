@@ -17,9 +17,9 @@
 package com.android.layoutlib.bridge.util;
 
 import com.android.resources.ResourceType;
-import com.android.utils.Pair;
 
 import android.annotation.NonNull;
+import android.util.Pair;
 import android.util.SparseArray;
 
 import java.util.HashMap;
@@ -51,7 +51,7 @@ public class DynamicIdMap {
      */
     @NonNull
     public Integer getId(ResourceType type, String name) {
-        return getId(Pair.of(type, name));
+        return getId(Pair.create(type, name));
     }
 
     /**

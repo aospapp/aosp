@@ -27,6 +27,7 @@ cc_test {
         "BufferQueue_test.cpp",
         "CpuConsumer_test.cpp",
         "EndToEndNativeInputTest.cpp",
+        "DisplayInfo_test.cpp",
         "DisplayedContentSampling_test.cpp",
         "FillBuffer.cpp",
         "GLTest.cpp",
@@ -43,6 +44,7 @@ cc_test {
         "SurfaceTextureMultiContextGL_test.cpp",
         "Surface_test.cpp",
         "TextureRenderer.cpp",
+        "VsyncEventData_test.cpp",
         "WindowInfo_test.cpp",
     ],
 
@@ -62,7 +64,7 @@ cc_test {
         "libinput",
         "libui",
         "libutils",
-        "libnativewindow"
+        "libnativewindow",
     ],
 
     header_libs: ["libsurfaceflinger_headers"],
@@ -117,7 +119,7 @@ cc_test {
         "libgui",
         "libui",
         "libutils",
-        "libbufferhubqueue",  // TODO(b/70046255): Remove these once BufferHub is integrated into libgui.
+        "libbufferhubqueue", // TODO(b/70046255): Remove these once BufferHub is integrated into libgui.
         "libpdx_default_transport",
     ],
 
@@ -146,5 +148,5 @@ cc_test {
         "liblog",
         "libui",
         "libutils",
-    ]
+    ],
 }

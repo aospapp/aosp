@@ -33,13 +33,21 @@ import java.io.InputStream;
 public class NinePatchInputStream extends InputStream {
     private final InputStream mDelegate;
     private boolean mFakeMarkSupport = true;
+    private final String mPath;
 
     public NinePatchInputStream(File file) throws FileNotFoundException {
         mDelegate = new FileInputStream(file);
+        mPath = file.getPath();
     }
 
-    public NinePatchInputStream(@NotNull InputStream stream) {
+    public NinePatchInputStream(@NotNull InputStream stream, @NotNull String path) {
         mDelegate = stream;
+        mPath = path;
+    }
+
+    @NotNull
+    public String getPath() {
+        return mPath;
     }
 
     @Override

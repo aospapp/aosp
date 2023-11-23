@@ -572,7 +572,7 @@ status_t C2SoftMpeg2Dec::initDecoder() {
     if (OK != createDecoder()) return UNKNOWN_ERROR;
 
     mNumCores = MIN(getCpuCoreCount(), MAX_NUM_CORES);
-    mStride = ALIGN32(mWidth);
+    mStride = ALIGN128(mWidth);
     mSignalledError = false;
     resetPlugin();
     (void) setNumCores();
@@ -731,8 +731,7 @@ status_t C2SoftMpeg2Dec::resetDecoder() {
 
 void C2SoftMpeg2Dec::resetPlugin() {
     mSignalledOutputEos = false;
-    gettimeofday(&mTimeStart, nullptr);
-    gettimeofday(&mTimeEnd, nullptr);
+    mTimeStart = mTimeEnd = systemTime();
 }
 
 status_t C2SoftMpeg2Dec::deleteDecoder() {
@@ -845,20 +844,20 @@ c2_status_t C2SoftMpeg2Dec::ensureDecoderState(const std::shared_ptr<C2BlockPool
         return C2_CORRUPTED;
     }
     if (mOutBlock &&
-            (mOutBlock->width() != ALIGN32(mWidth) || mOutBlock->height() != mHeight)) {
+            (mOutBlock->width() != ALIGN128(mWidth) || mOutBlock->height() != mHeight)) {
         mOutBlock.reset();
     }
     if (!mOutBlock) {
         uint32_t format = HAL_PIXEL_FORMAT_YV12;
         C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
         c2_status_t err =
-            pool->fetchGraphicBlock(ALIGN32(mWidth), mHeight, format, usage, &mOutBlock);
+            pool->fetchGraphicBlock(ALIGN128(mWidth), mHeight, format, usage, &mOutBlock);
         if (err != C2_OK) {
             ALOGE("fetchGraphicBlock for Output failed with status %d", err);
             return err;
         }
         ALOGV("provided (%dx%d) required (%dx%d)",
-              mOutBlock->width(), mOutBlock->height(), ALIGN32(mWidth), mHeight);
+              mOutBlock->width(), mOutBlock->height(), ALIGN128(mWidth), mHeight);
     }
 
     return C2_OK;
@@ -929,14 +928,12 @@ void C2SoftMpeg2Dec::process(
         }
         // If input dump is enabled, then write to file
         DUMP_TO_FILE(mInFile, s_decode_ip.pv_stream_buffer, s_decode_ip.u4_num_Bytes);
-        WORD32 delay;
-        GETTIME(&mTimeStart, nullptr);
-        TIME_DIFF(mTimeEnd, mTimeStart, delay);
+        nsecs_t delay = mTimeStart - mTimeEnd;
         (void) ivdec_api_function(mDecHandle, &s_decode_ip, &s_decode_op);
-        WORD32 decodeTime;
-        GETTIME(&mTimeEnd, nullptr);
-        TIME_DIFF(mTimeStart, mTimeEnd, decodeTime);
-        ALOGV("decodeTime=%6d delay=%6d numBytes=%6d ", decodeTime, delay,
+
+        mTimeEnd = systemTime();
+        nsecs_t decodeTime = mTimeEnd - mTimeStart;
+        ALOGV("decodeTime=%" PRId64 " delay=%" PRId64 " numBytes=%6d ", decodeTime, delay,
               s_decode_op.u4_num_bytes_consumed);
         if (IMPEG2D_UNSUPPORTED_DIMENSIONS == s_decode_op.u4_error_code) {
             ALOGV("unsupported resolution : %dx%d", s_decode_op.u4_pic_wd, s_decode_op.u4_pic_ht);

@@ -542,8 +542,26 @@ def verify_hyb_file(hyb_fn, pat_fn, chr_fn, hyp_fn):
 
     # EXCEPTION for Armenian (hy), we don't really deal with the uppercase form of U+0587
     if u'\u0587' in reconstructed_chr:
-        reconstructed_chr.remove(u'\u0587')
-        reconstructed_chr.append(u'\u0587\u0535\u0552')
+      reconstructed_chr.remove(u'\u0587')
+      reconstructed_chr.append(u'\u0587\u0535\u0552')
+
+    # EXCEPTION for Greek (el), we don't really deal with the uppercase form of
+    # U+03C2, U+03C3, U+0390, U+03B0
+    if u'\u03C2' in reconstructed_chr:
+      reconstructed_chr.remove(u'\u03C2')
+      reconstructed_chr.append(u'\u03C2\u03A3')
+
+    if u'\u03C3' in reconstructed_chr:
+      reconstructed_chr.remove(u'\u03C3')
+      reconstructed_chr.append(u'\u03C3\u03A3')
+
+    if u'\u0390' in reconstructed_chr:
+      reconstructed_chr.remove(u'\u0390')
+      reconstructed_chr.append(u'\u0390\u0390')
+
+    if u'\u03B0' in reconstructed_chr:
+      reconstructed_chr.remove(u'\u03B0')
+      reconstructed_chr.append(u'\u03B0\u03B0')
 
     assert verify_file_sorted(reconstructed_chr, chr_fn), 'alphabet table not verified'
 

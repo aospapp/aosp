@@ -19,6 +19,8 @@ package com.android.layoutlib.bridge.libcore.util;
 import java.lang.ref.Cleaner.Cleanable;
 
 public class Cleaner {
+    private static final java.lang.ref.Cleaner sCleaner = java.lang.ref.Cleaner.create();
+
     private final Cleanable mCleanable;
 
     private Cleaner(Cleanable cleanable) {
@@ -37,10 +39,11 @@ public class Cleaner {
      * @return  The new cleaner
      */
     public static Cleaner create(Object ob, Runnable thunk) {
-        if (thunk == null)
+        if (thunk == null) {
             return null;
-        java.lang.ref.Cleaner cleaner = java.lang.ref.Cleaner.create();
-        return new Cleaner(cleaner.register(ob, thunk));
+        }
+        Cleanable cleanable = sCleaner.register(ob, thunk);
+        return new Cleaner(cleanable);
     }
 
     /**

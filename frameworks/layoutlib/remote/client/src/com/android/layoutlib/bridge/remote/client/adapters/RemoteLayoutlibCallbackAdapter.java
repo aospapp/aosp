@@ -102,6 +102,11 @@ public class RemoteLayoutlibCallbackAdapter implements RemoteLayoutlibCallback {
         return mDelegate.getFlag(key);
     }
 
+    @Override
+    public String getResourcePackage() throws RemoteException {
+        return mDelegate.getResourcePackage();
+    }
+
     @Nullable
     @Override
     public Path findClassPath(String name) {

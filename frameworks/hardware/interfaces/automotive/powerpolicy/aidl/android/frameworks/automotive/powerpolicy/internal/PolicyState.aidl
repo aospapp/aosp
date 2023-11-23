@@ -19,6 +19,7 @@ package android.frameworks.automotive.powerpolicy.internal;
 /**
  * Structure to store the current policy state.
  */
+@VintfStability
 parcelable PolicyState {
   /**
    * The current power policy ID.

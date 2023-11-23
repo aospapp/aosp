@@ -218,6 +218,15 @@ public class RemoteLayoutlibCallbackAdapter extends LayoutlibCallback {
     }
 
     @Override
+    public String getResourcePackage() {
+        try {
+            return mDelegate.getResourcePackage();
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public Class<?> findClass(String name) throws ClassNotFoundException {
         return mPathClassLoader.loadClass(name);
     }

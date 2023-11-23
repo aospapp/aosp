@@ -26,11 +26,11 @@ enum AppTransitionReasonEnum {
     APP_TRANSITION_REASON_UNKNOWN = 0;
     // The transition was started because we drew the splash screen.
     APP_TRANSITION_SPLASH_SCREEN = 1;
-    // The transition was started because we all app windows were drawn.
+    // The transition was started because all app windows were drawn.
     APP_TRANSITION_WINDOWS_DRAWN = 2;
     // The transition was started because of a timeout.
     APP_TRANSITION_TIMEOUT = 3;
-    // The transition was started because of a we drew a task snapshot.
+    // The transition was started because we drew a task snapshot.
     APP_TRANSITION_SNAPSHOT = 4;
     // The transition was started because it was a recents animation and we only needed to wait on
     // the wallpaper.
@@ -223,6 +223,11 @@ enum AppOpEnum {
     APP_OP_ACTIVITY_RECOGNITION_SOURCE = 113;
     APP_OP_BLUETOOTH_ADVERTISE = 114;
     APP_OP_RECORD_INCOMING_PHONE_AUDIO = 115;
+    APP_OP_NEARBY_WIFI_DEVICES = 116;
+    APP_OP_ESTABLISH_VPN_SERVICE = 117;
+    APP_OP_ESTABLISH_VPN_MANAGER = 118;
+    APP_OP_ACCESS_RESTRICTED_SETTINGS = 119;
+    APP_OP_RECEIVE_AMBIENT_TRIGGER_AUDIO = 120;
 }
 
 /**
@@ -313,6 +318,12 @@ enum AppExitReasonCode {
      * {@link #description} will specify the cause given by the system.
      */
     REASON_OTHER = 13;
+
+    /**
+     * Application process was killed by App Freezer, for example, because it receives
+     * sync binder transactions while being frozen.
+     */
+    REASON_FREEZER = 14;
 }
 
 /**
@@ -437,6 +448,38 @@ enum AppExitSubReasonCode {
      * while being frozen.
      */
     SUBREASON_FREEZER_BINDER_TRANSACTION = 20;
+
+    /**
+     * The process was killed because of force-stop, it could be due to that
+     * the user clicked the "Force stop" button of the application in the Settings;
+     * this would be set only when the reason is {@link #REASON_USER_REQUESTED}.
+     */
+    SUBREASON_FORCE_STOP = 21;
+
+    /**
+     * The process was killed because the user removed the application away from Recents;
+     * this would be set only when the reason is {@link #REASON_USER_REQUESTED}.
+     */
+    SUBREASON_REMOVE_TASK = 22;
+
+    /**
+     * The process was killed because the user stopped the application from the task manager;
+     * this would be set only when the reason is {@link #REASON_USER_REQUESTED}.
+     */
+    SUBREASON_STOP_APP = 23;
+
+    /**
+     * The process was killed because the user stopped the application from developer options,
+     * or via the adb shell commmand interface; this would be set only when the reason is
+     * {@link #REASON_USER_REQUESTED}.
+     */
+    SUBREASON_KILL_BACKGROUND = 24;
+
+    /**
+     * The process was killed because of package update; this would be set only when the reason is
+     * {@link #REASON_USER_REQUESTED}.
+     */
+    SUBREASON_PACKAGE_UPDATE = 25;
 }
 
 /**

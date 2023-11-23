@@ -4,6 +4,9 @@
     {
       // Unit tests for framework-wifi.jar
       "name": "FrameworksWifiApiTests"
+    },
+    {
+      "name": "ModulesUtilsTests"
     }
     // TODO: Re-enable when this is stable.
     // {

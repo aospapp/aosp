@@ -21,6 +21,7 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -37,10 +38,9 @@ import com.android.internal.telephony.TelephonyTest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
 
 public class ApnContextTest extends TelephonyTest {
-    @Mock
+    // Mocked classes
     ApnSetting mApnSetting;
 
     private ApnContext mApnContext;
@@ -48,7 +48,7 @@ public class ApnContextTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
-
+        mApnSetting = mock(ApnSetting.class);
         mApnContext = new ApnContext(mPhone, ApnSetting.TYPE_DEFAULT, TAG, mDcTracker, 1);
     }
 
@@ -198,32 +198,16 @@ public class ApnContextTest extends TelephonyTest {
     public void testProvisionApn() throws Exception {
         mContextFixture.putResource(R.string.mobile_provisioning_apn, "fake_apn");
 
-        ApnSetting myApn = ApnSetting.makeApnSetting(
-                2163,                   // id
-                "44010",                // numeric
-                "sp-mode",              // name
-                "fake_apn",             // apn
-                null,                     // proxy
-                -1,                     // port
-                null,                     // mmsc
-                null,                     // mmsproxy
-                -1,                     // mmsport
-                "",                     // user
-                "",                     // password
-                -1,                     // authtype
-                ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_SUPL,     // types
-                ApnSetting.PROTOCOL_IP,                   // protocol
-                ApnSetting.PROTOCOL_IP,                   // roaming_protocol
-                true,                   // carrier_enabled
-                0,                      // networktype_bismask
-                0,                      // profile_id
-                false,                  // modem_cognitive
-                0,                      // max_conns
-                0,                      // wait_time
-                0,                      // max_conns_time
-                0,                      // mtu
-                -1,                     // mvno_type
-                "");                    // mnvo_match_data
+        ApnSetting myApn = new ApnSetting.Builder()
+                .setId(2163)
+                .setOperatorNumeric("44010")
+                .setEntryName("sp-mode")
+                .setApnName("fake_apn")
+                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_SUPL)
+                .setProtocol(ApnSetting.PROTOCOL_IP)
+                .setRoamingProtocol(ApnSetting.PROTOCOL_IP)
+                .setCarrierEnabled(true)
+                .build();
 
         mApnContext.setApnSetting(myApn);
         assertTrue(mApnContext.isProvisioningApn());

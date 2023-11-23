@@ -43,3 +43,31 @@ enum MagnificationMode {
   MAGNIFICATION_WINDOW = 2;
   MAGNIFICATION_ALL = 3;
 }
+
+// The wraning status on UI.
+enum WarningStatus {
+  WARNING_UNKNOWN = 0;
+  WARNING_SHOWN = 1;
+  WARNING_CLICKED = 2;
+  WARNING_SERVICE_DISABLED = 3;
+}
+
+// The settings item of the "Text and reading options".
+enum TextReadingOption {
+  TEXT_READING_UNKNOWN_ITEM = 0;
+  TEXT_READING_FONT_SIZE = 1;
+  TEXT_READING_DISPLAY_SIZE = 2;
+  TEXT_READING_BOLD_TEXT = 3;
+  TEXT_READING_HIGH_CONTRAST_TEXT = 4;
+  TEXT_READING_RESET = 5;
+}
+
+// The entry point of the "Text and reading options".
+enum TextReadingEntry {
+  TEXT_READING_UNKNOWN_ENTRY = 0;
+  TEXT_READING_SUW_VISION_SETTINGS = 1;
+  TEXT_READING_SUW_ANYTHING_ELSE = 2;
+  TEXT_READING_DISPLAY_SETTINGS = 3;
+  TEXT_READING_ACCESSIBILITY_SETTINGS = 4;
+}
+

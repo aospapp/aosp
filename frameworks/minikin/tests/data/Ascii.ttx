@@ -225,6 +225,7 @@
       <map code="0x02B4" name="2em" /> <!-- 'δ' -->
       <map code="0x02B5" name="2em" /> <!-- 'ε' -->
       <map code="0x02B6" name="2em" /> <!-- 'ζ' -->
+      <map code="0x2010" name="1em" /> <!-- Hyphen Character -->
     </cmap_format_12>
   </cmap>
 

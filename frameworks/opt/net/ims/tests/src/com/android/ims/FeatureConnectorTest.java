@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -57,9 +58,9 @@ public class FeatureConnectorTest extends ImsTestBase {
 
     private static class TestFeatureConnection extends FeatureConnection {
 
-        public TestFeatureConnection(Context context, int slotId, IImsConfig c,
+        public TestFeatureConnection(Context context, int slotId, int subId, IImsConfig c,
                 IImsRegistration r, ISipTransport s) {
-            super(context, slotId, c, r, s);
+            super(context, slotId, subId, c, r, s);
         }
 
         @Override
@@ -96,8 +97,8 @@ public class FeatureConnectorTest extends ImsTestBase {
         }
 
         @Override
-        public void associate(ImsFeatureContainer c) {
-            connection = new TestFeatureConnection(mContext, mPhoneId, c.imsConfig,
+        public void associate(ImsFeatureContainer c, int subId) {
+            connection = new TestFeatureConnection(mContext, mPhoneId, subId, c.imsConfig,
                     c.imsRegistration, c.sipTransport);
             connection.setBinder(c.imsFeature);
         }
@@ -128,6 +129,7 @@ public class FeatureConnectorTest extends ImsTestBase {
     @Mock private ISipTransport transport;
 
     private static final int PHONE_ID = 1;
+    private static final int SUB_ID = 2;
     private static final long TEST_CAPS = ImsService.CAPABILITY_EMERGENCY_OVER_MMTEL;
 
     @Before
@@ -151,15 +153,15 @@ public class FeatureConnectorTest extends ImsTestBase {
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
 
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
         assertNotNull(mTestManager.connection);
         assertEquals(TEST_CAPS, mTestManager.connection.getFeatureCapabilties());
-        verify(mListener, never()).connectionReady(any());
+        verify(mListener, never()).connectionReady(any(), eq(SUB_ID));
         verify(mListener, never()).connectionUnavailable(anyInt());
 
         // simulate callback from ImsResolver
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
-        verify(mListener).connectionReady(mTestManager);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
     }
 
@@ -184,16 +186,16 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
-        verify(mListener).connectionReady(mTestManager);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_UNAVAILABLE);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_UNAVAILABLE, SUB_ID);
         assertNotNull("When not ready, the callback should still be registered",
                 mTestManager.callback);
         assertNotNull("Do not invalidate the connection if not ready", mTestManager.connection);
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_NOT_READY);
     }
 
@@ -207,23 +209,23 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        verify(mListener, never()).connectionReady(mTestManager);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        verify(mListener, never()).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_INITIALIZING);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_INITIALIZING, SUB_ID);
         assertNotNull("When not ready, the callback should still be registered",
                 mTestManager.callback);
         assertNotNull("Do not invalidate the connection if not ready", mTestManager.connection);
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
         assertNotNull("When not ready, the callback should still be registered",
                 mTestManager.callback);
         assertNotNull("Do not invalidate the connection if not ready", mTestManager.connection);
         // Should not notify ready multiple times
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
     }
 
@@ -238,28 +240,28 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        verify(mListener).connectionReady(mTestManager);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_UNAVAILABLE);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_UNAVAILABLE, SUB_ID);
         assertNotNull("When not ready, the callback should still be registered",
                 mTestManager.callback);
         assertNotNull("Do not invalidate the connection if not ready", mTestManager.connection);
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_INITIALIZING);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_INITIALIZING, SUB_ID);
         assertNotNull("When not ready, the callback should still be registered",
                 mTestManager.callback);
         assertNotNull("Do not invalidate the connection if not ready", mTestManager.connection);
         // Should not notify ready multiple times
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
         // Should not notify ready multiple times
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
     }
 
@@ -298,20 +300,20 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
-        verify(mListener).connectionReady(mTestManager);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener, never()).connectionUnavailable(anyInt());
 
         mTestManager.callback.imsFeatureRemoved(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
         assertNotNull("When not ready, the callback should still be registered",
                 mTestManager.callback);
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
 
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
-        verify(mListener, times(2)).connectionReady(mTestManager);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
+        verify(mListener, times(2)).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
     }
 
@@ -322,23 +324,23 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
         IImsServiceFeatureCallback oldCb = mTestManager.callback;
         TestFeatureConnection testFc = mTestManager.connection;
 
         mFeatureConnector.disconnect();
         assertNull(mTestManager.callback);
         assertNull(mTestManager.connection);
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
 
         // make sure status/caps updates do not trigger more events after disconnect
-        oldCb.imsStatusChanged(ImsFeature.STATE_READY);
-        oldCb.imsStatusChanged(ImsFeature.STATE_UNAVAILABLE);
+        oldCb.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
+        oldCb.imsStatusChanged(ImsFeature.STATE_UNAVAILABLE, SUB_ID);
         oldCb.updateCapabilities(0);
         assertEquals(TEST_CAPS, testFc.getFeatureCapabilties());
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
     }
 
@@ -349,22 +351,22 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
 
         mFeatureConnector.disconnect();
         assertNull(mTestManager.callback);
         assertNull(mTestManager.connection);
-        verify(mListener).connectionReady(mTestManager);
+        verify(mListener).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
 
         mFeatureConnector.connect();
         assertNotNull(mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
         assertNotNull(mTestManager.connection);
-        verify(mListener, times(2)).connectionReady(mTestManager);
+        verify(mListener, times(2)).connectionReady(mTestManager, SUB_ID);
         verify(mListener).connectionUnavailable(FeatureConnector.UNAVAILABLE_REASON_DISCONNECTED);
     }
 
@@ -375,8 +377,8 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
         assertEquals(TEST_CAPS, mTestManager.connection.getFeatureCapabilties());
         mTestManager.callback.updateCapabilities(0);
         assertEquals(0, mTestManager.connection.getFeatureCapabilties());
@@ -389,8 +391,8 @@ public class FeatureConnectorTest extends ImsTestBase {
         mFeatureConnector.connect();
         assertNotNull("connect should trigger the callback registration", mTestManager.callback);
         // simulate callback from ImsResolver
-        mTestManager.callback.imsFeatureCreated(createContainer());
-        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY);
+        mTestManager.callback.imsFeatureCreated(createContainer(), SUB_ID);
+        mTestManager.callback.imsStatusChanged(ImsFeature.STATE_READY, SUB_ID);
         assertEquals(ImsFeature.STATE_READY, mTestManager.connection.getFeatureState());
     }
 

@@ -24,8 +24,8 @@ import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
 import com.android.layoutlib.bridge.impl.RenderAction;
-import com.android.utils.Pair;
 
+import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -48,8 +48,8 @@ public class AdapterHelper {
         Pair<View, Boolean> pair = context.inflateView(dataBindingItem.getViewReference(),
                 parent, false /*attachToRoot*/, skipCallbackParser);
 
-        View view = pair.getFirst();
-        skipCallbackParser |= pair.getSecond();
+        View view = pair.first;
+        skipCallbackParser |= pair.second;
 
         if (view != null) {
             fillView(context, view, item, parentItem, callback, adapterRef);
@@ -60,7 +60,7 @@ public class AdapterHelper {
             view = tv;
         }
 
-        return Pair.of(view, skipCallbackParser);
+        return Pair.create(view, skipCallbackParser);
     }
 
     private static void fillView(BridgeContext context, View view, AdapterItem item,

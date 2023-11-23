@@ -16,7 +16,7 @@
 
 package android.view;
 
-import com.android.SdkConstants;
+import com.android.ide.common.rendering.api.AndroidConstants;
 import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.MergeCookie;
@@ -31,7 +31,7 @@ import com.android.layoutlib.bridge.android.BridgeXmlBlockParser;
 import com.android.layoutlib.bridge.android.support.DrawerLayoutUtil;
 import com.android.layoutlib.bridge.android.support.RecyclerViewUtil;
 import com.android.layoutlib.bridge.impl.ParserFactory;
-import com.android.layoutlib.bridge.util.ReflectionUtils;
+import com.android.layoutlib.common.util.ReflectionUtils;
 import com.android.tools.layoutlib.annotations.NotNull;
 import com.android.tools.layoutlib.annotations.Nullable;
 
@@ -495,7 +495,7 @@ public final class BridgeInflater extends LayoutInflater {
             // By default, ViewStub will be set to GONE and won't be inflate. If the XML has the
             // tools:visibility attribute we'll workaround that behavior.
             String visibility = attrs.getAttributeValue(BridgeConstants.NS_TOOLS_URI,
-                    SdkConstants.ATTR_VISIBILITY);
+                    AndroidConstants.ATTR_VISIBILITY);
 
             boolean isVisible = "visible".equals(visibility);
             if (isVisible || "invisible".equals(visibility)) {

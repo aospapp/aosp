@@ -365,7 +365,7 @@ CreateInfoWrapper::CreateInfoWrapper(const VkInstanceCreateInfo& create_info,
                                      const VkAllocationCallbacks& allocator)
     : is_instance_(true),
       allocator_(allocator),
-      loader_api_version_(VK_API_VERSION_1_1),
+      loader_api_version_(VK_API_VERSION_1_3),
       icd_api_version_(icd_api_version),
       physical_dev_(VK_NULL_HANDLE),
       instance_info_(create_info),
@@ -377,7 +377,7 @@ CreateInfoWrapper::CreateInfoWrapper(VkPhysicalDevice physical_dev,
                                      const VkAllocationCallbacks& allocator)
     : is_instance_(false),
       allocator_(allocator),
-      loader_api_version_(VK_API_VERSION_1_1),
+      loader_api_version_(VK_API_VERSION_1_3),
       icd_api_version_(icd_api_version),
       physical_dev_(physical_dev),
       dev_info_(create_info),
@@ -519,6 +519,14 @@ VkResult CreateInfoWrapper::SanitizeExtensions() {
         is_instance_ ? loader_api_version_
                      : std::min(icd_api_version_, loader_api_version_);
     switch (api_version) {
+        case VK_API_VERSION_1_3:
+            hook_extensions_.set(ProcHook::EXTENSION_CORE_1_3);
+            hal_extensions_.set(ProcHook::EXTENSION_CORE_1_3);
+            [[clang::fallthrough]];
+        case VK_API_VERSION_1_2:
+            hook_extensions_.set(ProcHook::EXTENSION_CORE_1_2);
+            hal_extensions_.set(ProcHook::EXTENSION_CORE_1_2);
+            [[clang::fallthrough]];
         case VK_API_VERSION_1_1:
             hook_extensions_.set(ProcHook::EXTENSION_CORE_1_1);
             hal_extensions_.set(ProcHook::EXTENSION_CORE_1_1);
@@ -624,8 +632,10 @@ void CreateInfoWrapper::FilterExtension(const char* name) {
         switch (ext_bit) {
             case ProcHook::KHR_android_surface:
             case ProcHook::KHR_surface:
+            case ProcHook::KHR_surface_protected_capabilities:
             case ProcHook::EXT_swapchain_colorspace:
             case ProcHook::KHR_get_surface_capabilities2:
+            case ProcHook::GOOGLE_surfaceless_query:
                 hook_extensions_.set(ext_bit);
                 // return now as these extensions do not require HAL support
                 return;
@@ -653,6 +663,7 @@ void CreateInfoWrapper::FilterExtension(const char* name) {
             case ProcHook::EXTENSION_CORE_1_0:
             case ProcHook::EXTENSION_CORE_1_1:
             case ProcHook::EXTENSION_CORE_1_2:
+            case ProcHook::EXTENSION_CORE_1_3:
             case ProcHook::EXTENSION_COUNT:
                 // Device and meta extensions. If we ever get here it's a bug in
                 // our code. But enumerating them lets us avoid having a default
@@ -701,12 +712,15 @@ void CreateInfoWrapper::FilterExtension(const char* name) {
             case ProcHook::KHR_external_fence_capabilities:
             case ProcHook::KHR_get_surface_capabilities2:
             case ProcHook::KHR_surface:
+            case ProcHook::KHR_surface_protected_capabilities:
             case ProcHook::EXT_debug_report:
             case ProcHook::EXT_swapchain_colorspace:
+            case ProcHook::GOOGLE_surfaceless_query:
             case ProcHook::ANDROID_native_buffer:
             case ProcHook::EXTENSION_CORE_1_0:
             case ProcHook::EXTENSION_CORE_1_1:
             case ProcHook::EXTENSION_CORE_1_2:
+            case ProcHook::EXTENSION_CORE_1_3:
             case ProcHook::EXTENSION_COUNT:
                 // Instance and meta extensions. If we ever get here it's a bug
                 // in our code. But enumerating them lets us avoid having a
@@ -910,18 +924,22 @@ VkResult EnumerateInstanceExtensionProperties(
     uint32_t* pPropertyCount,
     VkExtensionProperties* pProperties) {
     std::vector<VkExtensionProperties> loader_extensions;
-    loader_extensions.push_back({
-        VK_KHR_SURFACE_EXTENSION_NAME,
-        VK_KHR_SURFACE_SPEC_VERSION});
+    loader_extensions.push_back(
+        {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_SPEC_VERSION});
+    loader_extensions.push_back(
+        {VK_KHR_SURFACE_PROTECTED_CAPABILITIES_EXTENSION_NAME,
+         VK_KHR_SURFACE_PROTECTED_CAPABILITIES_SPEC_VERSION});
     loader_extensions.push_back({
         VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
         VK_KHR_ANDROID_SURFACE_SPEC_VERSION});
     loader_extensions.push_back({
         VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME,
         VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION});
-    loader_extensions.push_back({
-        VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
-        VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION});
+    loader_extensions.push_back(
+        {VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
+         VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION});
+    loader_extensions.push_back({VK_GOOGLE_SURFACELESS_QUERY_EXTENSION_NAME,
+                                 VK_GOOGLE_SURFACELESS_QUERY_SPEC_VERSION});
 
     static const VkExtensionProperties loader_debug_report_extension = {
         VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_SPEC_VERSION,
@@ -979,6 +997,8 @@ VkResult EnumerateInstanceExtensionProperties(
 void QueryPresentationProperties(
     VkPhysicalDevice physicalDevice,
     VkPhysicalDevicePresentationPropertiesANDROID* presentation_properties) {
+    ATRACE_CALL();
+
     // Request the android-specific presentation properties via GPDP2
     VkPhysicalDeviceProperties2 properties = {
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
@@ -994,7 +1014,17 @@ void QueryPresentationProperties(
     presentation_properties->pNext = nullptr;
     presentation_properties->sharedImage = VK_FALSE;
 
-    GetPhysicalDeviceProperties2(physicalDevice, &properties);
+    const auto& driver = GetData(physicalDevice).driver;
+
+    if (driver.GetPhysicalDeviceProperties2) {
+        // >= 1.1 driver, supports core GPDP2 entrypoint.
+        driver.GetPhysicalDeviceProperties2(physicalDevice, &properties);
+    } else if (driver.GetPhysicalDeviceProperties2KHR) {
+        // Old driver, but may support presentation properties
+        // if we have the GPDP2 extension. Otherwise, no presentation
+        // properties supported.
+        driver.GetPhysicalDeviceProperties2KHR(physicalDevice, &properties);
+    }
 }
 
 VkResult EnumerateDeviceExtensionProperties(
@@ -1099,7 +1129,7 @@ VkResult CreateInstance(const VkInstanceCreateInfo* pCreateInfo,
         if (result != VK_SUCCESS)
             return result;
 
-        icd_api_version ^= VK_VERSION_PATCH(icd_api_version);
+        icd_api_version ^= VK_API_VERSION_PATCH(icd_api_version);
     }
 
     CreateInfoWrapper wrapper(*pCreateInfo, icd_api_version, data_allocator);
@@ -1183,7 +1213,7 @@ VkResult CreateDevice(VkPhysicalDevice physicalDevice,
 
     CreateInfoWrapper wrapper(
         physicalDevice, *pCreateInfo,
-        properties.apiVersion ^ VK_VERSION_PATCH(properties.apiVersion),
+        properties.apiVersion ^ VK_API_VERSION_PATCH(properties.apiVersion),
         data_allocator);
     VkResult result = wrapper.Validate();
     if (result != VK_SUCCESS)

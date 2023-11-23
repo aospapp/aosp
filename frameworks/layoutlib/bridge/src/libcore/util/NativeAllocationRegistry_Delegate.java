@@ -51,22 +51,6 @@ public class NativeAllocationRegistry_Delegate {
     }
 
     @LayoutlibDelegate
-    /*package*/ static void registerNativeAllocation(long size) {
-        NativeAllocationRegistry.registerNativeAllocation_Original(size);
-    }
-
-    @LayoutlibDelegate
-    /*package*/ static Runnable registerNativeAllocation(NativeAllocationRegistry registry,
-            Object referent,
-            long nativePtr) {
-        // Mark the object as already "natively" tracked.
-        // This allows the DelegateManager to dispose objects without waiting
-        // for an explicit call when the referent does not exist anymore.
-        sManager.markAsNativeAllocation(referent, nativePtr);
-        return registry.registerNativeAllocation_Original(referent, nativePtr);
-    }
-
-    @LayoutlibDelegate
     /*package*/ static void applyFreeFunction(long freeFunction, long nativePtr) {
         // This method MIGHT run in the context of the finalizer thread. If the delegate method
         // crashes, it could bring down the VM. That's why we catch all the exceptions and ignore
@@ -75,6 +59,8 @@ public class NativeAllocationRegistry_Delegate {
             NativeAllocationRegistry_Delegate delegate = sManager.getDelegate(freeFunction);
             if (delegate != null) {
                 delegate.mFinalizer.free(nativePtr);
+            } else if (freeFunction != 0) {
+                nativeApplyFreeFunction(freeFunction, nativePtr);
             }
         } catch (Throwable ignore) {
         }
@@ -83,4 +69,6 @@ public class NativeAllocationRegistry_Delegate {
     public interface FreeFunction {
         void free(long nativePtr);
     }
+
+    private static native void nativeApplyFreeFunction(long freeFunction, long nativePtr);
 }

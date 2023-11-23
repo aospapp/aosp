@@ -16,9 +16,11 @@
 package com.android.internal.telephony.uicc;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.mockito.Mockito.mock;
 
+import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
@@ -29,50 +31,45 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class UiccCardTest extends TelephonyTest {
+
+    private static final int INVALID_PORT_ID = -1;
+
     private UiccCard mUiccCard;
 
     private IccIoResult mIccIoResult;
 
-    @Mock
+    // Mocked classes
     private IccCardStatus mIccCardStatus;
-
-    private IccCardApplicationStatus composeUiccApplicationStatus(
-            IccCardApplicationStatus.AppType appType,
-            IccCardApplicationStatus.AppState appState, String aid) {
-        IccCardApplicationStatus mIccCardAppStatus = new IccCardApplicationStatus();
-        mIccCardAppStatus.aid = aid;
-        mIccCardAppStatus.app_type = appType;
-        mIccCardAppStatus.app_state = appState;
-        mIccCardAppStatus.pin1 = mIccCardAppStatus.pin2 =
-                IccCardStatus.PinState.PINSTATE_ENABLED_VERIFIED;
-        return mIccCardAppStatus;
-    }
 
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mIccCardStatus = mock(IccCardStatus.class);
         /* initially there are no application available */
         mIccCardStatus.mApplications = new IccCardApplicationStatus[]{};
         mIccCardStatus.mCdmaSubscriptionAppIndex =
                 mIccCardStatus.mImsSubscriptionAppIndex =
                         mIccCardStatus.mGsmUmtsSubscriptionAppIndex = -1;
         mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_PRESENT;
-
+        mIccCardStatus.mSlotPortMapping = new IccSlotPortMapping();
+        mIccCardStatus.mSlotPortMapping.mPhysicalSlotIndex = 0;
+        mIccCardStatus.mSlotPortMapping.mPortIndex = 0;
         mIccIoResult = new IccIoResult(0x90, 0x00, IccUtils.hexStringToBytes("FF40"));
         mSimulatedCommands.setIccIoResultForApduLogicalChannel(mIccIoResult);
         mUiccCard = new UiccCard(mContext, mSimulatedCommands, mIccCardStatus, 0 /* phoneId */,
-            new Object());
+            new Object(), false);
         processAllMessages();
         logd("create UiccCard");
     }
 
     @After
     public void tearDown() throws Exception {
+        mUiccCard = null;
+        mIccIoResult = null;
         super.tearDown();
     }
 
@@ -80,41 +77,24 @@ public class UiccCardTest extends TelephonyTest {
     @SmallTest
     public void testUiccCartdInfoCorrectness() {
         /* before update correctness test */
-        assertEquals(0, mUiccCard.getNumApplications());
         assertEquals(IccCardStatus.CardState.CARDSTATE_PRESENT, mUiccCard.getCardState());
-        assertNull(mUiccCard.getUniversalPinState());
-        assertNull(mUiccCard.getOperatorBrandOverride());
-        /* UiccProfile mock should return false */
-        assertFalse(mUiccCard.areCarrierPriviligeRulesLoaded());
-        for (IccCardApplicationStatus.AppType mAppType :
-                IccCardApplicationStatus.AppType.values()) {
-            assertFalse(mUiccCard.isApplicationOnIcc(mAppType));
-        }
+        assertEquals(1, mUiccCard.getUiccPortList().length);
     }
 
     @Test
     @SmallTest
     public void testUpdateUiccCardState() {
-        int mChannelId = 1;
         /* set card as present */
         mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_PRESENT;
-        /* Mock open Channel ID 1 */
-        mSimulatedCommands.setOpenChannelId(mChannelId);
         logd("Update UICC Card State");
-        mUiccCard.update(mContext, mSimulatedCommands, mIccCardStatus);
+        mUiccCard.update(mContext, mSimulatedCommands, mIccCardStatus, 0);
         /* try to create a new CarrierPrivilege, loading state -> loaded state */
         processAllMessages();
 
         assertEquals(IccCardStatus.CardState.CARDSTATE_PRESENT, mUiccCard.getCardState());
-
-        /* todo: This part should move to UiccProfileTest
-        assertTrue(mUicccard.areCarrierPriviligeRulesLoaded());
-        verify(mSimulatedCommandsVerifier, times(2)).iccOpenLogicalChannel(isA(String.class),
-                anyInt(), isA(Message.class));
-        verify(mSimulatedCommandsVerifier, times(2)).iccTransmitApduLogicalChannel(
-                eq(mChannelId), anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyString(),
-                isA(Message.class)
-        );
-        */
+        // make sure duplicate UiccPort objects are not created after update API call
+        assertEquals(1, mUiccCard.getUiccPortList().length);
+        assertNull(mUiccCard.getUiccPort(INVALID_PORT_ID));
+        assertNotNull(mUiccCard.getUiccPort(TelephonyManager.DEFAULT_PORT_INDEX));
     }
 }

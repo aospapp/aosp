@@ -44,26 +44,23 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-
-import java.lang.reflect.Field;
 
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class CallManagerTest extends TelephonyTest {
-
-    @Mock
+    // Mocked classes
     GsmCdmaCall mFgCall;
-    @Mock
     GsmCdmaCall mBgCall;
-    @Mock
     GsmCdmaCall mRingingCall;
-    @Mock
     Phone mSecondPhone;
 
     @Before
     public void setUp() throws Exception {
-        super.setUp(this.getClass().getSimpleName());
+        super.setUp(getClass().getSimpleName());
+        mFgCall = mock(GsmCdmaCall.class);
+        mBgCall = mock(GsmCdmaCall.class);
+        mRingingCall = mock(GsmCdmaCall.class);
+        mSecondPhone = mock(Phone.class);
         restoreInstance(CallManager.class, "INSTANCE", null);
         /* Mock Phone and Call, initially all calls are idle */
         doReturn(ServiceState.STATE_IN_SERVICE).when(mServiceState).getState();
@@ -212,23 +209,12 @@ public class CallManagerTest extends TelephonyTest {
 
     @Test @SmallTest
     public void testRegisterEvent() throws Exception {
-        Field field = CallManager.class.getDeclaredField("EVENT_CALL_WAITING");
-        field.setAccessible(true);
-        int mEvent = (Integer) field.get(CallManager.getInstance());
         verify(mPhone, times(1)).registerForCallWaiting(isA(Handler.class),
-                eq(mEvent), isNull());
-
-        field = CallManager.class.getDeclaredField("EVENT_PRECISE_CALL_STATE_CHANGED");
-        field.setAccessible(true);
-        mEvent = (Integer) field.get(CallManager.getInstance());
+                eq(CallManager.EVENT_CALL_WAITING), isNull());
         verify(mPhone, times(1)).registerForPreciseCallStateChanged(isA(Handler.class),
-                eq(mEvent), isA(Object.class));
-
-        field = CallManager.class.getDeclaredField("EVENT_RINGBACK_TONE");
-        field.setAccessible(true);
-        mEvent = (Integer) field.get(CallManager.getInstance());
+                eq(CallManager.EVENT_PRECISE_CALL_STATE_CHANGED), isA(Object.class));
         verify(mPhone, times(1)).registerForRingbackTone(isA(Handler.class),
-                eq(mEvent), isA(Object.class));
+                eq(CallManager.EVENT_RINGBACK_TONE), isA(Object.class));
     }
 
     @Test @SmallTest

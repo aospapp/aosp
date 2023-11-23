@@ -81,7 +81,7 @@ TEST(CollationTest, CollateStats) {
     int errorCount = collate_atoms(Event::descriptor(), DEFAULT_MODULE_NAME, &atoms);
 
     EXPECT_EQ(0, errorCount);
-    EXPECT_EQ(3ul, atoms.signatureInfoMap.size());
+    EXPECT_EQ(4ul, atoms.signatureInfoMap.size());
 
     // IntAtom, AnotherIntAtom
     EXPECT_MAP_CONTAINS_SIGNATURE(atoms.signatureInfoMap, JAVA_TYPE_INT);
@@ -96,19 +96,21 @@ TEST(CollationTest, CollateStats) {
                                   JAVA_TYPE_LONG,               // int64
                                   JAVA_TYPE_LONG,               // uint64
                                   JAVA_TYPE_INT,                // int32
-                                  JAVA_TYPE_LONG,               // fixed64
-                                  JAVA_TYPE_INT,                // fixed32
                                   JAVA_TYPE_BOOLEAN,            // bool
                                   JAVA_TYPE_STRING,             // string
                                   JAVA_TYPE_INT,                // uint32
                                   JAVA_TYPE_INT,                // AnEnum
-                                  JAVA_TYPE_INT,                // sfixed32
-                                  JAVA_TYPE_LONG,               // sfixed64
-                                  JAVA_TYPE_INT,                // sint32
-                                  JAVA_TYPE_LONG                // sint64
+                                  JAVA_TYPE_FLOAT_ARRAY,        // repeated float
+                                  JAVA_TYPE_LONG_ARRAY,         // repeated int64
+                                  JAVA_TYPE_INT_ARRAY,          // repeated int32
+                                  JAVA_TYPE_BOOLEAN_ARRAY,      // repeated bool
+                                  JAVA_TYPE_STRING_ARRAY        // repeated string
     );
 
-    EXPECT_EQ(4ul, atoms.decls.size());
+    // RepeatedEnumAtom
+    EXPECT_MAP_CONTAINS_SIGNATURE(atoms.signatureInfoMap, JAVA_TYPE_INT_ARRAY);
+
+    EXPECT_EQ(5ul, atoms.decls.size());
 
     AtomDeclSet::const_iterator atomIt = atoms.decls.begin();
     EXPECT_EQ(1, (*atomIt)->code);
@@ -138,6 +140,14 @@ TEST(CollationTest, CollateStats) {
     EXPECT_HAS_ENUM_FIELD((*atomIt), "enum_field", enumValues);
     atomIt++;
 
+    EXPECT_EQ(5, (*atomIt)->code);
+    EXPECT_EQ("repeated_enum_atom", (*atomIt)->name);
+    EXPECT_EQ("RepeatedEnumAtom", (*atomIt)->message);
+    enumValues[0] = "VALUE0";
+    enumValues[1] = "VALUE1";
+    EXPECT_HAS_ENUM_FIELD((*atomIt), "repeated_enum_field", enumValues);
+    atomIt++;
+
     EXPECT_EQ(atoms.decls.end(), atomIt);
 }
 
@@ -152,14 +162,13 @@ TEST(CollationTest, NonMessageTypeFails) {
 }
 
 /**
- * Test that atoms that have non-primitive types or repeated fields are
- * rejected.
+ * Test that atoms that have unsupported field types are rejected.
  */
 TEST(CollationTest, FailOnBadTypes) {
     Atoms atoms;
     int errorCount = collate_atoms(BadTypesEvent::descriptor(), DEFAULT_MODULE_NAME, &atoms);
 
-    EXPECT_EQ(4, errorCount);
+    EXPECT_EQ(20, errorCount);
 }
 
 /**
@@ -201,12 +210,25 @@ TEST(CollationTest, FailOnBadStateAtomOptions) {
     Atoms atoms;
     int errorCount = collate_atoms(BadStateAtoms::descriptor(), DEFAULT_MODULE_NAME, &atoms);
 
-    EXPECT_EQ(3, errorCount);
+    EXPECT_EQ(4, errorCount);
 }
 
 TEST(CollationTest, PassOnGoodStateAtomOptions) {
     Atoms atoms;
     int errorCount = collate_atoms(GoodStateAtoms::descriptor(), DEFAULT_MODULE_NAME, &atoms);
+    EXPECT_EQ(0, errorCount);
+}
+
+TEST(CollationTest, FailOnBadUidAtomOptions) {
+    Atoms atoms;
+    int errorCount = collate_atoms(BadUidAtoms::descriptor(), DEFAULT_MODULE_NAME, &atoms);
+
+    EXPECT_EQ(2, errorCount);
+}
+
+TEST(CollationTest, PassOnGoodUidAtomOptions) {
+    Atoms atoms;
+    int errorCount = collate_atoms(GoodUidAtoms::descriptor(), DEFAULT_MODULE_NAME, &atoms);
     EXPECT_EQ(0, errorCount);
 }
 

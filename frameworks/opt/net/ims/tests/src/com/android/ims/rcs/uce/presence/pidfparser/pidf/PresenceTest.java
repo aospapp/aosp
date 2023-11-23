@@ -49,7 +49,6 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 import org.xmlpull.v1.XmlSerializer;
-
 @RunWith(AndroidJUnit4.class)
 public class PresenceTest extends ImsTestBase {
 
@@ -169,6 +168,95 @@ public class PresenceTest extends ImsTestBase {
         assertEquals(version, PidfParserUtils.getTupleServiceVersion(tuple));
         assertEquals(description, PidfParserUtils.getTupleServiceDescription(tuple));
         assertEquals(contact, PidfParserUtils.getTupleContact(tuple));
+    }
+
+    @Test
+    @SmallTest
+    public void testMalformedParsing() throws Exception {
+        final String contact = Uri.fromParts("sip", "test", null).toString();
+        final String serviceId = "service_id_01";
+        final String version = "1.0";
+        final String description = "description_test";
+        final String serviceId2 = "service_id_02";
+        final String version2 = "2.0";
+        final String description2 = "description_test2";
+        final String serviceId3 = "service_id_03";
+        final String version3 = "3.0";
+        final String description3 = "description_test3";
+
+        StringBuilder presenceExample = new StringBuilder();
+        presenceExample.append("<?xml version='1.0' encoding='utf-8' standalone='yes' ?>")
+                .append("<presence entity=\"").append(contact).append("\"")
+                .append(" xmlns=\"urn:ietf:params:xml:ns:pidf\"")
+                .append(" xmlns:op=\"urn:oma:xml:prs:pidf:oma-pres\"")
+                .append(" xmlns:caps=\"urn:ietf:params:xml:ns:pidf:caps\">")
+                .append("<tuple id=\"tid0\"><status><basic>open</basic></status>")
+                .append("<op:service-description>")
+                .append("<op:service-id>").append(serviceId).append("</op:service-id>")
+                .append("<op:version>").append(version).append("</op:version>")
+                .append("<op:description>").append(description).append("</op:description>")
+                .append("</op:service-description>")
+                .append("<contact>sip:test</contact></tuple>")
+                .append("<tuple id=\"tid1\"><status><basic>open</basic></status>")
+                .append("<op:service-ddescription>")
+                .append("<op:service-id>").append(serviceId2).append("</op:service-id>")
+                .append("<op:version>").append(version2).append("</op:version>")
+                .append("<op:description>").append(description2).append("</op:description>")
+                .append("</op:service-description>")
+                .append("<contact>sip:test</contact></tuple>")
+                .append("<tuple id=\"tid3\"><status><basic>open</basic></status>")
+                .append("<op:service-description>")
+                .append("<op:service-id>").append(serviceId3).append("</op:service-id>")
+                .append("<op:version>").append(version3).append("</op:version>")
+                .append("<op:description>").append(description3).append("</op:description>")
+                .append("</op:service-description>")
+                .append("<contact>sip:test</contact></tuple></presence>");
+
+        XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
+        parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true);
+        Reader reader = new StringReader(presenceExample.toString());
+        parser.setInput(reader);
+
+        Presence presence = null;
+        int nextType = parser.next();
+
+        // Find the start tag
+        do {
+            if (nextType == XmlPullParser.START_TAG
+                    && Presence.ELEMENT_NAME.equals(parser.getName())) {
+                presence = new Presence();
+                presence.parse(parser);
+                break;
+            }
+            nextType = parser.next();
+        } while(nextType != XmlPullParser.END_DOCUMENT);
+
+        reader.close();
+
+        assertNotNull(presence);
+        assertEquals(contact, presence.getEntity());
+
+        List<Tuple> tupleList = presence.getTupleList();
+        assertNotNull(tupleList);
+        assertEquals(3, tupleList.size());
+        assertNotNull(tupleList.get(0)); // tuple of tid0
+        assertNotNull(tupleList.get(1)); // tuple of tid1. tid1 is a tuple that failed to parse.
+        assertNotNull(tupleList.get(2)); // tuple of tid2.
+
+        Tuple tuple = tupleList.get(0);
+        assertEquals(contact, PidfParserUtils.getTupleContact(tuple));
+
+        assertEquals(serviceId, PidfParserUtils.getTupleServiceId(tuple));
+        assertEquals(version, PidfParserUtils.getTupleServiceVersion(tuple));
+        assertEquals(description, PidfParserUtils.getTupleServiceDescription(tuple));
+
+        Tuple tuple1 = tupleList.get(1);
+        assertTrue(PidfParserUtils.getTupleMalformedStatus(tuple1));
+
+        Tuple tuple3 = tupleList.get(2);
+        assertEquals(serviceId3, PidfParserUtils.getTupleServiceId(tuple3));
+        assertEquals(version3, PidfParserUtils.getTupleServiceVersion(tuple3));
+        assertEquals(description3, PidfParserUtils.getTupleServiceDescription(tuple3));
     }
 
     private Tuple getTuple(String statusValue, String serviceIdValue, String descValue,

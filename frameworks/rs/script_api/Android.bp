@@ -26,3 +26,9 @@ cc_binary_host {
         never: true,
     },
 }
+
+filegroup {
+    name: "rs_script_api",
+    srcs: ["include/*.rsh"],
+    path: "include",
+}

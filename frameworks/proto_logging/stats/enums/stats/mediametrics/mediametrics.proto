@@ -85,21 +85,23 @@ enum PlaybackState {
     BUFFERING = 6;
     // Playback is buffering while paused
     PAUSED_BUFFERING = 7;
+    // the value 8 is not used
+    reserved 8;
     // Playback is suppressed (e.g. due to audio focus loss)
-    SUPPRESSED = 8;
+    SUPPRESSED = 9;
     // Playback is suppressed (e.g. due to audio focus loss) while buffering to resume a
     // playback
-    SUPPRESSED_BUFFERING = 9;
+    SUPPRESSED_BUFFERING = 10;
     // Playback has reached the end of the media
-    ENDED = 10;
+    ENDED = 11;
     // Playback is stopped and can be restarted
-    STOPPED = 11;
+    STOPPED = 12;
     // Playback is stopped due a fatal error and can be retried
-    FAILED = 12;
+    FAILED = 13;
     // Playback is interrupted by an ad
-    INTERRUPTED_BY_AD = 13;
+    INTERRUPTED_BY_AD = 14;
     // Playback is abandoned before reaching the end of the media
-    ABANDONED = 14;
+    ABANDONED = 15;
 }
 
 enum PlaybackErrorCode {
@@ -152,3 +154,82 @@ enum TrackChangeReason {
     REASON_MANUAL = 3;
     REASON_ADAPTIVE = 4;
 }
+// The values of the enum are in sync with the values in AudioFormat.java
+enum AudioEncoding {
+    // Invalid audio data format
+    ENCODING_INVALID = 0;
+    // Default audio data format
+    ENCODING_DEFAULT = 1;
+    // Audio data format PCM
+    ENCODING_PCM_16BIT = 2;
+    ENCODING_PCM_8BIT = 3;
+    // Audio data format: single-precision floating-point per sample
+    ENCODING_PCM_FLOAT = 4;
+    // Audio data format: AC-3 compressed, also known as Dolby Digital
+    ENCODING_AC3 = 5;
+    // Audio data format: E-AC-3 compressed, also known as Dolby Digital Plus or DD+
+    ENCODING_E_AC3 = 6;
+    // Audio data format: DTS compressed
+    ENCODING_DTS = 7;
+    // Audio data format: DTS HD compressed
+    ENCODING_DTS_HD = 8;
+    // Audio data format: MP3 compressed
+    ENCODING_MP3 = 9;
+    // Audio data format: AAC LC compressed
+    ENCODING_AAC_LC = 10;
+    // Audio data format: AAC HE V1 compressed
+    ENCODING_AAC_HE_V1 = 11;
+    // Audio data format: AAC HE V2 compressed
+    ENCODING_AAC_HE_V2 = 12;
+    // Audio data format: compressed audio wrapped in PCM for HDMI or S/PDIF passthrough.
+    ENCODING_IEC61937 = 13;
+    // Audio data format: DOLBY TRUEHD compressed
+    ENCODING_DOLBY_TRUEHD = 14;
+    // Audio data format: AAC ELD compressed
+    ENCODING_AAC_ELD = 15;
+    // Audio data format: AAC xHE compressed
+    ENCODING_AAC_XHE = 16;
+    // Audio data format: AC-4 sync frame transport format
+    ENCODING_AC4 = 17;
+    // Audio data format: E-AC-3-JOC compressed
+    ENCODING_E_AC3_JOC = 18;
+    // Audio data format: Dolby MAT (Metadata-enhanced Audio Transmission)
+    ENCODING_DOLBY_MAT = 19;
+    // Audio data format: OPUS compressed
+    ENCODING_OPUS = 20;
+    // Audio data format: PCM 24 bit per sample packed as 3 bytes.
+    ENCODING_PCM_24BIT_PACKED = 21;
+    // Audio data format: PCM 32 bit per sample.
+    ENCODING_PCM_32BIT = 22;
+    // Audio data format: MPEG-H baseline profile, level 3
+    ENCODING_MPEGH_BL_L3 = 23;
+    // Audio data format: MPEG-H baseline profile, level 4
+    ENCODING_MPEGH_BL_L4 = 24;
+    // Audio data format: MPEG-H low complexity profile, level 3
+    ENCODING_MPEGH_LC_L3 = 25;
+    // Audio data format: MPEG-H low complexity profile, level 4
+    ENCODING_MPEGH_LC_L4 = 26;
+    // Audio data format: DTS UHD compressed
+    ENCODING_DTS_UHD = 27;
+    // Audio data format: DRA compressed
+    ENCODING_DRA = 28;
+}
+enum EncodedSurroundOutputMode {
+    ENCODED_SURROUND_OUTPUT_UNKNOWN = 0;
+    ENCODED_SURROUND_OUTPUT_AUTO = 1;
+    ENCODED_SURROUND_OUTPUT_NEVER = 2;
+    ENCODED_SURROUND_OUTPUT_ALWAYS = 3;
+    ENCODED_SURROUND_OUTPUT_MANUAL = 4;
+}
+enum HdrFormat {
+    HDR_TYPE_DOLBY_VISION = 1;
+    HDR_TYPE_HDR10 = 2;
+    HDR_TYPE_HLG = 3;
+    HDR_TYPE_HDR10_PLUS = 4;
+}
+enum MatchContentFrameRatePreference {
+   MATCH_CONTENT_FRAMERATE_UNKNOWN = 0;
+   MATCH_CONTENT_FRAMERATE_NEVER = 1;
+   MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY = 2;
+   MATCH_CONTENT_FRAMERATE_ALWAYS = 3;
+};

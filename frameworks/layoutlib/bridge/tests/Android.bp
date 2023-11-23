@@ -31,6 +31,7 @@ java_test_host {
         "kxml2-2.3.0",
         "layoutlib_api-prebuilt",
         "tools-common-prebuilt",
+        "ninepatch-prebuilt",
         "sdk-common",
         "junit",
         "guava",

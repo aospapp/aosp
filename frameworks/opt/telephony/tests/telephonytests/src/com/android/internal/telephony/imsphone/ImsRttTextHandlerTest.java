@@ -19,6 +19,7 @@ package com.android.internal.telephony.imsphone;
 import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 
 import android.os.HandlerThread;
+import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.telecom.Connection;
 
@@ -30,6 +31,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ComparisonFailure;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -38,9 +40,11 @@ import java.io.OutputStreamWriter;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@Ignore("b/221640979") // TODO: Enable the tests after fixing the resource leak.
 public class ImsRttTextHandlerTest extends TelephonyTest {
     private static final int TEST_TIMEOUT = 1000;
     private static final int READ_BUFFER_SIZE = 1000;
+    private static final String SHORT_TEXT = "Hello, World!";
     private static final String LONG_TEXT = "No Soldier shall, in time of peace be quartered in " +
             "any house, without the consent of the Owner, nor in time of war, but in a manner to " +
             "be prescribed by law.";
@@ -223,6 +227,42 @@ public class ImsRttTextHandlerTest extends TelephonyTest {
         Assert.assertEquals(LONG_TEXT, readAll(mPipeFromHandler));
     }
 
+    /**
+     * Test {@link ImsRttTextHandler#handleMessage(Message)} SEND_TO_INCALL case.  Specifically,
+     * test SEND_IN_CALL does not throw an exception when given a null msg.obj.
+     */
+    @Test
+    public void testHandleMessageCaseSendToInCallWithNullMsgObj() {
+        // Create a Message object
+        Message msg = new Message();
+        // Set the message what to SEND_TO_INCALL
+        msg.setWhat(mRttTextHandler.getSendToIncall());
+        // Set the message object to null
+        msg.obj = null;
+        // Call handleMessage with the null msg and ensure no Exception is thrown
+        mRttTextHandler.handleMessage(msg);
+    }
+
+    /**
+     * Test {@link ImsRttTextHandler#handleMessage(Message)} SEND_TO_INCALL case.  If
+     * mRttTextStream is null, then text should be written to mBufferedTextToIncall.
+     */
+    @Test
+    public void testHandleMessageWithRttTextStreamNull() {
+        // Ensure the buffer is empty
+        Assert.assertEquals("", mRttTextHandler.getBufferedTextToIncall().toString());
+        // Simulate the stream was never initialized or null
+        mRttTextHandler.setRttTextStream(null);
+        // Wait for change to take action
+        waitForHandlerAction(mRttTextHandler, TEST_TIMEOUT);
+        // Send text to In Call
+        mRttTextHandler.sendToInCall(SHORT_TEXT);
+        // Wait for change to take action
+        waitForHandlerAction(mRttTextHandler, TEST_TIMEOUT);
+        // Assert the text was written to the buffer
+        Assert.assertEquals(SHORT_TEXT, mRttTextHandler.getBufferedTextToIncall().toString());
+    }
+
     @After
     public void tearDown() throws Exception {
         mPipeFromHandler.close();
@@ -231,6 +271,14 @@ public class ImsRttTextHandlerTest extends TelephonyTest {
         waitForHandlerAction(mRttTextHandler, TEST_TIMEOUT);
         mHandlerThread.quit();
         mHandlerThread.join();
+
+        mRttTextStream = null;
+        mNetworkWriter = null;
+        mRttTextHandler = null;
+        mHandlerThread = null;
+        mPipeToHandler = null;
+        mPipeFromHandler = null;
+        mHandlerSideOfPipeToHandler = null;
         super.tearDown();
     }
 

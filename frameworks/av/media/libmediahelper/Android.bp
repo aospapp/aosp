@@ -20,7 +20,7 @@ cc_library_headers {
     },
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth.updatable",
+        "com.android.bluetooth",
         "com.android.media",
         "com.android.media.swcodec",
     ],
@@ -29,6 +29,7 @@ cc_library_headers {
 cc_library {
     name: "libmedia_helper",
     vendor_available: true,
+    min_sdk_version: "29",
     vndk: {
         enabled: true,
     },
@@ -43,7 +44,10 @@ cc_library {
         "-Wextra",
         "-Wall",
     ],
-    shared_libs: ["libutils", "liblog"],
+    shared_libs: [
+        "libutils",
+        "liblog",
+    ],
     header_libs: [
         "libmedia_helper_headers",
         "libaudio_system_headers",
@@ -51,11 +55,16 @@ cc_library {
     export_header_lib_headers: [
         "libmedia_helper_headers",
     ],
-    clang: true,
+
     host_supported: true,
     target: {
         darwin: {
             enabled: false,
         },
     },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+        "test_com.android.media",
+    ],
 }

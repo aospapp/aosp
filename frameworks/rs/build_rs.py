@@ -56,14 +56,17 @@ def install_directory(src, dst):
 
 
 def build(out_dir):
-    products = (
-        'aosp_arm',
-        'aosp_arm64',
-        # 'aosp_mips',
-        # 'aosp_mips64',
-        'aosp_x86',
-        'aosp_x86_64',
-    )
+    if sys.platform == 'darwin':
+        products = ('aosp_arm',)
+    else:
+        products = (
+            'aosp_arm',
+            'aosp_arm64',
+            # 'aosp_mips',
+            # 'aosp_mips64',
+            'aosp_x86',
+            'aosp_x86_64',
+        )
     for product in products:
         build_product(out_dir, product)
 
@@ -78,13 +81,19 @@ def build_product(out_dir, product):
     env['TARGET_BUILD_VARIANT'] = 'userdebug'
     env['TARGET_PRODUCT'] = product
 
-    targets = [
-        # PHONY target specified in frameworks/rs/Android.mk.
-        'rs-prebuilts-full',
-        # We have to explicitly specify the jar for JACK to build.
-        android_path('out/target/common/obj/JAVA_LIBRARIES/' +
-            'android-support-v8-renderscript_intermediates/classes.jar')
-    ]
+    if sys.platform == 'darwin':
+        targets = [
+            'llvm-rs-cc',
+            'bcc_compat',
+        ]
+    else:
+        targets = [
+            # PHONY target specified in frameworks/rs/Android.mk.
+            'rs-prebuilts-full',
+            # We have to explicitly specify the jar for JACK to build.
+            android_path('out/target/common/obj/JAVA_LIBRARIES/' +
+                'android-support-v8-renderscript_intermediates/classes.jar')
+        ]
     subprocess.check_call(
         ['build/soong/soong_ui.bash', '--make-mode'] + targets, cwd=android_path(), env=env)
 
@@ -113,7 +122,8 @@ def package_toolchain(build_dir, build_name, host, dist_dir):
 def install_toolchain(build_dir, install_dir, host):
     install_built_host_files(build_dir, install_dir, host)
     install_clang_headers(build_dir, install_dir, host)
-    install_built_device_files(build_dir, install_dir, host)
+    if not host.startswith('darwin'):
+        install_built_device_files(build_dir, install_dir, host)
     install_license_files(install_dir)
     # We need to package libwinpthread-1.dll for Windows. This is explicitly
     # linked whenever pthreads is used, and the build system doesn't allow

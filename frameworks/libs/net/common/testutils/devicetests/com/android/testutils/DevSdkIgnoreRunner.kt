@@ -21,7 +21,13 @@ import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import org.junit.runner.Description
 import org.junit.runner.Runner
+import org.junit.runner.manipulation.Filter
+import org.junit.runner.manipulation.Filterable
+import org.junit.runner.manipulation.NoTestsRemainException
+import org.junit.runner.manipulation.Sortable
+import org.junit.runner.manipulation.Sorter
 import org.junit.runner.notification.RunNotifier
+import kotlin.jvm.Throws
 
 /**
  * A runner that can skip tests based on the development SDK as defined in [DevSdkIgnoreRule].
@@ -41,7 +47,7 @@ import org.junit.runner.notification.RunNotifier
  *     @IgnoreUpTo(Build.VERSION_CODES.Q)
  *     class MyTestClass { ... }
  */
-class DevSdkIgnoreRunner(private val klass: Class<*>) : Runner() {
+class DevSdkIgnoreRunner(private val klass: Class<*>) : Runner(), Filterable, Sortable {
     private val baseRunner = klass.let {
         val ignoreAfter = it.getAnnotation(IgnoreAfter::class.java)
         val ignoreUpTo = it.getAnnotation(IgnoreUpTo::class.java)
@@ -55,8 +61,9 @@ class DevSdkIgnoreRunner(private val klass: Class<*>) : Runner() {
             return
         }
 
-        // Report a single, skipped placeholder test for this class, so that the class is still
-        // visible as skipped in test results.
+        // Report a single, skipped placeholder test for this class, as the class is expected to
+        // report results when run. In practice runners that apply the Filterable implementation
+        // would see a NoTestsRemainException and not call the run method.
         notifier.fireTestIgnored(
                 Description.createTestDescription(klass, "skippedClassForDevSdkMismatch"))
     }
@@ -65,8 +72,20 @@ class DevSdkIgnoreRunner(private val klass: Class<*>) : Runner() {
         return baseRunner?.description ?: Description.createSuiteDescription(klass)
     }
 
+    /**
+     * Get the test count before applying the [Filterable] implementation.
+     */
     override fun testCount(): Int {
         // When ignoring the tests, a skipped placeholder test is reported, so test count is 1.
         return baseRunner?.testCount() ?: 1
+    }
+
+    @Throws(NoTestsRemainException::class)
+    override fun filter(filter: Filter?) {
+        baseRunner?.filter(filter) ?: throw NoTestsRemainException()
+    }
+
+    override fun sort(sorter: Sorter?) {
+        baseRunner?.sort(sorter)
     }
 }

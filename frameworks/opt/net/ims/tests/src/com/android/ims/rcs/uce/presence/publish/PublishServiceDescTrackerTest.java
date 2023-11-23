@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 
 import android.telephony.ims.RcsContactPresenceTuple;
 import android.util.ArraySet;
+import android.util.Log;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
@@ -31,6 +32,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
@@ -65,8 +67,11 @@ public class PublishServiceDescTrackerTest {
     public static final String TEST_FEATURE_TAG_CHATBOT_FORMAT =
             " +g.3gpp.iari-ref=  \" Urn%3Aurn-7%3A3gpp-application.ims.iari.rcs.chatbot \"";
 
-    public static final String TEST_FEATURE_TAG_BOTVERSION_FORMAT =
+    public static final String TEST_FEATURE_TAG_BOTVERSION_V2_FORMAT =
             "+g.gsma.rcs.botVersion =\" #=1  , #=2 \"    ";
+
+    public static final String TEST_FEATURE_TAG_BOTVERSION_FORMAT =
+            "+g.gsma.rcs.botVersion =\" #=1   \"    ";
 
     public static final String TEST_FEATURE_TAG_MMTEL_FORMAT =
             "  +g.3gpp.icsi-ref =    \"urn%3Aurn-7%3A3gpp-servIce.ims.icsi.mmtel \"   ";
@@ -102,13 +107,22 @@ public class PublishServiceDescTrackerTest {
         t1.updateImsRegistration(imsReg);
         assertEquals(expectedSet, t1.copyRegistrationCapabilities());
 
-        // Should see chatbot v1 and v2 pop up in this case (same FTs)
-        expectedSet = new ArraySet<>(Arrays.asList(
-                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION,
-                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION_V2));
+
+        expectedSet = Collections.singleton(
+                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION);
         imsReg = createImsRegistration(
                 FeatureTags.FEATURE_TAG_CHATBOT_COMMUNICATION_USING_SESSION,
                 FeatureTags.FEATURE_TAG_CHATBOT_VERSION_SUPPORTED);
+        t1.updateImsRegistration(imsReg);
+        assertEquals(expectedSet, t1.copyRegistrationCapabilities());
+
+        // Should see chatbot v1 and v2 pop up in this case (same FTs)
+        expectedSet = new ArraySet<>(Arrays.asList(
+                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION_V1,
+                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION_V2));
+        imsReg = createImsRegistration(
+                FeatureTags.FEATURE_TAG_CHATBOT_COMMUNICATION_USING_SESSION,
+                FeatureTags.FEATURE_TAG_CHATBOT_VERSION_V2_SUPPORTED);
         t1.updateImsRegistration(imsReg);
         assertEquals(expectedSet, t1.copyRegistrationCapabilities());
 
@@ -185,13 +199,24 @@ public class PublishServiceDescTrackerTest {
         t1.updateImsRegistration(imsReg);
         assertEquals(expectedSet, t1.copyRegistrationCapabilities());
 
-        // Should see chatbot v1 and v2 pop up in this case (same FTs)
-        expectedSet = new ArraySet<>(Arrays.asList(
-                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION,
-                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION_V2));
+        // The registered tag is botVersion=#1,
+        // so check if the service description of chatbot version 1.0 should be set.
+        expectedSet = Collections.singleton(
+                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION);
         imsReg = createImsRegistration(
                 TEST_FEATURE_TAG_CHATBOT_FORMAT,
                 TEST_FEATURE_TAG_BOTVERSION_FORMAT);
+        t1.updateImsRegistration(imsReg);
+        assertEquals(expectedSet, t1.copyRegistrationCapabilities());
+
+        // The registered tag is botVersion=#1,#2,
+        // so check if the service description of chatbot version 1.0 and 2.0 should be set.
+        expectedSet = new ArraySet<>(Arrays.asList(
+                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION_V1,
+                ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_SESSION_V2));
+        imsReg = createImsRegistration(
+                TEST_FEATURE_TAG_CHATBOT_FORMAT,
+                TEST_FEATURE_TAG_BOTVERSION_V2_FORMAT);
         t1.updateImsRegistration(imsReg);
         assertEquals(expectedSet, t1.copyRegistrationCapabilities());
 

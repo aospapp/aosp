@@ -38,6 +38,10 @@ cc_library {
         "MPEG2TSExtractor.cpp",
     ],
 
+    export_include_dirs: [
+        "include",
+    ],
+
     shared_libs: [
         "libbase",
         "libcgrouprc#29",
@@ -61,6 +65,7 @@ cc_library {
         "libhidlbase",
         "libhidlmemory",
         "libjsoncpp",
+        "libmedia_helper",
         "libprocessgroup",
         "libstagefright_esds",
         "libstagefright_foundation_without_imemory",

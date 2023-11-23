@@ -49,6 +49,7 @@ public class LayoutParserWrapper implements XmlPullParser {
     private List<Attribute> mAttributes;
     private String mText;
     private String mName;
+    private boolean mIsWhitespace;
 
     // Used to end the document before the actual parser ends.
     private int mFinalDepth = -1;
@@ -119,6 +120,7 @@ public class LayoutParserWrapper implements XmlPullParser {
         mDepth = mDelegate.getDepth();
         mText = mDelegate.getText();
         mName = mDelegate.getName();
+        mIsWhitespace = mNext == TEXT && mDelegate.isWhitespace();
         mPeeked = true;
         return mNext;
     }
@@ -201,6 +203,11 @@ public class LayoutParserWrapper implements XmlPullParser {
                     : null;
         }
         return returnValue;
+    }
+
+    @Override
+    public boolean isWhitespace() throws XmlPullParserException {
+        return mPeeked ? mIsWhitespace : mDelegate.isWhitespace();
     }
 
     private static class Attribute {
@@ -307,11 +314,6 @@ public class LayoutParserWrapper implements XmlPullParser {
 
     @Override
     public String getNamespaceUri(int i) throws XmlPullParserException {
-        throw new UnsupportedOperationException("Only few parser methods are supported.");
-    }
-
-    @Override
-    public boolean isWhitespace() throws XmlPullParserException {
         throw new UnsupportedOperationException("Only few parser methods are supported.");
     }
 

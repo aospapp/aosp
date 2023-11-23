@@ -18,10 +18,12 @@ a5dab2e6528095ccf4e9ae7e54e6e36ffe3dc0e1133fa3f9197f0b36216e09eb android.framewo
 5d4901c7f86a9e198b8d14e6e1de2fd819804db482b881dcf6230050f1dfdf34 android.frameworks.displayservice@1.0::IEventCallback
 d80cdd518a48e1ff49f4776c7ea407b9be8d451510ff2cb8e57b2286f623496e android.frameworks.displayservice@1.0::types
 
+# Framwork-only HALs released in Android Q for VR (not used, deleted)
+# 3b3358e32e3011646f48ebaf5478a02590eafe07e8d8f1711a511fda15cf0f70 android.frameworks.bufferhub@1.0::IBufferClient
+# d15b1612e60aa4767cf07ef8d3f3bd64e877cb6b1569787a67227a1a0a9f6fbe android.frameworks.bufferhub@1.0::IBufferHub
+# 74b9db2f5e440c78ff0f6234f68b5141af752a981be6b9366531a1b83ec6430b android.frameworks.bufferhub@1.0::types
+
 # Framework HALs released in Android Q
-3b3358e32e3011646f48ebaf5478a02590eafe07e8d8f1711a511fda15cf0f70 android.frameworks.bufferhub@1.0::IBufferClient
-d15b1612e60aa4767cf07ef8d3f3bd64e877cb6b1569787a67227a1a0a9f6fbe android.frameworks.bufferhub@1.0::IBufferHub
-74b9db2f5e440c78ff0f6234f68b5141af752a981be6b9366531a1b83ec6430b android.frameworks.bufferhub@1.0::types
 e295e84a8f1bc1d8a4cb0da60969ca7a2ec617b7b7fb8629dc5a536ad8632dce android.frameworks.cameraservice.common@2.0::types
 451a064694f87cdb7e24400c246fa7974eccb05a5bf6bddad175521fd18a9185 android.frameworks.cameraservice.device@2.0::ICameraDeviceCallback
 0eb9a751491befc207a8f5a94496489afd121f98560630771741af58d88fadff android.frameworks.cameraservice.device@2.0::ICameraDeviceUser

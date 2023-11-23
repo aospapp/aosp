@@ -459,6 +459,7 @@ static SLresult IEngine_CreateAudioRecorder(SLEngineItf self, SLObjectItf *pReco
                     // FIXME unnecessary once those fields are encapsulated in one class, rather
                     //   than a structure
                     (void) new (&thiz->mAudioRecord) android::sp<android::AudioRecord>();
+                    (void) new (&thiz->mCallbackHandle) android::sp<android::AudioRecordCallback>();
                     (void) new (&thiz->mCallbackProtector)
                             android::sp<android::CallbackProtector>();
                     thiz->mRecordSource = AUDIO_SOURCE_DEFAULT;

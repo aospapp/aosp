@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony.metrics;
 
+import static android.text.format.DateUtils.DAY_IN_MILLIS;
+
 import static com.android.internal.telephony.TelephonyStatsLog.GBA_EVENT__FAILED_REASON__FEATURE_NOT_READY;
 import static com.android.internal.telephony.TelephonyStatsLog.GBA_EVENT__FAILED_REASON__UNKNOWN;
 import static com.android.internal.telephony.TelephonyStatsLog.RCS_ACS_PROVISIONING_STATS__RESPONSE_TYPE__ERROR;
@@ -39,6 +41,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
 import android.annotation.Nullable;
@@ -85,7 +88,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.Mock;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -107,7 +109,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
     private static final int REGISTRATION1_TECH = 1;
     private static final int REGISTRATION2_TECH = 2;
 
-    @Mock private FileOutputStream mTestFileOutputStream;
+    // Mocked classes
+    private FileOutputStream mTestFileOutputStream;
 
     @Rule public TemporaryFolder mFolder = new TemporaryFolder();
 
@@ -141,6 +144,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
     private CellularServiceState mServiceState2Proto;
     private CellularServiceState mServiceState3Proto;
     private CellularServiceState mServiceState4Proto;
+    private CellularServiceState mServiceState5Proto;
 
     private CellularDataServiceSwitch[] mServiceSwitches;
     private CellularServiceState[] mServiceStates;
@@ -307,7 +311,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mCall3Proto.isEmergency = false;
         mCall3Proto.isRoaming = false;
 
-        // CS MO call while camped on LTE
+        // CS MO emergency call while camped on LTE
         mCall4Proto = new VoiceCallSession();
         mCall4Proto.bearerAtStart = VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_CS;
         mCall4Proto.bearerAtEnd = VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_CS;
@@ -332,7 +336,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mCall4Proto.srvccFailureCount = 0L;
         mCall4Proto.srvccCancellationCount = 0L;
         mCall4Proto.rttEnabled = false;
-        mCall4Proto.isEmergency = false;
+        mCall4Proto.isEmergency = true;
         mCall4Proto.isRoaming = true;
 
         mCarrier1LteUsageProto = new VoiceCallRatUsage();
@@ -405,6 +409,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mServiceState1Proto.isMultiSim = true;
         mServiceState1Proto.carrierId = CARRIER1_ID;
         mServiceState1Proto.totalTimeMillis = 5000L;
+        mServiceState1Proto.isEmergencyOnly = false;
 
         // LTE with ENDC on slot 0
         mServiceState2Proto = new CellularServiceState();
@@ -417,6 +422,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mServiceState2Proto.isMultiSim = true;
         mServiceState2Proto.carrierId = CARRIER1_ID;
         mServiceState2Proto.totalTimeMillis = 15000L;
+        mServiceState2Proto.isEmergencyOnly = false;
 
         // LTE with WFC and roaming on slot 1
         mServiceState3Proto = new CellularServiceState();
@@ -429,6 +435,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mServiceState3Proto.isMultiSim = true;
         mServiceState3Proto.carrierId = CARRIER2_ID;
         mServiceState3Proto.totalTimeMillis = 10000L;
+        mServiceState3Proto.isEmergencyOnly = false;
 
         // UMTS with roaming on slot 1
         mServiceState4Proto = new CellularServiceState();
@@ -441,6 +448,20 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mServiceState4Proto.isMultiSim = true;
         mServiceState4Proto.carrierId = CARRIER2_ID;
         mServiceState4Proto.totalTimeMillis = 10000L;
+        mServiceState4Proto.isEmergencyOnly = false;
+
+        // Limited service on slot 0
+        mServiceState5Proto = new CellularServiceState();
+        mServiceState5Proto.voiceRat = TelephonyManager.NETWORK_TYPE_UNKNOWN;
+        mServiceState5Proto.dataRat = TelephonyManager.NETWORK_TYPE_UNKNOWN;
+        mServiceState5Proto.voiceRoamingType = ServiceState.ROAMING_TYPE_NOT_ROAMING;
+        mServiceState5Proto.dataRoamingType = ServiceState.ROAMING_TYPE_NOT_ROAMING;
+        mServiceState5Proto.isEndc = false;
+        mServiceState5Proto.simSlotIndex = 0;
+        mServiceState5Proto.isMultiSim = true;
+        mServiceState5Proto.carrierId = CARRIER1_ID;
+        mServiceState5Proto.totalTimeMillis = 15000L;
+        mServiceState5Proto.isEmergencyOnly = true;
 
         mServiceSwitches =
                 new CellularDataServiceSwitch[] {mServiceSwitch1Proto, mServiceSwitch2Proto};
@@ -449,7 +470,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                     mServiceState1Proto,
                     mServiceState2Proto,
                     mServiceState3Proto,
-                    mServiceState4Proto
+                    mServiceState4Proto,
+                    mServiceState5Proto
                 };
 
         // IMS over LTE on slot 0, registered for 5 seconds
@@ -898,6 +920,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mTestFileOutputStream = mock(FileOutputStream.class);
         makeTestData();
 
         // by default, test loading with real file IO and saving with mocks
@@ -909,6 +932,76 @@ public class PersistAtomsStorageTest extends TelephonyTest {
     @After
     public void tearDown() throws Exception {
         mTestFile.delete();
+        mTestFile = null;
+        mFolder = null;
+        mCall1Proto = null;
+        mCall2Proto = null;
+        mCall3Proto = null;
+        mCall4Proto = null;
+        mCarrier1LteUsageProto = null;
+        mCarrier1UmtsUsageProto = null;
+        mCarrier2LteUsageProto = null;
+        mCarrier3LteUsageProto = null;
+        mCarrier3GsmUsageProto = null;
+        mVoiceCallRatUsages = null;
+        mServiceSwitch1Proto = null;
+        mServiceSwitch2Proto = null;
+        mServiceState1Proto = null;
+        mServiceState2Proto = null;
+        mServiceState3Proto = null;
+        mServiceState4Proto = null;
+        mServiceState5Proto = null;
+        mServiceSwitches = null;
+        mServiceStates = null;
+        mImsRegistrationStatsLte0 = null;
+        mImsRegistrationStatsWifi0 = null;
+        mImsRegistrationStatsLte1 = null;
+        mImsRegistrationTerminationLte = null;
+        mImsRegistrationTerminationWifi = null;
+        mImsRegistrationStats = null;
+        mImsRegistrationTerminations = null;
+        mDataCallSession0 = null;
+        mDataCallSession1 = null;
+        mImsRegistrationFeatureTagStats1Proto = null;
+        mImsRegistrationFeatureTagStats2Proto = null;
+        mImsRegistrationFeatureTagStatses = null;
+        mRcsClientProvisioningStats1Proto = null;
+        mRcsClientProvisioningStats2Proto = null;
+        mRcsClientProvisioningStatses = null;
+        mRcsAcsProvisioningStats1Proto = null;
+        mRcsAcsProvisioningStats2Proto = null;
+        mRcsAcsProvisioningStatses = null;
+        mImsRegistrationServiceIm = null;
+        mImsRegistrationServiceFt = null;
+        mImsRegistrationServiceDescStats = null;
+        mImsDedicatedBearerListenerEvent1 = null;
+        mImsDedicatedBearerListenerEvent2 = null;
+        mImsDedicatedBearerListenerEvents = null;
+        mImsDedicatedBearerEvent1 = null;
+        mImsDedicatedBearerEvent2 = null;
+        mImsDedicatedBearerEvents = null;
+        mUceEventStats1 = null;
+        mUceEventStats2 = null;
+        mUceEventStatses = null;
+        mPresenceNotifyEvent1 = null;
+        mPresenceNotifyEvent2 = null;
+        mPresenceNotifyEvents = null;
+        mSipTransportFeatureTagStats1 = null;
+        mSipTransportFeatureTagStats2 = null;
+        mSipTransportFeatureTagStatsArray = null;
+        mSipDelegateStats1 = null;
+        mSipDelegateStats2 = null;
+        mSipDelegateStats3 = null;
+        mSipDelegateStatsArray = null;
+        mGbaEvent1 = null;
+        mGbaEvent2 = null;
+        mGbaEvent = null;
+        mSipMessageResponse1 = null;
+        mSipMessageResponse2 = null;
+        mSipMessageResponse = null;
+        mSipTransportSession1 = null;
+        mSipTransportSession2 = null;
+        mSipTransportSession = null;
         super.tearDown();
     }
 
@@ -1055,6 +1148,24 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         VoiceCallSession[] calls = mPersistAtomsStorage.getVoiceCallSessions(0L);
         assertHasCall(calls, mCall1Proto, /* expectedCount= */ 49);
         assertHasCall(calls, mCall2Proto, /* expectedCount= */ 1);
+    }
+
+    @Test
+    @SmallTest
+    public void addVoiceCallSession_tooManyCalls_withEmergencyCalls() throws Exception {
+        createEmptyTestFile();
+        // We initially have storage full of emergency calls except one.
+        mPersistAtomsStorage = new TestablePersistAtomsStorage(mContext);
+        addRepeatedCalls(mPersistAtomsStorage, mCall4Proto, 49);
+        mPersistAtomsStorage.addVoiceCallSession(mCall1Proto);
+
+        mPersistAtomsStorage.addVoiceCallSession(mCall4Proto);
+        mPersistAtomsStorage.incTimeMillis(100L);
+
+        // after adding one more emergency call, the previous non-emergency call should be evicted
+        verifyCurrentStateSavedToFileOnce();
+        VoiceCallSession[] calls = mPersistAtomsStorage.getVoiceCallSessions(0L);
+        assertHasCall(calls, mCall4Proto, /* expectedCount= */ 50);
     }
 
     @Test
@@ -1277,7 +1388,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                     newServiceState1Proto,
                     mServiceState2Proto,
                     mServiceState3Proto,
-                    mServiceState4Proto
+                    mServiceState4Proto,
+                    mServiceState5Proto
                 },
                 serviceStates);
         CellularDataServiceSwitch[] serviceSwitches =
@@ -1402,7 +1514,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                     mServiceState1Proto,
                     mServiceState2Proto,
                     mServiceState3Proto,
-                    mServiceState4Proto
+                    mServiceState4Proto,
+                    mServiceState5Proto
                 },
                 serviceStates1);
         assertProtoArrayEquals(new CellularServiceState[0], serviceStates2);
@@ -1425,8 +1538,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         createEmptyTestFile();
 
         mPersistAtomsStorage = new TestablePersistAtomsStorage(mContext);
-        mPersistAtomsStorage.addImsRegistrationStats(mImsRegistrationStatsLte0);
-        mPersistAtomsStorage.incTimeMillis(100L);
+        mPersistAtomsStorage.addImsRegistrationStats(copyOf(mImsRegistrationStatsLte0));
+        mPersistAtomsStorage.incTimeMillis(DAY_IN_MILLIS);
 
         // service state and service switch should be added successfully
         verifyCurrentStateSavedToFileOnce();
@@ -1439,10 +1552,10 @@ public class PersistAtomsStorageTest extends TelephonyTest {
     public void addImsRegistrationStats_withExistingEntries() throws Exception {
         createEmptyTestFile();
         mPersistAtomsStorage = new TestablePersistAtomsStorage(mContext);
-        mPersistAtomsStorage.addImsRegistrationStats(mImsRegistrationStatsLte0);
+        mPersistAtomsStorage.addImsRegistrationStats(copyOf(mImsRegistrationStatsLte0));
 
-        mPersistAtomsStorage.addImsRegistrationStats(mImsRegistrationStatsWifi0);
-        mPersistAtomsStorage.incTimeMillis(100L);
+        mPersistAtomsStorage.addImsRegistrationStats(copyOf(mImsRegistrationStatsWifi0));
+        mPersistAtomsStorage.incTimeMillis(DAY_IN_MILLIS);
 
         // service state and service switch should be added successfully
         verifyCurrentStateSavedToFileOnce();
@@ -1460,7 +1573,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mPersistAtomsStorage = new TestablePersistAtomsStorage(mContext);
 
         mPersistAtomsStorage.addImsRegistrationStats(copyOf(mImsRegistrationStatsLte0));
-        mPersistAtomsStorage.incTimeMillis(100L);
+        mPersistAtomsStorage.incTimeMillis(DAY_IN_MILLIS);
 
         // mImsRegistrationStatsLte0's durations should be doubled
         verifyCurrentStateSavedToFileOnce();
@@ -1609,7 +1722,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         createTestFile(START_TIME_MILLIS);
 
         mPersistAtomsStorage = new TestablePersistAtomsStorage(mContext);
-        mPersistAtomsStorage.incTimeMillis(100L);
+        mPersistAtomsStorage.incTimeMillis(DAY_IN_MILLIS);
         ImsRegistrationStats[] stats1 = mPersistAtomsStorage.getImsRegistrationStats(50L);
         mPersistAtomsStorage.incTimeMillis(100L);
         ImsRegistrationStats[] stats2 = mPersistAtomsStorage.getImsRegistrationStats(50L);
@@ -1623,14 +1736,14 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                 stats1);
         assertProtoArrayEquals(new ImsRegistrationStats[0], stats2);
         assertEquals(
-                START_TIME_MILLIS + 200L,
+                START_TIME_MILLIS + DAY_IN_MILLIS + 100L,
                 mPersistAtomsStorage.getAtomsProto().imsRegistrationStatsPullTimestampMillis);
         InOrder inOrder = inOrder(mTestFileOutputStream);
         assertEquals(
-                START_TIME_MILLIS + 100L,
+                START_TIME_MILLIS + DAY_IN_MILLIS,
                 getAtomsWritten(inOrder).imsRegistrationStatsPullTimestampMillis);
         assertEquals(
-                START_TIME_MILLIS + 200L,
+                START_TIME_MILLIS + DAY_IN_MILLIS + 100L,
                 getAtomsWritten(inOrder).imsRegistrationStatsPullTimestampMillis);
         inOrder.verifyNoMoreInteractions();
     }
@@ -2162,6 +2275,31 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                 START_TIME_MILLIS + 200L,
                 getAtomsWritten(inOrder).imsRegistrationServiceDescStatsPullTimestampMillis);
         inOrder.verifyNoMoreInteractions();
+    }
+
+    @Test
+    @SmallTest
+    public void getImsRegistrationStats_24hNormalization() throws Exception {
+        createEmptyTestFile();
+        mPersistAtomsStorage = new TestablePersistAtomsStorage(mContext);
+        mPersistAtomsStorage.addImsRegistrationStats(copyOf(mImsRegistrationStatsWifi0));
+        mPersistAtomsStorage.incTimeMillis(DAY_IN_MILLIS / 2);
+
+        ImsRegistrationStats[] serviceStates = mPersistAtomsStorage.getImsRegistrationStats(0L);
+        mImsRegistrationStatsWifi0.registeredMillis *= 2;
+        mImsRegistrationStatsWifi0.voiceCapableMillis *= 2;
+        mImsRegistrationStatsWifi0.voiceAvailableMillis *= 2;
+        mImsRegistrationStatsWifi0.smsCapableMillis *= 2;
+        mImsRegistrationStatsWifi0.smsAvailableMillis *= 2;
+        mImsRegistrationStatsWifi0.videoCapableMillis *= 2;
+        mImsRegistrationStatsWifi0.videoAvailableMillis *= 2;
+        mImsRegistrationStatsWifi0.utCapableMillis *= 2;
+        mImsRegistrationStatsWifi0.utAvailableMillis *= 2;
+        assertProtoArrayEqualsIgnoringOrder(
+                new ImsRegistrationStats[] {
+                    mImsRegistrationStatsWifi0
+                },
+                serviceStates);
     }
 
     @Test

@@ -27,7 +27,7 @@ import com.android.resources.ResourceType;
 
 import android.annotation.NonNull;
 import android.graphics.Bitmap;
-import android.graphics.Bitmap_Delegate;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
@@ -115,7 +115,7 @@ public class RenderDrawable extends RenderAction<DrawableParams> {
         content.setBackground(d);
 
         // Set the AttachInfo on the root view.
-        AttachInfo_Accessor.setAttachInfo(content);
+        AttachInfo_Accessor.setAttachInfo(content, null);
 
         // Measure.
         int w = d.getIntrinsicWidth();
@@ -153,8 +153,11 @@ public class RenderDrawable extends RenderAction<DrawableParams> {
         BufferedImage image = getImage(w, h);
 
         // Create an Android bitmap around the BufferedImage.
-        Bitmap bitmap = Bitmap_Delegate.createBitmap(image,
-                true /*isMutable*/, hardwareConfig.getDensity());
+        Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(),
+                Config.ARGB_8888);
+        bitmap.setPixels(image.getRGB(0, 0, image.getWidth(), image.getHeight(),
+                null, 0, image.getWidth()), 0, image.getWidth(), 0, 0, image
+                .getWidth(), image.getHeight());
 
         // Create a Canvas around the Android bitmap.
         Canvas canvas = new Canvas(bitmap);
@@ -162,6 +165,10 @@ public class RenderDrawable extends RenderAction<DrawableParams> {
 
         // Draw.
         content.draw(canvas);
+        int[] pixels = new int[image.getWidth() * image.getHeight()];
+        bitmap.getPixels(pixels, 0, image.getWidth(), 0, 0, image.getWidth(),
+                image.getHeight());
+        image.setRGB(0, 0, image.getWidth(), image.getHeight(), pixels, 0, image.getWidth());
 
         // Detach root from window after draw.
         AttachInfo_Accessor.detachFromWindow(content);

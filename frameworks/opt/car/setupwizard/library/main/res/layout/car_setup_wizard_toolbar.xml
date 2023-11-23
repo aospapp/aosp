@@ -31,20 +31,22 @@
 
         <ImageView
             android:id="@+id/back_button"
-            android:layout_width="@dimen/car_primary_icon_size"
-            android:layout_height="@dimen/car_primary_icon_size"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:background="@drawable/button_ripple_bg"
+            android:background="@drawable/round_button_background"
             android:contentDescription="@string/back_button_content_description"
+            android:padding="@dimen/car_padding_2"
             android:src="@drawable/car_ic_arrow_back"/>
 
         <ImageView
             android:id="@+id/close_button"
-            android:layout_width="@dimen/car_primary_icon_size"
-            android:layout_height="@dimen/car_primary_icon_size"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:background="@drawable/button_ripple_bg"
+            android:background="@drawable/round_button_background"
             android:contentDescription="@string/close_button_content_description"
+            android:padding="@dimen/car_padding_2"
             android:src="@drawable/car_ic_close"/>
     </FrameLayout>
 

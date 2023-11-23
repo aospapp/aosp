@@ -34,6 +34,7 @@ cc_library {
         "Font.cpp",
         "FontCollection.cpp",
         "FontFamily.cpp",
+        "FontFeatureUtils.cpp",
         "FontFileParser.cpp",
         "FontUtils.cpp",
         "GraphemeBreak.cpp",
@@ -88,8 +89,6 @@ cc_library {
         "libutils_headers",
     ],
     export_header_lib_headers: ["libminikin_headers"],
-
-    clang: true,
 
     target: {
         android: {

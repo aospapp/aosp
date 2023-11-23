@@ -30,16 +30,28 @@ cc_defaults {
         "-Wall",
         "-Werror",
     ],
-    shared_libs: [
-        "libbinder",
-        "libutils",
-        "libbase",
-    ],
     target: {
+        android: {
+            shared_libs: [
+                "libcutils",
+                "libutils",
+                "libbase",
+                "libbinder",
+            ],
+        },
+        host: {
+            static_libs: [
+                "libcutils",
+                "liblog",
+                "libutils",
+                "libbase",
+                "libbinder",
+            ],
+        },
         darwin: {
             enabled: false,
-        }
-    }
+        },
+    },
 }
 
 cc_fuzz {
@@ -51,7 +63,6 @@ cc_fuzz {
 cc_fuzz {
     name: "binder_bpBinderFuzz",
     defaults: ["binder_fuzz_defaults"],
-    host_supported: false,
     srcs: ["BpBinderFuzz.cpp"],
 }
 

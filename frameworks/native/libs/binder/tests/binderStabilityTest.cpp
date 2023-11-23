@@ -102,7 +102,7 @@ public:
         return Status::ok();
     }
     Status sendAndCallBinder(const sp<IBinder>& binder) override {
-        Stability::debugLogStability("sendAndCallBinder got binder", binder);
+        ALOGI("Debug log stability: %s", Stability::debugToString(binder).c_str());
         return Status::fromExceptionCode(BadStableBinder::doUserTransaction(binder));
     }
     Status returnNoStabilityBinder(sp<IBinder>* _aidl_return) override {
@@ -197,6 +197,14 @@ TEST(BinderStability, VintfStabilityServerMustBeDeclaredInManifest) {
     }
 }
 
+TEST(BinderStability, ConnectionInfoRequiresManifestEntries) {
+    sp<IServiceManager> sm = android::defaultServiceManager();
+    sp<IBinder> systemBinder = BadStableBinder::system();
+    EXPECT_EQ(OK, sm->addService(String16("no.connection.foo"), systemBinder));
+    std::optional<android::IServiceManager::ConnectionInfo> connectionInfo;
+    connectionInfo = sm->getConnectionInfo(String16("no.connection.foo"));
+    EXPECT_EQ(connectionInfo, std::nullopt);
+}
 TEST(BinderStability, CantCallVendorBinderInSystemContext) {
     sp<IBinder> serverBinder = android::defaultServiceManager()->getService(kSystemStabilityServer);
     auto server = interface_cast<IBinderStabilityTest>(serverBinder);

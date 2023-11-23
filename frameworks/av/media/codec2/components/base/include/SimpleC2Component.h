@@ -26,7 +26,34 @@
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/stagefright/foundation/Mutexed.h>
 
+struct C2ColorAspectsStruct;
+
 namespace android {
+
+void convertYUV420Planar8ToYV12(uint8_t *dstY, uint8_t *dstU, uint8_t *dstV, const uint8_t *srcY,
+                                const uint8_t *srcU, const uint8_t *srcV, size_t srcYStride,
+                                size_t srcUStride, size_t srcVStride, size_t dstYStride,
+                                size_t dstUVStride, uint32_t width, uint32_t height,
+                                bool isMonochrome = false);
+
+void convertYUV420Planar16ToY410OrRGBA1010102(
+        uint32_t *dst, const uint16_t *srcY,
+        const uint16_t *srcU, const uint16_t *srcV,
+        size_t srcYStride, size_t srcUStride,
+        size_t srcVStride, size_t dstStride, size_t width, size_t height,
+        std::shared_ptr<const C2ColorAspectsStruct> aspects = nullptr);
+
+void convertYUV420Planar16ToYV12(uint8_t *dstY, uint8_t *dstU, uint8_t *dstV, const uint16_t *srcY,
+                                 const uint16_t *srcU, const uint16_t *srcV, size_t srcYStride,
+                                 size_t srcUStride, size_t srcVStride, size_t dstYStride,
+                                 size_t dstUVStride, size_t width, size_t height,
+                                 bool isMonochrome = false);
+
+void convertYUV420Planar16ToP010(uint16_t *dstY, uint16_t *dstUV, const uint16_t *srcY,
+                                 const uint16_t *srcU, const uint16_t *srcV, size_t srcYStride,
+                                 size_t srcUStride, size_t srcVStride, size_t dstYStride,
+                                 size_t dstUVStride, size_t width, size_t height,
+                                 bool isMonochrome = false);
 
 class SimpleC2Component
         : public C2Component, public std::enable_shared_from_this<SimpleC2Component> {
@@ -149,6 +176,7 @@ protected:
     static constexpr uint32_t NO_DRAIN = ~0u;
 
     C2ReadView mDummyReadView;
+    int getHalPixelFormatForBitDepth10(bool allowRGBA1010102);
 
 private:
     const std::shared_ptr<C2ComponentInterface> mIntf;
@@ -232,6 +260,7 @@ private:
     class BlockingBlockPool;
     std::shared_ptr<BlockingBlockPool> mOutputBlockPool;
 
+    std::vector<int> mBitDepth10HalPixelFormats;
     SimpleC2Component() = delete;
 };
 

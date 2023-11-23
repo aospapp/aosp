@@ -399,6 +399,21 @@ enum ItemId {
     // Never (toggle)
     DISPLAY_SOUND_MATCH_CONTENT_FRAMERATE_NEVER = 0x15530000;
 
+    // TvSettings > Display & Sound > Text scaling
+    DISPLAY_SOUND_TEXT_SCALING = 0x15600000;
+
+    // TvSettings > Display & Sound > Text scaling > Small (entry)
+    DISPLAY_SOUND_TEXT_SCALING_SMALL = 0x15610000;
+
+    // TvSettings > Display & Sound > Text scaling > Default (entry)
+    DISPLAY_SOUND_TEXT_SCALING_DEFAULT = 0x15620000;
+
+    // TvSettings > Display & Sound > Text scaling > Large (entry)
+    DISPLAY_SOUND_TEXT_SCALING_LARGE = 0x15630000;
+
+    // TvSettings > Display & Sound > Text scaling > Largest (entry)
+    DISPLAY_SOUND_TEXT_SCALING_LARGEST = 0x15640000;
+
     // TvSettings > Apps
     APPS = 0x16000000;
 
@@ -444,6 +459,9 @@ enum ItemId {
 
     // TvSettings > Apps > See all apps > [An app entry] > Open source licenses
     APPS_ALL_APPS_APP_ENTRY_LICENSES = 0x1611C000;
+
+    // TvSettings > Apps > See all apps > [An app entry] > Remove permissions Toggle
+    APPS_ALL_APPS_APP_ENTRY_HIBERNATION = 0x1611D000;
 
     // TvSettings > Apps > See all apps > Show system apps
     APPS_ALL_APPS_SHOW_SYSTEM_APPS = 0x16120000;
@@ -523,6 +541,12 @@ enum ItemId {
     // TvSettings > Apps > Special app access > Alarms & Reminders
     APPS_SPECIAL_APP_ACCESS_ALARMS_AND_REMINDERS = 0x16370000;
 
+    // TvSettings > Apps > Special app access > All files access
+    APPS_SPECIAL_APP_ACCESS_ALL_FILES_ACCESS = 0x16380000;
+
+    // TvSettings > Apps > Special app access > Turn screen on
+    APPS_SPECIAL_APP_ACCESS_TURN_SCREEN_ON = 0x16390000;
+
     // TvSettings > Apps > Security & restrictions
     APPS_SECURITY_RESTRICTIONS = 0x16400000;
 
@@ -553,6 +577,9 @@ enum ItemId {
     // TvSettings > Apps > Security & restrictions >
     // Exit restricted profile
     APPS_SECURITY_RESTRICTIONS_EXIT_PROFILE = 0x16480000;
+
+    // TvSettings > Unused apps
+    APPS_UNUSED_APPS = 0x16500000;
 
     // TvSettings > System (same as TvSettings > Device Preferences)
     SYSTEM = 0x17000000;
@@ -661,6 +688,16 @@ enum ItemId {
     // TvSettings > System > Internal shared storage >
     // Cached data (brings up "Clear cached data?" dialog upon click)
     SYSTEM_STORAGE_INTERNAL_STORAGE_CACHED = 0x17512000;
+
+    // TvSettings > System > Free up storage
+    SYSTEM_STORAGE_FREE_UP_STORAGE = 0x17520000;
+
+    // TvSettings > System > Free up storage >
+    // Clear cached data (brings up "Clear cached data?" dialog upon click)
+    SYSTEM_STORAGE_FREE_UP_STORAGE_CLEAR_CACHED_DATA = 0x17521000;
+
+    // TvSettings > System > Free up storage > Uninstall apps
+    SYSTEM_STORAGE_FREE_UP_STORAGE_UNINSTALL_APPS = 0x17522000;
 
     // TvSettings > System > Ambient mode
     SYSTEM_AMBIENT = 0x17600000;
@@ -805,6 +842,12 @@ enum ItemId {
 
     // TvSettings > System > Energy saver > Turn off display after > Never
     SYSTEM_ENERGYSAVER_START_DELAY_NEVER = 0x17717000;
+
+    // TvSettings > System > Power & Energy
+    SYSTEM_POWER_AND_ENERGY = 0x17E00000;
+
+    // TvSettings > System > Power & Energy > Eco settings
+    SYSTEM_POWER_AND_ENERGY_ECO_SETTINGS = 0x17E10000;
 
     // TvSettings > System > Accessibility
     SYSTEM_A11Y = 0x17800000;
@@ -978,6 +1021,9 @@ enum ItemId {
 
     // TvSettings > System > Accessibility > Switch Access > Configuration
     SYSTEM_A11Y_SWITCH_ACCESS_CONFIG = 0x17882000;
+
+    // TvSettings > System > Accessibility > Audio Description (Toggle)
+    SYSTEM_A11Y_AUDIO_DESCRIPTION = 0x17890000;
 
     // TvSettings > System > Reboot
     SYSTEM_REBOOT = 0x17900000;

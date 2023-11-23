@@ -19,9 +19,9 @@ package com.android.tools.idea.validator;
 import com.android.tools.idea.validator.ValidatorData.Level;
 import com.android.tools.idea.validator.ValidatorData.Policy;
 import com.android.tools.idea.validator.ValidatorData.Type;
-import com.android.tools.idea.validator.accessibility.AccessibilityValidator;
 import com.android.tools.layoutlib.annotations.NotNull;
 import com.android.tools.layoutlib.annotations.Nullable;
+import com.android.tools.layoutlib.annotations.VisibleForTesting;
 
 import android.view.View;
 
@@ -35,23 +35,117 @@ public class LayoutValidator {
 
     public static final ValidatorData.Policy DEFAULT_POLICY = new Policy(
             EnumSet.of(Type.ACCESSIBILITY, Type.RENDER),
-            EnumSet.of(Level.ERROR, Level.WARNING));
+            EnumSet.of(Level.ERROR, Level.WARNING, Level.INFO, Level.VERBOSE));
 
     private static ValidatorData.Policy sPolicy = DEFAULT_POLICY;
+
+    private static boolean sPaused = false;
+
+    private static boolean sSaveCroppedImages = false;
+
+    private static boolean sObtainCharacterLocations = false;
+
+    /**
+     * @return true if validator is paused. False otherwise.
+     */
+    public static boolean isPaused() {
+        return sPaused;
+    }
+
+    /**
+     * Pause or resume validator. {@link RenderParamsFlags#FLAG_ENABLE_LAYOUT_VALIDATOR} must be
+     * enabled.
+     * @param paused true if validator should be paused. False to resume.
+     */
+    public static void setPaused(boolean paused) {
+        sPaused = paused;
+    }
+
+    public static boolean shouldSaveCroppedImages() {
+        return sSaveCroppedImages;
+    }
+
+    /**
+     * For Debugging purpose. Save all cropped images used by atf if enabled.
+     * @param save
+     */
+    public static void setSaveCroppedImages(boolean save) {
+        sSaveCroppedImages = save;
+    }
+
+    /**
+     * Indicates whether text character locations should be requested.
+     *
+     * @param obtainCharacterLocations true if text character locations should be requested.
+     */
+    public static void setObtainCharacterLocations(boolean obtainCharacterLocations) {
+        sObtainCharacterLocations = obtainCharacterLocations;
+    }
+
+    /**
+     * @return true if text character locations should be requested.
+     */
+    public static boolean obtainCharacterLocations() {
+        return sObtainCharacterLocations;
+    }
 
     /**
      * Validate the layout using the default policy.
      * Precondition: View must be attached to the window.
      *
+     * Used for testing.
+     *
      * @return The validation results. If no issue is found it'll return empty result.
      */
     @NotNull
-    public static ValidatorResult validate(@NotNull View view, @Nullable BufferedImage image) {
-        if (view.isAttachedToWindow()) {
-            return AccessibilityValidator.validateAccessibility(view, image, sPolicy);
+    @VisibleForTesting
+    public static ValidatorResult validate(
+            @NotNull View view,
+            @Nullable BufferedImage image,
+            float scaleX,
+            float scaleY) {
+        if (!sPaused && view.isAttachedToWindow()) {
+            ValidatorHierarchy hierarchy = ValidatorUtil.buildHierarchy(
+                    sPolicy,
+                    view,
+                    image,
+                    scaleX,
+                    scaleY);
+            return ValidatorUtil.generateResults(sPolicy, hierarchy);
         }
         // TODO: Add non-a11y layout validation later.
         return new ValidatorResult.Builder().build();
+    }
+
+    /**
+     * Build the hierarchy necessary for validating the layout.
+     * The operation is quick thus can be used frequently.
+     *
+     * @return The hierarchy to be used for validation.
+     */
+    @NotNull
+    public static ValidatorHierarchy buildHierarchy(
+            @NotNull View view,
+            @Nullable BufferedImage image,
+            float scaleX,
+            float scaleY) {
+        if (!sPaused && view.isAttachedToWindow()) {
+            return ValidatorUtil.buildHierarchy(
+                    sPolicy,
+                    view,
+                    image,
+                    scaleX,
+                    scaleY);
+        }
+        return new ValidatorHierarchy();
+    }
+
+    /**
+     * @return The validator result that matches the hierarchy
+     */
+    @NotNull
+    public static ValidatorResult validate(@NotNull ValidatorHierarchy hierarchy) {
+        return ValidatorUtil.generateResults(sPolicy, hierarchy);
     }
 
     /**

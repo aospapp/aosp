@@ -272,6 +272,7 @@ public class EabProviderTest extends ImsTestBase {
         data.put(EabProvider.EabCommonColumns.MECHANISM, CAPABILITY_MECHANISM_PRESENCE);
         data.put(EabProvider.EabCommonColumns.REQUEST_RESULT, REQUEST_RESULT_FOUND);
         data.put(EabProvider.EabCommonColumns.SUBSCRIPTION_ID, subid);
+        data.put(EabProvider.EabCommonColumns.ENTITY_URI, "sip:456789@test.com");
         mContext.getContentResolver().insert(COMMON_URI, data);
 
         data = new ContentValues();
@@ -311,6 +312,8 @@ public class EabProviderTest extends ImsTestBase {
         cursor.moveToFirst();
         assertEquals(1, cursor.getInt(cursor.getColumnIndex(
                 EabProvider.PresenceTupleColumns.VIDEO_CAPABLE)));
+        assertEquals("sip:456789@test.com", cursor.getString(cursor.getColumnIndex(
+                EabProvider.EabCommonColumns.ENTITY_URI)));
     }
 
     @Test

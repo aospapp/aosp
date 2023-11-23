@@ -45,16 +45,21 @@ message AllTypesAtom {
   optional int64 int64_field = 3;
   optional uint64 uint64_field = 4;
   optional int32 int32_field = 5;
-  optional fixed64 fixed64_field = 6;
-  optional fixed32 fixed32_field = 7;
-  optional bool bool_field = 8;
-  optional string string_field = 9;
-  optional uint32 uint32_field = 10;
-  optional AnEnum enum_field = 11;
-  optional sfixed32 sfixed32_field = 12;
-  optional sfixed64 sfixed64_field = 13;
-  optional sint32 sint32_field = 14;
-  optional sint64 sint64_field = 15;
+  optional bool bool_field = 6;
+  optional string string_field = 7;
+  optional uint32 uint32_field = 8;
+  optional AnEnum enum_field = 9;
+  repeated float repeated_float_field = 10;
+  repeated int64 repeated_int64_field = 11;
+  repeated int32 repeated_int32_field = 12;
+  repeated bool repeated_bool_field = 13;
+  repeated string repeated_string_field = 14;
+}
+
+// Separated from AllTypesAtom because tests can't properly check atoms with multiple enum type
+// fields
+message RepeatedEnumAtom {
+    repeated AnEnum repeated_enum_field = 1;
 }
 
 message Event {
@@ -63,14 +68,31 @@ message Event {
         IntAtom int_atom = 1;
         AnotherIntAtom another_int_atom = 3;
         AllTypesAtom all_types_atom = 4;
+        RepeatedEnumAtom repeated_enum_atom = 5;
     }
 }
 
 message BadTypesAtom {
     optional IntAtom bad_int_atom = 1;
     optional bytes bad_bytes = 2;
-    repeated int32 repeated_field = 3;
-    optional double double_field = 4;
+    optional double double_field = 3;
+    optional fixed64 fixed64_field = 4;
+    optional fixed32 fixed32_field = 5;
+    optional sfixed64 sfixed64_field = 6;
+    optional sfixed32 sfixed32_field = 7;
+    optional sint64 sint64_field = 8;
+    optional sint32 sint32_field = 9;
+    repeated double double_repeated_field = 10;
+    repeated fixed64 fixed64_repeated_field = 11;
+    repeated fixed32 fixed32_repeated_field = 12;
+    repeated sfixed64 sfixed64_repeated_field = 13;
+    repeated sfixed32 sfixed32_repeated_field = 14;
+    repeated sint64 sint64_repeated_field = 15;
+    repeated sint32 sint32_repeated_field = 16;
+    repeated uint64 uint64_repeated_field = 17;
+    repeated uint32 uint32_repeated_field = 18;
+    repeated IntAtom bad_int_atom_repeated_field = 19;
+    repeated bytes bad_bytes_repeated_field = 20;
 }
 
 message BadTypesEvent {
@@ -137,6 +159,7 @@ message BadStateAtoms {
         BadStateAtom1 bad1 = 1;
         BadStateAtom2 bad2 = 2;
         BadStateAtom3 bad3 = 3;
+        BadStateAtom4 bad4 = 4;
     }
 }
 
@@ -167,6 +190,11 @@ message BadStateAtom3 {
     optional int32 state2 = 3 [(android.os.statsd.state_field_option).exclusive_state = true];
 }
 
+// Repeated fields can't have state annotations.
+message BadStateAtom4 {
+    repeated int32 state = 1 [(android.os.statsd.state_field_option).exclusive_state = true];
+}
+
 message GoodStateAtom1 {
     optional int32 uid = 1 [(android.os.statsd.state_field_option).primary_field = true];
     optional int32 state = 2 [(android.os.statsd.state_field_option).exclusive_state = true];
@@ -185,6 +213,37 @@ message GoodStateAtom3 {
     optional int32 uid = 1 [(android.os.statsd.state_field_option).primary_field = true];
     optional int32 tid = 2 [(android.os.statsd.state_field_option).primary_field = true];
     optional int32 state = 3 [(android.os.statsd.state_field_option).exclusive_state = true];
+}
+
+message BadUidAtoms {
+    oneof pushed {
+        BadUidAtom1 bad1 = 1;
+        BadUidAtom2 bad2 = 2;
+    }
+}
+
+message GoodUidAtoms {
+    oneof pushed {
+        GoodUidAtom1 good1 = 1;
+        GoodUidAtom2 good2 = 2;
+    }
+}
+
+// The only repeated field type that can have is_uid annotation is int32.
+message BadUidAtom1 {
+    repeated int64 uid = 1 [(android.os.statsd.is_uid) = true];
+}
+
+message BadUidAtom2 {
+    optional string uid = 1 [(android.os.statsd.is_uid) = true];
+}
+
+message GoodUidAtom1 {
+    optional int32 uid = 1 [(android.os.statsd.is_uid) = true];
+}
+
+message GoodUidAtom2 {
+    repeated int32 uid = 1 [(android.os.statsd.is_uid) = true];
 }
 
 message ModuleOneAtom {

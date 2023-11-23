@@ -20,8 +20,8 @@ import com.android.ide.common.rendering.api.AdapterBinding;
 import com.android.ide.common.rendering.api.DataBindingItem;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.ResourceReference;
-import com.android.utils.Pair;
 
+import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -112,8 +112,8 @@ public class FakeAdapter extends BaseAdapter {
         AdapterItem item = mItems.get(position);
         Pair<View, Boolean> pair = AdapterHelper.getView(item, null, parent, mCallback,
                 mAdapterRef, mSkipCallbackParser);
-        mSkipCallbackParser = pair.getSecond();
-        return pair.getFirst();
+        mSkipCallbackParser = pair.second;
+        return pair.first;
     }
 
     @Override

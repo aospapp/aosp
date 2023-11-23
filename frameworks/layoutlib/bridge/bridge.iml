@@ -27,7 +27,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="layoutlib_api-prebuilt" level="project" />
-    <orderEntry type="module-library">
+    <orderEntry type="module-library" scope="TEST">
       <library name="tools-common-prebuilt">
         <ANNOTATIONS>
           <root url="file://$MODULE_DIR$/.." />
@@ -43,7 +43,7 @@
     </orderEntry>
     <orderEntry type="library" name="framework.jar" level="project" />
     <orderEntry type="library" name="guava" level="project" />
-    <orderEntry type="module-library" scope="TEST">
+    <orderEntry type="module-library">
       <library name="sdk-common">
         <CLASSES>
           <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/sdk-common/sdk-common.jar!/" />
@@ -70,6 +70,7 @@
       </library>
     </orderEntry>
     <orderEntry type="library" scope="TEST" name="hamcrest" level="project" />
+    <orderEntry type="module" module-name="delegates" />
     <orderEntry type="module-library">
       <library name="ninepatch-prebuilt">
         <CLASSES>
@@ -93,25 +94,5 @@
       </library>
     </orderEntry>
     <orderEntry type="module" module-name="validator" />
-    <orderEntry type="module-library" scope="TEST">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/atf/atf_classes.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/sdk-common/sdk-common.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/sdk-common/sdk-common-sources.jar!/" />
-        </SOURCES>
-      </library>
-    </orderEntry>
   </component>
 </module>

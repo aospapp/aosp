@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/bridge/bridge.iml" filepath="$PROJECT_DIR$/bridge/bridge.iml" />
       <module fileurl="file://$PROJECT_DIR$/common/common.iml" filepath="$PROJECT_DIR$/common/common.iml" />
       <module fileurl="file://$PROJECT_DIR$/create/create.iml" filepath="$PROJECT_DIR$/create/create.iml" />
+      <module fileurl="file://$PROJECT_DIR$/delegates/delegates.iml" filepath="$PROJECT_DIR$/delegates/delegates.iml" />
       <module fileurl="file://$PROJECT_DIR$/remote/client/remote client.iml" filepath="$PROJECT_DIR$/remote/client/remote client.iml" group="remote" />
       <module fileurl="file://$PROJECT_DIR$/remote/common/remote common.iml" filepath="$PROJECT_DIR$/remote/common/remote common.iml" group="remote" />
       <module fileurl="file://$PROJECT_DIR$/remote/server/remote server.iml" filepath="$PROJECT_DIR$/remote/server/remote server.iml" group="remote" />

@@ -24,6 +24,7 @@
 #include <SLES/OpenSLES_Android.h>
 
 #include <android_runtime/AndroidRuntime.h>
+#include <android/AudioRecordCallback.h>
 
 #define KEY_RECORDING_SOURCE_PARAMSIZE  sizeof(SLuint32)
 #define KEY_RECORDING_PRESET_PARAMSIZE  sizeof(SLuint32)
@@ -307,96 +308,58 @@ SLresult android_audioRecorder_checkSourceSink(CAudioRecorder* ar) {
     return SL_RESULT_SUCCESS;
 }
 //-----------------------------------------------------------------------------
-static void audioRecorder_callback(int event, void* user, void *info) {
+size_t audioRecorder_handleMoreData_lockRecord(CAudioRecorder* ar,
+                                               const android::AudioRecord::Buffer& buffer) {
     //SL_LOGV("audioRecorder_callback(%d, %p, %p) entering", event, user, info);
 
-    CAudioRecorder *ar = (CAudioRecorder *)user;
-
-    if (!android::CallbackProtector::enterCbIfOk(ar->mCallbackProtector)) {
-        // it is not safe to enter the callback (the track is about to go away)
-        return;
-    }
-
     void * callbackPContext = NULL;
+    size_t bytesRead = 0;
+    slBufferQueueCallback callback = NULL;
 
-    switch (event) {
-    case android::AudioRecord::EVENT_MORE_DATA: {
-        slBufferQueueCallback callback = NULL;
-        android::AudioRecord::Buffer* pBuff = (android::AudioRecord::Buffer*)info;
+    // push data to the buffer queue
+    interface_lock_exclusive(&ar->mBufferQueue);
 
-        // push data to the buffer queue
-        interface_lock_exclusive(&ar->mBufferQueue);
+    if (ar->mBufferQueue.mState.count != 0) {
+        assert(ar->mBufferQueue.mFront != ar->mBufferQueue.mRear);
 
-        if (ar->mBufferQueue.mState.count != 0) {
-            assert(ar->mBufferQueue.mFront != ar->mBufferQueue.mRear);
+        BufferHeader *oldFront = ar->mBufferQueue.mFront;
+        BufferHeader *newFront = &oldFront[1];
 
-            BufferHeader *oldFront = ar->mBufferQueue.mFront;
-            BufferHeader *newFront = &oldFront[1];
-
-            size_t availSink = oldFront->mSize - ar->mBufferQueue.mSizeConsumed;
-            size_t availSource = pBuff->size;
-            size_t bytesToCopy = availSink < availSource ? availSink : availSource;
-            void *pDest = (char *)oldFront->mBuffer + ar->mBufferQueue.mSizeConsumed;
-            memcpy(pDest, pBuff->raw, bytesToCopy);
-
-            if (bytesToCopy < availSink) {
-                // can't consume the whole or rest of the buffer in one shot
-                ar->mBufferQueue.mSizeConsumed += availSource;
-                // pBuff->size is already equal to bytesToCopy in this case
-            } else {
-                // finish pushing the buffer or push the buffer in one shot
-                pBuff->size = bytesToCopy;
-                ar->mBufferQueue.mSizeConsumed = 0;
-                if (newFront == &ar->mBufferQueue.mArray[ar->mBufferQueue.mNumBuffers + 1]) {
-                    newFront = ar->mBufferQueue.mArray;
-                }
-                ar->mBufferQueue.mFront = newFront;
-
-                ar->mBufferQueue.mState.count--;
-                ar->mBufferQueue.mState.playIndex++;
-
-                // data has been copied to the buffer, and the buffer queue state has been updated
-                // we will notify the client if applicable
-                callback = ar->mBufferQueue.mCallback;
-                // save callback data
-                callbackPContext = ar->mBufferQueue.mContext;
+        size_t availSink = oldFront->mSize - ar->mBufferQueue.mSizeConsumed;
+        size_t availSource = buffer.size();
+        size_t bytesToCopy = availSink < availSource ? availSink : availSource;
+        void *pDest = (char *)oldFront->mBuffer + ar->mBufferQueue.mSizeConsumed;
+        memcpy(pDest, buffer.data(), bytesToCopy);
+        bytesRead = bytesToCopy;
+        if (bytesToCopy < availSink) {
+            // can't consume the whole or rest of the buffer in one shot
+            ar->mBufferQueue.mSizeConsumed += availSource;
+        } else {
+            // finish pushing the buffer or push the buffer in one shot
+            ar->mBufferQueue.mSizeConsumed = 0;
+            if (newFront == &ar->mBufferQueue.mArray[ar->mBufferQueue.mNumBuffers + 1]) {
+                newFront = ar->mBufferQueue.mArray;
             }
-        } else { // empty queue
-            // no destination to push the data
-            pBuff->size = 0;
+            ar->mBufferQueue.mFront = newFront;
+
+            ar->mBufferQueue.mState.count--;
+            ar->mBufferQueue.mState.playIndex++;
+
+            // data has been copied to the buffer, and the buffer queue state has been updated
+            // we will notify the client if applicable
+            callback = ar->mBufferQueue.mCallback;
+            // save callback data
+            callbackPContext = ar->mBufferQueue.mContext;
         }
-
-        interface_unlock_exclusive(&ar->mBufferQueue);
-
-        // notify client
-        if (NULL != callback) {
-            (*callback)(&ar->mBufferQueue.mItf, callbackPContext);
-        }
-        }
-        break;
-
-    case android::AudioRecord::EVENT_OVERRUN:
-        audioRecorder_handleOverrun_lockRecord(ar);
-        break;
-
-    case android::AudioRecord::EVENT_MARKER:
-        audioRecorder_handleMarker_lockRecord(ar);
-        break;
-
-    case android::AudioRecord::EVENT_NEW_POS:
-        audioRecorder_handleNewPos_lockRecord(ar);
-        break;
-
-    case android::AudioRecord::EVENT_NEW_IAUDIORECORD:
-        // ignore for now
-        break;
-
-    default:
-        SL_LOGE("Encountered unknown AudioRecord event %d for CAudioRecord %p", event, ar);
-        break;
     }
 
-    ar->mCallbackProtector->exitCb();
+    interface_unlock_exclusive(&ar->mBufferQueue);
+
+    // notify client
+    if (NULL != callback) {
+        (*callback)(&ar->mBufferQueue.mItf, callbackPContext);
+    }
+    return bytesRead;
 }
 
 
@@ -420,6 +383,7 @@ SLresult android_audioRecorder_create(CAudioRecorder* ar) {
         // microphone to simple buffer queue
         ar->mAndroidObjType = AUDIORECORDER_FROM_MIC_TO_PCM_BUFFERQUEUE;
         ar->mAudioRecord.clear();
+        ar->mCallbackHandle.clear();
         ar->mCallbackProtector = new android::CallbackProtector();
         ar->mRecordSource = AUDIO_SOURCE_DEFAULT;
         ar->mPerformanceMode = ANDROID_PERFORMANCE_MODE_DEFAULT;
@@ -694,7 +658,7 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
     attributionSource.uid = VALUE_OR_FATAL(android::legacy2aidl_uid_t_int32_t(getuid()));
     attributionSource.pid = VALUE_OR_FATAL(android::legacy2aidl_pid_t_int32_t(getpid()));
     attributionSource.token = android::sp<android::BBinder>::make();
-
+    ar->mCallbackHandle = android::sp<android::AudioRecordCallback>::make(ar);
     // initialize platform-specific CAudioRecorder fields
     ar->mAudioRecord = new android::AudioRecord(
             ar->mRecordSource,     // source
@@ -703,8 +667,7 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
             channelMask,           // channel mask
             attributionSource,
             0,                     // frameCount
-            audioRecorder_callback,// callback_t
-            (void*)ar,             // user, callback data, here the AudioRecorder
+            ar->mCallbackHandle,
             0,                     // notificationFrames
             AUDIO_SESSION_ALLOCATE,
             android::AudioRecord::TRANSFER_CALLBACK,
@@ -721,6 +684,7 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
         // FIXME should return a more specific result depending on status
         result = SL_RESULT_CONTENT_UNSUPPORTED;
         ar->mAudioRecord.clear();
+        ar->mCallbackHandle.clear();
         return result;
     }
 
@@ -744,6 +708,7 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
             SL_LOGE("Java exception releasing recorder routing object.");
             result = SL_RESULT_INTERNAL_ERROR;
             ar->mAudioRecord.clear();
+            ar->mCallbackHandle.clear();
             return result;
         }
    }
@@ -810,6 +775,7 @@ void android_audioRecorder_destroy(CAudioRecorder* ar) {
         ar->mAudioRecord.clear();
     }
     // explicit destructor
+    ar->mCallbackHandle.~sp();
     ar->mAudioRecord.~sp();
     ar->mCallbackProtector.~sp();
 }

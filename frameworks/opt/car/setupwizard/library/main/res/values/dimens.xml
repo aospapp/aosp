@@ -27,4 +27,12 @@
     <dimen name="suw_page_margin_horizontal">112dp</dimen>
     <!-- The column inner padding of a two-column layout. N/A in portrait -->
     <dimen name="suw_column_inner_padding_horizontal">0dp</dimen>
+
+    <dimen name="sidebar_width">@dimen/suw_padding_8</dimen>
+    <dimen name="navbar_padding_start">10dp</dimen>
+    <dimen name="actionbar_height">@dimen/suw_padding_9</dimen>
+
+    <!-- Rotary focus highlight -->
+    <dimen name="suw_rotary_focus_stroke_width">8dp</dimen>
+    <dimen name="suw_rotary_focus_pressed_stroke_width">4dp</dimen>
 </resources>

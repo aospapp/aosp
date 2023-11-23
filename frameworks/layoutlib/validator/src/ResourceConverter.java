@@ -37,7 +37,7 @@ public class ResourceConverter {
      */
     public static void main(String[] args) throws Exception {
         System.out.println("Parsing input...");
-        Map<String, String> map = loadStrings("./validator/resources/values.xml");
+        Map<String, String> map = loadStrings("./validator/resources/strings.xml");
         System.out.println("Writing to output...");
         writeStrings(map, "./validator/resources/strings.properties");
         System.out.println("Finished converting.");
@@ -91,30 +91,36 @@ public class ResourceConverter {
             String name = node.getAttributes().getNamedItem("name").getNodeValue();
 
             StringBuilder valueBuilder = new StringBuilder();
-            /**
-             * This is a very hacky way to bypass "ns1:g" tag in android's .xml.
-             * Ideally we'll read the tag from the parent and apply it here, but it being the
-             * deep node list I'm not currently sure how to parse it safely. Might need to look
-             * into IntelliJ PSI tree we have in Studio. But I didn't want to add unnecessary deps
-             * to LayoutLib.
-             *
-             * It also means resource namespaces are rendered useless after conversion.
-             */
-            for (int j = 0; j < node.getChildNodes().getLength(); j++) {
-                Node child = node.getChildNodes().item(j);
-                String toAdd = null;
-                if ("ns1:g".equals(child.getNodeName())) {
-                    toAdd = child.getFirstChild().getNodeValue();
-                } else {
-                    toAdd = child.getNodeValue();
+            try {
+                /**
+                 * This is a very hacky way to bypass "ns1:g" tag in android's .xml.
+                 * Ideally we'll read the tag from the parent and apply it here, but it being the
+                 * deep node list I'm not currently sure how to parse it safely. Might need to look
+                 * into IntelliJ PSI tree we have in Studio. But I didn't want to add unnecessary
+                 * deps to LayoutLib.
+                 *
+                 * It also means resource namespaces are rendered useless after conversion.
+                 */
+                for (int j = 0; j < node.getChildNodes().getLength(); j++) {
+                    Node child = node.getChildNodes().item(j);
+                    String toAdd = null;
+                    if ("ns1:g".equals(child.getNodeName())) {
+                        toAdd = child.getFirstChild().getNodeValue();
+                    } else if ("xliff:g".equals(child.getNodeName())) {
+                        toAdd = child.getFirstChild().getNodeValue();
+                    } else {
+                        toAdd = child.getNodeValue();
+                    }
+                    // Replace all tab, newline and multi indentations.
+                    toAdd = toAdd.replaceAll("[\n\t]", "");
+                    toAdd = toAdd.replaceAll("[ ]+", " ");
+                    valueBuilder.append(toAdd);
                 }
-                // Replace all tab, newline and multi indentations.
-                toAdd = toAdd.replaceAll("[\n\t]", "");
-                toAdd = toAdd.replaceAll("[ ]+", " ");
-                valueBuilder.append(toAdd);
+                String finalString = valueBuilder.toString().trim();
+                toReturn.put(name, finalString);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            String finalString = valueBuilder.toString().trim();
-            toReturn.put(name, finalString);
         }
         return toReturn;
     }

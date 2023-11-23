@@ -55,7 +55,6 @@ cc_defaults {
 
 cc_defaults {
     name: "libmediabenchmark-defaults",
-    sdk_version: "current",
     stl: "c++_shared",
 
     shared_libs: [
@@ -93,10 +92,6 @@ cc_defaults {
     defaults: [
         "libcodec2-hidl-client-defaults",
         "libmediabenchmark_soft_sanitize_all-defaults",
-    ],
-
-    include_dirs: [
-        "frameworks/av/media/codec2/hidl/client/include",
     ],
 
     shared_libs: [

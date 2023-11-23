@@ -18,8 +18,14 @@ package com.android.libraries.entitlement;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.expectThrows;
 
+import android.content.Context;
+import android.telephony.TelephonyManager;
+
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.libraries.entitlement.eapaka.EapAkaApi;
@@ -38,13 +44,20 @@ import org.mockito.junit.MockitoRule;
 public class ServiceEntitlementTest {
     private static final String QUERY_APP_VOLTE_RESULT = "QUERY_APP_VOLTE_RESULT";
     private static final String QUERY_APP_VOWIFI_RESULT = "QUERY_APP_VOWIFI_RESULT";
+    private static final String QUERY_APP_ODSA_COMPANION_RESULT = "QUERY_APP_ODSA_COMPANION_RESULT";
+    private static final String QUERY_APP_ODSA_PRIMARY_RESULT = "QUERY_APP_ODSA_PRIMARY_RESULT";
     private static final String TEST_URL = "https://test.url";
 
-    @Rule
-    public final MockitoRule rule = MockitoJUnit.rule();
-    @Mock
-    EapAkaApi mMockEapAkaApi;
+    private static final String IMSI = "234107813240779";
+    private static final String MCCMNC = "23410";
+    private static final int SUB_ID = 1;
 
+    @Rule public final MockitoRule rule = MockitoJUnit.rule();
+    @Mock EapAkaApi mMockEapAkaApi;
+    @Mock private TelephonyManager mMockTelephonyManager;
+    @Mock private TelephonyManager mMockTelephonyManagerForSubId;
+
+    private Context mContext;
     private ServiceEntitlement mServiceEntitlement;
     private CarrierConfig mCarrierConfig;
 
@@ -52,6 +65,31 @@ public class ServiceEntitlementTest {
     public void setUp() {
         mCarrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
         mServiceEntitlement = new ServiceEntitlement(mCarrierConfig, mMockEapAkaApi);
+        mContext = spy(ApplicationProvider.getApplicationContext());
+    }
+
+    @Test
+    public void queryEntitlementStatus_noServerAddress_throwException() throws Exception {
+        CarrierConfig config = CarrierConfig.builder().build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+        ServiceEntitlement serviceEntitlement = new ServiceEntitlement(mContext, config, SUB_ID);
+        when(mContext.getSystemService(TelephonyManager.class))
+                .thenReturn(mMockTelephonyManager);
+        when(mMockTelephonyManager.createForSubscriptionId(SUB_ID))
+                .thenReturn(mMockTelephonyManagerForSubId);
+        when(mMockTelephonyManagerForSubId.getSubscriberId()).thenReturn(IMSI);
+        when(mMockTelephonyManagerForSubId.getSimOperator()).thenReturn(MCCMNC);
+
+        ServiceEntitlementException exception = expectThrows(
+                ServiceEntitlementException.class,
+                () -> serviceEntitlement.queryEntitlementStatus(
+                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI), request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(
+                ServiceEntitlementException.ERROR_SERVER_NOT_CONNECTABLE);
+        assertThat(exception.getMessage()).isEqualTo("Configure connection failed!");
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
     }
 
     @Test
@@ -78,5 +116,33 @@ public class ServiceEntitlementTest {
                         ImmutableList.of(ServiceEntitlement.APP_VOWIFI),
                         request))
                 .isEqualTo(QUERY_APP_VOWIFI_RESULT);
+    }
+
+    @Test
+    public void performEsimOdsa_appOdsaCompanion_returnResult() throws Exception {
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+        EsimOdsaOperation odsaOperation = EsimOdsaOperation.builder().build();
+        when(mMockEapAkaApi.performEsimOdsaOperation(
+                ServiceEntitlement.APP_ODSA_COMPANION, mCarrierConfig, request, odsaOperation))
+                .thenReturn(QUERY_APP_ODSA_COMPANION_RESULT);
+
+        assertThat(
+                mServiceEntitlement.performEsimOdsa(
+                        ServiceEntitlement.APP_ODSA_COMPANION, request, odsaOperation))
+                .isEqualTo(QUERY_APP_ODSA_COMPANION_RESULT);
+    }
+
+    @Test
+    public void performEsimOdsa_appOdsaPrimary_returnResult() throws Exception {
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+        EsimOdsaOperation odsaOperation = EsimOdsaOperation.builder().build();
+        when(mMockEapAkaApi.performEsimOdsaOperation(
+                ServiceEntitlement.APP_ODSA_PRIMARY, mCarrierConfig, request, odsaOperation))
+                .thenReturn(QUERY_APP_ODSA_PRIMARY_RESULT);
+
+        assertThat(
+                mServiceEntitlement.performEsimOdsa(
+                        ServiceEntitlement.APP_ODSA_PRIMARY, request, odsaOperation))
+                .isEqualTo(QUERY_APP_ODSA_PRIMARY_RESULT);
     }
 }

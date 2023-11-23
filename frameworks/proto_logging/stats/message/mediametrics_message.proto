@@ -131,7 +131,7 @@ message AudioTrackData {
  * Logged from:
  *   frameworks/av/media/libstagefright/MediaCodec.cpp
  *   frameworks/av/services/mediaanalytics/statsd_codec.cpp
- * Next Tag: 53
+ * Next Tag: 62
  */
 message CodecData {
   optional string codec = 1;
@@ -186,6 +186,15 @@ message CodecData {
   optional int32 original_video_qp_p_max = 50;
   optional int32 original_video_qp_b_min = 51;
   optional int32 original_video_qp_b_max = 52;
+  optional int32 config_color_standard = 53;
+  optional int32 config_color_range = 54;
+  optional int32 config_color_transfer = 55;
+  optional int32 parsed_color_standard = 56;
+  optional int32 parsed_color_range = 57;
+  optional int32 parsed_color_transfer = 58;
+  optional int32 hdr_static_info = 59;
+  optional int32 hdr10_plus_info = 60;
+  optional int32 hdr_format = 61;
   // !!!WARNING!!!
   // Keep synchronized with MediaCodecReported in atoms.proto
   // Also keep AStatsEvent serialization synchronized in statsd_codec.cpp

@@ -16,21 +16,31 @@
 
 package com.android.layoutlib.bridge;
 
+import com.android.ide.common.rendering.api.ILayoutLog;
+import com.android.ide.common.rendering.api.RenderParams;
 import com.android.ide.common.rendering.api.RenderSession;
 import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.Result;
 import com.android.ide.common.rendering.api.ViewInfo;
+import com.android.internal.lang.System_Delegate;
+import com.android.internal.util.ArrayUtils_Delegate;
 import com.android.layoutlib.bridge.impl.RenderSessionImpl;
-import com.android.tools.layoutlib.java.System_Delegate;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.os.Handler_Delegate;
+import android.os.SystemClock_Delegate;
+import android.view.Choreographer;
+import android.view.DisplayEventReceiver_VsyncEventData_Accessor;
+import android.view.MotionEvent;
 
 import java.awt.image.BufferedImage;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static com.android.layoutlib.bridge.impl.RenderAction.getCurrentContext;
 
 /**
  * An implementation of {@link RenderSession}.
@@ -45,6 +55,8 @@ public class BridgeRenderSession extends RenderSession {
     private final RenderSessionImpl mSession;
     @NonNull
     private Result mLastResult;
+
+    private static final Runnable NOOP_RUNNABLE = () -> { };
 
     @Override
     public Result getResult() {
@@ -120,12 +132,12 @@ public class BridgeRenderSession extends RenderSession {
 
     @Override
     public void setSystemTimeNanos(long nanos) {
-        System_Delegate.setNanosTime(nanos);
+        execute(() -> System_Delegate.setNanosTime(nanos));
     }
 
     @Override
     public void setSystemBootTimeNanos(long nanos) {
-        System_Delegate.setBootTimeNanos(nanos);
+        execute(() -> System_Delegate.setBootTimeNanos(nanos));
     }
 
     @Override
@@ -136,10 +148,71 @@ public class BridgeRenderSession extends RenderSession {
     }
 
     @Override
-    public void dispose() {
-        if (mSession != null) {
-            mSession.dispose();
+    public boolean executeCallbacks(long nanos) {
+        // Currently, Compose relies on Choreographer frame callback and Handler#postAtFrontOfQueue.
+        // Calls to Handler are handled by Handler_Delegate and can be executed by Handler_Delegate#
+        // executeCallbacks. Choreographer frame callback is handled by Choreographer#doFrame.
+        if (mSession == null) {
+            return false;
         }
+        try {
+            Bridge.prepareThread();
+            mLastResult = mSession.acquire(RenderParams.DEFAULT_TIMEOUT);
+            boolean hasMoreCallbacks = Handler_Delegate.executeCallbacks();
+            long currentTimeMs = SystemClock_Delegate.uptimeMillis();
+            getCurrentContext()
+                    .getSessionInteractiveData()
+                    .getChoreographerCallbacks()
+                    .execute(currentTimeMs, Bridge.getLog());
+            return hasMoreCallbacks;
+        } catch (Throwable t) {
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "Failed executing Choreographer#doFrame "
+                    , t, null, null);
+            return false;
+        } finally {
+            mSession.release();
+            Bridge.cleanupThread();
+        }
+    }
+
+    private static int toMotionEventType(TouchEventType eventType) {
+        switch (eventType) {
+            case PRESS:
+                return MotionEvent.ACTION_DOWN;
+            case RELEASE:
+                return MotionEvent.ACTION_UP;
+            case DRAG:
+                return MotionEvent.ACTION_MOVE;
+        }
+        throw new IllegalStateException("Unexpected touch event type: " + eventType);
+    }
+
+    @Override
+    public void triggerTouchEvent(TouchEventType type, int x, int y) {
+        execute(() -> {
+            int motionEventType = toMotionEventType(type);
+            mSession.dispatchTouchEvent(motionEventType, System_Delegate.nanoTime(), x, y);
+        });
+    }
+
+    @Override
+    public void execute(Runnable r) {
+        if (mSession != null) {
+            try {
+                Bridge.prepareThread();
+                mLastResult = mSession.acquire(RenderParams.DEFAULT_TIMEOUT);
+                r.run();
+            } finally {
+                mSession.release();
+                Bridge.cleanupThread();
+            }
+        }
+    }
+
+    @Override
+    public void dispose() {
+        execute(mSession::dispose);
+        ArrayUtils_Delegate.clearCache();
     }
 
     /*package*/ BridgeRenderSession(@Nullable RenderSessionImpl scene, @NonNull Result lastResult) {
@@ -153,7 +226,7 @@ public class BridgeRenderSession extends RenderSession {
     @Override
     public Object getValidationData() {
         if (mSession != null) {
-            return mSession.getValidatorResult();
+            return mSession.getValidatorHierarchy();
         }
         return null;
     }

@@ -125,11 +125,12 @@ inline int retrieveProgram(const char* pathname) {
 }
 
 inline int attachProgram(bpf_attach_type type, const BPF_FD_TYPE prog_fd,
-                         const BPF_FD_TYPE cg_fd) {
+                         const BPF_FD_TYPE cg_fd, uint32_t flags = 0) {
     return bpf(BPF_PROG_ATTACH, {
                                         .target_fd = BPF_FD_TO_U32(cg_fd),
                                         .attach_bpf_fd = BPF_FD_TO_U32(prog_fd),
                                         .attach_type = type,
+                                        .attach_flags = flags,
                                 });
 }
 
@@ -139,6 +140,45 @@ inline int detachProgram(bpf_attach_type type, const BPF_FD_TYPE cg_fd) {
                                         .attach_type = type,
                                 });
 }
+
+inline int detachSingleProgram(bpf_attach_type type, const BPF_FD_TYPE prog_fd,
+                               const BPF_FD_TYPE cg_fd) {
+    return bpf(BPF_PROG_DETACH, {
+                                        .target_fd = BPF_FD_TO_U32(cg_fd),
+                                        .attach_bpf_fd = BPF_FD_TO_U32(prog_fd),
+                                        .attach_type = type,
+                                });
+}
+
+// requires 4.14+ kernel
+
+#define DEFINE_BPF_GET_FD_INFO(NAME, FIELD) \
+inline int bpfGetFd ## NAME(const BPF_FD_TYPE map_fd) { \
+    struct bpf_map_info map_info = {}; \
+    union bpf_attr attr = { .info = { \
+        .bpf_fd = BPF_FD_TO_U32(map_fd), \
+        .info_len = sizeof(map_info), \
+        .info = ptr_to_u64(&map_info), \
+    }}; \
+    int rv = bpf(BPF_OBJ_GET_INFO_BY_FD, attr); \
+    if (rv) return rv; \
+    if (attr.info.info_len < offsetof(bpf_map_info, FIELD) + sizeof(map_info.FIELD)) { \
+        errno = EOPNOTSUPP; \
+        return -1; \
+    }; \
+    return map_info.FIELD; \
+}
+
+// All 6 of these fields are already present in Linux v4.14 (even ACK 4.14-P)
+// while BPF_OBJ_GET_INFO_BY_FD is not implemented at all in v4.9 (even ACK 4.9-Q)
+DEFINE_BPF_GET_FD_INFO(MapType, type)            // int bpfGetFdMapType(const BPF_FD_TYPE map_fd)
+DEFINE_BPF_GET_FD_INFO(MapId, id)                // int bpfGetFdMapId(const BPF_FD_TYPE map_fd)
+DEFINE_BPF_GET_FD_INFO(KeySize, key_size)        // int bpfGetFdKeySize(const BPF_FD_TYPE map_fd)
+DEFINE_BPF_GET_FD_INFO(ValueSize, value_size)    // int bpfGetFdValueSize(const BPF_FD_TYPE map_fd)
+DEFINE_BPF_GET_FD_INFO(MaxEntries, max_entries)  // int bpfGetFdMaxEntries(const BPF_FD_TYPE map_fd)
+DEFINE_BPF_GET_FD_INFO(MapFlags, map_flags)      // int bpfGetFdMapFlags(const BPF_FD_TYPE map_fd)
+
+#undef DEFINE_BPF_GET_FD_INFO
 
 }  // namespace bpf
 }  // namespace android

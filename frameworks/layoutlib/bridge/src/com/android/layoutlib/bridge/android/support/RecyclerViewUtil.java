@@ -20,18 +20,17 @@ import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
-import com.android.layoutlib.bridge.android.RenderParamsFlags;
-import com.android.layoutlib.bridge.util.ReflectionUtils;
-import com.android.layoutlib.bridge.util.ReflectionUtils.ReflectionException;
+import com.android.layoutlib.common.util.ReflectionUtils;
+import com.android.layoutlib.common.util.ReflectionUtils.ReflectionException;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.view.View;
 
-import static com.android.layoutlib.bridge.util.ReflectionUtils.getCause;
-import static com.android.layoutlib.bridge.util.ReflectionUtils.getMethod;
-import static com.android.layoutlib.bridge.util.ReflectionUtils.invoke;
+import static com.android.layoutlib.common.util.ReflectionUtils.getCause;
+import static com.android.layoutlib.common.util.ReflectionUtils.getMethod;
+import static com.android.layoutlib.common.util.ReflectionUtils.invoke;
 
 /**
  * Utility class for working with android.support.v7.widget.RecyclerView and
@@ -54,13 +53,20 @@ public class RecyclerViewUtil {
      */
     public static void setAdapter(@NonNull View recyclerView, @NonNull BridgeContext context,
             @NonNull LayoutlibCallback layoutlibCallback, int adapterLayout, int itemCount) {
-        String recyclerViewClassName =
+        Class<?> recyclerViewClass =
                 ReflectionUtils.getParentClass(recyclerView, RecyclerViewUtil.CN_RECYCLER_VIEW);
+        if (recyclerViewClass == null) {
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
+                    "Unable to setup RecyclerView. No parent found.", null, null, null);
+            return;
+        }
+        String recyclerViewClassName = recyclerViewClass.getName();
+        String recyclerViewPackageName = recyclerViewClass.getPackage().getName();
         String adapterClassName = recyclerViewClassName + "$Adapter";
         String layoutMgrClassName = recyclerViewClassName + "$LayoutManager";
 
         try {
-            setLayoutManager(recyclerView, layoutMgrClassName, context, layoutlibCallback);
+            setLayoutManager(recyclerView, recyclerViewPackageName, layoutMgrClassName, context, layoutlibCallback);
             Object adapter = createAdapter(layoutlibCallback, adapterClassName);
             if (adapter != null) {
                 setProperty(recyclerView, adapterClassName, adapter, "setAdapter");
@@ -78,11 +84,11 @@ public class RecyclerViewUtil {
     }
 
     private static void setLayoutManager(@NonNull View recyclerView,
+            @NonNull String recyclerViewPackageName,
             @NonNull String layoutMgrClassName, @NonNull BridgeContext context,
             @NonNull LayoutlibCallback callback) throws ReflectionException {
         if (getLayoutManager(recyclerView) == null) {
-            String linearLayoutMgrClassManager =
-                    recyclerView.getClass().getPackage().getName() + ".LinearLayoutManager";
+            String linearLayoutMgrClassManager = recyclerViewPackageName + ".LinearLayoutManager";
             // Only set the layout manager if not already set by the recycler view.
             Object layoutManager =
                     createLayoutManager(context, linearLayoutMgrClassManager, callback);
@@ -113,11 +119,6 @@ public class RecyclerViewUtil {
     @Nullable
     private static Object createAdapter(@NonNull LayoutlibCallback layoutlibCallback,
             @NonNull String adapterClassName) throws ReflectionException {
-        Boolean ideSupport =
-                layoutlibCallback.getFlag(RenderParamsFlags.FLAG_KEY_RECYCLER_VIEW_SUPPORT);
-        if (ideSupport != Boolean.TRUE) {
-            return null;
-        }
         try {
             return layoutlibCallback.loadClass(adapterClassName, new Class[0], new Object[0]);
         } catch (Exception e) {

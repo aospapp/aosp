@@ -15,13 +15,7 @@
 //
 
 package {
-    // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "frameworks_layoutlib_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    //   SPDX-license-identifier-EPL
-    default_applicable_licenses: ["frameworks_layoutlib_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_binary_host {
@@ -31,9 +25,11 @@ java_binary_host {
 
     main_class: "com.android.tools.layoutlib.create.Main",
     static_libs: [
-        "asm-6.0",
-        "asm-commons-6.0",
+        "asm-9.2",
+        "asm-commons-9.2",
         "guava",
         "layoutlib-common",
+        "layoutlib_create-classpath",
+        "atf-prebuilt-371374941",
     ],
 }

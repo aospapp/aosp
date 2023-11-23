@@ -58,26 +58,17 @@ public class BridgeXmlBlockParserTest {
         assertEquals(XmlPullParser.START_TAG, parser.next());
         assertEquals("LinearLayout", parser.getName());
 
-        assertEquals(XmlPullParser.TEXT, parser.next());
-
         assertEquals(XmlPullParser.START_TAG, parser.next());
         assertEquals("Button", parser.getName());
-        assertEquals(XmlPullParser.TEXT, parser.next());
         assertEquals(XmlPullParser.END_TAG, parser.next());
-
-        assertEquals(XmlPullParser.TEXT, parser.next());
 
         assertEquals(XmlPullParser.START_TAG, parser.next());
         assertEquals("View", parser.getName());
         assertEquals(XmlPullParser.END_TAG, parser.next());
 
-        assertEquals(XmlPullParser.TEXT, parser.next());
-
         assertEquals(XmlPullParser.START_TAG, parser.next());
         assertEquals("TextView", parser.getName());
         assertEquals(XmlPullParser.END_TAG, parser.next());
-
-        assertEquals(XmlPullParser.TEXT, parser.next());
 
         assertEquals(XmlPullParser.END_TAG, parser.next());
         assertEquals(XmlPullParser.END_DOCUMENT, parser.next());

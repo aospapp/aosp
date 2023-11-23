@@ -26,9 +26,8 @@ using android::StringPiece;
 namespace aapt {
 
 static ApiVersion sDevelopmentSdkLevel = 10000;
-static const auto sDevelopmentSdkCodeNames = std::unordered_set<StringPiece>({
-    "Q", "R", "S", "Sv2"
-});
+static const auto sDevelopmentSdkCodeNames =
+    std::unordered_set<StringPiece>({"Q", "R", "S", "Sv2", "Tiramisu"});
 
 static const std::vector<std::pair<uint16_t, ApiVersion>> sAttrIdMap = {
     {0x021c, 1},
@@ -78,9 +77,10 @@ ApiVersion FindAttributeSdkLevel(const ResourceId& id) {
   return iter->second;
 }
 
-Maybe<ApiVersion> GetDevelopmentSdkCodeNameVersion(const StringPiece& code_name) {
+std::optional<ApiVersion> GetDevelopmentSdkCodeNameVersion(const StringPiece& code_name) {
   return (sDevelopmentSdkCodeNames.find(code_name) == sDevelopmentSdkCodeNames.end())
-      ? Maybe<ApiVersion>() : sDevelopmentSdkLevel;
+             ? std::optional<ApiVersion>()
+             : sDevelopmentSdkLevel;
 }
 
 }  // namespace aapt

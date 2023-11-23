@@ -18,6 +18,7 @@ package com.android.tools.layoutlib.create;
 
 import com.android.tools.layoutlib.annotations.NotNull;
 import com.android.tools.layoutlib.create.AsmAnalyzer.Result;
+import com.android.tools.layoutlib.create.ICreateInfo.MethodReplacer;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -52,6 +53,7 @@ public class AsmGenerator {
     private Map<String, ClassReader> mKeep;
     /** All dependencies that must be completely stubbed. */
     private Map<String, ClassReader> mDeps;
+    private Map<String, ClassWriter> mDelegates = new HashMap<>();
     /** All files that are to be copied as-is. */
     private Map<String, InputStream> mCopyFiles;
     /** All classes where certain method calls need to be rewritten. */
@@ -77,8 +79,21 @@ public class AsmGenerator {
     private final Map<String, ICreateInfo.InjectMethodRunnable> mInjectedMethodsMap;
     /** A map { FQCN => set { field names } } which should be promoted to public visibility */
     private final Map<String, Set<String>> mPromotedFields;
+    /** A map { FQCN => set { method names } } which should be promoted to public visibility */
+    private final Map<String, Set<String>> mPromotedMethods;
     /** A list of classes to be promoted to public visibility */
     private final Set<String> mPromotedClasses;
+    /** A set of classes for which NOT to delegate any native method */
+    private final Set<String> mKeepNativeClasses;
+
+    private final Set<String> mDelegateAllNative;
+    /** A set of classes for which to rename static initializers */
+    private Set<String> mRenameStaticInitializerClasses;
+
+    /** A Set of methods that should be intercepted and replaced **/
+    private final Set<MethodReplacer> mMethodReplacers;
+    private boolean mKeepAllNativeClasses;
+
 
     /**
      * Creates a new generator that can generate the output JAR with the stubbed classes.
@@ -183,10 +198,26 @@ public class AsmGenerator {
         mPromotedFields = new HashMap<>();
         addToMap(createInfo.getPromotedFields(), mPromotedFields);
 
+        mPromotedMethods = new HashMap<>();
+        addToMap(createInfo.getPromotedMethods(), mPromotedMethods);
+
         mInjectedMethodsMap = createInfo.getInjectedMethodsMap();
 
         mPromotedClasses =
                 Arrays.stream(createInfo.getPromotedClasses()).collect(Collectors.toSet());
+
+        mKeepAllNativeClasses = createInfo.shouldKeepAllNativeClasses();
+
+        mKeepNativeClasses =
+                Arrays.stream(createInfo.getKeepClassNatives()).collect(Collectors.toSet());
+
+        mDelegateAllNative =
+                Arrays.stream(createInfo.getDelegateClassNativesToNatives()).collect(Collectors.toSet());
+
+        mMethodReplacers = Arrays.stream(createInfo.getMethodReplacers()).collect(Collectors.toSet());
+
+        mRenameStaticInitializerClasses =
+                Arrays.stream(createInfo.getDeferredStaticInitializerClasses()).collect(Collectors.toSet());
     }
 
     /**
@@ -259,6 +290,13 @@ public class AsmGenerator {
             all.put(name, b);
         }
 
+        for (Entry<String, ClassWriter> entry : mDelegates.entrySet()) {
+            ClassWriter value = entry.getValue();
+            value.visitEnd();
+            String name = classNameToEntryPath(entry.getKey());
+            all.put(name, value.toByteArray());
+        }
+
         for (Entry<String, InputStream> entry : mCopyFiles.entrySet()) {
             try {
                 byte[] b = inputStreamToByteArray(entry.getValue());
@@ -329,12 +367,12 @@ public class AsmGenerator {
 
         // Rewrite the new class from scratch, without reusing the constant pool from the
         // original class reader.
-        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 
         ClassVisitor cv = cw;
 
         if (mReplaceMethodCallsClasses.contains(className)) {
-            cv = new ReplaceMethodCallsAdapter(cv, className);
+            cv = new ReplaceMethodCallsAdapter(mMethodReplacers, cv, className);
         }
 
         cv = new RefactorClassAdapter(cv, mRefactorClasses);
@@ -346,11 +384,21 @@ public class AsmGenerator {
         if (mInjectedMethodsMap.keySet().contains(binaryNewName)) {
             cv = new InjectMethodsAdapter(cv, mInjectedMethodsMap.get(binaryNewName));
         }
-        cv = StubClassAdapter.builder(mLog, cv)
-                .withDeleteReturns(mDeleteReturns.get(className))
-                .withNewClassName(newName)
-                .useOnlyStubNative(stubNativesOnly)
-                .build();
+
+        if (mDelegateAllNative.contains(binaryNewName)) {
+            Set<String> delegateMethods = mDelegateMethods.remove(className);
+            if (delegateMethods != null && !delegateMethods.isEmpty()) {
+                cv = new DelegateClassAdapter(mLog, cv, className, delegateMethods);
+            }
+            cv = new DelegateToNativeAdapter(mLog, cv, className, mDelegates, delegateMethods);
+        }
+        else if (!mKeepAllNativeClasses && !mKeepNativeClasses.contains(binaryNewName)) {
+            cv = StubClassAdapter.builder(mLog, cv)
+                    .withDeleteReturns(mDeleteReturns.get(className))
+                    .withNewClassName(newName)
+                    .useOnlyStubNative(stubNativesOnly)
+                    .build();
+        }
 
         Set<String> delegateMethods = mDelegateMethods.get(className);
         if (delegateMethods != null && !delegateMethods.isEmpty()) {
@@ -367,8 +415,16 @@ public class AsmGenerator {
         if (promoteFields != null && !promoteFields.isEmpty()) {
             cv = new PromoteFieldClassAdapter(cv, promoteFields);
         }
+        Set<String> promoteMethods = mPromotedMethods.get(className);
+        if (promoteMethods != null && !promoteMethods.isEmpty()) {
+            cv = new PromoteMethodClassAdapter(cv, promoteMethods);
+        }
         if (!mPromotedClasses.isEmpty()) {
             cv = new PromoteClassClassAdapter(cv, mPromotedClasses);
+        }
+
+        if (mRenameStaticInitializerClasses.contains(binaryNewName)) {
+            cv = new DeferStaticInitializerClassAdapter(cv);
         }
 
         // Make sure no class file has a version above 55 (corresponding to Java 11),

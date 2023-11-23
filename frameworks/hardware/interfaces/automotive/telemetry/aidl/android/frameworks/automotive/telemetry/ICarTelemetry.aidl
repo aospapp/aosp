@@ -27,11 +27,10 @@ interface ICarTelemetry {
   /**
    * Sends a list of CarData to CarTelemetry.
    *
-   * <p>Total `dataList` size is limited to 10KB, if it's larger than that, all the data is dropped.
-   * Note that Binder has 1MB data limit from all the clients combined, please keep that in
+   * <p>Note that Binder has 1MB data limit from all the clients combined, please keep that in
    * mind when writing frequent data.
    *
-   * @throws {@code Parcel#EX_ILLEGAL_ARGUMENT} if {@code dataList} is too large.
+   * @throws IllegalArgumentException if total {@code dataList#content} size is more than 10KB.
    */
   void write(in CarData[] dataList);
 }

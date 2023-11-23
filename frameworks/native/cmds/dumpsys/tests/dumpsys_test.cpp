@@ -60,6 +60,12 @@ class ServiceManagerMock : public IServiceManager {
     MOCK_METHOD1(isDeclared, bool(const String16&));
     MOCK_METHOD1(getDeclaredInstances, Vector<String16>(const String16&));
     MOCK_METHOD1(updatableViaApex, std::optional<String16>(const String16&));
+    MOCK_METHOD1(getConnectionInfo, std::optional<ConnectionInfo>(const String16&));
+    MOCK_METHOD2(registerForNotifications, status_t(const String16&,
+                                             const sp<LocalRegistrationCallback>&));
+    MOCK_METHOD2(unregisterForNotifications, status_t(const String16&,
+                                             const sp<LocalRegistrationCallback>&));
+    MOCK_METHOD0(getServiceDebugInfo, std::vector<ServiceDebugInfo>());
   protected:
     MOCK_METHOD0(onAsBinder, IBinder*());
 };
@@ -200,7 +206,7 @@ class DumpsysTest : public Test {
         CaptureStdout();
         CaptureStderr();
         dump_.setServiceArgs(args, supportsProto, priorityFlags);
-        status_t status = dump_.startDumpThread(Dumpsys::Type::DUMP, serviceName, args);
+        status_t status = dump_.startDumpThread(Dumpsys::TYPE_DUMP, serviceName, args);
         EXPECT_THAT(status, Eq(0));
         status = dump_.writeDump(STDOUT_FILENO, serviceName, std::chrono::milliseconds(500), false,
                                  elapsedDuration, bytesWritten);
@@ -582,6 +588,27 @@ TEST_F(DumpsysTest, ListServiceWithPid) {
     AssertOutput(std::to_string(getpid()) + "\n");
 }
 
+// Tests 'dumpsys --stability'
+TEST_F(DumpsysTest, ListAllServicesWithStability) {
+    ExpectListServices({"Locksmith", "Valet"});
+    ExpectCheckService("Locksmith");
+    ExpectCheckService("Valet");
+
+    CallMain({"--stability"});
+
+    AssertRunningServices({"Locksmith", "Valet"});
+    AssertOutputContains("stability");
+}
+
+// Tests 'dumpsys --stability service_name'
+TEST_F(DumpsysTest, ListServiceWithStability) {
+    ExpectCheckService("Locksmith");
+
+    CallMain({"--stability", "Locksmith"});
+
+    AssertOutputContains("stability");
+}
+
 // Tests 'dumpsys --thread'
 TEST_F(DumpsysTest, ListAllServicesWithThread) {
     ExpectListServices({"Locksmith", "Valet"});
@@ -604,6 +631,51 @@ TEST_F(DumpsysTest, ListServiceWithThread) {
     // returns an empty string without root enabled
     const std::string format("(^$|Threads in use: [0-9]/[0-9]+\n)");
     AssertOutputFormat(format);
+}
+
+// Tests 'dumpsys --clients'
+TEST_F(DumpsysTest, ListAllServicesWithClients) {
+    ExpectListServices({"Locksmith", "Valet"});
+    ExpectCheckService("Locksmith");
+    ExpectCheckService("Valet");
+
+    CallMain({"--clients"});
+
+    AssertRunningServices({"Locksmith", "Valet"});
+
+    const std::string format("(.|\n)*((Client PIDs are not available for local binders.)(.|\n)*){2}");
+    AssertOutputFormat(format);
+}
+
+// Tests 'dumpsys --clients service_name'
+TEST_F(DumpsysTest, ListServiceWithClients) {
+    ExpectCheckService("Locksmith");
+
+    CallMain({"--clients", "Locksmith"});
+
+    const std::string format("Client PIDs are not available for local binders.\n");
+    AssertOutputFormat(format);
+}
+// Tests 'dumpsys --thread --stability'
+TEST_F(DumpsysTest, ListAllServicesWithMultipleOptions) {
+    ExpectListServices({"Locksmith", "Valet"});
+    ExpectCheckService("Locksmith");
+    ExpectCheckService("Valet");
+
+    CallMain({"--pid", "--stability"});
+    AssertRunningServices({"Locksmith", "Valet"});
+
+    AssertOutputContains(std::to_string(getpid()));
+    AssertOutputContains("stability");
+}
+
+// Tests 'dumpsys --pid --stability service_name'
+TEST_F(DumpsysTest, ListServiceWithMultipleOptions) {
+    ExpectCheckService("Locksmith");
+    CallMain({"--pid", "--stability", "Locksmith"});
+
+    AssertOutputContains(std::to_string(getpid()));
+    AssertOutputContains("stability");
 }
 
 TEST_F(DumpsysTest, GetBytesWritten) {

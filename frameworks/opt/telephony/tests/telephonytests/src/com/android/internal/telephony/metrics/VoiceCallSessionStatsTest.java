@@ -18,6 +18,13 @@ package com.android.internal.telephony.metrics;
 
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_CS;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_IMS;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_FIVE_MINUTES;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_ONE_HOUR;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_ONE_MINUTE;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_TEN_MINUTES;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_THIRTY_MINUTES;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_MORE_THAN_ONE_HOUR;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_UNKNOWN;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__DIRECTION__CALL_DIRECTION_MO;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__DIRECTION__CALL_DIRECTION_MT;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
@@ -36,6 +43,7 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -68,13 +76,13 @@ import com.android.internal.telephony.nano.TelephonyProto.TelephonyCallSession.E
 import com.android.internal.telephony.protobuf.nano.MessageNano;
 import com.android.internal.telephony.uicc.IccCardStatus.CardState;
 import com.android.internal.telephony.uicc.UiccCard;
+import com.android.internal.telephony.uicc.UiccPort;
 import com.android.internal.telephony.uicc.UiccSlot;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,25 +94,25 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
     private static final int CARRIER_ID_SLOT_0 = 1;
     private static final int CARRIER_ID_SLOT_1 = 1187;
 
-    @Mock private Phone mSecondPhone;
-    @Mock private ServiceStateTracker mSecondServiceStateTracker;
-    @Mock private ServiceState mSecondServiceState;
-
-    @Mock private UiccSlot mPhysicalSlot;
-    @Mock private UiccSlot mEsimSlot;
-    @Mock private UiccSlot mEmptySlot;
-    @Mock private UiccCard mInactiveCard;
-    @Mock private UiccCard mActiveCard;
-
-    @Mock private ImsPhoneConnection mImsConnection0;
-    @Mock private ImsPhoneConnection mImsConnection1;
-    @Mock private GsmCdmaConnection mGsmConnection0;
-    @Mock private GsmCdmaConnection mGsmConnection1;
-
-    @Mock private GsmCdmaCall mCsCall0;
-    @Mock private GsmCdmaCall mCsCall1;
-    @Mock private ImsPhoneCall mImsCall0;
-    @Mock private ImsPhoneCall mImsCall1;
+    // Mocked classes
+    private Phone mSecondPhone;
+    private ServiceStateTracker mSecondServiceStateTracker;
+    private ServiceState mSecondServiceState;
+    private UiccSlot mPhysicalSlot;
+    private UiccSlot mEsimSlot;
+    private UiccSlot mEmptySlot;
+    private UiccCard mInactiveCard;
+    private UiccCard mActiveCard;
+    private UiccPort mInactivePort;
+    private UiccPort mActivePort;
+    private ImsPhoneConnection mImsConnection0;
+    private ImsPhoneConnection mImsConnection1;
+    private GsmCdmaConnection mGsmConnection0;
+    private GsmCdmaConnection mGsmConnection1;
+    private GsmCdmaCall mCsCall0;
+    private GsmCdmaCall mCsCall1;
+    private ImsPhoneCall mImsCall0;
+    private ImsPhoneCall mImsCall1;
 
     private static class TestableVoiceCallSessionStats extends VoiceCallSessionStats {
         private long mTimeMillis = 0L;
@@ -133,6 +141,24 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mSecondPhone = mock(Phone.class);
+        mSecondServiceStateTracker = mock(ServiceStateTracker.class);
+        mSecondServiceState = mock(ServiceState.class);
+        mPhysicalSlot = mock(UiccSlot.class);
+        mEsimSlot = mock(UiccSlot.class);
+        mEmptySlot = mock(UiccSlot.class);
+        mInactiveCard = mock(UiccCard.class);
+        mActiveCard = mock(UiccCard.class);
+        mInactivePort = mock(UiccPort.class);
+        mActivePort = mock(UiccPort.class);
+        mImsConnection0 = mock(ImsPhoneConnection.class);
+        mImsConnection1 = mock(ImsPhoneConnection.class);
+        mGsmConnection0 = mock(GsmCdmaConnection.class);
+        mGsmConnection1 = mock(GsmCdmaConnection.class);
+        mCsCall0 = mock(GsmCdmaCall.class);
+        mCsCall1 = mock(GsmCdmaCall.class);
+        mImsCall0 = mock(ImsPhoneCall.class);
+        mImsCall1 = mock(ImsPhoneCall.class);
 
         replaceInstance(PhoneFactory.class, "sPhones", null, new Phone[] {mPhone, mSecondPhone});
         doReturn(CARRIER_ID_SLOT_0).when(mPhone).getCarrierId();
@@ -155,8 +181,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         doReturn(true).when(mEsimSlot).isActive();
         doReturn(CardState.CARDSTATE_PRESENT).when(mEsimSlot).getCardState();
         doReturn(true).when(mEsimSlot).isEuicc();
-        doReturn(0).when(mInactiveCard).getNumApplications();
-        doReturn(4).when(mActiveCard).getNumApplications();
+        doReturn(0).when(mInactivePort).getNumApplications();
+        doReturn(4).when(mActivePort).getNumApplications();
 
         doReturn(new UiccSlot[] {mPhysicalSlot}).when(mUiccController).getUiccSlots();
         doReturn(mPhysicalSlot).when(mUiccController).getUiccSlot(eq(0));
@@ -182,6 +208,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
 
     @After
     public void tearDown() throws Exception {
+        mVoiceCallSessionStats0 = null;
+        mVoiceCallSessionStats1 = null;
         super.tearDown();
     }
 
@@ -191,6 +219,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         setServiceState(mServiceState, TelephonyManager.NETWORK_TYPE_LTE);
         doReturn(false).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
+        doReturn(0L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -208,6 +237,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_SUPER_WIDEBAND;
         expectedCall.ratAtConnected = TelephonyManager.NETWORK_TYPE_UNKNOWN;
+        expectedCall.callDuration = VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_UNKNOWN;
         VoiceCallRatUsage expectedRatUsage =
                 makeRatUsageProto(
                         CARRIER_ID_SLOT_0, TelephonyManager.NETWORK_TYPE_LTE, 2000L, 12000L, 1L);
@@ -244,6 +274,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         setServiceState(mServiceState, TelephonyManager.NETWORK_TYPE_LTE);
         doReturn(false).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
+        doReturn(0L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -254,6 +285,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
                         ImsReasonInfo.CODE_SIP_FORBIDDEN);
         expectedCall.setupFailed = true;
         expectedCall.ratAtConnected = TelephonyManager.NETWORK_TYPE_UNKNOWN;
+        expectedCall.callDuration = VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_UNKNOWN;
         VoiceCallRatUsage expectedRatUsage =
                 makeRatUsageProto(
                         CARRIER_ID_SLOT_0, TelephonyManager.NETWORK_TYPE_LTE, 2000L, 2200L, 1L);
@@ -283,6 +315,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         setServiceState(mServiceState, TelephonyManager.NETWORK_TYPE_LTE);
         doReturn(false).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
+        doReturn(1000L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -299,6 +332,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_SUPER_WIDEBAND;
         expectedCall.disconnectExtraMessage = "normal call clearing";
+        expectedCall.callDuration =
+                VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_ONE_MINUTE;
         VoiceCallRatUsage expectedRatUsage =
                 makeRatUsageProto(
                         CARRIER_ID_SLOT_0, TelephonyManager.NETWORK_TYPE_LTE, 2000L, 100000L, 1L);
@@ -341,6 +376,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         setServiceState(mServiceState, TelephonyManager.NETWORK_TYPE_LTE);
         doReturn(true).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
+        doReturn(0L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -354,6 +390,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.codecBitmask = 1L << AudioCodec.AUDIO_CODEC_AMR;
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
+        expectedCall.callDuration = VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_UNKNOWN;
         VoiceCallRatUsage expectedRatUsage =
                 makeRatUsageProto(
                         CARRIER_ID_SLOT_0, TelephonyManager.NETWORK_TYPE_LTE, 2000L, 8000L, 1L);
@@ -387,6 +424,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         doReturn(true).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
+        doReturn(60006L).when(mImsConnection0).getDurationMillis();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
                 makeSlot0CallProto(
@@ -401,6 +439,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.codecBitmask = 1L << AudioCodec.AUDIO_CODEC_AMR;
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
+        expectedCall.callDuration =
+                VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_FIVE_MINUTES;
         VoiceCallRatUsage expectedRatUsage =
                 makeRatUsageProto(
                         CARRIER_ID_SLOT_0, TelephonyManager.NETWORK_TYPE_LTE, 2000L, 12000L, 1L);
@@ -437,6 +477,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
     @SmallTest
     public void singleImsCall_dsdsModeSingleSim() {
         doReturn(mInactiveCard).when(mEsimSlot).getUiccCard();
+        doReturn(new UiccPort[]{mInactivePort}).when(mInactiveCard).getUiccPortList();
         doReturn(new UiccSlot[] {mPhysicalSlot, mEsimSlot}).when(mUiccController).getUiccSlots();
         doReturn(mEsimSlot).when(mUiccController).getUiccSlot(eq(1));
         doReturn(mEsimSlot).when(mUiccController).getUiccSlotForPhone(eq(1));
@@ -481,6 +522,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
     @SmallTest
     public void singleImsCall_dsdsMode() {
         doReturn(mActiveCard).when(mEsimSlot).getUiccCard();
+        doReturn(new UiccPort[]{mActivePort}).when(mActiveCard).getUiccPortList();
         doReturn(new UiccSlot[] {mPhysicalSlot, mEsimSlot}).when(mUiccController).getUiccSlots();
         doReturn(mEsimSlot).when(mUiccController).getUiccSlot(eq(1));
         doReturn(mEsimSlot).when(mUiccController).getUiccSlotForPhone(eq(1));
@@ -525,6 +567,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
     @SmallTest
     public void singleImsCall_esim() {
         doReturn(mActiveCard).when(mEsimSlot).getUiccCard();
+        doReturn(new UiccPort[]{mActivePort}).when(mActiveCard).getUiccPortList();
         doReturn(new UiccSlot[] {mPhysicalSlot, mEsimSlot}).when(mUiccController).getUiccSlots();
         doReturn(mEsimSlot).when(mUiccController).getUiccSlot(eq(1));
         doReturn(mEsimSlot).when(mUiccController).getUiccSlotForPhone(eq(1));
@@ -652,6 +695,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         setServiceState(mServiceState, TelephonyManager.NETWORK_TYPE_LTE);
         doReturn(true).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
+        doReturn(300000L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -668,6 +712,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
                 1L << AudioCodec.AUDIO_CODEC_AMR | 1L << AudioCodec.AUDIO_CODEC_EVS_SWB;
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
+        expectedCall.callDuration =
+                VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_TEN_MINUTES;
 
         mVoiceCallSessionStats0.setTimeMillis(2000L);
         doReturn(Call.State.INCOMING).when(mImsCall0).getState();
@@ -703,6 +749,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         setServiceState(mServiceState, TelephonyManager.NETWORK_TYPE_LTE);
         doReturn(true).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
+        doReturn(600001L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -721,6 +768,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.ratSwitchCount = 2L;
         expectedCall.ratAtEnd = TelephonyManager.NETWORK_TYPE_UMTS;
         expectedCall.bandAtEnd = 0;
+        expectedCall.callDuration =
+                VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_THIRTY_MINUTES;
         VoiceCallRatUsage expectedRatUsageLte =
                 makeRatUsageProto(
                         CARRIER_ID_SLOT_0, TelephonyManager.NETWORK_TYPE_LTE, 2000L, 4000L, 1L);
@@ -775,6 +824,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         doReturn(true).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
         doReturn(true).when(mImsConnection0).hasRttTextStream();
+        doReturn(1800001L).when(mImsConnection0).getDurationMillis();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
@@ -789,6 +839,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
         expectedCall.rttEnabled = true;
+        expectedCall.callDuration =
+                VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_LESS_THAN_ONE_HOUR;
 
         mVoiceCallSessionStats0.setTimeMillis(2000L);
         doReturn(Call.State.INCOMING).when(mImsCall0).getState();
@@ -816,6 +868,7 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         doReturn(true).when(mImsConnection0).isIncoming();
         doReturn(2000L).when(mImsConnection0).getCreateTime();
         doReturn(mImsCall0).when(mImsConnection0).getCall();
+        doReturn(3600005L).when(mImsConnection0).getDurationMillis();
         doReturn(new ArrayList(List.of(mImsConnection0))).when(mImsCall0).getConnections();
         VoiceCallSession expectedCall =
                 makeSlot0CallProto(
@@ -831,6 +884,8 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         expectedCall.mainCodecQuality =
                 VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
         expectedCall.rttEnabled = true;
+        expectedCall.callDuration =
+                VOICE_CALL_SESSION__CALL_DURATION__CALL_DURATION_MORE_THAN_ONE_HOUR;
 
         mVoiceCallSessionStats0.setTimeMillis(2000L);
         doReturn(Call.State.INCOMING).when(mImsCall0).getState();
@@ -2017,7 +2072,14 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         doReturn(rat).when(mock).getVoiceNetworkType();
         doReturn(rat).when(mock).getDataNetworkType();
         NetworkRegistrationInfo regInfo =
-                new NetworkRegistrationInfo.Builder().setAccessNetworkTechnology(rat).build();
+                new NetworkRegistrationInfo.Builder()
+                        .setAccessNetworkTechnology(rat)
+                        .setRegistrationState(
+                                rat == TelephonyManager.NETWORK_TYPE_UNKNOWN
+                                        ? NetworkRegistrationInfo
+                                                .REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING
+                                        : NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                        .build();
         doReturn(regInfo).when(mock)
                 .getNetworkRegistrationInfo(
                         anyInt(), eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN));
@@ -2027,7 +2089,14 @@ public class VoiceCallSessionStatsTest extends TelephonyTest {
         doReturn(rat).when(mock).getVoiceNetworkType();
         doReturn(TelephonyManager.NETWORK_TYPE_IWLAN).when(mock).getDataNetworkType();
         NetworkRegistrationInfo wwanRegInfo =
-                new NetworkRegistrationInfo.Builder().setAccessNetworkTechnology(rat).build();
+                new NetworkRegistrationInfo.Builder()
+                        .setAccessNetworkTechnology(rat)
+                        .setRegistrationState(
+                                rat == TelephonyManager.NETWORK_TYPE_UNKNOWN
+                                        ? NetworkRegistrationInfo
+                                                .REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING
+                                        : NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                        .build();
         doReturn(wwanRegInfo).when(mock)
                 .getNetworkRegistrationInfo(
                         anyInt(), eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN));

@@ -353,7 +353,7 @@ void RsdCpuScriptIntrinsicResize::kernelU4(const RsExpandKernelDriverInfo *info,
     const uchar4 *yp2 = (const uchar4 *)(pin + stride * ys2);
     const uchar4 *yp3 = (const uchar4 *)(pin + stride * ys3);
 
-    uchar4 *out = ((uchar4 *)info->outPtr[0]) + xstart;
+    uchar4 *out = ((uchar4 *)info->outPtr[0]);
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -430,7 +430,7 @@ void RsdCpuScriptIntrinsicResize::kernelU2(const RsExpandKernelDriverInfo *info,
     const uchar2 *yp2 = (const uchar2 *)(pin + stride * ys2);
     const uchar2 *yp3 = (const uchar2 *)(pin + stride * ys3);
 
-    uchar2 *out = ((uchar2 *)info->outPtr[0]) + xstart;
+    uchar2 *out = ((uchar2 *)info->outPtr[0]);
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -508,7 +508,7 @@ void RsdCpuScriptIntrinsicResize::kernelU1(const RsExpandKernelDriverInfo *info,
     const uchar *yp2 = pin + stride * ys2;
     const uchar *yp3 = pin + stride * ys3;
 
-    uchar *out = ((uchar *)info->outPtr[0]) + xstart;
+    uchar *out = ((uchar *)info->outPtr[0]);
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -586,7 +586,7 @@ void RsdCpuScriptIntrinsicResize::kernelF4(const RsExpandKernelDriverInfo *info,
     const float4 *yp2 = (const float4 *)(pin + stride * ys2);
     const float4 *yp3 = (const float4 *)(pin + stride * ys3);
 
-    float4 *out = ((float4 *)info->outPtr[0]) + xstart;
+    float4 *out = ((float4 *)info->outPtr[0]);
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -638,7 +638,7 @@ void RsdCpuScriptIntrinsicResize::kernelF2(const RsExpandKernelDriverInfo *info,
     const float2 *yp2 = (const float2 *)(pin + stride * ys2);
     const float2 *yp3 = (const float2 *)(pin + stride * ys3);
 
-    float2 *out = ((float2 *)info->outPtr[0]) + xstart;
+    float2 *out = ((float2 *)info->outPtr[0]);
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -690,7 +690,7 @@ void RsdCpuScriptIntrinsicResize::kernelF1(const RsExpandKernelDriverInfo *info,
     const float *yp2 = (const float *)(pin + stride * ys2);
     const float *yp3 = (const float *)(pin + stride * ys3);
 
-    float *out = ((float *)info->outPtr[0]) + xstart;
+    float *out = ((float *)info->outPtr[0]);
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 

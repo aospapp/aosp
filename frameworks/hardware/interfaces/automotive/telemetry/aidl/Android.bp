@@ -32,6 +32,12 @@ aidl_interface {
             enabled: true,
         },
         java: {
+	    sdk_version: "module_current",
+            min_sdk_version: "31",
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.car.framework",
+            ],
             enabled: false,
         },
         ndk: {

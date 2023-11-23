@@ -42,7 +42,7 @@ public class NopCanvas extends Canvas {
     public boolean isHardwareAccelerated() {
         // We return true the first time so there are no allocations for the software renderer in
         // the constructor
-        return !mIsInitialized;
+        return false;
     }
 
     @Override
@@ -303,5 +303,10 @@ public class NopCanvas extends Canvas {
 
     @Override
     public void drawPicture(Picture picture, Rect dst) {
+    }
+
+    @Override
+    public boolean quickReject(float left, float top, float right, float bottom) {
+        return false;
     }
 }

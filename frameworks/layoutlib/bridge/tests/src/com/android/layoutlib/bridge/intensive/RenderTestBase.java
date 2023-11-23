@@ -25,9 +25,9 @@ import com.android.ide.common.resources.deprecated.FrameworkResources;
 import com.android.ide.common.resources.deprecated.ResourceItem;
 import com.android.ide.common.resources.deprecated.ResourceRepository;
 import com.android.ide.common.resources.deprecated.TestFolderWrapper;
+import com.android.internal.lang.System_Delegate;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.RenderParamsFlags;
-import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.layoutlib.bridge.intensive.setup.ConfigGenerator;
 import com.android.layoutlib.bridge.intensive.setup.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
@@ -35,8 +35,6 @@ import com.android.layoutlib.bridge.intensive.util.ImageUtils;
 import com.android.layoutlib.bridge.intensive.util.ModuleClassLoader;
 import com.android.layoutlib.bridge.intensive.util.SessionParamsBuilder;
 import com.android.layoutlib.bridge.intensive.util.TestAssetRepository;
-import com.android.layoutlib.bridge.intensive.util.TestUtils;
-import com.android.tools.layoutlib.java.System_Delegate;
 import com.android.utils.ILogger;
 
 import org.junit.AfterClass;
@@ -48,6 +46,7 @@ import org.junit.runner.Description;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.view.Choreographer;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -56,10 +55,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import com.google.android.collect.Lists;
-import com.google.common.collect.ImmutableMap;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
@@ -99,9 +98,16 @@ public class RenderTestBase {
          */
         void beforeDisposed(RenderSession session);
     }
+
+    private static final String NATIVE_LIB_PATH_PROPERTY = "native.lib.path";
+    private static final String FONT_DIR_PROPERTY = "font.dir";
+    private static final String ICU_DATA_PATH_PROPERTY = "icu.data.path";
     private static final String PLATFORM_DIR_PROPERTY = "platform.dir";
     private static final String RESOURCE_DIR_PROPERTY = "test_res.dir";
 
+    private static final String NATIVE_LIB_DIR_PATH;
+    private static final String FONT_DIR;
+    private static final String ICU_DATA_PATH;
     protected static final String PLATFORM_DIR;
     private static final String TEST_RES_DIR;
     /** Location of the app to test inside {@link #TEST_RES_DIR} */
@@ -128,6 +134,10 @@ public class RenderTestBase {
                     PLATFORM_DIR_PROPERTY, System.getProperty(PLATFORM_DIR_PROPERTY)));
         }
 
+        NATIVE_LIB_DIR_PATH = getNativeLibDirPath();
+        FONT_DIR = getFontDir();
+        ICU_DATA_PATH = getIcuDataPath();
+
         TEST_RES_DIR = getTestResDir();
         if (TEST_RES_DIR == null) {
             fail(String.format("System property %1$s.dir not properly set. The value is %2$s",
@@ -147,7 +157,55 @@ public class RenderTestBase {
         }
     };
 
+    @Rule
+    public TestWatcher sMemoryLeakChecker = new TestWatcher() {
+        @Override
+        protected void succeeded(Description description) {
+            for (int i = Choreographer.CALLBACK_INPUT; i <= Choreographer.CALLBACK_COMMIT; ++i) {
+                if (Choreographer.getInstance().mCallbackQueues[i].mHead != null) {
+                    fail("Memory leak: leftover frame callbacks are detected in Choreographer");
+                }
+            }
+        }
+    };
+
     protected ClassLoader mDefaultClassLoader;
+
+    private static String getNativeLibDirPath() {
+        String nativeLibDirPath = System.getProperty(NATIVE_LIB_PATH_PROPERTY);
+        if (nativeLibDirPath != null) {
+            File nativeLibDir = new File(nativeLibDirPath);
+            if (nativeLibDir.isDirectory()) {
+                nativeLibDirPath = nativeLibDir.getAbsolutePath();
+            } else {
+                nativeLibDirPath = null;
+            }
+        }
+        if (nativeLibDirPath == null) {
+            nativeLibDirPath = PLATFORM_DIR + "/../../../../../lib64/";
+        }
+        return nativeLibDirPath;
+    }
+
+    private static String getFontDir() {
+        String fontDir = System.getProperty(FONT_DIR_PROPERTY);
+        if (fontDir == null) {
+            // The fonts are built into out/host/common/obj/PACKAGING/fonts_intermediates
+            // as specified in build/make/core/layoutlib_fonts.mk, and PLATFORM_DIR is
+            // out/host/[arch]/sdk/sdk*/android-sdk*/platforms/android*
+            fontDir = PLATFORM_DIR +
+                    "/../../../../../../common/obj/PACKAGING/fonts_intermediates";
+        }
+        return fontDir;
+    }
+
+    private static String getIcuDataPath() {
+        String icuDataPath = System.getProperty(ICU_DATA_PATH_PROPERTY);
+        if (icuDataPath == null) {
+            icuDataPath = PLATFORM_DIR + "/../../../../../com.android.i18n/etc/icu/icudt70l.dat";
+        }
+        return icuDataPath;
+    }
 
     private static String getPlatformDir() {
         String platformDir = System.getProperty(PLATFORM_DIR_PROPERTY);
@@ -318,15 +376,12 @@ public class RenderTestBase {
                 };
         sProjectResources.loadResources();
 
-        // The fonts are built into out/host/common/obj/PACKAGING/sdk-fonts_intermediates as specified in
-        // build/make/core/sdk_font.mk, and PLATFORM_DIR is out/host/[arch]/sdk/sdk*/android-sdk*/platforms/android*
-        File fontLocation = new File(PLATFORM_DIR,
-                "../../../../../../common/obj/PACKAGING/sdk-fonts_intermediates");
+        File fontLocation = new File(FONT_DIR);
         File buildProp = new File(PLATFORM_DIR, "build.prop");
         File attrs = new File(res, "values" + File.separator + "attrs.xml");
         sBridge = new Bridge();
-        sBridge.init(ConfigGenerator.loadProperties(buildProp), fontLocation, null, null,
-                ConfigGenerator.getEnumMap(attrs), getLayoutLog());
+        sBridge.init(ConfigGenerator.loadProperties(buildProp), fontLocation, NATIVE_LIB_DIR_PATH,
+                ICU_DATA_PATH, ConfigGenerator.getEnumMap(attrs), getLayoutLog());
         Bridge.getLock().lock();
         try {
             Bridge.setLog(getLayoutLog());
@@ -342,11 +397,6 @@ public class RenderTestBase {
         sProjectResources = null;
         sLogger = null;
         sBridge = null;
-
-        TestUtils.gc();
-
-        System.out.println("Objects still linked from the DelegateManager:");
-        DelegateManager.dump(System.out);
     }
 
     @NonNull
@@ -399,7 +449,14 @@ public class RenderTestBase {
      */
     protected static void verify(@NonNull String goldenImageName, @NonNull BufferedImage image) {
         try {
-            String goldenImagePath = APP_TEST_DIR + "/golden/" + goldenImageName;
+            boolean isMac = System.getProperty("os.name").toLowerCase(Locale.US).contains("mac");
+            String goldenImagePath = APP_TEST_DIR;
+            if (isMac) {
+                goldenImagePath += "/golden-mac/";
+            } else {
+                goldenImagePath += "/golden/";
+            }
+            goldenImagePath += goldenImageName;
             ImageUtils.requireSimilar(goldenImagePath, image);
         } catch (IOException e) {
             getLogger().error(e, e.getMessage());
@@ -430,14 +487,15 @@ public class RenderTestBase {
     @Nullable
     protected static RenderResult renderAndVerify(SessionParams params, String goldenFileName)
             throws ClassNotFoundException {
-        return RenderTestBase.renderAndVerify(params, goldenFileName, -1);
+        return RenderTestBase.renderAndVerify(params, goldenFileName, TimeUnit.SECONDS.toNanos(2));
     }
 
     protected static ILayoutLog getLayoutLog() {
         if (sLayoutLibLog == null) {
             sLayoutLibLog = new ILayoutLog() {
                 @Override
-                public void warning(String tag, String message, Object cookie, Object data) {
+                public void warning(@Nullable String tag, @NonNull String message, @Nullable Object viewCookie,
+                        @Nullable Object data) {
                     System.out.println("Warning " + tag + ": " + message);
                     failWithMsg(message);
                 }
@@ -454,19 +512,25 @@ public class RenderTestBase {
                 }
 
                 @Override
-                public void error(String tag, String message, Object cookie, Object data) {
+                public void error(@Nullable String tag, @NonNull String message, @Nullable Object viewCookie,
+                        @Nullable Object data) {
                     System.out.println("Error " + tag + ": " + message);
                     failWithMsg(message);
                 }
 
                 @Override
-                public void error(String tag, String message, Throwable throwable, Object cookie,
-                        Object data) {
+                public void error(@Nullable String tag, @NonNull String message, @Nullable Throwable throwable,
+                        @Nullable Object viewCookie, @Nullable Object data) {
                     System.out.println("Error " + tag + ": " + message);
                     if (throwable != null) {
                         throwable.printStackTrace();
                     }
                     failWithMsg(message);
+                }
+
+                @Override
+                public void logAndroidFramework(int priority, String tag, String message) {
+                    System.out.println("Android framework message " + tag + ": " + message);
                 }
             };
         }

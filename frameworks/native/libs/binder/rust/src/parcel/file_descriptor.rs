@@ -15,7 +15,7 @@
  */
 
 use super::{
-    Deserialize, DeserializeArray, DeserializeOption, Parcel, Serialize, SerializeArray,
+    Deserialize, DeserializeArray, DeserializeOption, BorrowedParcel, Serialize, SerializeArray,
     SerializeOption,
 };
 use crate::binder::AsNative;
@@ -23,7 +23,7 @@ use crate::error::{status_result, Result, StatusCode};
 use crate::sys;
 
 use std::fs::File;
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 /// Rust version of the Java class android.os.ParcelFileDescriptor
 #[derive(Debug)]
@@ -48,8 +48,30 @@ impl From<ParcelFileDescriptor> for File {
     }
 }
 
+impl AsRawFd for ParcelFileDescriptor {
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.as_raw_fd()
+    }
+}
+
+impl IntoRawFd for ParcelFileDescriptor {
+    fn into_raw_fd(self) -> RawFd {
+        self.0.into_raw_fd()
+    }
+}
+
+impl PartialEq for ParcelFileDescriptor {
+    // Since ParcelFileDescriptors own the FD, if this function ever returns true (and it is used to
+    // compare two different objects), then it would imply that an FD is double-owned.
+    fn eq(&self, other: &Self) -> bool {
+        self.as_raw_fd() == other.as_raw_fd()
+    }
+}
+
+impl Eq for ParcelFileDescriptor {}
+
 impl Serialize for ParcelFileDescriptor {
-    fn serialize(&self, parcel: &mut Parcel) -> Result<()> {
+    fn serialize(&self, parcel: &mut BorrowedParcel<'_>) -> Result<()> {
         let fd = self.0.as_raw_fd();
         let status = unsafe {
             // Safety: `Parcel` always contains a valid pointer to an
@@ -66,7 +88,7 @@ impl Serialize for ParcelFileDescriptor {
 impl SerializeArray for ParcelFileDescriptor {}
 
 impl SerializeOption for ParcelFileDescriptor {
-    fn serialize_option(this: Option<&Self>, parcel: &mut Parcel) -> Result<()> {
+    fn serialize_option(this: Option<&Self>, parcel: &mut BorrowedParcel<'_>) -> Result<()> {
         if let Some(f) = this {
             f.serialize(parcel)
         } else {
@@ -82,10 +104,8 @@ impl SerializeOption for ParcelFileDescriptor {
     }
 }
 
-impl SerializeArray for Option<ParcelFileDescriptor> {}
-
 impl DeserializeOption for ParcelFileDescriptor {
-    fn deserialize_option(parcel: &Parcel) -> Result<Option<Self>> {
+    fn deserialize_option(parcel: &BorrowedParcel<'_>) -> Result<Option<Self>> {
         let mut fd = -1i32;
         unsafe {
             // Safety: `Parcel` always contains a valid pointer to an
@@ -114,10 +134,8 @@ impl DeserializeOption for ParcelFileDescriptor {
     }
 }
 
-impl DeserializeArray for Option<ParcelFileDescriptor> {}
-
 impl Deserialize for ParcelFileDescriptor {
-    fn deserialize(parcel: &Parcel) -> Result<Self> {
+    fn deserialize(parcel: &BorrowedParcel<'_>) -> Result<Self> {
         Deserialize::deserialize(parcel)
             .transpose()
             .unwrap_or(Err(StatusCode::UNEXPECTED_NULL))

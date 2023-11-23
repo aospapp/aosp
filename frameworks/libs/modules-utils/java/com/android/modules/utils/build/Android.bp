@@ -17,29 +17,22 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_defaults {
+    name: "modules-utils-build-defaults",
+    defaults: ["modules-utils-defaults"],
+    srcs: ["*.java"],
+    libs: ["androidx.annotation_annotation"],
+    defaults_visibility: ["//visibility:private"],
+}
+
 java_library {
     name: "modules-utils-build",
-    srcs: ["SdkLevel.java"],
-    libs: ["androidx.annotation_annotation"],
-    sdk_version: "module_current",
-    min_sdk_version: "29",
-    visibility: ["//visibility:public"],
-    apex_available: [
-        "//apex_available:anyapex",
-        "//apex_available:platform",
-    ],
+    defaults: ["modules-utils-build-defaults"],
 }
 
 // For modules which use system sdk
 java_library {
     name: "modules-utils-build_system",
-    srcs: ["SdkLevel.java"],
-    libs: ["androidx.annotation_annotation"],
+    defaults: ["modules-utils-build-defaults"],
     sdk_version: "system_current",
-    min_sdk_version: "29",
-    visibility: ["//visibility:public"],
-    apex_available: [
-        "//apex_available:anyapex",
-        "//apex_available:platform",
-    ],
 }

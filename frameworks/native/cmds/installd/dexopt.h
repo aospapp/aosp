@@ -88,20 +88,17 @@ bool create_profile_snapshot(int32_t app_id,
                              const std::string& profile_name,
                              const std::string& classpath);
 
-bool dump_profiles(int32_t uid,
-                   const std::string& pkgname,
-                   const std::string& profile_name,
-                   const std::string& code_path);
+bool dump_profiles(int32_t uid, const std::string& pkgname, const std::string& profile_name,
+                   const std::string& code_path, bool dump_classes_and_methods);
 
 bool copy_system_profile(const std::string& system_profile,
                          uid_t packageUid,
                          const std::string& pkgname,
                          const std::string& profile_name);
 
-// Prepare the app profile for the given code path:
-//  - create the current profile using profile_name
-//  - merge the profile from the dex metadata file (if present) into
-//    the reference profile.
+// Prepares the app profile for the package at the given path:
+// - Creates the current profile for the given user ID, unless the user ID is `USER_NULL`.
+// - Merges the profile from the dex metadata file (if present) into the reference profile.
 bool prepare_app_profile(const std::string& package_name,
                          userid_t user_id,
                          appid_t app_id,
@@ -121,11 +118,18 @@ bool hash_secondary_dex_file(const std::string& dex_path,
         const std::string& pkgname, int uid, const std::optional<std::string>& volume_uuid,
         int storage_flag, std::vector<uint8_t>* out_secondary_dex_hash);
 
+// completed pass false if it is canceled. Otherwise it will be true even if there is other
+// error.
 int dexopt(const char *apk_path, uid_t uid, const char *pkgName, const char *instruction_set,
         int dexopt_needed, const char* oat_dir, int dexopt_flags, const char* compiler_filter,
         const char* volume_uuid, const char* class_loader_context, const char* se_info,
         bool downgrade, int target_sdk_version, const char* profile_name,
-        const char* dexMetadataPath, const char* compilation_reason, std::string* error_msg);
+        const char* dexMetadataPath, const char* compilation_reason, std::string* error_msg,
+        /* out */ bool* completed = nullptr);
+
+bool is_dexopt_blocked();
+
+void control_dexopt_blocking(bool block);
 
 bool calculate_oat_file_path_default(char path[PKG_PATH_MAX], const char *oat_dir,
         const char *apk_path, const char *instruction_set);
@@ -145,6 +149,12 @@ const char* select_execution_binary(
         bool is_debug_runtime,
         bool is_release,
         bool is_debuggable_build);
+
+// Returns `ODEX_NOT_FOUND` if the optimized artifacts are not found, or `ODEX_IS_PUBLIC` if the
+// optimized artifacts are accessible by all apps, or `ODEX_IS_PRIVATE` if the optimized artifacts
+// are only accessible by this app, or -1 if failed to get the visibility of the optimized
+// artifacts.
+int get_odex_visibility(const char* apk_path, const char* instruction_set, const char* oat_dir);
 
 }  // namespace installd
 }  // namespace android

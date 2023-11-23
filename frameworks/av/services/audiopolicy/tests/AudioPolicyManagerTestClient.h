@@ -103,6 +103,11 @@ public:
         ++mAudioPortListUpdateCount;
     }
 
+    status_t setDeviceConnectedState(
+            const struct audio_port_v7 *port __unused, bool connected __unused) override {
+        return NO_ERROR;
+    }
+
     // Helper methods for tests
     size_t getActivePatchesCount() const { return mActivePatches.size(); }
 
@@ -133,7 +138,12 @@ public:
     }
 
     size_t getRoutingUpdatedCounter() const {
-        return mRoutingUpdatedUpdateCount; }
+        return mRoutingUpdatedUpdateCount;
+    }
+
+    void onVolumeRangeInitRequest() override {
+
+    }
 
     status_t updateSecondaryOutputs(
             const TrackSecondaryOutputsMap& trackSecondaryOutputs __unused) override {

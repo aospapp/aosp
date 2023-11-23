@@ -28,7 +28,7 @@ static void BM_WordBreaker_English(benchmark::State& state) {
             "eiusmod tempor incididunt ut labore et dolore magna aliqua.";
 
     WordBreaker wb;
-    wb.followingWithLocale(Locale("en-US"), 0);
+    wb.followingWithLocale(Locale("en-US"), LineBreakStyle::None, LineBreakWordStyle::None, 0);
     std::vector<uint16_t> text = utf8ToUtf16(kLoremIpsum);
     while (state.KeepRunning()) {
         wb.setText(text.data(), text.size());

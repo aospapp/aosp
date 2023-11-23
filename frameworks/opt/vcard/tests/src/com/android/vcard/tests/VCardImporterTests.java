@@ -555,6 +555,34 @@ public class VCardImporterTests extends VCardTestsBase {
         testComplicatedCase_Parsing(V21, R.raw.v21_complicated);
     }
 
+    public void testV30adr_types_various() {
+        mVerifier.initForImportTest(V30, R.raw.v30_adr_types);
+        ContentValuesVerifierElem elem = mVerifier.addContentValuesVerifierElem();
+        elem.addExpected(StructuredName.CONTENT_ITEM_TYPE)
+                .put(StructuredName.FAMILY_NAME, "Familyname")
+                .put(StructuredName.GIVEN_NAME, "Givenname")
+                .put(StructuredName.DISPLAY_NAME, "Givenname Familyname");
+        elem.addExpected(StructuredPostal.CONTENT_ITEM_TYPE)
+                .put(StructuredPostal.TYPE, StructuredPostal.TYPE_WORK)
+                .put(StructuredPostal.STREET,
+                        "1010 Technology Pkwy, Silicon City, Somecountry")
+                .put(StructuredPostal.FORMATTED_ADDRESS,
+                        "1010 Technology Pkwy, Silicon City, Somecountry");
+        elem.addExpected(StructuredPostal.CONTENT_ITEM_TYPE)
+                .put(StructuredPostal.TYPE, StructuredPostal.TYPE_OTHER)
+                .put(StructuredPostal.STREET,
+                        "123 Main St, Anytown, Anywhere")
+                .put(StructuredPostal.FORMATTED_ADDRESS,
+                        "123 Main St, Anytown, Anywhere");
+        elem.addExpected(StructuredPostal.CONTENT_ITEM_TYPE)
+                .put(StructuredPostal.TYPE, StructuredPostal.TYPE_CUSTOM)
+                .put(StructuredPostal.LABEL, "School")
+                .put(StructuredPostal.STREET,
+                        "112358 Academic Lane, College Town, Someplace Great")
+                .put(StructuredPostal.FORMATTED_ADDRESS,
+                        "112358 Academic Lane, College Town, Someplace Great");
+    }
+
     public void testV30ComplicatedCase_Parsing() {
         testComplicatedCase_Parsing(V30, R.raw.v30_complicated);
     }

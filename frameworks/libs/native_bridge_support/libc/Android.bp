@@ -82,7 +82,7 @@ cc_library {
 
             shared: {
                 // For backwards-compatibility, some arm32 builtins are exported from libc.so.
-                static_libs: ["libclang_rt.builtins-arm-android-exported"],
+                static_libs: ["libclang_rt.builtins-exported"],
             },
 
             // Arm 32 bit does not produce complete exidx unwind information

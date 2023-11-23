@@ -109,13 +109,18 @@ TEST(LocaleTest, getStringTest) {
     EXPECT_EQ("de-Latn-DE-1901", createLocale("de-1901").getString());
     EXPECT_EQ("de-Latn-DE-1996", createLocale("de-DE-1996").getString());
 
-    // Line Break subtag
-    EXPECT_EQ("ja-Jpan-JP-u-lb-loose", createLocale("ja-JP-u-lb-loose").getString());
-    EXPECT_EQ("ja-Jpan-JP-u-lb-normal", createLocale("ja-JP-u-lb-normal").getString());
-    EXPECT_EQ("ja-Jpan-JP-u-lb-strict", createLocale("ja-JP-u-lb-strict").getString());
-    EXPECT_EQ("ja-Jpan-JP-u-lb-loose", createLocale("ja-JP-u-lb-loose-em-emoji").getString());
-    EXPECT_EQ("ja-Jpan-JP-u-lb-strict", createLocale("ja-JP-u-em-default-lb-strict").getString());
+    // Line Break subtag is dropped from getString().
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-loose").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-normal").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-strict").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-loose-em-emoji").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-em-default-lb-strict").getString());
     EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-bogus").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lw-phrase").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-normal-lw-phrase").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-strict-lw-phrase").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-lb-loose-lw-phrase-em-emoji").getString());
+    EXPECT_EQ("ja-Jpan-JP", createLocale("ja-JP-u-em-default-lb-strict-lw-phrase").getString());
 
     // Emoji subtag is dropped from getString().
     EXPECT_EQ("es-Latn-419", createLocale("es-419-u-em-emoji").getString());
@@ -123,6 +128,29 @@ TEST(LocaleTest, getStringTest) {
 
     // This is not a necessary desired behavior, just known behavior.
     EXPECT_EQ("en-Latn-US", createLocale("und-Abcdefgh").getString());
+}
+
+TEST(LocaleTest, getStringWithLineBreakOptionTest) {
+    EXPECT_EQ("en-Latn-US", createLocale("en").getStringWithLineBreakOption(
+                                    LineBreakStyle::None, LineBreakWordStyle::None));
+    EXPECT_EQ("en-Latn-US-u-lb-loose", createLocale("en").getStringWithLineBreakOption(
+                                               LineBreakStyle::Loose, LineBreakWordStyle::None));
+    EXPECT_EQ("en-Latn-US-u-lb-normal", createLocale("en").getStringWithLineBreakOption(
+                                                LineBreakStyle::Normal, LineBreakWordStyle::None));
+    EXPECT_EQ("en-Latn-US-u-lb-strict", createLocale("en").getStringWithLineBreakOption(
+                                                LineBreakStyle::Strict, LineBreakWordStyle::None));
+
+    EXPECT_EQ("en-Latn-US-u-lw-phrase", createLocale("en").getStringWithLineBreakOption(
+                                                LineBreakStyle::None, LineBreakWordStyle::Phrase));
+    EXPECT_EQ("en-Latn-US-u-lb-loose-lw-phrase",
+              createLocale("en").getStringWithLineBreakOption(LineBreakStyle::Loose,
+                                                              LineBreakWordStyle::Phrase));
+    EXPECT_EQ("en-Latn-US-u-lb-normal-lw-phrase",
+              createLocale("en").getStringWithLineBreakOption(LineBreakStyle::Normal,
+                                                              LineBreakWordStyle::Phrase));
+    EXPECT_EQ("en-Latn-US-u-lb-strict-lw-phrase",
+              createLocale("en").getStringWithLineBreakOption(LineBreakStyle::Strict,
+                                                              LineBreakWordStyle::Phrase));
 }
 
 TEST(LocaleTest, invalidLanguageTagTest) {  // just make sure no crash happens
@@ -287,14 +315,13 @@ TEST(LocaleTest, ScriptMatchTest) {
     };
 
     for (const auto& testCase : testCases) {
-        hb_script_t script = hb_script_from_iso15924_tag(
-                HB_TAG(testCase.requestedScript[0], testCase.requestedScript[1],
-                       testCase.requestedScript[2], testCase.requestedScript[3]));
+        uint32_t script = HB_TAG(testCase.requestedScript[0], testCase.requestedScript[1],
+                                 testCase.requestedScript[2], testCase.requestedScript[3]);
         if (testCase.isSupported) {
-            EXPECT_TRUE(createLocale(testCase.baseScript).supportsHbScript(script))
+            EXPECT_TRUE(createLocale(testCase.baseScript).supportsScript(script))
                     << testCase.baseScript << " should support " << testCase.requestedScript;
         } else {
-            EXPECT_FALSE(createLocale(testCase.baseScript).supportsHbScript(script))
+            EXPECT_FALSE(createLocale(testCase.baseScript).supportsScript(script))
                     << testCase.baseScript << " shouldn't support " << testCase.requestedScript;
         }
     }

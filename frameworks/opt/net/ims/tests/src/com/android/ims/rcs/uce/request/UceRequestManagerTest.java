@@ -17,6 +17,7 @@
 package com.android.ims.rcs.uce.request;
 
 import static android.telephony.ims.RcsContactUceCapability.CAPABILITY_MECHANISM_PRESENCE;
+import static android.telephony.ims.RcsContactUceCapability.SOURCE_TYPE_CACHED;
 
 import static com.android.ims.rcs.uce.request.UceRequestCoordinator.REQUEST_UPDATE_CACHED_CAPABILITY_UPDATE;
 import static com.android.ims.rcs.uce.request.UceRequestCoordinator.REQUEST_UPDATE_CAPABILITY_UPDATE;
@@ -49,12 +50,15 @@ import androidx.test.filters.SmallTest;
 import com.android.ims.ImsTestBase;
 import com.android.ims.rcs.uce.UceController;
 import com.android.ims.rcs.uce.UceController.UceControllerCallback;
+import com.android.ims.rcs.uce.eab.EabCapabilityResult;
 import com.android.ims.rcs.uce.request.UceRequestManager.RequestManagerCallback;
 import com.android.ims.rcs.uce.request.UceRequestManager.UceUtilsProxy;
 import com.android.ims.rcs.uce.util.FeatureTags;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.After;
 import org.junit.Before;
@@ -130,6 +134,116 @@ public class UceRequestManagerTest extends ImsTestBase {
 
         verify(mUceRequest, never()).executeRequest();
         verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+    }
+
+    /**
+     * Test cache hit shortcut, where we return valid cache results when they exist before adding
+     * the request to the queue.
+     */
+    @Test
+    @SmallTest
+    public void testCacheHitShortcut() throws Exception {
+        UceRequestManager requestManager = getUceRequestManager();
+        requestManager.setsUceUtilsProxy(getUceUtilsProxy(true, true, true, false, true, 10));
+        Handler handler = requestManager.getUceRequestHandler();
+
+        List<Uri> uriList = new ArrayList<>();
+        uriList.add(Uri.fromParts("sip", "test", null));
+
+        // Simulate a cache entry for each item in the uriList
+        List<EabCapabilityResult> cachedNumbers = uriList.stream().map(uri ->
+                        new EabCapabilityResult(uri, EabCapabilityResult.EAB_QUERY_SUCCESSFUL,
+                                new RcsContactUceCapability.PresenceBuilder(uri,
+                                        CAPABILITY_MECHANISM_PRESENCE, SOURCE_TYPE_CACHED).build()))
+                .collect(Collectors.toList());
+        doReturn(cachedNumbers).when(mCallback).getCapabilitiesFromCache(uriList);
+
+        requestManager.sendCapabilityRequest(uriList, false, mCapabilitiesCallback);
+        waitForHandlerAction(handler, 500L);
+        // Extract caps from EabCapabilityResult and ensure the Lists match.
+        verify(mCapabilitiesCallback).onCapabilitiesReceived(
+                cachedNumbers.stream().map(EabCapabilityResult::getContactCapabilities).collect(
+                Collectors.toList()));
+        verify(mCapabilitiesCallback).onComplete();
+        // The cache should have been hit, so no network requests should have been generated.
+        verify(mRequestRepository, never()).addRequestCoordinator(any());
+    }
+
+    /**
+     * Test cache hit shortcut, but in this case the cache result was expired. This should generate
+     * a network request.
+     */
+    @Test
+    @SmallTest
+    public void testCacheExpiredShortcut() throws Exception {
+        UceRequestManager requestManager = getUceRequestManager();
+        requestManager.setsUceUtilsProxy(getUceUtilsProxy(true, true, true, false, true, 10));
+        Handler handler = requestManager.getUceRequestHandler();
+
+        List<Uri> uriList = new ArrayList<>();
+        uriList.add(Uri.fromParts("sip", "test", null));
+
+        // Simulate a cache entry for each item in the uriList
+        List<EabCapabilityResult> cachedNumbers = uriList.stream().map(uri ->
+                        new EabCapabilityResult(uri,
+                                EabCapabilityResult.EAB_CONTACT_EXPIRED_FAILURE,
+                                new RcsContactUceCapability.PresenceBuilder(uri,
+                                        CAPABILITY_MECHANISM_PRESENCE, SOURCE_TYPE_CACHED).build()))
+                .collect(Collectors.toList());
+        doReturn(cachedNumbers).when(mCallback).getCapabilitiesFromCache(uriList);
+
+        requestManager.sendCapabilityRequest(uriList, false, mCapabilitiesCallback);
+        waitForHandlerAction(handler, 500L);
+        // Extract caps from EabCapabilityResult and ensure the Lists match.
+        verify(mCapabilitiesCallback, never()).onCapabilitiesReceived(any());
+        verify(mCapabilitiesCallback, never()).onComplete();
+        // A network request should have been generated for the expired contact.
+        verify(mRequestRepository).addRequestCoordinator(any());
+    }
+
+    /**
+     * Test cache hit shortcut, where we return valid cache results when they exist before adding
+     * the request to the queue. This case also tests the case where one entry of requested caps is
+     * in the cache and the other isn't. We should receive a response for cached caps immediately
+     * and generate a network request for the one that isnt.
+     */
+    @Test
+    @SmallTest
+    public void testCacheHitShortcutForSubsetOfCaps() throws Exception {
+        UceRequestManager requestManager = getUceRequestManager();
+        requestManager.setsUceUtilsProxy(getUceUtilsProxy(true, true, true, false, true, 10));
+        Handler handler = requestManager.getUceRequestHandler();
+
+        List<Uri> uriList = new ArrayList<>();
+        Uri uri1 = Uri.fromParts("sip", "cachetest", null);
+        uriList.add(uri1);
+
+        // Simulate a cache entry for each item in the uriList
+        List<EabCapabilityResult> cachedNumbers = new ArrayList<>();
+        EabCapabilityResult cachedItem = new EabCapabilityResult(uri1,
+                EabCapabilityResult.EAB_QUERY_SUCCESSFUL,
+                new RcsContactUceCapability.PresenceBuilder(uri1, CAPABILITY_MECHANISM_PRESENCE,
+                        SOURCE_TYPE_CACHED).build());
+        cachedNumbers.add(cachedItem);
+
+        // Add an entry that is not part of cache
+        Uri uri2 = Uri.fromParts("sip", "nettest", null);
+        uriList.add(uri2);
+        cachedNumbers.add(new EabCapabilityResult(uri2,
+                EabCapabilityResult.EAB_CONTACT_NOT_FOUND_FAILURE,
+                new RcsContactUceCapability.PresenceBuilder(uri2, CAPABILITY_MECHANISM_PRESENCE,
+                        SOURCE_TYPE_CACHED).build()));
+        doReturn(cachedNumbers).when(mCallback).getCapabilitiesFromCache(uriList);
+
+        requestManager.sendCapabilityRequest(uriList, false, mCapabilitiesCallback);
+        waitForHandlerAction(handler, 500L);
+        // Extract caps from EabCapabilityResult and ensure the Lists match.
+        verify(mCapabilitiesCallback).onCapabilitiesReceived(
+                Collections.singletonList(cachedItem.getContactCapabilities()));
+        verify(mCapabilitiesCallback, never()).onComplete();
+        // The cache should have been hit, but there was also entry that was not in the cache, so
+        // ensure that is requested.
+        verify(mRequestRepository).addRequestCoordinator(any());
     }
 
     @Test

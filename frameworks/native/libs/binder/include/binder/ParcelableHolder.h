@@ -42,6 +42,7 @@ public:
         }
         mStability = other.mStability;
     }
+    ParcelableHolder(ParcelableHolder&& other) = default;
 
     status_t writeToParcel(Parcel* parcel) const override;
     status_t readFromParcel(const Parcel* parcel) override;
@@ -85,7 +86,7 @@ public:
                 *ret = nullptr;
                 return android::BAD_VALUE;
             }
-            *ret = std::shared_ptr<T>(mParcelable, reinterpret_cast<T*>(mParcelable.get()));
+            *ret = std::static_pointer_cast<T>(mParcelable);
             return android::OK;
         }
         this->mParcelPtr->setDataPosition(0);
@@ -104,7 +105,7 @@ public:
             return status;
         }
         this->mParcelPtr = nullptr;
-        *ret = std::shared_ptr<T>(mParcelable, reinterpret_cast<T*>(mParcelable.get()));
+        *ret = std::static_pointer_cast<T>(mParcelable);
         return android::OK;
     }
 

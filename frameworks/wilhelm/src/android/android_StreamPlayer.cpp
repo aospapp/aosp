@@ -23,9 +23,8 @@
 #include <media/IMediaPlayerService.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/MediaKeys.h>
+#include <mpeg2ts/ATSParser.h>
 #include <binder/IPCThreadState.h>
-
-#include <ATSParser.h>
 
 //--------------------------------------------------------------------------------------------------
 namespace android {

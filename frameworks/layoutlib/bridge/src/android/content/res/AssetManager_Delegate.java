@@ -21,6 +21,8 @@ import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 
 import android.util.SparseArray;
 
+import libcore.util.NativeAllocationRegistry_Delegate;
+
 /**
  * Delegate used to provide implementation of a select few native methods of {@link AssetManager}
  * <p/>
@@ -34,6 +36,7 @@ public class AssetManager_Delegate {
 
     private static final DelegateManager<AssetManager_Delegate> sManager =
             new DelegateManager<>(AssetManager_Delegate.class);
+    private static long sFinalizer = -1;
 
     // ---- delegate methods. ----
 
@@ -55,8 +58,14 @@ public class AssetManager_Delegate {
     }
 
     @LayoutlibDelegate
-    /*package*/ static void nativeThemeDestroy(long theme) {
-        Resources_Theme_Delegate.getDelegateManager().removeJavaReferenceFor(theme);
+    /*package*/ static long nativeGetThemeFreeFunction() {
+        synchronized (AssetManager_Delegate.class) {
+            if (sFinalizer == -1) {
+                sFinalizer = NativeAllocationRegistry_Delegate.createFinalizer(
+                        Resources_Theme_Delegate.getDelegateManager()::removeJavaReferenceFor);
+            }
+        }
+        return sFinalizer;
     }
 
     @LayoutlibDelegate
@@ -71,8 +80,6 @@ public class AssetManager_Delegate {
     }
 
     @LayoutlibDelegate
-    /*package*/ static String[] nativeCreateIdmapsForStaticOverlaysTargetingAndroid() {
-        // AssetManager requires this not to be null
-        return new String[0];
-    }
+    /*package*/ static void createSystemAssetsInZygoteLocked(boolean reinitialize,
+            String frameworkPath) { }
 }

@@ -18,10 +18,12 @@
 #include "hwbinder.h"
 #include "util.h"
 
+#include <android-base/hex.h>
 #include <android-base/logging.h>
 #include <hwbinder/Parcel.h>
 
 using ::android::status_t;
+using ::android::base::HexString;
 
 // TODO: support scatter-gather types
 
@@ -70,13 +72,13 @@ std::vector<ParcelRead<::android::hardware::Parcel>> HWBINDER_PARCEL_READ_FUNCTI
         FUZZ_LOG() << "about to read";
         std::vector<uint8_t> data (length);
         status_t status = p.read(data.data(), length);
-        FUZZ_LOG() << "read status: " << status << " data: " << hexString(data.data(), data.size());
+        FUZZ_LOG() << "read status: " << status << " data: " << HexString(data.data(), data.size());
     },
     [] (const ::android::hardware::Parcel& p, uint8_t length) {
         FUZZ_LOG() << "about to read";
         std::vector<uint8_t> data (length);
         const void* inplace = p.readInplace(length);
-        FUZZ_LOG() << "read status: " << hexString(inplace, length);
+        FUZZ_LOG() << "read status: " << (inplace ? HexString(inplace, length) : "null");
     },
     PARCEL_READ_WITH_STATUS(int8_t, readInt8),
     PARCEL_READ_WITH_STATUS(uint8_t, readUint8),
@@ -100,7 +102,7 @@ std::vector<ParcelRead<::android::hardware::Parcel>> HWBINDER_PARCEL_READ_FUNCTI
         FUZZ_LOG() << "about to readString16Inplace";
         size_t outSize = 0;
         const char16_t* str = p.readString16Inplace(&outSize);
-        FUZZ_LOG() << "readString16Inplace: " << hexString(str, sizeof(char16_t) * outSize);
+        FUZZ_LOG() << "readString16Inplace: " << HexString(str, sizeof(char16_t) * outSize);
     },
     PARCEL_READ_OPT_STATUS(::android::sp<::android::hardware::IBinder>, readStrongBinder),
     PARCEL_READ_WITH_STATUS(::android::sp<::android::hardware::IBinder>, readNullableStrongBinder),
@@ -148,28 +150,6 @@ std::vector<ParcelRead<::android::hardware::Parcel>> HWBINDER_PARCEL_READ_FUNCTI
         // should be null since we don't create any IPC objects
         CHECK(data == nullptr) << data;
     },
-    [] (const ::android::hardware::Parcel& p, uint8_t size) {
-        FUZZ_LOG() << "about to readEmbeddedNativeHandle";
-        size_t parent_buffer_handle = size & 0xf;
-        size_t parent_offset = size >> 4;
-        const native_handle_t* handle = nullptr;
-        status_t status = p.readEmbeddedNativeHandle(parent_buffer_handle, parent_offset, &handle);
-        FUZZ_LOG() << "readEmbeddedNativeHandle status: " << status << " handle: " << handle << " handle: " << handle;
-
-        // should be null since we don't create any IPC objects
-        CHECK(handle == nullptr) << handle;
-    },
-    [] (const ::android::hardware::Parcel& p, uint8_t size) {
-        FUZZ_LOG() << "about to readNullableEmbeddedNativeHandle";
-        size_t parent_buffer_handle = size & 0xf;
-        size_t parent_offset = size >> 4;
-        const native_handle_t* handle = nullptr;
-        status_t status = p.readNullableEmbeddedNativeHandle(parent_buffer_handle, parent_offset, &handle);
-        FUZZ_LOG() << "readNullableEmbeddedNativeHandle status: " << status << " handle: " << handle << " handle: " << handle;
-
-        // should be null since we don't create any IPC objects
-        CHECK(handle == nullptr) << handle;
-    },
     [] (const ::android::hardware::Parcel& p, uint8_t /*data*/) {
         FUZZ_LOG() << "about to readNativeHandleNoDup";
         const native_handle_t* handle = nullptr;
@@ -179,15 +159,6 @@ std::vector<ParcelRead<::android::hardware::Parcel>> HWBINDER_PARCEL_READ_FUNCTI
         // should be null since we don't create any IPC objects
         CHECK(handle == nullptr) << handle;
         CHECK(status != ::android::OK);
-    },
-    [] (const ::android::hardware::Parcel& p, uint8_t /*data*/) {
-        FUZZ_LOG() << "about to readNullableNativeHandleNoDup";
-        const native_handle_t* handle = nullptr;
-        status_t status = p.readNullableNativeHandleNoDup(&handle);
-        FUZZ_LOG() << "readNullableNativeHandleNoDup status: " << status << " handle: " << handle;
-
-        // should be null since we don't create any IPC objects
-        CHECK(handle == nullptr) << handle;
     },
 };
 // clang-format on

@@ -31,7 +31,8 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Bitmap_Delegate;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapFactory.Options;
 import android.graphics.drawable.BitmapDrawable;
 import android.widget.ImageView;
 
@@ -81,12 +82,10 @@ public class SysUiResources {
             // look for a cached bitmap
             Bitmap bitmap = Bridge.getCachedBitmap(path, Boolean.TRUE /*isFramework*/);
             if (bitmap == null) {
-                try {
-                    bitmap = Bitmap_Delegate.createBitmap(stream, false /*isMutable*/, density);
-                    Bridge.setCachedBitmap(path, bitmap, Boolean.TRUE /*isFramework*/);
-                } catch (IOException e) {
-                    return imageView;
-                }
+                Options options = new Options();
+                options.inDensity = density.getDpiValue();
+                bitmap = BitmapFactory.decodeStream(stream, null, options);
+                Bridge.setCachedBitmap(path, bitmap, Boolean.TRUE /*isFramework*/);
             }
 
             if (bitmap != null) {

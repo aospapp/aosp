@@ -114,6 +114,7 @@ cc_binary {
         "libmediautils",
         "libutils",
         "mediametricsservice-aidl-cpp",
+        "packagemanager_aidl-cpp",
     ],
     header_libs: [
         "libaudioutils_headers",
@@ -172,11 +173,22 @@ cc_library {
         "libstatspull",
         "libstatssocket",
         "libutils",
+        "packagemanager_aidl-cpp",
     ],
 
     export_shared_lib_headers: [
         "libstatspull",
         "libstatssocket",
+    ],
+
+    // within the library, we use "xxx.h"
+    local_include_dirs: [
+        "include/mediametricsservice",
+    ],
+
+    // external parties use <mediametricsservice/xxx.h>
+    export_include_dirs: [
+        "include",
     ],
 
     static_libs: [
@@ -185,9 +197,6 @@ cc_library {
 
     header_libs: [
         "libaaudio_headers",
-    ],
-
-    include_dirs: [
-        "system/media/audio_utils/include",
+        "libaudioutils_headers",
     ],
 }

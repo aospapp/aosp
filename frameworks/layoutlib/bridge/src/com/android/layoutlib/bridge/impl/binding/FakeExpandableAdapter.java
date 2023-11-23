@@ -20,9 +20,9 @@ import com.android.ide.common.rendering.api.AdapterBinding;
 import com.android.ide.common.rendering.api.DataBindingItem;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.ResourceReference;
-import com.android.utils.Pair;
 
 import android.database.DataSetObserver;
+import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ExpandableListAdapter;
@@ -135,8 +135,8 @@ public class FakeExpandableAdapter implements ExpandableListAdapter, Heterogeneo
         AdapterItem item = mItems.get(groupPosition);
         Pair<View, Boolean> pair = AdapterHelper.getView(item, null /*parentItem*/, parent,
                 mCallback, mAdapterRef, mSkipCallbackParser);
-        mSkipCallbackParser = pair.getSecond();
-        return pair.getFirst();
+        mSkipCallbackParser = pair.second;
+        return pair.first;
     }
 
     @Override
@@ -147,8 +147,8 @@ public class FakeExpandableAdapter implements ExpandableListAdapter, Heterogeneo
         AdapterItem item = getChildItem(groupPosition, childPosition);
         Pair<View, Boolean> pair = AdapterHelper.getView(item, parentItem, parent, mCallback,
                 mAdapterRef, mSkipCallbackParser);
-        mSkipCallbackParser = pair.getSecond();
-        return pair.getFirst();
+        mSkipCallbackParser = pair.second;
+        return pair.first;
     }
 
     @Override

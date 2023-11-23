@@ -18,7 +18,7 @@ package com.android.layoutlib.bridge.android.support;
 
 import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
-import com.android.layoutlib.bridge.util.ReflectionUtils.ReflectionException;
+import com.android.layoutlib.common.util.ReflectionUtils.ReflectionException;
 
 import android.annotation.Nullable;
 import android.view.View;
@@ -27,9 +27,9 @@ import static android.view.Gravity.END;
 import static android.view.Gravity.LEFT;
 import static android.view.Gravity.RIGHT;
 import static android.view.Gravity.START;
-import static com.android.layoutlib.bridge.util.ReflectionUtils.getCause;
-import static com.android.layoutlib.bridge.util.ReflectionUtils.getMethod;
-import static com.android.layoutlib.bridge.util.ReflectionUtils.invoke;
+import static com.android.layoutlib.common.util.ReflectionUtils.getCause;
+import static com.android.layoutlib.common.util.ReflectionUtils.getMethod;
+import static com.android.layoutlib.common.util.ReflectionUtils.invoke;
 
 public class DrawerLayoutUtil {
 

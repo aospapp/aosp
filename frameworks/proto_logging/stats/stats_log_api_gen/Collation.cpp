@@ -21,6 +21,7 @@
 #include <map>
 
 #include "frameworks/proto_logging/stats/atoms.pb.h"
+#include "utils.h"
 
 namespace android {
 namespace stats_log_api_gen {
@@ -90,54 +91,41 @@ static void print_error(const FieldDescriptor* field, const char* format, ...) {
  */
 static java_type_t java_type(const FieldDescriptor* field) {
     int protoType = field->type();
+    bool isRepeatedField = field->is_repeated();
+
     switch (protoType) {
-        case FieldDescriptor::TYPE_DOUBLE:
-            return JAVA_TYPE_DOUBLE;
         case FieldDescriptor::TYPE_FLOAT:
-            return JAVA_TYPE_FLOAT;
+            return isRepeatedField ? JAVA_TYPE_FLOAT_ARRAY : JAVA_TYPE_FLOAT;
         case FieldDescriptor::TYPE_INT64:
-            return JAVA_TYPE_LONG;
-        case FieldDescriptor::TYPE_UINT64:
-            return JAVA_TYPE_LONG;
+            return isRepeatedField ? JAVA_TYPE_LONG_ARRAY : JAVA_TYPE_LONG;
         case FieldDescriptor::TYPE_INT32:
-            return JAVA_TYPE_INT;
-        case FieldDescriptor::TYPE_FIXED64:
-            return JAVA_TYPE_LONG;
-        case FieldDescriptor::TYPE_FIXED32:
-            return JAVA_TYPE_INT;
+            return isRepeatedField ? JAVA_TYPE_INT_ARRAY : JAVA_TYPE_INT;
         case FieldDescriptor::TYPE_BOOL:
-            return JAVA_TYPE_BOOLEAN;
+            return isRepeatedField ? JAVA_TYPE_BOOLEAN_ARRAY : JAVA_TYPE_BOOLEAN;
         case FieldDescriptor::TYPE_STRING:
-            return JAVA_TYPE_STRING;
+            return isRepeatedField ? JAVA_TYPE_STRING_ARRAY : JAVA_TYPE_STRING;
+        case FieldDescriptor::TYPE_ENUM:
+            return isRepeatedField ? JAVA_TYPE_ENUM_ARRAY : JAVA_TYPE_ENUM;
         case FieldDescriptor::TYPE_GROUP:
-            return JAVA_TYPE_UNKNOWN;
+            return JAVA_TYPE_UNKNOWN_OR_INVALID;
         case FieldDescriptor::TYPE_MESSAGE:
             if (field->message_type()->full_name() == "android.os.statsd.AttributionNode") {
                 return JAVA_TYPE_ATTRIBUTION_CHAIN;
-            } else if (field->message_type()->full_name() == "android.os.statsd.KeyValuePair") {
-                return JAVA_TYPE_KEY_VALUE_PAIR;
-            } else if (field->options().GetExtension(os::statsd::log_mode) ==
-                       os::statsd::LogMode::MODE_BYTES) {
+            } else if ((field->options().GetExtension(os::statsd::log_mode) ==
+                        os::statsd::LogMode::MODE_BYTES) &&
+                       !isRepeatedField) {
                 return JAVA_TYPE_BYTE_ARRAY;
             } else {
-                return JAVA_TYPE_OBJECT;
+                return isRepeatedField ? JAVA_TYPE_UNKNOWN_OR_INVALID : JAVA_TYPE_OBJECT;
             }
         case FieldDescriptor::TYPE_BYTES:
-            return JAVA_TYPE_BYTE_ARRAY;
+            return isRepeatedField ? JAVA_TYPE_UNKNOWN_OR_INVALID : JAVA_TYPE_BYTE_ARRAY;
+        case FieldDescriptor::TYPE_UINT64:
+            return isRepeatedField ? JAVA_TYPE_UNKNOWN_OR_INVALID : JAVA_TYPE_LONG;
         case FieldDescriptor::TYPE_UINT32:
-            return JAVA_TYPE_INT;
-        case FieldDescriptor::TYPE_ENUM:
-            return JAVA_TYPE_ENUM;
-        case FieldDescriptor::TYPE_SFIXED32:
-            return JAVA_TYPE_INT;
-        case FieldDescriptor::TYPE_SFIXED64:
-            return JAVA_TYPE_LONG;
-        case FieldDescriptor::TYPE_SINT32:
-            return JAVA_TYPE_INT;
-        case FieldDescriptor::TYPE_SINT64:
-            return JAVA_TYPE_LONG;
+            return isRepeatedField ? JAVA_TYPE_UNKNOWN_OR_INVALID : JAVA_TYPE_INT;
         default:
-            return JAVA_TYPE_UNKNOWN;
+            return JAVA_TYPE_UNKNOWN_OR_INVALID;
     }
 }
 
@@ -168,6 +156,15 @@ static int collate_field_annotations(AtomDecl* atomDecl, const FieldDescriptor* 
     int errorCount = 0;
 
     if (field->options().HasExtension(os::statsd::state_field_option)) {
+        if (is_repeated_field(javaType)) {
+            print_error(
+                field,
+                "State field annotations are not allowed for repeated fields: '%s'\n",
+                atomDecl->message.c_str());
+            errorCount++;
+            return errorCount;
+        }
+
         const os::statsd::StateAtomFieldOption& stateFieldOption =
                 field->options().GetExtension(os::statsd::state_field_option);
         const bool primaryField = stateFieldOption.primary_field();
@@ -184,8 +181,8 @@ static int collate_field_annotations(AtomDecl* atomDecl, const FieldDescriptor* 
         }
 
         if (primaryField) {
-            if (javaType == JAVA_TYPE_UNKNOWN || javaType == JAVA_TYPE_ATTRIBUTION_CHAIN ||
-                javaType == JAVA_TYPE_OBJECT || javaType == JAVA_TYPE_BYTE_ARRAY) {
+            if (javaType == JAVA_TYPE_ATTRIBUTION_CHAIN || javaType == JAVA_TYPE_OBJECT ||
+                javaType == JAVA_TYPE_BYTE_ARRAY) {
                 print_error(field, "Invalid primary state field: '%s'\n",
                             atomDecl->message.c_str());
                 errorCount++;
@@ -212,8 +209,8 @@ static int collate_field_annotations(AtomDecl* atomDecl, const FieldDescriptor* 
         }
 
         if (exclusiveState) {
-            if (javaType == JAVA_TYPE_UNKNOWN || javaType == JAVA_TYPE_ATTRIBUTION_CHAIN ||
-                javaType == JAVA_TYPE_OBJECT || javaType == JAVA_TYPE_BYTE_ARRAY) {
+            if (javaType == JAVA_TYPE_ATTRIBUTION_CHAIN || javaType == JAVA_TYPE_OBJECT ||
+                javaType == JAVA_TYPE_BYTE_ARRAY) {
                 print_error(field, "Invalid exclusive state field: '%s'\n",
                             atomDecl->message.c_str());
                 errorCount++;
@@ -258,8 +255,10 @@ static int collate_field_annotations(AtomDecl* atomDecl, const FieldDescriptor* 
     }
 
     if (field->options().GetExtension(os::statsd::is_uid) == true) {
-        if (javaType != JAVA_TYPE_INT) {
-            print_error(field, "is_uid annotation can only be applied to int32 fields: '%s'\n",
+        if (javaType != JAVA_TYPE_INT && javaType != JAVA_TYPE_INT_ARRAY) {
+            print_error(field,
+                        "is_uid annotation can only be applied to int32 fields and repeated int32 "
+                        "fields: '%s'\n",
                         atomDecl->message.c_str());
             errorCount++;
         }
@@ -312,13 +311,19 @@ int collate_atom(const Descriptor* atom, AtomDecl* atomDecl, vector<java_type_t>
 
         java_type_t javaType = java_type(field);
 
-        if (javaType == JAVA_TYPE_UNKNOWN) {
-            print_error(field, "Unknown type for field: %s\n", field->name().c_str());
+        if (javaType == JAVA_TYPE_UNKNOWN_OR_INVALID) {
+            if (field->is_repeated()) {
+                print_error(field, "Repeated field type %d is not allowed for field: %s\n",
+                            field->type(), field->name().c_str());
+            } else {
+                print_error(field, "Field type %d is not allowed for field: %s\n", field->type(),
+                            field->name().c_str());
+            }
             errorCount++;
             continue;
-        } else if (javaType == JAVA_TYPE_OBJECT && atomDecl->code < PULL_ATOM_START_ID) {
+        } else if (javaType == JAVA_TYPE_OBJECT) {
             // Allow attribution chain, but only at position 1.
-            print_error(field, "Message type not allowed for field in pushed atoms: %s\n",
+            print_error(field, "Message type not allowed for field without mode_bytes: %s\n",
                         field->name().c_str());
             errorCount++;
             continue;
@@ -330,27 +335,6 @@ int collate_atom(const Descriptor* atom, AtomDecl* atomDecl, vector<java_type_t>
 
         if (isBinaryField && javaType != JAVA_TYPE_BYTE_ARRAY) {
             print_error(field, "Cannot mark field %s as bytes.\n", field->name().c_str());
-            errorCount++;
-            continue;
-        }
-
-        // Doubles are not supported yet.
-        if (javaType == JAVA_TYPE_DOUBLE) {
-            print_error(field,
-                        "Doubles are not supported in atoms. Please change field %s "
-                        "to float\n",
-                        field->name().c_str());
-            errorCount++;
-            continue;
-        }
-
-        if (field->is_repeated() &&
-            !(javaType == JAVA_TYPE_ATTRIBUTION_CHAIN || javaType == JAVA_TYPE_KEY_VALUE_PAIR)) {
-            print_error(field,
-                        "Repeated fields are not supported in atoms. Please make "
-                        "field %s not "
-                        "repeated.\n",
-                        field->name().c_str());
             errorCount++;
             continue;
         }
@@ -382,7 +366,7 @@ int collate_atom(const Descriptor* atom, AtomDecl* atomDecl, vector<java_type_t>
 
         AtomField atField(field->name(), javaType);
 
-        if (javaType == JAVA_TYPE_ENUM) {
+        if (javaType == JAVA_TYPE_ENUM || javaType == JAVA_TYPE_ENUM_ARRAY) {
             // All enums are treated as ints when it comes to function signatures.
             collate_enums(*field->enum_type(), &atField);
         }
@@ -391,6 +375,8 @@ int collate_atom(const Descriptor* atom, AtomDecl* atomDecl, vector<java_type_t>
         if (javaType == JAVA_TYPE_ENUM) {
             // All enums are treated as ints when it comes to function signatures.
             signature->push_back(JAVA_TYPE_INT);
+        } else if (javaType == JAVA_TYPE_ENUM_ARRAY) {
+            signature->push_back(JAVA_TYPE_INT_ARRAY);
         } else if (javaType == JAVA_TYPE_OBJECT && isBinaryField) {
             signature->push_back(JAVA_TYPE_BYTE_ARRAY);
         } else {

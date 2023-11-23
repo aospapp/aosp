@@ -43,6 +43,8 @@ enum BatteryPluggedStateEnum {
     BATTERY_PLUGGED_USB = 2;
     // Power source is wireless.
     BATTERY_PLUGGED_WIRELESS = 4;
+    // Power source is dock.
+    BATTERY_PLUGGED_DOCK = 8;
 }
 
 // These constants are defined in hardware/interfaces/health/1.0/types.hal

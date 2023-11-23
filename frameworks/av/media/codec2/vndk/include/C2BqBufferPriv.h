@@ -101,6 +101,8 @@ public:
             uint32_t generationId,
             uint64_t consumerUsage);
 
+    virtual void getConsumerUsage(uint64_t *consumerUsage);
+
 private:
     const std::shared_ptr<C2Allocator> mAllocator;
     const local_id_t mLocalId;
@@ -127,8 +129,9 @@ public:
     // Create a local BlockPoolData.
     C2BufferQueueBlockPoolData(
             uint32_t generation, uint64_t bqId, int32_t bqSlot,
+            const std::shared_ptr<int> &owner,
             const android::sp<HGraphicBufferProducer>& producer,
-            std::shared_ptr<C2SurfaceSyncMemory>, int noUse);
+            std::shared_ptr<C2SurfaceSyncMemory>);
 
     virtual ~C2BufferQueueBlockPoolData() override;
 
@@ -138,7 +141,6 @@ public:
                 uint32_t toGeneration, uint64_t toUsage, uint64_t toBqId,
                 android::sp<android::GraphicBuffer>& graphicBuffer, uint32_t oldGeneration,
                 std::shared_ptr<C2SurfaceSyncMemory> syncMem);
-
 private:
     friend struct _C2BlockFactory;
 

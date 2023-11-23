@@ -20,20 +20,20 @@
 
 #include <C2Debug.h>
 #include <C2PlatformSupport.h>
+#include <Codec2BufferUtils.h>
+#include <Codec2CommonUtils.h>
+#include <Codec2Mapper.h>
 #include <SimpleC2Interface.h>
 #include <log/log.h>
 #include <media/stagefright/foundation/AUtils.h>
 #include <media/stagefright/foundation/MediaDefs.h>
 
 namespace android {
-namespace {
-
-constexpr uint8_t NEUTRAL_UV_VALUE = 128;
-
-}  // namespace
 
 // codecname set and passed in as a compile flag from Android.bp
 constexpr char COMPONENT_NAME[] = CODECNAME;
+
+constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
 
 class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
  public:
@@ -56,8 +56,8 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
         DefineParam(mSize, C2_PARAMKEY_PICTURE_SIZE)
             .withDefault(new C2StreamPictureSizeInfo::output(0u, 320, 240))
             .withFields({
-                C2F(mSize, width).inRange(2, 4096, 2),
-                C2F(mSize, height).inRange(2, 4096, 2),
+                C2F(mSize, width).inRange(2, 4096),
+                C2F(mSize, height).inRange(2, 4096),
             })
             .withSetter(SizeSetter)
             .build());
@@ -113,8 +113,7 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
             .build());
 
     addParameter(DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
-                     .withDefault(new C2StreamMaxBufferSizeInfo::input(
-                         0u, 320 * 240 * 3 / 4))
+                     .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, kMinInputBufferSize))
                      .withFields({
                          C2F(mMaxInputSize, value).any(),
                      })
@@ -156,11 +155,59 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
             .withSetter(DefaultColorAspectsSetter)
             .build());
 
+      addParameter(
+              DefineParam(mCodedColorAspects, C2_PARAMKEY_VUI_COLOR_ASPECTS)
+              .withDefault(new C2StreamColorAspectsInfo::input(
+                      0u, C2Color::RANGE_LIMITED, C2Color::PRIMARIES_UNSPECIFIED,
+                      C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+              .withFields({
+                  C2F(mCodedColorAspects, range).inRange(
+                              C2Color::RANGE_UNSPECIFIED,     C2Color::RANGE_OTHER),
+                  C2F(mCodedColorAspects, primaries).inRange(
+                              C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                  C2F(mCodedColorAspects, transfer).inRange(
+                              C2Color::TRANSFER_UNSPECIFIED,  C2Color::TRANSFER_OTHER),
+                  C2F(mCodedColorAspects, matrix).inRange(
+                              C2Color::MATRIX_UNSPECIFIED,    C2Color::MATRIX_OTHER)
+              })
+              .withSetter(CodedColorAspectsSetter)
+              .build());
+
+      addParameter(
+              DefineParam(mColorAspects, C2_PARAMKEY_COLOR_ASPECTS)
+              .withDefault(new C2StreamColorAspectsInfo::output(
+                      0u, C2Color::RANGE_UNSPECIFIED, C2Color::PRIMARIES_UNSPECIFIED,
+                      C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+              .withFields({
+                  C2F(mColorAspects, range).inRange(
+                              C2Color::RANGE_UNSPECIFIED,     C2Color::RANGE_OTHER),
+                  C2F(mColorAspects, primaries).inRange(
+                              C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                  C2F(mColorAspects, transfer).inRange(
+                              C2Color::TRANSFER_UNSPECIFIED,  C2Color::TRANSFER_OTHER),
+                  C2F(mColorAspects, matrix).inRange(
+                              C2Color::MATRIX_UNSPECIFIED,    C2Color::MATRIX_OTHER)
+              })
+              .withSetter(ColorAspectsSetter, mDefaultColorAspects, mCodedColorAspects)
+              .build());
+
+    std::vector<uint32_t> pixelFormats = {HAL_PIXEL_FORMAT_YCBCR_420_888};
+    if (isHalPixelFormatSupported((AHardwareBuffer_Format)HAL_PIXEL_FORMAT_YCBCR_P010)) {
+        pixelFormats.push_back(HAL_PIXEL_FORMAT_YCBCR_P010);
+    }
+    // If color format surface isn't added to supported formats, there is no way to know
+    // when the color-format is configured to surface. This is necessary to be able to
+    // choose 10-bit format while decoding 10-bit clips in surface mode.
+    pixelFormats.push_back(HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+
     // TODO: support more formats?
-    addParameter(DefineParam(mPixelFormat, C2_PARAMKEY_PIXEL_FORMAT)
-                     .withConstValue(new C2StreamPixelFormatInfo::output(
-                         0u, HAL_PIXEL_FORMAT_YCBCR_420_888))
-                     .build());
+    addParameter(
+            DefineParam(mPixelFormat, C2_PARAMKEY_PIXEL_FORMAT)
+            .withDefault(new C2StreamPixelFormatInfo::output(
+                              0u, HAL_PIXEL_FORMAT_YCBCR_420_888))
+            .withFields({C2F(mPixelFormat, value).oneOf(pixelFormats)})
+            .withSetter((Setter<decltype(*mPixelFormat)>::StrictValueWithNoDeps))
+            .build());
   }
 
   static C2R SizeSetter(bool mayBlock,
@@ -194,9 +241,9 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
       bool mayBlock, C2P<C2StreamMaxBufferSizeInfo::input> &me,
       const C2P<C2StreamMaxPictureSizeTuning::output> &maxSize) {
     (void)mayBlock;
-    // assume compression ratio of 2
-    me.set().value =
-        (((maxSize.v.width + 63) / 64) * ((maxSize.v.height + 63) / 64) * 3072);
+    // assume compression ratio of 2, but enforce a floor
+    me.set().value = c2_max((((maxSize.v.width + 63) / 64)
+                * ((maxSize.v.height + 63) / 64) * 3072), kMinInputBufferSize);
     return C2R::Ok();
   }
 
@@ -218,6 +265,37 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
     return C2R::Ok();
   }
 
+  static C2R CodedColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::input> &me) {
+    (void)mayBlock;
+    if (me.v.range > C2Color::RANGE_OTHER) {
+      me.set().range = C2Color::RANGE_OTHER;
+    }
+    if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
+      me.set().primaries = C2Color::PRIMARIES_OTHER;
+    }
+    if (me.v.transfer > C2Color::TRANSFER_OTHER) {
+      me.set().transfer = C2Color::TRANSFER_OTHER;
+    }
+    if (me.v.matrix > C2Color::MATRIX_OTHER) {
+      me.set().matrix = C2Color::MATRIX_OTHER;
+    }
+    return C2R::Ok();
+  }
+
+  static C2R ColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::output> &me,
+                                const C2P<C2StreamColorAspectsTuning::output> &def,
+                                const C2P<C2StreamColorAspectsInfo::input> &coded) {
+    (void)mayBlock;
+    // take default values for all unspecified fields, and coded values for specified ones
+    me.set().range = coded.v.range == RANGE_UNSPECIFIED ? def.v.range : coded.v.range;
+    me.set().primaries = coded.v.primaries == PRIMARIES_UNSPECIFIED
+        ? def.v.primaries : coded.v.primaries;
+    me.set().transfer = coded.v.transfer == TRANSFER_UNSPECIFIED
+        ? def.v.transfer : coded.v.transfer;
+    me.set().matrix = coded.v.matrix == MATRIX_UNSPECIFIED ? def.v.matrix : coded.v.matrix;
+    return C2R::Ok();
+  }
+
   static C2R ProfileLevelSetter(
       bool mayBlock, C2P<C2StreamProfileLevelInfo::input> &me,
       const C2P<C2StreamPictureSizeInfo::output> &size) {
@@ -230,6 +308,10 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
   std::shared_ptr<C2StreamColorAspectsTuning::output>
   getDefaultColorAspects_l() {
     return mDefaultColorAspects;
+  }
+
+  std::shared_ptr<C2StreamColorAspectsInfo::output> getColorAspects_l() {
+      return mColorAspects;
   }
 
   static C2R Hdr10PlusInfoInputSetter(bool mayBlock,
@@ -246,6 +328,9 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
     return C2R::Ok();
   }
 
+  // unsafe getters
+  std::shared_ptr<C2StreamPixelFormatInfo::output> getPixelFormat_l() const { return mPixelFormat; }
+
  private:
   std::shared_ptr<C2StreamProfileLevelInfo::input> mProfileLevel;
   std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
@@ -254,6 +339,8 @@ class C2SoftGav1Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
   std::shared_ptr<C2StreamColorInfo::output> mColorInfo;
   std::shared_ptr<C2StreamPixelFormatInfo::output> mPixelFormat;
   std::shared_ptr<C2StreamColorAspectsTuning::output> mDefaultColorAspects;
+  std::shared_ptr<C2StreamColorAspectsInfo::input> mCodedColorAspects;
+  std::shared_ptr<C2StreamColorAspectsInfo::output> mColorAspects;
   std::shared_ptr<C2StreamHdr10PlusInfo::input> mHdr10PlusInfoInput;
   std::shared_ptr<C2StreamHdr10PlusInfo::output> mHdr10PlusInfoOutput;
 };
@@ -264,8 +351,7 @@ C2SoftGav1Dec::C2SoftGav1Dec(const char *name, c2_node_id_t id,
           std::make_shared<SimpleInterface<IntfImpl>>(name, id, intfImpl)),
       mIntf(intfImpl),
       mCodecCtx(nullptr) {
-  gettimeofday(&mTimeStart, nullptr);
-  gettimeofday(&mTimeEnd, nullptr);
+  mTimeStart = mTimeEnd = systemTime();
 }
 
 C2SoftGav1Dec::~C2SoftGav1Dec() { onRelease(); }
@@ -332,6 +418,11 @@ static int GetCPUCoreCount() {
 bool C2SoftGav1Dec::initDecoder() {
   mSignalledError = false;
   mSignalledOutputEos = false;
+  mHalPixelFormat = HAL_PIXEL_FORMAT_YV12;
+  {
+      IntfImpl::Lock lock = mIntf->lock();
+      mPixelFormatInfo = mIntf->getPixelFormat_l();
+  }
   mCodecCtx.reset(new libgav1::Decoder());
 
   if (mCodecCtx == nullptr) {
@@ -371,6 +462,10 @@ void C2SoftGav1Dec::finishWork(uint64_t index,
                                const std::shared_ptr<C2GraphicBlock> &block) {
   std::shared_ptr<C2Buffer> buffer =
       createGraphicBuffer(block, C2Rect(mWidth, mHeight));
+  {
+      IntfImpl::Lock lock = mIntf->lock();
+      buffer->setInfo(mIntf->getColorAspects_l());
+  }
   auto fillWork = [buffer, index](const std::unique_ptr<C2Work> &work) {
     uint32_t flags = 0;
     if ((work->input.flags & C2FrameData::FLAG_END_OF_STREAM) &&
@@ -431,19 +526,17 @@ void C2SoftGav1Dec::process(const std::unique_ptr<C2Work> &work,
   int64_t frameIndex = work->input.ordinal.frameIndex.peekll();
   if (inSize) {
     uint8_t *bitstream = const_cast<uint8_t *>(rView.data() + inOffset);
-    int32_t decodeTime = 0;
-    int32_t delay = 0;
 
-    GETTIME(&mTimeStart, nullptr);
-    TIME_DIFF(mTimeEnd, mTimeStart, delay);
+    mTimeStart = systemTime();
+    nsecs_t delay = mTimeStart - mTimeEnd;
 
     const Libgav1StatusCode status =
         mCodecCtx->EnqueueFrame(bitstream, inSize, frameIndex,
                                 /*buffer_private_data=*/nullptr);
 
-    GETTIME(&mTimeEnd, nullptr);
-    TIME_DIFF(mTimeStart, mTimeEnd, decodeTime);
-    ALOGV("decodeTime=%4d delay=%4d\n", decodeTime, delay);
+    mTimeEnd = systemTime();
+    nsecs_t decodeTime = mTimeEnd - mTimeStart;
+    ALOGV("decodeTime=%4" PRId64 " delay=%4" PRId64 "\n", decodeTime, delay);
 
     if (status != kLibgav1StatusOk) {
       ALOGE("av1 decoder failed to decode frame. status: %d.", status);
@@ -465,148 +558,36 @@ void C2SoftGav1Dec::process(const std::unique_ptr<C2Work> &work,
   }
 }
 
-static void copyOutputBufferToYV12Frame(uint8_t *dstY, uint8_t *dstU, uint8_t *dstV,
-                                        const uint8_t *srcY, const uint8_t *srcU, const uint8_t *srcV,
-                                        size_t srcYStride, size_t srcUStride, size_t srcVStride,
-                                        size_t dstYStride, size_t dstUVStride,
-                                        uint32_t width, uint32_t height,
-                                        bool isMonochrome) {
+void C2SoftGav1Dec::getVuiParams(const libgav1::DecoderBuffer *buffer) {
+    VuiColorAspects vuiColorAspects;
+    vuiColorAspects.primaries = buffer->color_primary;
+    vuiColorAspects.transfer = buffer->transfer_characteristics;
+    vuiColorAspects.coeffs = buffer->matrix_coefficients;
+    vuiColorAspects.fullRange = buffer->color_range;
 
-  for (size_t i = 0; i < height; ++i) {
-    memcpy(dstY, srcY, width);
-    srcY += srcYStride;
-    dstY += dstYStride;
-  }
-
-  if (isMonochrome) {
-    // Fill with neutral U/V values.
-    for (size_t i = 0; i < height / 2; ++i) {
-      memset(dstV, NEUTRAL_UV_VALUE, width / 2);
-      memset(dstU, NEUTRAL_UV_VALUE, width / 2);
-      dstV += dstUVStride;
-      dstU += dstUVStride;
+    // convert vui aspects to C2 values if changed
+    if (!(vuiColorAspects == mBitstreamColorAspects)) {
+        mBitstreamColorAspects = vuiColorAspects;
+        ColorAspects sfAspects;
+        C2StreamColorAspectsInfo::input codedAspects = { 0u };
+        ColorUtils::convertIsoColorAspectsToCodecAspects(
+                vuiColorAspects.primaries, vuiColorAspects.transfer, vuiColorAspects.coeffs,
+                vuiColorAspects.fullRange, sfAspects);
+        if (!C2Mapper::map(sfAspects.mPrimaries, &codedAspects.primaries)) {
+            codedAspects.primaries = C2Color::PRIMARIES_UNSPECIFIED;
+        }
+        if (!C2Mapper::map(sfAspects.mRange, &codedAspects.range)) {
+            codedAspects.range = C2Color::RANGE_UNSPECIFIED;
+        }
+        if (!C2Mapper::map(sfAspects.mMatrixCoeffs, &codedAspects.matrix)) {
+            codedAspects.matrix = C2Color::MATRIX_UNSPECIFIED;
+        }
+        if (!C2Mapper::map(sfAspects.mTransfer, &codedAspects.transfer)) {
+            codedAspects.transfer = C2Color::TRANSFER_UNSPECIFIED;
+        }
+        std::vector<std::unique_ptr<C2SettingResult>> failures;
+        mIntf->config({&codedAspects}, C2_MAY_BLOCK, &failures);
     }
-    return;
-  }
-
-  for (size_t i = 0; i < height / 2; ++i) {
-    memcpy(dstV, srcV, width / 2);
-    srcV += srcVStride;
-    dstV += dstUVStride;
-  }
-
-  for (size_t i = 0; i < height / 2; ++i) {
-    memcpy(dstU, srcU, width / 2);
-    srcU += srcUStride;
-    dstU += dstUVStride;
-  }
-}
-
-static void convertYUV420Planar16ToY410(uint32_t *dst, const uint16_t *srcY,
-                                        const uint16_t *srcU,
-                                        const uint16_t *srcV, size_t srcYStride,
-                                        size_t srcUStride, size_t srcVStride,
-                                        size_t dstStride, size_t width,
-                                        size_t height) {
-  // Converting two lines at a time, slightly faster
-  for (size_t y = 0; y < height; y += 2) {
-    uint32_t *dstTop = (uint32_t *)dst;
-    uint32_t *dstBot = (uint32_t *)(dst + dstStride);
-    uint16_t *ySrcTop = (uint16_t *)srcY;
-    uint16_t *ySrcBot = (uint16_t *)(srcY + srcYStride);
-    uint16_t *uSrc = (uint16_t *)srcU;
-    uint16_t *vSrc = (uint16_t *)srcV;
-
-    uint32_t u01, v01, y01, y23, y45, y67, uv0, uv1;
-    size_t x = 0;
-    for (; x < width - 3; x += 4) {
-      u01 = *((uint32_t *)uSrc);
-      uSrc += 2;
-      v01 = *((uint32_t *)vSrc);
-      vSrc += 2;
-
-      y01 = *((uint32_t *)ySrcTop);
-      ySrcTop += 2;
-      y23 = *((uint32_t *)ySrcTop);
-      ySrcTop += 2;
-      y45 = *((uint32_t *)ySrcBot);
-      ySrcBot += 2;
-      y67 = *((uint32_t *)ySrcBot);
-      ySrcBot += 2;
-
-      uv0 = (u01 & 0x3FF) | ((v01 & 0x3FF) << 20);
-      uv1 = (u01 >> 16) | ((v01 >> 16) << 20);
-
-      *dstTop++ = 3 << 30 | ((y01 & 0x3FF) << 10) | uv0;
-      *dstTop++ = 3 << 30 | ((y01 >> 16) << 10) | uv0;
-      *dstTop++ = 3 << 30 | ((y23 & 0x3FF) << 10) | uv1;
-      *dstTop++ = 3 << 30 | ((y23 >> 16) << 10) | uv1;
-
-      *dstBot++ = 3 << 30 | ((y45 & 0x3FF) << 10) | uv0;
-      *dstBot++ = 3 << 30 | ((y45 >> 16) << 10) | uv0;
-      *dstBot++ = 3 << 30 | ((y67 & 0x3FF) << 10) | uv1;
-      *dstBot++ = 3 << 30 | ((y67 >> 16) << 10) | uv1;
-    }
-
-    // There should be at most 2 more pixels to process. Note that we don't
-    // need to consider odd case as the buffer is always aligned to even.
-    if (x < width) {
-      u01 = *uSrc;
-      v01 = *vSrc;
-      y01 = *((uint32_t *)ySrcTop);
-      y45 = *((uint32_t *)ySrcBot);
-      uv0 = (u01 & 0x3FF) | ((v01 & 0x3FF) << 20);
-      *dstTop++ = ((y01 & 0x3FF) << 10) | uv0;
-      *dstTop++ = ((y01 >> 16) << 10) | uv0;
-      *dstBot++ = ((y45 & 0x3FF) << 10) | uv0;
-      *dstBot++ = ((y45 >> 16) << 10) | uv0;
-    }
-
-    srcY += srcYStride * 2;
-    srcU += srcUStride;
-    srcV += srcVStride;
-    dst += dstStride * 2;
-  }
-}
-
-static void convertYUV420Planar16ToYUV420Planar(
-    uint8_t *dstY, uint8_t *dstU, uint8_t *dstV,
-    const uint16_t *srcY, const uint16_t *srcU, const uint16_t *srcV,
-    size_t srcYStride, size_t srcUStride, size_t srcVStride,
-    size_t dstYStride, size_t dstUVStride,
-    size_t width, size_t height, bool isMonochrome) {
-
-  for (size_t y = 0; y < height; ++y) {
-    for (size_t x = 0; x < width; ++x) {
-      dstY[x] = (uint8_t)(srcY[x] >> 2);
-    }
-
-    srcY += srcYStride;
-    dstY += dstYStride;
-  }
-
-  if (isMonochrome) {
-    // Fill with neutral U/V values.
-    for (size_t y = 0; y < (height + 1) / 2; ++y) {
-      memset(dstV, NEUTRAL_UV_VALUE, (width + 1) / 2);
-      memset(dstU, NEUTRAL_UV_VALUE, (width + 1) / 2);
-      dstV += dstUVStride;
-      dstU += dstUVStride;
-    }
-    return;
-  }
-
-  for (size_t y = 0; y < (height + 1) / 2; ++y) {
-    for (size_t x = 0; x < (width + 1) / 2; ++x) {
-      dstU[x] = (uint8_t)(srcU[x] >> 2);
-      dstV[x] = (uint8_t)(srcV[x] >> 2);
-    }
-
-    srcU += srcUStride;
-    srcV += srcVStride;
-    dstU += dstUVStride;
-    dstV += dstUVStride;
-  }
 }
 
 bool C2SoftGav1Dec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
@@ -651,6 +632,7 @@ bool C2SoftGav1Dec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
     }
   }
 
+  getVuiParams(buffer);
   if (!(buffer->image_format == libgav1::kImageFormatYuv420 ||
         buffer->image_format == libgav1::kImageFormatMonochrome400)) {
     ALOGE("image_format %d not supported", buffer->image_format);
@@ -664,28 +646,52 @@ bool C2SoftGav1Dec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
 
   std::shared_ptr<C2GraphicBlock> block;
   uint32_t format = HAL_PIXEL_FORMAT_YV12;
-  if (buffer->bitdepth == 10) {
+  std::shared_ptr<C2StreamColorAspectsInfo::output> codedColorAspects;
+  if (buffer->bitdepth == 10 && mPixelFormatInfo->value != HAL_PIXEL_FORMAT_YCBCR_420_888) {
     IntfImpl::Lock lock = mIntf->lock();
-    std::shared_ptr<C2StreamColorAspectsTuning::output> defaultColorAspects =
-        mIntf->getDefaultColorAspects_l();
-
-    if (defaultColorAspects->primaries == C2Color::PRIMARIES_BT2020 &&
-        defaultColorAspects->matrix == C2Color::MATRIX_BT2020 &&
-        defaultColorAspects->transfer == C2Color::TRANSFER_ST2084) {
-      if (buffer->image_format != libgav1::kImageFormatYuv420) {
+    codedColorAspects = mIntf->getColorAspects_l();
+    bool allowRGBA1010102 = false;
+    if (codedColorAspects->primaries == C2Color::PRIMARIES_BT2020 &&
+        codedColorAspects->matrix == C2Color::MATRIX_BT2020 &&
+        codedColorAspects->transfer == C2Color::TRANSFER_ST2084) {
+      allowRGBA1010102 = true;
+    }
+    format = getHalPixelFormatForBitDepth10(allowRGBA1010102);
+    if ((format == HAL_PIXEL_FORMAT_RGBA_1010102) &&
+        (buffer->image_format != libgav1::kImageFormatYuv420)) {
         ALOGE("Only YUV420 output is supported when targeting RGBA_1010102");
-        mSignalledError = true;
-        work->result = C2_OMITTED;
-        work->workletsProcessed = 1u;
-        return false;
-      }
-      format = HAL_PIXEL_FORMAT_RGBA_1010102;
+      mSignalledError = true;
+      work->result = C2_OMITTED;
+      work->workletsProcessed = 1u;
+      return false;
     }
   }
+
+  if (mHalPixelFormat != format) {
+    C2StreamPixelFormatInfo::output pixelFormat(0u, format);
+    std::vector<std::unique_ptr<C2SettingResult>> failures;
+    c2_status_t err = mIntf->config({&pixelFormat }, C2_MAY_BLOCK, &failures);
+    if (err == C2_OK) {
+      work->worklets.front()->output.configUpdate.push_back(
+          C2Param::Copy(pixelFormat));
+    } else {
+      ALOGE("Config update pixelFormat failed");
+      mSignalledError = true;
+      work->workletsProcessed = 1u;
+      work->result = C2_CORRUPTED;
+      return UNKNOWN_ERROR;
+    }
+    mHalPixelFormat = format;
+  }
+
   C2MemoryUsage usage = {C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE};
 
-  c2_status_t err = pool->fetchGraphicBlock(align(mWidth, 16), mHeight, format,
-                                            usage, &block);
+  // We always create a graphic block that is width aligned to 16 and height
+  // aligned to 2. We set the correct "crop" value of the image in the call to
+  // createGraphicBuffer() by setting the correct image dimensions.
+  c2_status_t err = pool->fetchGraphicBlock(align(mWidth, 16),
+                                            align(mHeight, 2), format, usage,
+                                            &block);
 
   if (err != C2_OK) {
     ALOGE("fetchGraphicBlock for Output failed with status %d", err);
@@ -721,22 +727,26 @@ bool C2SoftGav1Dec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
     const uint16_t *srcV = (const uint16_t *)buffer->plane[2];
 
     if (format == HAL_PIXEL_FORMAT_RGBA_1010102) {
-      convertYUV420Planar16ToY410(
-          (uint32_t *)dstY, srcY, srcU, srcV, srcYStride / 2, srcUStride / 2,
-          srcVStride / 2, dstYStride / sizeof(uint32_t), mWidth, mHeight);
+        convertYUV420Planar16ToY410OrRGBA1010102(
+                (uint32_t *)dstY, srcY, srcU, srcV, srcYStride / 2,
+                srcUStride / 2, srcVStride / 2,
+                dstYStride / sizeof(uint32_t), mWidth, mHeight,
+                std::static_pointer_cast<const C2ColorAspectsStruct>(codedColorAspects));
+    } else if (format == HAL_PIXEL_FORMAT_YCBCR_P010) {
+        convertYUV420Planar16ToP010((uint16_t *)dstY, (uint16_t *)dstU, srcY, srcU, srcV,
+                                    srcYStride / 2, srcUStride / 2, srcVStride / 2, dstYStride / 2,
+                                    dstUVStride / 2, mWidth, mHeight, isMonochrome);
     } else {
-      convertYUV420Planar16ToYUV420Planar(
-          dstY, dstU, dstV, srcY, srcU, srcV, srcYStride / 2, srcUStride / 2,
-          srcVStride / 2, dstYStride, dstUVStride, mWidth, mHeight,
-          isMonochrome);
+        convertYUV420Planar16ToYV12(dstY, dstU, dstV, srcY, srcU, srcV, srcYStride / 2,
+                                    srcUStride / 2, srcVStride / 2, dstYStride, dstUVStride, mWidth,
+                                    mHeight, isMonochrome);
     }
   } else {
     const uint8_t *srcY = (const uint8_t *)buffer->plane[0];
     const uint8_t *srcU = (const uint8_t *)buffer->plane[1];
     const uint8_t *srcV = (const uint8_t *)buffer->plane[2];
-    copyOutputBufferToYV12Frame(
-        dstY, dstU, dstV, srcY, srcU, srcV, srcYStride, srcUStride, srcVStride,
-        dstYStride, dstUVStride, mWidth, mHeight, isMonochrome);
+    convertYUV420Planar8ToYV12(dstY, dstU, dstV, srcY, srcU, srcV, srcYStride, srcUStride,
+                               srcVStride, dstYStride, dstUVStride, mWidth, mHeight, isMonochrome);
   }
   finishWork(buffer->user_private_data, work, std::move(block));
   block = nullptr;

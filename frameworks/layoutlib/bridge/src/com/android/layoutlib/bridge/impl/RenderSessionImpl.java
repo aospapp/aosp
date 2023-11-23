@@ -47,28 +47,43 @@ import com.android.layoutlib.bridge.android.support.SupportPreferencesUtil;
 import com.android.layoutlib.bridge.impl.binding.FakeAdapter;
 import com.android.layoutlib.bridge.impl.binding.FakeExpandableAdapter;
 import com.android.tools.idea.validator.LayoutValidator;
+import com.android.tools.idea.validator.ValidatorData.Issue.IssueBuilder;
+import com.android.tools.idea.validator.ValidatorData.Level;
+import com.android.tools.idea.validator.ValidatorData.Type;
+import com.android.tools.idea.validator.ValidatorHierarchy;
 import com.android.tools.idea.validator.ValidatorResult;
 import com.android.tools.idea.validator.ValidatorResult.Builder;
-import com.android.tools.layoutlib.java.System_Delegate;
-import com.android.utils.Pair;
+import com.android.tools.idea.validator.hierarchy.CustomHierarchyHelper;
+import com.android.tools.layoutlib.annotations.NotNull;
 
+import android.animation.AnimationHandler;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Bitmap_Delegate;
 import android.graphics.Canvas;
-import android.graphics.NinePatch_Delegate;
-import android.os.Looper;
+import android.graphics.HardwareRenderer;
+import android.graphics.LayoutlibRenderer;
+import android.graphics.PixelFormat;
+import android.graphics.RenderNode;
+import android.graphics.drawable.AnimatedVectorDrawable_VectorDrawableAnimatorUI_Delegate;
+import android.media.Image;
+import android.media.Image.Plane;
+import android.media.ImageReader;
 import android.preference.Preference_Delegate;
+import android.util.Pair;
+import android.util.TimeUtils;
 import android.view.AttachInfo_Accessor;
 import android.view.BridgeInflater;
 import android.view.Choreographer_Delegate;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewParent;
+import android.view.WindowManagerImpl;
 import android.widget.AbsListView;
 import android.widget.AbsSpinner;
 import android.widget.ActionMenuView;
@@ -82,22 +97,24 @@ import android.widget.TabHost;
 import android.widget.TabHost.TabSpec;
 import android.widget.TabWidget;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.android.apps.common.testing.accessibility.framework.uielement.AccessibilityHierarchyAndroid_ViewElementClassNamesAndroid_Delegate;
+import com.android.internal.R;
+import android.content.res.TypedArray;
 
 import static com.android.ide.common.rendering.api.Result.Status.ERROR_INFLATION;
 import static com.android.ide.common.rendering.api.Result.Status.ERROR_NOT_INFLATED;
 import static com.android.ide.common.rendering.api.Result.Status.ERROR_UNKNOWN;
 import static com.android.ide.common.rendering.api.Result.Status.SUCCESS;
-import static com.android.layoutlib.bridge.util.ReflectionUtils.isInstanceOf;
+import static com.android.layoutlib.common.util.ReflectionUtils.isInstanceOf;
 
 /**
  * Class implementing the render session.
@@ -116,7 +133,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     private BridgeInflater mInflater;
     private ViewGroup mViewRoot;
     private FrameLayout mContentRoot;
-    private Canvas mCanvas;
     private int mMeasuredScreenWidth = -1;
     private int mMeasuredScreenHeight = -1;
     /** If >= 0, a frame will be executed */
@@ -130,7 +146,19 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     private List<ViewInfo> mSystemViewInfoList;
     private Layout.Builder mLayoutBuilder;
     private boolean mNewRenderSize;
+    private ImageReader mImageReader;
+    private Image mNativeImage;
+    private LayoutlibRenderer mRenderer = new LayoutlibRenderer();
+
+    // Passed in MotionEvent initialization when dispatching a touch event.
+    private final MotionEvent.PointerProperties[] mPointerProperties =
+            MotionEvent.PointerProperties.createArray(1);
+    private final MotionEvent.PointerCoords[] mPointerCoords =
+            MotionEvent.PointerCoords.createArray(1);
+
+    private long mLastActionDownTimeNanos = -1;
     @Nullable private ValidatorResult mValidatorResult = null;
+    @Nullable private ValidatorHierarchy mValidatorHierarchy = null;
 
     private static final class PostInflateException extends Exception {
         private static final long serialVersionUID = 1L;
@@ -183,6 +211,11 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         ILayoutPullParser layoutParser = params.getLayoutDescription();
         mBlockParser = new BridgeXmlBlockParser(layoutParser, context, layoutParser.getLayoutNamespace());
 
+        Bitmap.setDefaultDensity(params.getHardwareConfig().getDensity().getDpiValue());
+
+        // Needed in order to initialize static state of ImageReader
+        ImageReader.nativeClassInit();
+
         return SUCCESS.createResult();
     }
 
@@ -191,16 +224,15 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
      */
     private void measureLayout(@NonNull SessionParams params) {
         // only do the screen measure when needed.
-        if (mMeasuredScreenWidth != -1) {
-            return;
+        int previousWidth = mMeasuredScreenWidth;
+        int previousHeight = mMeasuredScreenHeight;
+        HardwareConfig hardwareConfig = params.getHardwareConfig();
+        if (mMeasuredScreenWidth == -1) {
+            mMeasuredScreenWidth = hardwareConfig.getScreenWidth();
+            mMeasuredScreenHeight = hardwareConfig.getScreenHeight();
         }
 
         RenderingMode renderingMode = params.getRenderingMode();
-        HardwareConfig hardwareConfig = params.getHardwareConfig();
-
-        mNewRenderSize = true;
-        mMeasuredScreenWidth = hardwareConfig.getScreenWidth();
-        mMeasuredScreenHeight = hardwareConfig.getScreenHeight();
 
         if (renderingMode != RenderingMode.NORMAL) {
             int widthMeasureSpecMode = renderingMode.getHorizAction() == SizeAction.EXPAND ?
@@ -224,55 +256,62 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             // and apply this to the screen size.
 
             View measuredView = mContentRoot.getChildAt(0);
+            if (measuredView == null) {
+                return;
+            }
 
+            int maxWidth = hardwareConfig.getScreenWidth();
+            int maxHeight = hardwareConfig.getScreenHeight();
             // first measure the full layout, with EXACTLY to get the size of the
             // content as it is inside the decor/dialog
             Pair<Integer, Integer> exactMeasure = measureView(
                     mViewRoot, measuredView,
-                    mMeasuredScreenWidth, MeasureSpec.EXACTLY,
-                    mMeasuredScreenHeight, MeasureSpec.EXACTLY);
+                    maxWidth, MeasureSpec.EXACTLY,
+                    maxHeight, MeasureSpec.EXACTLY);
 
             // now measure the content only using UNSPECIFIED (where applicable, based on
             // the rendering mode). This will give us the size the content needs.
             Pair<Integer, Integer> neededMeasure = measureView(
-                    mContentRoot, mContentRoot.getChildAt(0),
-                    mMeasuredScreenWidth, widthMeasureSpecMode,
-                    mMeasuredScreenHeight, heightMeasureSpecMode);
-            int neededWidth = neededMeasure.getFirst();
-            int neededHeight = neededMeasure.getSecond();
+                    mContentRoot, measuredView,
+                    maxWidth, widthMeasureSpecMode,
+                    maxHeight, heightMeasureSpecMode);
 
             // If measuredView is not null, exactMeasure nor result will be null.
-            assert (exactMeasure != null && neededMeasure != null) || measuredView == null;
+            assert (exactMeasure != null && neededMeasure != null);
 
             // now look at the difference and add what is needed.
-            if (renderingMode.getHorizAction() == SizeAction.EXPAND) {
-                int measuredWidth = exactMeasure.getFirst();
-                if (neededWidth > measuredWidth) {
-                    mMeasuredScreenWidth += neededWidth - measuredWidth;
-                }
-                if (mMeasuredScreenWidth < measuredWidth) {
-                    // If the screen width is less than the exact measured width,
-                    // expand to match.
-                    mMeasuredScreenWidth = measuredWidth;
-                }
-            } else if (renderingMode.getHorizAction() == SizeAction.SHRINK) {
-                mMeasuredScreenWidth = neededWidth;
-            }
-
-            if (renderingMode.getVertAction() == SizeAction.EXPAND) {
-                int measuredHeight = exactMeasure.getSecond();
-                if (neededHeight > measuredHeight) {
-                    mMeasuredScreenHeight += neededHeight - measuredHeight;
-                }
-                if (mMeasuredScreenHeight < measuredHeight) {
-                    // If the screen height is less than the exact measured height,
-                    // expand to match.
-                    mMeasuredScreenHeight = measuredHeight;
-                }
-            } else if (renderingMode.getVertAction() == SizeAction.SHRINK) {
-                mMeasuredScreenHeight = neededHeight;
-            }
+            mMeasuredScreenWidth = calcSize(mMeasuredScreenWidth, neededMeasure.first,
+                    exactMeasure.first, renderingMode.getHorizAction());
+            mMeasuredScreenHeight = calcSize(mMeasuredScreenHeight, neededMeasure.second,
+                    exactMeasure.second, renderingMode.getVertAction());
         }
+        mNewRenderSize =
+                mMeasuredScreenWidth != previousWidth || mMeasuredScreenHeight != previousHeight;
+    }
+
+    /**
+     * Calculate the required vertical (height) or horizontal (width) size of the canvas for the
+     * view, given current size requirements.
+     * @param currentSize current size of the canvas
+     * @param neededSize the size the content actually needs
+     * @param measuredSize the measured size of the content (restricted by the current size)
+     * @param action the {@link SizeAction} of the view
+     * @return the size the canvas should be
+     */
+    private static int calcSize(int currentSize, int neededSize, int measuredSize,
+            SizeAction action) {
+        if (action == SizeAction.EXPAND) {
+            if (neededSize > measuredSize) {
+                currentSize += neededSize - measuredSize;
+            }
+            if (currentSize < measuredSize) {
+                // If the screen size is less than the exact measured size, expand to match.
+                currentSize = measuredSize;
+            }
+        } else if (action == SizeAction.SHRINK) {
+            currentSize = neededSize;
+        }
+        return currentSize;
     }
 
     /**
@@ -329,7 +368,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             context.popParser();
 
             // set the AttachInfo on the root view.
-            AttachInfo_Accessor.setAttachInfo(mViewRoot);
+            AttachInfo_Accessor.setAttachInfo(mViewRoot, mRenderer);
 
             // post-inflate process. For now this supports TabHost/TabWidget
             postInflateProcess(view, params.getLayoutlibCallback(), isPreference ? view : null);
@@ -345,8 +384,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             mSystemViewInfoList =
                     visitAllChildren(mViewRoot, 0, 0, params.getExtendedViewInfoMode(),
                     false);
-
-            Choreographer_Delegate.clearFrames();
 
             return SUCCESS.createResult();
         } catch (PostInflateException e) {
@@ -387,18 +424,19 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     }
 
     /**
-     * Renders the given view hierarchy to the passed canvas and returns the result of the render
-     * operation.
-     * @param canvas an optional canvas to render the views to. If null, only the measure and
-     * layout steps will be executed.
+     * Creates a display list for the root view and draws that display list with a "hardware"
+     * renderer. In layoutlib the renderer is not actually hardware (in contrast to the actual
+     * android) but pretends to be so in order to draw all the advanced android features (e.g.
+     * shadows).
      */
-    private static Result renderAndBuildResult(@NonNull ViewGroup viewRoot, @Nullable Canvas canvas) {
-        if (canvas == null) {
-            return SUCCESS.createResult();
-        }
+    private static Result renderAndBuildResult(@NonNull ViewGroup viewRoot,
+        @NonNull HardwareRenderer renderer) {
 
         AttachInfo_Accessor.dispatchOnPreDraw(viewRoot);
-        viewRoot.draw(canvas);
+
+        RenderNode node = viewRoot.updateDisplayListIfDirty();
+        renderer.setContentRoot(node);
+        renderer.createRenderRequest().syncAndDraw();
 
         return SUCCESS.createResult();
     }
@@ -466,16 +504,14 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
 
             HardwareConfig hardwareConfig = params.getHardwareConfig();
             Result renderResult = SUCCESS.createResult();
+            float scaleX = 1.0f;
+            float scaleY = 1.0f;
             if (onlyMeasure) {
                 // delete the canvas and image to reset them on the next full rendering
                 mImage = null;
-                mCanvas = null;
+                disposeImageSurface();
                 doLayout(getContext(), mViewRoot, mMeasuredScreenWidth, mMeasuredScreenHeight);
             } else {
-                // draw the views
-                // create the BufferedImage into which the layout will be rendered.
-                boolean newImage = false;
-
                 // When disableBitmapCaching is true, we do not reuse mImage and
                 // we create a new one in every render.
                 // This is useful when mImage is just a wrapper of Graphics2D so
@@ -483,8 +519,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                 boolean disableBitmapCaching = Boolean.TRUE.equals(params.getFlag(
                     RenderParamsFlags.FLAG_KEY_DISABLE_BITMAP_CACHING));
 
-                if (mNewRenderSize || mCanvas == null || disableBitmapCaching) {
-                    mNewRenderSize = false;
+                if (mNewRenderSize || mImageReader == null || disableBitmapCaching) {
                     if (params.getImageFactory() != null) {
                         mImage = params.getImageFactory().getImage(
                                 mMeasuredScreenWidth,
@@ -494,99 +529,104 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                                 mMeasuredScreenWidth,
                                 mMeasuredScreenHeight,
                                 BufferedImage.TYPE_INT_ARGB);
-                        newImage = true;
-                    }
-
-                    if (params.isTransparentBackground()) {
-                        // since we override the content, it's the same as if it was a new image.
-                        newImage = true;
-                        Graphics2D gc = mImage.createGraphics();
-                        gc.setColor(new Color(0, true));
-                        gc.setComposite(AlphaComposite.Src);
-                        gc.fillRect(0, 0, mMeasuredScreenWidth, mMeasuredScreenHeight);
-                        gc.dispose();
-                    }
-
-                    // create an Android bitmap around the BufferedImage
-                    Bitmap bitmap = Bitmap_Delegate.createBitmap(mImage,
-                            true /*isMutable*/, hardwareConfig.getDensity());
-
-                    if (mCanvas == null) {
-                        // create a Canvas around the Android bitmap
-                        mCanvas = new Canvas(bitmap);
-                    } else {
-                        mCanvas.setBitmap(bitmap);
                     }
 
                     boolean enableImageResizing =
                             mImage.getWidth() != mMeasuredScreenWidth &&
-                            mImage.getHeight() != mMeasuredScreenHeight &&
-                            Boolean.TRUE.equals(params.getFlag(
-                                    RenderParamsFlags.FLAG_KEY_RESULT_IMAGE_AUTO_SCALE));
+                                    mImage.getHeight() != mMeasuredScreenHeight &&
+                                    Boolean.TRUE.equals(params.getFlag(
+                                            RenderParamsFlags.FLAG_KEY_RESULT_IMAGE_AUTO_SCALE));
 
-                    if (enableImageResizing) {
-                        float scaleX = (float)mImage.getWidth() / mMeasuredScreenWidth;
-                        float scaleY = (float)mImage.getHeight() / mMeasuredScreenHeight;
-                        mCanvas.scale(scaleX, scaleY);
+                    if (enableImageResizing || mNewRenderSize) {
+                        disposeImageSurface();
                     }
 
-                    mCanvas.setDensity(hardwareConfig.getDensity().getDpiValue());
-                }
+                    if (enableImageResizing) {
+                        scaleX = mImage.getWidth() * 1.0f / mMeasuredScreenWidth;
+                        scaleY = mImage.getHeight() * 1.0f / mMeasuredScreenHeight;
+                        mRenderer.setScale(scaleX, scaleY);
+                    } else {
+                        mRenderer.setScale(1.0f, 1.0f);
+                    }
 
-                if (freshRender && !newImage) {
-                    Graphics2D gc = mImage.createGraphics();
-                    gc.setComposite(AlphaComposite.Src);
-
-                    gc.setColor(new Color(0x00000000, true));
-                    gc.fillRect(0, 0,
-                            mMeasuredScreenWidth, mMeasuredScreenHeight);
-
-                    // done
-                    gc.dispose();
+                    if (mImageReader == null) {
+                        mImageReader = ImageReader.newInstance(mImage.getWidth(), mImage.getHeight(), PixelFormat.RGBA_8888, 1);
+                        mRenderer.setSurface(mImageReader.getSurface());
+                        mNativeImage = mImageReader.acquireNextImage();
+                    }
+                    mNewRenderSize = false;
                 }
 
                 doLayout(getContext(), mViewRoot, mMeasuredScreenWidth, mMeasuredScreenHeight);
+
                 if (mElapsedFrameTimeNanos >= 0) {
-                    long initialTime = System_Delegate.nanoTime();
                     if (!mFirstFrameExecuted) {
                         // We need to run an initial draw call to initialize the animations
-                        renderAndBuildResult(mViewRoot, NOP_CANVAS);
+                        AttachInfo_Accessor.dispatchOnPreDraw(mViewRoot);
+                        mViewRoot.draw(NOP_CANVAS);
 
                         // The first frame will initialize the animations
-                        Choreographer_Delegate.doFrame(initialTime);
                         mFirstFrameExecuted = true;
                     }
                     // Second frame will move the animations
-                    Choreographer_Delegate.doFrame(initialTime + mElapsedFrameTimeNanos);
+                    AnimatedVectorDrawable_VectorDrawableAnimatorUI_Delegate.sFrameTime =
+                            mElapsedFrameTimeNanos / 1000000;
                 }
-                renderResult = renderAndBuildResult(mViewRoot, mCanvas);
+
+                final TypedArray a = getContext().obtainStyledAttributes(null, R.styleable.Lighting, 0, 0);
+                float lightY = a.getDimension(R.styleable.Lighting_lightY, 0);
+                float lightZ = a.getDimension(R.styleable.Lighting_lightZ, 0);
+                float lightRadius = a.getDimension(R.styleable.Lighting_lightRadius, 0);
+                float ambientShadowAlpha = a.getFloat(R.styleable.Lighting_ambientShadowAlpha, 0);
+                float spotShadowAlpha = a.getFloat(R.styleable.Lighting_spotShadowAlpha, 0);
+                a.recycle();
+
+                mRenderer.setLightSourceGeometry(mMeasuredScreenWidth / 2, lightY, lightZ, lightRadius);
+                mRenderer.setLightSourceAlpha(ambientShadowAlpha, spotShadowAlpha);
+
+                renderResult = renderAndBuildResult(mViewRoot, mRenderer);
+
+                int[] imageData = ((DataBufferInt) mImage.getRaster().getDataBuffer()).getData();
+
+                Plane[] planes = mNativeImage.getPlanes();
+                IntBuffer buff = planes[0].getBuffer().asIntBuffer();
+                int len = buff.remaining();
+                buff.get(imageData, 0, len);
             }
 
             mSystemViewInfoList =
                     visitAllChildren(mViewRoot, 0, 0, params.getExtendedViewInfoMode(),
                     false);
 
-            try {
-                boolean enableLayoutValidation = Boolean.TRUE.equals(params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR));
-                boolean enableLayoutValidationImageCheck = Boolean.TRUE.equals(
-                         params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR_IMAGE_CHECK));
+            boolean enableLayoutValidation = Boolean.TRUE.equals(params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR));
+            boolean enableLayoutValidationImageCheck = Boolean.TRUE.equals(
+                    params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR_IMAGE_CHECK));
 
+            try {
                 if (enableLayoutValidation && !getViewInfos().isEmpty()) {
-                    AccessibilityHierarchyAndroid_ViewElementClassNamesAndroid_Delegate.sLayoutlibCallback =
+                    CustomHierarchyHelper.sLayoutlibCallback =
                             getContext().getLayoutlibCallback();
 
                     BufferedImage imageToPass =
                             enableLayoutValidationImageCheck ? getImage() : null;
-                    ValidatorResult validatorResult =
-                            LayoutValidator.validate(((View) getViewInfos().get(0).getViewObject()), imageToPass);
-                    setValidatorResult(validatorResult);
+
+                    ValidatorHierarchy hierarchy = LayoutValidator.buildHierarchy(
+                            ((View) getViewInfos().get(0).getViewObject()),
+                            imageToPass,
+                            scaleX,
+                            scaleY);
+                    setValidatorHierarchy(hierarchy);
                 }
             } catch (Throwable e) {
-                ValidatorResult.Builder builder = new Builder();
-                builder.mMetric.mErrorMessage = e.getMessage();
-                setValidatorResult(builder.build());
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+
+                ValidatorHierarchy hierarchy = new ValidatorHierarchy();
+                hierarchy.mErrorMessage = sw.toString();
+                setValidatorHierarchy(hierarchy);
             } finally {
-                AccessibilityHierarchyAndroid_ViewElementClassNamesAndroid_Delegate.sLayoutlibCallback = null;
+                CustomHierarchyHelper.sLayoutlibCallback = null;
             }
 
             // success!
@@ -624,7 +664,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         viewToMeasure.measure(w_spec, h_spec);
 
         if (measuredView != null) {
-            return Pair.of(measuredView.getMeasuredWidth(), measuredView.getMeasuredHeight());
+            return Pair.create(measuredView.getMeasuredWidth(), measuredView.getMeasuredHeight());
         }
 
         return null;
@@ -683,11 +723,11 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                                 Pair<View, Boolean> pair = context.inflateView(
                                         binding.getHeaderAt(i),
                                         list, false, skipCallbackParser);
-                                if (pair.getFirst() != null) {
-                                    list.addHeaderView(pair.getFirst());
+                                if (pair.first != null) {
+                                    list.addHeaderView(pair.first);
                                 }
 
-                                skipCallbackParser |= pair.getSecond();
+                                skipCallbackParser |= pair.second;
                             }
 
                             count = binding.getFooterCount();
@@ -695,11 +735,11 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                                 Pair<View, Boolean> pair = context.inflateView(
                                         binding.getFooterAt(i),
                                         list, false, skipCallbackParser);
-                                if (pair.getFirst() != null) {
-                                    list.addFooterView(pair.getFirst());
+                                if (pair.first != null) {
+                                    list.addFooterView(pair.first);
                                 }
 
-                                skipCallbackParser |= pair.getSecond();
+                                skipCallbackParser |= pair.second;
                             }
                         }
 
@@ -1021,7 +1061,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             int shiftX = -scrollX + Math.round(view.getTranslationX()) + hOffset;
             int shiftY = -scrollY + Math.round(view.getTranslationY()) + vOffset;
             result = new ViewInfo(view.getClass().getName(),
-                    getContext().getViewKey(view),
+                    getViewKey(view),
                     shiftX + view.getLeft(),
                     shiftY + view.getTop(),
                     shiftX + view.getRight(),
@@ -1088,6 +1128,17 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     @Nullable
     private Object getViewKey(View view) {
         BridgeContext context = getContext();
+        if ("com.google.android.material.tabs.TabLayout.TabView".equals(
+                view.getClass().getCanonicalName())) {
+            // TabView from the material library is a LinearLayout, but it is defined in XML
+            // as a TabItem. Because of this, TabView doesn't get the correct cookie, but its
+            // children do. So this reassigns the cookie from the first child to link the XML
+            // TabItem to the actual TabView view.
+            ViewGroup tabView = (ViewGroup)view;
+            if (tabView.getChildCount() > 0) {
+                return context.getViewKey(tabView.getChildAt(0));
+            }
+        }
         if (!(view instanceof MenuView.ItemView)) {
             return context.getViewKey(view);
         }
@@ -1151,6 +1202,15 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         mValidatorResult = result;
     }
 
+    @Nullable
+    public ValidatorHierarchy getValidatorHierarchy() {
+        return mValidatorHierarchy;
+    }
+
+    public void setValidatorHierarchy(@NotNull ValidatorHierarchy validatorHierarchy) {
+        mValidatorHierarchy = validatorHierarchy;
+    }
+
     public void setScene(RenderSession session) {
         mScene = session;
     }
@@ -1159,38 +1219,79 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         return mScene;
     }
 
+    public void dispatchTouchEvent(int motionEventType, long currentTimeNanos, float x, float y) {
+        // Events should be dispatched to the top window if there are more than one present.
+        WindowManagerImpl wm =
+                (WindowManagerImpl)getContext().getSystemService(Context.WINDOW_SERVICE);
+        ViewGroup root = wm.getCurrentRootView();
+        if (root == null) {
+            root = mViewRoot;
+        }
+        if (root == null) {
+            return;
+        }
+        if (motionEventType == MotionEvent.ACTION_DOWN) {
+            mLastActionDownTimeNanos = currentTimeNanos;
+        }
+        // Ignore events not started with MotionEvent.ACTION_DOWN
+        if (mLastActionDownTimeNanos == -1) {
+            return;
+        }
+
+        mPointerProperties[0].id = 0;
+        mPointerProperties[0].toolType = MotionEvent.TOOL_TYPE_FINGER;
+
+        mPointerCoords[0].clear();
+        mPointerCoords[0].x = x;
+        mPointerCoords[0].y = y;
+        mPointerCoords[0].pressure = 1.0f;
+        mPointerCoords[0].size = 1.0f;
+
+        MotionEvent event = MotionEvent.obtain(
+            mLastActionDownTimeNanos / TimeUtils.NANOS_PER_MS,
+            currentTimeNanos / TimeUtils.NANOS_PER_MS,
+            motionEventType,
+            1, mPointerProperties, mPointerCoords,
+            0, 0, 1.0f, 1.0f, 0, 0, 0, 0);
+
+        root.dispatchTouchEvent(event);
+    }
+
+    private void disposeImageSurface() {
+        if (mImageReader != null) {
+            mImageReader.close();
+            mImageReader = null;
+        }
+    }
+
+    @Override
     public void dispose() {
         try {
-            boolean createdLooper = false;
-            if (Looper.myLooper() == null) {
-                // Detaching the root view from the window will try to stop any running animations.
-                // The stop method checks that it can run in the looper so, if there is no current
-                // looper, we create a temporary one to complete the shutdown.
-                Bridge.prepareThread();
-                createdLooper = true;
-            }
+            mRenderer.destroy();
+            disposeImageSurface();
+            mImage = null;
+            // detachFromWindow might create Handler callbacks, thus before Handler_Delegate.dispose
             AttachInfo_Accessor.detachFromWindow(mViewRoot);
-            if (mCanvas != null) {
-                mCanvas.release();
-                mCanvas = null;
+            AnimationHandler animationHandler = AnimationHandler.sAnimatorHandler.get();
+            if (animationHandler != null) {
+                animationHandler.mDelayedCallbackStartTime.clear();
+                animationHandler.mAnimationCallbacks.clear();
+                animationHandler.mCommitCallbacks.clear();
             }
+            getContext().getSessionInteractiveData().dispose();
             if (mViewInfoList != null) {
                 mViewInfoList.clear();
             }
             if (mSystemViewInfoList != null) {
                 mSystemViewInfoList.clear();
             }
-            mImage = null;
+            mValidatorResult = null;
+            mValidatorHierarchy = null;
             mViewRoot = null;
             mContentRoot = null;
-            NinePatch_Delegate.clearCache();
-
-            if (createdLooper) {
-                Choreographer_Delegate.dispose();
-                Bridge.cleanupThread();
-            }
         } catch (Throwable t) {
             getContext().error("Error while disposing a RenderSession", t);
         }
+        super.dispose();
     }
 }

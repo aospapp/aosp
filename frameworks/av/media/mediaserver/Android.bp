@@ -33,7 +33,7 @@ cc_binary {
 
     shared_libs: [
         "android.hardware.media.omx@1.0",
-        "libandroidicu",
+        "libicu",
         "libfmq",
         "libbinder",
         "libhidlbase",
@@ -45,11 +45,6 @@ cc_binary {
 
     static_libs: [
         "libregistermsext",
-    ],
-
-    include_dirs: [
-        "frameworks/av/media/libmediaplayerservice",
-        "frameworks/av/services/mediaresourcemanager",
     ],
 
     // By default mediaserver runs in 32-bit to save memory, except

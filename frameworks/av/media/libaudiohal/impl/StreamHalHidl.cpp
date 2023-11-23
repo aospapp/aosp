@@ -20,35 +20,37 @@
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <hwbinder/IPCThreadState.h>
 #include <media/AudioParameter.h>
+#include <mediautils/memory.h>
 #include <mediautils/SchedulingPolicyService.h>
+#include <mediautils/TimeCheck.h>
 #include <utils/Log.h>
 
-#include PATH(android/hardware/audio/FILE_VERSION/IStreamOutCallback.h)
+#include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/IStreamOutCallback.h)
 #include <HidlUtils.h>
 #include <util/CoreUtils.h>
 
 #include "DeviceHalHidl.h"
-#include "EffectHalHidl.h"
 #include "ParameterUtils.h"
 #include "StreamHalHidl.h"
 
-using ::android::hardware::audio::common::CPP_VERSION::implementation::HidlUtils;
-using ::android::hardware::audio::CPP_VERSION::implementation::CoreUtils;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::implementation::HidlUtils;
+using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::implementation::CoreUtils;
 using ::android::hardware::MQDescriptorSync;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 
 namespace android {
-namespace CPP_VERSION {
 
-using EffectHalHidl = ::android::effect::CPP_VERSION::EffectHalHidl;
-using ReadCommand = ::android::hardware::audio::CPP_VERSION::IStreamIn::ReadCommand;
+using ReadCommand = ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn::ReadCommand;
 
-using namespace ::android::hardware::audio::common::CPP_VERSION;
-using namespace ::android::hardware::audio::CPP_VERSION;
+using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
+using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
 
-StreamHalHidl::StreamHalHidl(IStream *stream)
-        : ConversionHelperHidl("Stream"),
+#define TIME_CHECK() auto TimeCheck = \
+       mediautils::makeTimeCheckStatsForClassMethod(getClassName(), __func__)
+
+StreamHalHidl::StreamHalHidl(std::string_view className, IStream *stream)
+        : CoreConversionHelperHidl(className),
           mStream(stream),
           mHalThreadPriority(HAL_THREAD_PRIORITY_DEFAULT),
           mCachedBufferSize(0){
@@ -69,6 +71,7 @@ StreamHalHidl::~StreamHalHidl() {
 }
 
 status_t StreamHalHidl::getBufferSize(size_t *size) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     status_t status = processReturn("getBufferSize", mStream->getBufferSize(), size);
     if (status == OK) {
@@ -78,6 +81,7 @@ status_t StreamHalHidl::getBufferSize(size_t *size) {
 }
 
 status_t StreamHalHidl::getAudioProperties(audio_config_base_t *configBase) {
+    TIME_CHECK();
     *configBase = AUDIO_CONFIG_BASE_INITIALIZER;
     if (!mStream) return NO_INIT;
 #if MAJOR_VERSION <= 6
@@ -107,6 +111,7 @@ status_t StreamHalHidl::getAudioProperties(audio_config_base_t *configBase) {
 }
 
 status_t StreamHalHidl::setParameters(const String8& kvPairs) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     hidl_vec<ParameterValue> hidlParams;
     status_t status = parametersFromHal(kvPairs, &hidlParams);
@@ -116,6 +121,7 @@ status_t StreamHalHidl::setParameters(const String8& kvPairs) {
 }
 
 status_t StreamHalHidl::getParameters(const String8& keys, String8 *values) {
+    TIME_CHECK();
     values->clear();
     if (!mStream) return NO_INIT;
     hidl_vec<hidl_string> hidlKeys;
@@ -136,23 +142,25 @@ status_t StreamHalHidl::getParameters(const String8& keys, String8 *values) {
 }
 
 status_t StreamHalHidl::addEffect(sp<EffectHalInterface> effect) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
-    return processReturn("addEffect", mStream->addEffect(
-                    static_cast<EffectHalHidl*>(effect.get())->effectId()));
+    return processReturn("addEffect", mStream->addEffect(effect->effectId()));
 }
 
 status_t StreamHalHidl::removeEffect(sp<EffectHalInterface> effect) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
-    return processReturn("removeEffect", mStream->removeEffect(
-                    static_cast<EffectHalHidl*>(effect.get())->effectId()));
+    return processReturn("removeEffect", mStream->removeEffect(effect->effectId()));
 }
 
 status_t StreamHalHidl::standby() {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     return processReturn("standby", mStream->standby());
 }
 
 status_t StreamHalHidl::dump(int fd, const Vector<String16>& args) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     native_handle_t* hidlHandle = native_handle_create(1, 0);
     hidlHandle->data[0] = fd;
@@ -177,17 +185,20 @@ status_t StreamHalHidl::dump(int fd, const Vector<String16>& args) {
 }
 
 status_t StreamHalHidl::start() {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     return processReturn("start", mStream->start());
 }
 
 status_t StreamHalHidl::stop() {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     return processReturn("stop", mStream->stop());
 }
 
 status_t StreamHalHidl::createMmapBuffer(int32_t minSizeFrames,
                                   struct audio_mmap_buffer_info *info) {
+    TIME_CHECK();
     Result retval;
     Return<void> ret = mStream->createMmapBuffer(
             minSizeFrames,
@@ -220,6 +231,7 @@ status_t StreamHalHidl::createMmapBuffer(int32_t minSizeFrames,
 }
 
 status_t StreamHalHidl::getMmapPosition(struct audio_mmap_position *position) {
+    TIME_CHECK();
     Result retval;
     Return<void> ret = mStream->getMmapPosition(
             [&](Result r, const MmapPosition& hidlPosition) {
@@ -248,7 +260,7 @@ status_t StreamHalHidl::getCachedBufferSize(size_t *size) {
 status_t StreamHalHidl::getHalPid(pid_t *pid) {
     using ::android::hidl::base::V1_0::DebugInfo;
     using ::android::hidl::manager::V1_0::IServiceManager;
-
+    TIME_CHECK();
     DebugInfo debugInfo;
     auto ret = mStream->getDebugInfo([&] (const auto &info) {
         debugInfo = info;
@@ -274,6 +286,34 @@ bool StreamHalHidl::requestHalThreadPriority(pid_t threadPid, pid_t threadId) {
             mHalThreadPriority, threadPid, threadId, err);
     // Audio will still work, but latency will be higher and sometimes unacceptable.
     return err == 0;
+}
+
+status_t StreamHalHidl::legacyCreateAudioPatch(const struct audio_port_config& port,
+                                               std::optional<audio_source_t> source,
+                                               audio_devices_t type) {
+    TIME_CHECK();
+    LOG_ALWAYS_FATAL_IF(port.type != AUDIO_PORT_TYPE_DEVICE, "port type must be device");
+    unique_malloced_ptr<char> address;
+    if (strcmp(port.ext.device.address, "") != 0) {
+        // FIXME: we only support address on first sink with HAL version < 3.0
+        address.reset(
+                audio_device_address_to_parameter(port.ext.device.type, port.ext.device.address));
+    } else {
+        address.reset((char*)calloc(1, 1));
+    }
+    AudioParameter param = AudioParameter(String8(address.get()));
+    param.addInt(String8(AudioParameter::keyRouting), (int)type);
+    if (source.has_value()) {
+        param.addInt(String8(AudioParameter::keyInputSource), (int)source.value());
+    }
+    return setParameters(param.toString());
+}
+
+status_t StreamHalHidl::legacyReleaseAudioPatch() {
+    TIME_CHECK();
+    AudioParameter param;
+    param.addInt(String8(AudioParameter::keyRouting), 0);
+    return setParameters(param.toString());
 }
 
 namespace {
@@ -328,8 +368,10 @@ struct StreamOutCallback : public IStreamOutCallback {
 
 }  // namespace
 
-StreamOutHalHidl::StreamOutHalHidl(const sp<IStreamOut>& stream)
-        : StreamHalHidl(stream.get()), mStream(stream), mWriterClient(0), mEfGroup(nullptr) {
+StreamOutHalHidl::StreamOutHalHidl(
+        const sp<::android::hardware::audio::CPP_VERSION::IStreamOut>& stream)
+        : StreamHalHidl("StreamOutHalHidl", stream.get())
+        , mStream(stream), mWriterClient(0), mEfGroup(nullptr) {
 }
 
 StreamOutHalHidl::~StreamOutHalHidl() {
@@ -353,11 +395,13 @@ StreamOutHalHidl::~StreamOutHalHidl() {
 }
 
 status_t StreamOutHalHidl::getFrameSize(size_t *size) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("getFrameSize", mStream->getFrameSize(), size);
 }
 
 status_t StreamOutHalHidl::getLatency(uint32_t *latency) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     if (mWriterClient == gettid() && mCommandMQ) {
         return callWriterThread(
@@ -371,12 +415,14 @@ status_t StreamOutHalHidl::getLatency(uint32_t *latency) {
 }
 
 status_t StreamOutHalHidl::setVolume(float left, float right) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("setVolume", mStream->setVolume(left, right));
 }
 
 #if MAJOR_VERSION == 2
 status_t StreamOutHalHidl::selectPresentation(int presentationId, int programId) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     std::vector<ParameterValue> parameters;
     String8 halParameters;
@@ -387,6 +433,7 @@ status_t StreamOutHalHidl::selectPresentation(int presentationId, int programId)
 }
 #elif MAJOR_VERSION >= 4
 status_t StreamOutHalHidl::selectPresentation(int presentationId, int programId) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("selectPresentation",
             mStream->selectPresentation(presentationId, programId));
@@ -394,6 +441,7 @@ status_t StreamOutHalHidl::selectPresentation(int presentationId, int programId)
 #endif
 
 status_t StreamOutHalHidl::write(const void *buffer, size_t bytes, size_t *written) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     *written = 0;
 
@@ -539,6 +587,7 @@ status_t StreamOutHalHidl::prepareForWriting(size_t bufferSize) {
 }
 
 status_t StreamOutHalHidl::getRenderPosition(uint32_t *dspFrames) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getRenderPosition(
@@ -552,6 +601,7 @@ status_t StreamOutHalHidl::getRenderPosition(uint32_t *dspFrames) {
 }
 
 status_t StreamOutHalHidl::getNextWriteTimestamp(int64_t *timestamp) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getNextWriteTimestamp(
@@ -565,6 +615,7 @@ status_t StreamOutHalHidl::getNextWriteTimestamp(int64_t *timestamp) {
 }
 
 status_t StreamOutHalHidl::setCallback(wp<StreamOutHalInterfaceCallback> callback) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     status_t status = processReturn(
             "setCallback", mStream->setCallback(new StreamOutCallback(this)));
@@ -575,6 +626,7 @@ status_t StreamOutHalHidl::setCallback(wp<StreamOutHalInterfaceCallback> callbac
 }
 
 status_t StreamOutHalHidl::supportsPauseAndResume(bool *supportsPause, bool *supportsResume) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     Return<void> ret = mStream->supportsPauseAndResume(
             [&](bool p, bool r) {
@@ -585,32 +637,38 @@ status_t StreamOutHalHidl::supportsPauseAndResume(bool *supportsPause, bool *sup
 }
 
 status_t StreamOutHalHidl::pause() {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("pause", mStream->pause());
 }
 
 status_t StreamOutHalHidl::resume() {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("pause", mStream->resume());
 }
 
 status_t StreamOutHalHidl::supportsDrain(bool *supportsDrain) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("supportsDrain", mStream->supportsDrain(), supportsDrain);
 }
 
 status_t StreamOutHalHidl::drain(bool earlyNotify) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn(
             "drain", mStream->drain(earlyNotify ? AudioDrain::EARLY_NOTIFY : AudioDrain::ALL));
 }
 
 status_t StreamOutHalHidl::flush() {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("pause", mStream->flush());
 }
 
 status_t StreamOutHalHidl::getPresentationPosition(uint64_t *frames, struct timespec *timestamp) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     if (mWriterClient == gettid() && mCommandMQ) {
         return callWriterThread(
@@ -644,7 +702,12 @@ status_t StreamOutHalHidl::updateSourceMetadata(
 #elif MAJOR_VERSION >= 4
 status_t StreamOutHalHidl::updateSourceMetadata(
         const StreamOutHalInterface::SourceMetadata& sourceMetadata) {
-    CPP_VERSION::SourceMetadata hidlMetadata;
+    TIME_CHECK();
+#if MAJOR_VERSION == 4
+    ::android::hardware::audio::CORE_TYPES_CPP_VERSION::SourceMetadata hidlMetadata;
+#else
+    ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::SourceMetadata hidlMetadata;
+#endif
     if (status_t status = CoreUtils::sourceMetadataFromHalV7(
                     sourceMetadata.tracks, true /*ignoreNonVendorTags*/, &hidlMetadata);
             status != OK) {
@@ -686,9 +749,11 @@ status_t StreamOutHalHidl::setEventCallback(
     // Codec format callback is supported starting from audio HAL V6.0
     return INVALID_OPERATION;
 }
+
 #else
 
 status_t StreamOutHalHidl::getDualMonoMode(audio_dual_mono_mode_t* mode) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getDualMonoMode(
@@ -702,12 +767,14 @@ status_t StreamOutHalHidl::getDualMonoMode(audio_dual_mono_mode_t* mode) {
 }
 
 status_t StreamOutHalHidl::setDualMonoMode(audio_dual_mono_mode_t mode) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn(
             "setDualMonoMode", mStream->setDualMonoMode(static_cast<DualMonoMode>(mode)));
 }
 
 status_t StreamOutHalHidl::getAudioDescriptionMixLevel(float* leveldB) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getAudioDescriptionMixLevel(
@@ -721,12 +788,14 @@ status_t StreamOutHalHidl::getAudioDescriptionMixLevel(float* leveldB) {
 }
 
 status_t StreamOutHalHidl::setAudioDescriptionMixLevel(float leveldB) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn(
             "setAudioDescriptionMixLevel", mStream->setAudioDescriptionMixLevel(leveldB));
 }
 
 status_t StreamOutHalHidl::getPlaybackRateParameters(audio_playback_rate_t* playbackRate) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getPlaybackRateParameters(
@@ -747,6 +816,7 @@ status_t StreamOutHalHidl::getPlaybackRateParameters(audio_playback_rate_t* play
 }
 
 status_t StreamOutHalHidl::setPlaybackRateParameters(const audio_playback_rate_t& playbackRate) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn(
             "setPlaybackRateParameters", mStream->setPlaybackRateParameters(
@@ -755,7 +825,7 @@ status_t StreamOutHalHidl::setPlaybackRateParameters(const audio_playback_rate_t
                     static_cast<TimestretchFallbackMode>(playbackRate.mFallbackMode)}));
 }
 
-#include PATH(android/hardware/audio/FILE_VERSION/IStreamOutEventCallback.h)
+#include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/IStreamOutEventCallback.h)
 
 namespace {
 
@@ -781,6 +851,7 @@ struct StreamOutEventCallback : public IStreamOutEventCallback {
 
 status_t StreamOutHalHidl::setEventCallback(
         const sp<StreamOutHalInterfaceEventCallback>& callback) {
+    TIME_CHECK();
     if (mStream == nullptr) return NO_INIT;
     mEventCallback = callback;
     status_t status = processReturn(
@@ -789,6 +860,87 @@ status_t StreamOutHalHidl::setEventCallback(
                     callback.get() == nullptr ? nullptr : new StreamOutEventCallback(this)));
     return status;
 }
+#endif
+
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+using hardware::audio::V7_1::LatencyMode;
+
+status_t StreamOutHalHidl::setLatencyMode(audio_latency_mode_t mode) {
+    TIME_CHECK();
+    if (mStream == 0) return NO_INIT;
+    return processReturn(
+            "setLatencyMode", mStream->setLatencyMode(static_cast<LatencyMode>(mode)));
+};
+
+status_t StreamOutHalHidl::getRecommendedLatencyModes(std::vector<audio_latency_mode_t> *modes) {
+    TIME_CHECK();
+    if (!mStream) return NO_INIT;
+    Result retval;
+    Return<void> ret = mStream->getRecommendedLatencyModes(
+            [&](Result r, hidl_vec<LatencyMode> hidlModes) {
+        retval = r;
+        for (size_t i = 0; i < hidlModes.size(); i++) {
+            modes->push_back(static_cast<audio_latency_mode_t>(hidlModes[i]));
+        }
+    });
+    return processReturn("getRecommendedLatencyModes", ret, retval);
+};
+
+#include PATH(android/hardware/audio/FILE_VERSION/IStreamOutLatencyModeCallback.h)
+
+using hardware::audio::V7_1::IStreamOutLatencyModeCallback;
+
+namespace {
+struct StreamOutLatencyModeCallback : public IStreamOutLatencyModeCallback {
+    StreamOutLatencyModeCallback(const wp<StreamOutHalHidl>& stream) : mStream(stream) {}
+
+    // IStreamOutLatencyModeCallback implementation
+    Return<void> onRecommendedLatencyModeChanged(const hidl_vec<LatencyMode>& hidlModes) override {
+        sp<StreamOutHalHidl> stream = mStream.promote();
+        if (stream != nullptr) {
+            std::vector<audio_latency_mode_t> modes;
+            for (size_t i = 0; i < hidlModes.size(); i++) {
+                modes.push_back(static_cast<audio_latency_mode_t>(hidlModes[i]));
+            }
+            stream->onRecommendedLatencyModeChanged(modes);
+        }
+        return Void();
+    }
+
+  private:
+    wp<StreamOutHalHidl> mStream;
+};
+}  // namespace
+
+status_t StreamOutHalHidl::setLatencyModeCallback(
+        const sp<StreamOutHalInterfaceLatencyModeCallback>& callback) {
+    TIME_CHECK();
+
+    if (mStream == nullptr) return NO_INIT;
+    mLatencyModeCallback = callback;
+    status_t status = processReturn(
+            "setLatencyModeCallback",
+            mStream->setLatencyModeCallback(
+                    callback.get() == nullptr ? nullptr : new StreamOutLatencyModeCallback(this)));
+    return status;
+};
+
+#else
+
+status_t StreamOutHalHidl::setLatencyMode(audio_latency_mode_t mode __unused) {
+    return INVALID_OPERATION;
+};
+
+status_t StreamOutHalHidl::getRecommendedLatencyModes(
+        std::vector<audio_latency_mode_t> *modes __unused) {
+    return INVALID_OPERATION;
+};
+
+status_t StreamOutHalHidl::setLatencyModeCallback(
+        const sp<StreamOutHalInterfaceLatencyModeCallback>& callback __unused) {
+    return INVALID_OPERATION;
+};
+
 #endif
 
 void StreamOutHalHidl::onWriteReady() {
@@ -819,9 +971,23 @@ void StreamOutHalHidl::onCodecFormatChanged(const std::basic_string<uint8_t>& me
     callback->onCodecFormatChanged(metadataBs);
 }
 
+void StreamOutHalHidl::onRecommendedLatencyModeChanged(
+        const std::vector<audio_latency_mode_t>& modes) {
+    sp<StreamOutHalInterfaceLatencyModeCallback> callback = mLatencyModeCallback.load().promote();
+    if (callback == nullptr) return;
+    callback->onRecommendedLatencyModeChanged(modes);
+}
 
-StreamInHalHidl::StreamInHalHidl(const sp<IStreamIn>& stream)
-        : StreamHalHidl(stream.get()), mStream(stream), mReaderClient(0), mEfGroup(nullptr) {
+status_t StreamOutHalHidl::exit() {
+    // FIXME this is using hard-coded strings but in the future, this functionality will be
+    //       converted to use audio HAL extensions required to support tunneling
+    return setParameters(String8("exiting=1"));
+}
+
+StreamInHalHidl::StreamInHalHidl(
+        const sp<::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn>& stream)
+        : StreamHalHidl("StreamInHalHidl", stream.get())
+        , mStream(stream), mReaderClient(0), mEfGroup(nullptr) {
 }
 
 StreamInHalHidl::~StreamInHalHidl() {
@@ -834,16 +1000,19 @@ StreamInHalHidl::~StreamInHalHidl() {
 }
 
 status_t StreamInHalHidl::getFrameSize(size_t *size) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("getFrameSize", mStream->getFrameSize(), size);
 }
 
 status_t StreamInHalHidl::setGain(float gain) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("setGain", mStream->setGain(gain));
 }
 
 status_t StreamInHalHidl::read(void *buffer, size_t bytes, size_t *read) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     *read = 0;
 
@@ -971,11 +1140,13 @@ status_t StreamInHalHidl::prepareForReading(size_t bufferSize) {
 }
 
 status_t StreamInHalHidl::getInputFramesLost(uint32_t *framesLost) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     return processReturn("getInputFramesLost", mStream->getInputFramesLost(), framesLost);
 }
 
 status_t StreamInHalHidl::getCapturePosition(int64_t *frames, int64_t *time) {
+    TIME_CHECK();
     if (mStream == 0) return NO_INIT;
     if (mReaderClient == gettid() && mCommandMQ) {
         ReadParameters params;
@@ -1015,6 +1186,7 @@ status_t StreamInHalHidl::updateSinkMetadata(
 #elif MAJOR_VERSION >= 4
 status_t StreamInHalHidl::getActiveMicrophones(
         std::vector<media::MicrophoneInfo> *microphonesInfo) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getActiveMicrophones(
@@ -1033,7 +1205,12 @@ status_t StreamInHalHidl::getActiveMicrophones(
 
 status_t StreamInHalHidl::updateSinkMetadata(const
         StreamInHalInterface::SinkMetadata& sinkMetadata) {
-    CPP_VERSION::SinkMetadata hidlMetadata;
+    TIME_CHECK();
+#if MAJOR_VERSION == 4
+    ::android::hardware::audio::CORE_TYPES_CPP_VERSION::SinkMetadata hidlMetadata;
+#else
+    ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::SinkMetadata hidlMetadata;
+#endif
     if (status_t status = CoreUtils::sinkMetadataFromHalV7(
                     sinkMetadata.tracks, true /*ignoreNonVendorTags*/, &hidlMetadata);
             status != OK) {
@@ -1056,17 +1233,18 @@ status_t StreamInHalHidl::setPreferredMicrophoneFieldDimension(float zoom __unus
 }
 #else
 status_t StreamInHalHidl::setPreferredMicrophoneDirection(audio_microphone_direction_t direction) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     return processReturn("setPreferredMicrophoneDirection",
         mStream->setMicrophoneDirection(static_cast<MicrophoneDirection>(direction)));
 }
 
 status_t StreamInHalHidl::setPreferredMicrophoneFieldDimension(float zoom) {
+    TIME_CHECK();
     if (!mStream) return NO_INIT;
     return processReturn("setPreferredMicrophoneFieldDimension",
                 mStream->setMicrophoneFieldDimension(zoom));
 }
 #endif
 
-} // namespace CPP_VERSION
 } // namespace android

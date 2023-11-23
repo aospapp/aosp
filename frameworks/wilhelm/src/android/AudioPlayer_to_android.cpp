@@ -19,6 +19,7 @@
 #include "android/android_AudioToCbRenderer.h"
 #include "android/android_StreamPlayer.h"
 #include "android/android_LocAVPlayer.h"
+#include "android/AudioTrackCallback.h"
 #include "android/include/AacBqToPcmCbRenderer.h"
 #include "android/channels.h"
 
@@ -1233,23 +1234,15 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
 //-----------------------------------------------------------------------------
 // Callback associated with an AudioTrack of an SL ES AudioPlayer that gets its data
 // from a buffer queue. This will not be called once the AudioTrack has been destroyed.
-static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *info) {
-    CAudioPlayer *ap = (CAudioPlayer *)user;
-
-    if (!android::CallbackProtector::enterCbIfOk(ap->mCallbackProtector)) {
-        // it is not safe to enter the callback (the track is about to go away)
-        return;
-    }
+size_t audioTrack_handleMoreData_lockPlay(CAudioPlayer* ap,
+                                        const android::AudioTrack::Buffer& buffer) {
 
     void * callbackPContext = NULL;
-    switch (event) {
-
-    case android::AudioTrack::EVENT_MORE_DATA: {
+    size_t bytesWritten = 0;
         //SL_LOGV("received event EVENT_MORE_DATA from AudioTrack TID=%d", gettid());
         slPrefetchCallback prefetchCallback = NULL;
         void *prefetchContext = NULL;
         SLuint32 prefetchEvents = SL_PREFETCHEVENT_NONE;
-        android::AudioTrack::Buffer* pBuff = (android::AudioTrack::Buffer*)info;
 
         // retrieve data from the buffer queue
         interface_lock_exclusive(&ap->mBufferQueue);
@@ -1274,17 +1267,15 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
             BufferHeader *newFront = &oldFront[1];
 
             size_t availSource = oldFront->mSize - ap->mBufferQueue.mSizeConsumed;
-            size_t availSink = pBuff->size;
+            size_t availSink = buffer.size();
             size_t bytesToCopy = availSource < availSink ? availSource : availSink;
             void *pSrc = (char *)oldFront->mBuffer + ap->mBufferQueue.mSizeConsumed;
-            memcpy(pBuff->raw, pSrc, bytesToCopy);
-
+            memcpy(buffer.data(), pSrc, bytesToCopy);
+            bytesWritten = bytesToCopy;
             if (bytesToCopy < availSource) {
                 ap->mBufferQueue.mSizeConsumed += bytesToCopy;
-                // pBuff->size is already equal to bytesToCopy in this case
             } else {
                 // consumed an entire buffer, dequeue
-                pBuff->size = bytesToCopy;
                 ap->mBufferQueue.mSizeConsumed = 0;
                 if (newFront ==
                         &ap->mBufferQueue.mArray
@@ -1299,8 +1290,6 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
                 ap->mBufferQueue.mCallbackPending = true;
             }
         } else { // empty queue
-            // signal no data available
-            pBuff->size = 0;
 
             // signal we're at the end of the content, but don't pause (see note in function)
             audioPlayer_dispatch_headAtEnd_lockPlay(ap, false /*set state to paused?*/, false);
@@ -1336,41 +1325,8 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
                         SL_PREFETCHEVENT_FILLLEVELCHANGE);
             }
         }
-    }
-    break;
 
-    case android::AudioTrack::EVENT_MARKER:
-        //SL_LOGI("received event EVENT_MARKER from AudioTrack");
-        audioTrack_handleMarker_lockPlay(ap);
-        break;
-
-    case android::AudioTrack::EVENT_NEW_POS:
-        //SL_LOGI("received event EVENT_NEW_POS from AudioTrack");
-        audioTrack_handleNewPos_lockPlay(ap);
-        break;
-
-    case android::AudioTrack::EVENT_UNDERRUN:
-        //SL_LOGI("received event EVENT_UNDERRUN from AudioTrack");
-        audioTrack_handleUnderrun_lockPlay(ap);
-        break;
-
-    case android::AudioTrack::EVENT_NEW_IAUDIOTRACK:
-        // ignore for now
-        break;
-
-    case android::AudioTrack::EVENT_BUFFER_END:
-    case android::AudioTrack::EVENT_LOOP_END:
-    case android::AudioTrack::EVENT_STREAM_END:
-        // These are unexpected so fall through
-        FALLTHROUGH_INTENDED;
-    default:
-        // FIXME where does the notification of SL_PLAYEVENT_HEADMOVING fit?
-        SL_LOGE("Encountered unknown AudioTrack event %d for CAudioPlayer %p", event,
-                (CAudioPlayer *)user);
-        break;
-    }
-
-    ap->mCallbackProtector->exitCb();
+    return bytesWritten;
 }
 
 
@@ -1684,16 +1640,15 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
         } else {
             notificationFrames = 0;
         }
-
-        android::AudioTrack* pat = new android::AudioTrack(
+        const auto callbackHandle = android::sp<android::AudioTrackCallback>::make(pAudioPlayer);
+        const auto pat = android::sp<android::AudioTrack>::make(
                 pAudioPlayer->mStreamType,                           // streamType
                 sampleRate,                                          // sampleRate
                 sles_to_android_sampleFormat(df_pcm),                // format
                 channelMask,                                         // channel mask
                 0,                                                   // frameCount
                 policy,                                              // flags
-                audioTrack_callBack_pullFromBuffQueue,               // callback
-                (void *) pAudioPlayer,                               // user
+                callbackHandle,                                      // callback
                 notificationFrames,                                  // see comment above
                 pAudioPlayer->mSessionId);
 
@@ -1702,17 +1657,17 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
 
         android::status_t status = pat->initCheck();
         if (status != android::NO_ERROR) {
-            // AudioTracks are meant to be refcounted, so their dtor is protected.
-            static_cast<void>(android::sp<android::AudioTrack>(pat));
-
             SL_LOGE("AudioTrack::initCheck status %u", status);
             // FIXME should return a more specific result depending on status
             result = SL_RESULT_CONTENT_UNSUPPORTED;
             return result;
         }
 
-        pAudioPlayer->mTrackPlayer->init(pat, android::PLAYER_TYPE_SLES_AUDIOPLAYER_BUFFERQUEUE,
-                usageForStreamType(pAudioPlayer->mStreamType), pAudioPlayer->mSessionId);
+        pAudioPlayer->mTrackPlayer->init(
+            pat, callbackHandle,
+            android::PLAYER_TYPE_SLES_AUDIOPLAYER_BUFFERQUEUE,
+            usageForStreamType(pAudioPlayer->mStreamType),
+            pAudioPlayer->mSessionId);
 
         // update performance mode according to actual flags granted to AudioTrack
         checkAndSetPerformanceModePost(pAudioPlayer);

@@ -19,12 +19,13 @@ package com.android.tools.layoutlib.create;
 import org.objectweb.asm.ClassVisitor;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Interface describing the work to be done by {@link AsmGenerator}.
  */
 public interface ICreateInfo {
+
+    MethodReplacer[] getMethodReplacers();
 
     /**
      * Returns the list of class from layoutlib_create to inject in layoutlib.
@@ -43,6 +44,27 @@ public interface ICreateInfo {
      * The list can be empty but must not be null.
      */
     String[] getDelegateClassNatives();
+
+    /**
+     * Returns the list of classes for which to create a delegate class that delegates all native
+     * methods to corresponding native methods. This is useful for classes that call native
+     * methods during static initialization.
+     * The list can be empty but must not be null.
+     */
+    String[] getDelegateClassNativesToNatives();
+
+    /**
+     * Returns true if native methods should not be stubbed by default.
+     */
+    boolean shouldKeepAllNativeClasses();
+
+    /**
+     * Returns the list of classes for which not to delegate any native method.
+     * The list can be empty but must not be null.
+     *
+     * Only used when shouldKeepAllNativeClasses is false.
+     */
+    String[] getKeepClassNatives();
 
     /**
      * Returns the list of classes to rename, must be an even list: the binary FQCN
@@ -87,6 +109,13 @@ public interface ICreateInfo {
     String[] getPromotedFields();
 
     /**
+     * Returns a list of methods which should be promoted to public visibility. The array values
+     * are in the form of the binary FQCN of the class containing the method and the method name
+     * separated by a '#'.
+     */
+    String[] getPromotedMethods();
+
+    /**
      * Returns a list of classes to be promoted to public visibility.
      */
     String[] getPromotedClasses();
@@ -98,6 +127,18 @@ public interface ICreateInfo {
      */
     Map<String, InjectMethodRunnable> getInjectedMethodsMap();
 
+    String[] getDeferredStaticInitializerClasses();
+
+    interface MethodReplacer {
+        boolean isNeeded(String owner, String name, String desc, String sourceClass);
+
+        /**
+         * Updates the MethodInformation with the new values of the method attributes -
+         * opcode, owner, name and desc.
+         */
+        void replace(MethodInformation mi);
+    }
+
     abstract class InjectMethodRunnable {
         /**
          * @param cv Must be {@link ClassVisitor}. However, the param type is object so that when
@@ -106,5 +147,19 @@ public interface ICreateInfo {
          * asm classes also, but still keep CreateInfo loadable.
          */
         public abstract void generateMethods(Object cv);
+    }
+
+    class MethodInformation {
+        public int opcode;
+        public String owner;
+        public String name;
+        public String desc;
+
+        public MethodInformation(int opcode, String owner, String name, String desc) {
+            this.opcode = opcode;
+            this.owner = owner;
+            this.name = name;
+            this.desc = desc;
+        }
     }
 }

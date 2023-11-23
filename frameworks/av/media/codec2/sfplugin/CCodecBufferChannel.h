@@ -130,9 +130,23 @@ public:
             bool buffersBoundToCodec);
 
     /**
-     * Request initial input buffers to be filled by client.
+     * Prepare initial input buffers to be filled by client.
+     *
+     * \param clientInputBuffers[out]   pointer to slot index -> buffer map.
+     *                                  On success, it contains prepared
+     *                                  initial input buffers.
      */
-    status_t requestInitialInputBuffers();
+    status_t prepareInitialInputBuffers(
+            std::map<size_t, sp<MediaCodecBuffer>> *clientInputBuffers);
+
+    /**
+     * Request initial input buffers as prepared in clientInputBuffers.
+     *
+     * \param clientInputBuffers[in]    slot index -> buffer map with prepared
+     *                                  initial input buffers.
+     */
+    status_t requestInitialInputBuffers(
+            std::map<size_t, sp<MediaCodecBuffer>> &&clientInputBuffers);
 
     /**
      * Stop queueing buffers to the component. This object should never queue
@@ -180,6 +194,11 @@ public:
     };
 
     void setMetaMode(MetaMode mode);
+
+    /**
+     * Push a blank buffer to the configured native output surface.
+     */
+    status_t pushBlankBufferToOutputSurface();
 
 private:
     class QueueGuard;
@@ -324,6 +343,8 @@ private:
         return mCrypto != nullptr || mDescrambler != nullptr;
     }
     std::atomic_bool mSendEncryptedInfoBuffer;
+
+    std::atomic_bool mTunneled;
 };
 
 // Conversion of a c2_status_t value to a status_t value may depend on the

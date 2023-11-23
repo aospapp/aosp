@@ -18,6 +18,9 @@ interface IBinderRpcTest {
     oneway void sendString(@utf8InCpp String str);
     @utf8InCpp String doubleString(@utf8InCpp String str);
 
+    // get the port that a client used to connect to this object
+    int getClientPort();
+
     // number of known RPC binders to process, RpcState::countBinders by session
     int[] countBinders();
 
@@ -54,5 +57,11 @@ interface IBinderRpcTest {
     void sleepMs(int ms);
     oneway void sleepMsAsync(int ms);
 
+    void doCallback(IBinderRpcCallback callback, boolean isOneway, boolean delayed, @utf8InCpp String value);
+    oneway void doCallbackAsync(IBinderRpcCallback callback, boolean isOneway, boolean delayed, @utf8InCpp String value);
+
     void die(boolean cleanup);
+    void scheduleShutdown();
+
+    void useKernelBinderCallingId();
 }

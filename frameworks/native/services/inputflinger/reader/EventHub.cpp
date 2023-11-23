@@ -40,6 +40,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <cutils/properties.h>
+#include <ftl/enum.h>
 #include <input/KeyCharacterMap.h>
 #include <input/KeyLayoutMap.h>
 #include <input/VirtualKeyMap.h>
@@ -59,13 +60,14 @@
 #define INDENT3 "      "
 
 using android::base::StringPrintf;
-using namespace android::flag_operators;
 
 namespace android {
 
-static const char* DEVICE_PATH = "/dev/input";
+using namespace ftl::flag_operators;
+
+static const char* DEVICE_INPUT_PATH = "/dev/input";
 // v4l2 devices go directly into /dev
-static const char* VIDEO_DEVICE_PATH = "/dev";
+static const char* DEVICE_PATH = "/dev";
 
 static constexpr size_t OBFUSCATED_LENGTH = 8;
 
@@ -263,7 +265,7 @@ static std::vector<std::filesystem::path> allFilesInPath(const std::filesystem::
  */
 static std::vector<std::filesystem::path> findSysfsNodes(const std::filesystem::path& sysfsRoot,
                                                          SysfsClass clazz) {
-    std::string nodeStr = NamedEnum::string(clazz);
+    std::string nodeStr = ftl::enum_string(clazz);
     std::for_each(nodeStr.begin(), nodeStr.end(),
                   [](char& c) { c = std::tolower(static_cast<unsigned char>(c)); });
     std::vector<std::filesystem::path> nodes;
@@ -301,7 +303,8 @@ static std::optional<std::array<LightColor, COLOR_NUM>> getColorIndexArray(
 
 // --- Global Functions ---
 
-Flags<InputDeviceClass> getAbsAxisUsage(int32_t axis, Flags<InputDeviceClass> deviceClasses) {
+ftl::Flags<InputDeviceClass> getAbsAxisUsage(int32_t axis,
+                                             ftl::Flags<InputDeviceClass> deviceClasses) {
     // Touch devices get dibs on touch-related axes.
     if (deviceClasses.test(InputDeviceClass::TOUCH)) {
         switch (axis) {
@@ -684,16 +687,24 @@ EventHub::EventHub(void)
     mEpollFd = epoll_create1(EPOLL_CLOEXEC);
     LOG_ALWAYS_FATAL_IF(mEpollFd < 0, "Could not create epoll instance: %s", strerror(errno));
 
-    mINotifyFd = inotify_init();
-    mInputWd = inotify_add_watch(mINotifyFd, DEVICE_PATH, IN_DELETE | IN_CREATE);
-    LOG_ALWAYS_FATAL_IF(mInputWd < 0, "Could not register INotify for %s: %s", DEVICE_PATH,
-                        strerror(errno));
-    if (isV4lScanningEnabled()) {
-        mVideoWd = inotify_add_watch(mINotifyFd, VIDEO_DEVICE_PATH, IN_DELETE | IN_CREATE);
-        LOG_ALWAYS_FATAL_IF(mVideoWd < 0, "Could not register INotify for %s: %s",
-                            VIDEO_DEVICE_PATH, strerror(errno));
+    mINotifyFd = inotify_init1(IN_CLOEXEC);
+
+    std::error_code errorCode;
+    bool isDeviceInotifyAdded = false;
+    if (std::filesystem::exists(DEVICE_INPUT_PATH, errorCode)) {
+        addDeviceInputInotify();
     } else {
-        mVideoWd = -1;
+        addDeviceInotify();
+        isDeviceInotifyAdded = true;
+        if (errorCode) {
+            ALOGW("Could not run filesystem::exists() due to error %d : %s.", errorCode.value(),
+                  errorCode.message().c_str());
+        }
+    }
+
+    if (isV4lScanningEnabled() && !isDeviceInotifyAdded) {
+        addDeviceInotify();
+    } else {
         ALOGI("Video device scanning disabled");
     }
 
@@ -704,7 +715,7 @@ EventHub::EventHub(void)
     LOG_ALWAYS_FATAL_IF(result != 0, "Could not add INotify to epoll instance.  errno=%d", errno);
 
     int wakeFds[2];
-    result = pipe(wakeFds);
+    result = pipe2(wakeFds, O_CLOEXEC);
     LOG_ALWAYS_FATAL_IF(result != 0, "Could not create wake pipe.  errno=%d", errno);
 
     mWakeReadPipeFd = wakeFds[0];
@@ -733,16 +744,33 @@ EventHub::~EventHub(void) {
     ::close(mWakeWritePipeFd);
 }
 
+/**
+ * On devices that don't have any input devices (like some development boards), the /dev/input
+ * directory will be absent. However, the user may still plug in an input device at a later time.
+ * Add watch for contents of /dev/input only when /dev/input appears.
+ */
+void EventHub::addDeviceInputInotify() {
+    mDeviceInputWd = inotify_add_watch(mINotifyFd, DEVICE_INPUT_PATH, IN_DELETE | IN_CREATE);
+    LOG_ALWAYS_FATAL_IF(mDeviceInputWd < 0, "Could not register INotify for %s: %s",
+                        DEVICE_INPUT_PATH, strerror(errno));
+}
+
+void EventHub::addDeviceInotify() {
+    mDeviceWd = inotify_add_watch(mINotifyFd, DEVICE_PATH, IN_DELETE | IN_CREATE);
+    LOG_ALWAYS_FATAL_IF(mDeviceWd < 0, "Could not register INotify for %s: %s", DEVICE_PATH,
+                        strerror(errno));
+}
+
 InputDeviceIdentifier EventHub::getDeviceIdentifier(int32_t deviceId) const {
     std::scoped_lock _l(mLock);
     Device* device = getDeviceLocked(deviceId);
     return device != nullptr ? device->identifier : InputDeviceIdentifier();
 }
 
-Flags<InputDeviceClass> EventHub::getDeviceClasses(int32_t deviceId) const {
+ftl::Flags<InputDeviceClass> EventHub::getDeviceClasses(int32_t deviceId) const {
     std::scoped_lock _l(mLock);
     Device* device = getDeviceLocked(deviceId);
-    return device != nullptr ? device->classes : Flags<InputDeviceClass>(0);
+    return device != nullptr ? device->classes : ftl::Flags<InputDeviceClass>(0);
 }
 
 int32_t EventHub::getDeviceControllerNumber(int32_t deviceId) const {
@@ -852,6 +880,42 @@ int32_t EventHub::getKeyCodeState(int32_t deviceId, int32_t keyCode) const {
         }
     }
     return AKEY_STATE_UNKNOWN;
+}
+
+int32_t EventHub::getKeyCodeForKeyLocation(int32_t deviceId, int32_t locationKeyCode) const {
+    std::scoped_lock _l(mLock);
+
+    Device* device = getDeviceLocked(deviceId);
+    if (device == nullptr || !device->hasValidFd() || device->keyMap.keyCharacterMap == nullptr ||
+        device->keyMap.keyLayoutMap == nullptr) {
+        return AKEYCODE_UNKNOWN;
+    }
+    std::vector<int32_t> scanCodes;
+    device->keyMap.keyLayoutMap->findScanCodesForKey(locationKeyCode, &scanCodes);
+    if (scanCodes.empty()) {
+        ALOGW("Failed to get key code for key location: no scan code maps to key code %d for input"
+              "device %d",
+              locationKeyCode, deviceId);
+        return AKEYCODE_UNKNOWN;
+    }
+    if (scanCodes.size() > 1) {
+        ALOGW("Multiple scan codes map to the same key code %d, returning only the first match",
+              locationKeyCode);
+    }
+    int32_t outKeyCode;
+    status_t mapKeyRes =
+            device->getKeyCharacterMap()->mapKey(scanCodes[0], 0 /*usageCode*/, &outKeyCode);
+    switch (mapKeyRes) {
+        case OK:
+            return outKeyCode;
+        case NAME_NOT_FOUND:
+            // key character map doesn't re-map this scanCode, hence the keyCode remains the same
+            return locationKeyCode;
+        default:
+            ALOGW("Failed to get key code for key location: Key character map returned error %s",
+                  statusToString(mapKeyRes).c_str());
+            return AKEYCODE_UNKNOWN;
+    }
 }
 
 int32_t EventHub::getSwitchState(int32_t deviceId, int32_t sw) const {
@@ -1180,6 +1244,15 @@ bool EventHub::hasScanCode(int32_t deviceId, int32_t scanCode) const {
     Device* device = getDeviceLocked(deviceId);
     if (device != nullptr && scanCode >= 0 && scanCode <= KEY_MAX) {
         return device->keyBitmask.test(scanCode);
+    }
+    return false;
+}
+
+bool EventHub::hasKeyCode(int32_t deviceId, int32_t keyCode) const {
+    std::scoped_lock _l(mLock);
+    Device* device = getDeviceLocked(deviceId);
+    if (device != nullptr) {
+        return device->hasKeycodeLocked(keyCode);
     }
     return false;
 }
@@ -1738,14 +1811,24 @@ void EventHub::wake() {
 }
 
 void EventHub::scanDevicesLocked() {
-    status_t result = scanDirLocked(DEVICE_PATH);
-    if (result < 0) {
-        ALOGE("scan dir failed for %s", DEVICE_PATH);
+    status_t result;
+    std::error_code errorCode;
+
+    if (std::filesystem::exists(DEVICE_INPUT_PATH, errorCode)) {
+        result = scanDirLocked(DEVICE_INPUT_PATH);
+        if (result < 0) {
+            ALOGE("scan dir failed for %s", DEVICE_INPUT_PATH);
+        }
+    } else {
+        if (errorCode) {
+            ALOGW("Could not run filesystem::exists() due to error %d : %s.", errorCode.value(),
+                  errorCode.message().c_str());
+        }
     }
     if (isV4lScanningEnabled()) {
-        result = scanVideoDirLocked(VIDEO_DEVICE_PATH);
+        result = scanVideoDirLocked(DEVICE_PATH);
         if (result != OK) {
-            ALOGE("scan video dir failed for %s", VIDEO_DEVICE_PATH);
+            ALOGE("scan video dir failed for %s", DEVICE_PATH);
         }
     }
     if (mDevices.find(ReservedInputDeviceId::VIRTUAL_KEYBOARD_ID) == mDevices.end()) {
@@ -1828,7 +1911,7 @@ void EventHub::unregisterVideoDeviceFromEpollLocked(const TouchVideoDevice& vide
 }
 
 void EventHub::reportDeviceAddedForStatisticsLocked(const InputDeviceIdentifier& identifier,
-                                                    Flags<InputDeviceClass> classes) {
+                                                    ftl::Flags<InputDeviceClass> classes) {
     SHA256_CTX ctx;
     SHA256_Init(&ctx);
     SHA256_Update(&ctx, reinterpret_cast<const uint8_t*>(identifier.uniqueId.c_str()),
@@ -2110,7 +2193,7 @@ void EventHub::openDeviceLocked(const std::string& devicePath) {
     }
 
     // If the device isn't recognized as something we handle, don't monitor it.
-    if (device->classes == Flags<InputDeviceClass>(0)) {
+    if (device->classes == ftl::Flags<InputDeviceClass>(0)) {
         ALOGV("Dropping device: id=%d, path='%s', name='%s'", deviceId, devicePath.c_str(),
               device->identifier.name.c_str());
         return;
@@ -2298,13 +2381,10 @@ void EventHub::closeVideoDeviceByPathLocked(const std::string& devicePath) {
             return;
         }
     }
-    mUnattachedVideoDevices
-            .erase(std::remove_if(mUnattachedVideoDevices.begin(), mUnattachedVideoDevices.end(),
-                                  [&devicePath](
-                                          const std::unique_ptr<TouchVideoDevice>& videoDevice) {
-                                      return videoDevice->getPath() == devicePath;
-                                  }),
-                   mUnattachedVideoDevices.end());
+    std::erase_if(mUnattachedVideoDevices,
+                  [&devicePath](const std::unique_ptr<TouchVideoDevice>& videoDevice) {
+                      return videoDevice->getPath() == devicePath;
+                  });
 }
 
 void EventHub::closeAllDevicesLocked() {
@@ -2356,23 +2436,25 @@ status_t EventHub::readNotifyLocked() {
     while (res >= (int)sizeof(*event)) {
         event = (struct inotify_event*)(event_buf + event_pos);
         if (event->len) {
-            if (event->wd == mInputWd) {
-                std::string filename = std::string(DEVICE_PATH) + "/" + event->name;
+            if (event->wd == mDeviceInputWd) {
+                std::string filename = std::string(DEVICE_INPUT_PATH) + "/" + event->name;
                 if (event->mask & IN_CREATE) {
                     openDeviceLocked(filename);
                 } else {
                     ALOGI("Removing device '%s' due to inotify event\n", filename.c_str());
                     closeDeviceByPathLocked(filename);
                 }
-            } else if (event->wd == mVideoWd) {
+            } else if (event->wd == mDeviceWd) {
                 if (isV4lTouchNode(event->name)) {
-                    std::string filename = std::string(VIDEO_DEVICE_PATH) + "/" + event->name;
+                    std::string filename = std::string(DEVICE_PATH) + "/" + event->name;
                     if (event->mask & IN_CREATE) {
                         openVideoDeviceLocked(filename);
                     } else {
                         ALOGI("Removing video device '%s' due to inotify event", filename.c_str());
                         closeVideoDeviceByPathLocked(filename);
                     }
+                } else if (strcmp(event->name, "input") == 0 && event->mask & IN_CREATE) {
+                    addDeviceInputInotify();
                 }
             } else {
                 LOG_ALWAYS_FATAL("Unexpected inotify event, wd = %i", event->wd);
