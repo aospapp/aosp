@@ -23,20 +23,19 @@ SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += device/google/gs101-sepolicy/system_ext/priv
 #   Dauntless (uses Citadel policy currently)
 BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/citadel
 
-#   Wifi
-BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/wifi_ext
-
 #   PowerStats HAL
 BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/powerstats
 
 # sscoredump
 BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/sscoredump
 
-# Sniffer Logger
-BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/wifi_sniffer
-
-# Wifi Logger
-BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/wifi_logger
-
 # Public
 PRODUCT_PUBLIC_SEPOLICY_DIRS += device/google/gs101-sepolicy/public
+
+# pKVM
+ifeq ($(TARGET_PKVM_ENABLED),true)
+BOARD_SEPOLICY_DIRS += device/google/gs101-sepolicy/pkvm
+endif
+
+# Health HAL
+BOARD_SEPOLICY_DIRS += device/google/gs101-sepolicy/health

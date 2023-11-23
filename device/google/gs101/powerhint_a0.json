@@ -55,7 +55,7 @@
     },
     {
       "Name": "TAUClampBoost",
-      "Path": "/sys/kernel/vendor_sched/ta_uclamp_min",
+      "Path": "/proc/vendor_sched/ta_uclamp_min",
       "Values": [
         "0",
         "410",
@@ -72,15 +72,6 @@
       "Values": [
         "0",
         "1"
-      ],
-      "ResetOnInit": true
-    },
-    {
-      "Name": "F2fsRecessModeEnable",
-      "Path": "/dev/sys/fs/by-name/userdata/gc_urgent",
-      "Values": [
-        "2",
-        "0"
       ],
       "ResetOnInit": true
     },
@@ -185,12 +176,6 @@
       "Value": "0"
     },
     {
-      "PowerHint": "DEVICE_IDLE",
-      "Node": "F2fsRecessModeEnable",
-      "Duration": 0,
-      "Value": "2"
-    },
-    {
       "PowerHint": "LAUNCH",
       "Type": "EndHint",
       "Value": "DISABLE_TA_BOOST"
@@ -230,12 +215,6 @@
       "Node": "UfsClkGateEnable",
       "Duration": 5000,
       "Value": "0"
-    },
-    {
-      "PowerHint": "DISPLAY_INACTIVE",
-      "Node": "F2fsRecessModeEnable",
-      "Duration": 0,
-      "Value": "2"
     },
     {
       "PowerHint": "CAMERA_LAUNCH",

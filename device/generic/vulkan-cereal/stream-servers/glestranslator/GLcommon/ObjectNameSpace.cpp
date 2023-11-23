@@ -16,19 +16,18 @@
 
 #include "GLcommon/ObjectNameSpace.h"
 
+#include <assert.h>
+
+#include "GLcommon/GLEScontext.h"
+#include "GLcommon/TranslatorIfaces.h"
 #include "base/Lock.h"
 #include "base/Lookup.h"
 #include "base/PathUtils.h"
 #include "base/StreamSerializing.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/logging.h"
 #include "snapshot/TextureLoader.h"
 #include "snapshot/TextureSaver.h"
-#include "host-common/crash_reporter.h"
-#include "GLcommon/GLEScontext.h"
-#include "GLcommon/TranslatorIfaces.h"
-
-#include <assert.h>
-
-#define GL_LOG(...) 
 
 using android::snapshot::ITextureSaver;
 using android::snapshot::ITextureLoader;
@@ -55,8 +54,7 @@ NameSpace::NameSpace(NamedObjectType p_type, GlobalNameSpace *globalNameSpace,
             // share groups
             TextureData* texData = (TextureData*)data.get();
             if (!texData->getGlobalName()) {
-                GL_LOG("NameSpace::%s: %p: texture data %p is 0 texture\n",
-                       __func__, this, texData);
+                GL_LOG("%p: texture data %p is 0 texture.", this, texData);
                 continue;
             }
 
@@ -75,7 +73,7 @@ NameSpace::~NameSpace() {
 
 void NameSpace::postLoad(const ObjectData::getObjDataPtr_t& getObjDataPtr) {
     for (const auto& objData : m_objectDataMap) {
-        GL_LOG("NameSpace::%s: %p: try to load object %llu\n", __func__, this, objData.first);
+        GL_LOG("%p: try to load object %llu", this, objData.first);
         if (!objData.second) {
             // bug: 130631787
             // emugl::emugl_crash_reporter(
@@ -91,21 +89,18 @@ void NameSpace::touchTextures() {
     for (const auto& obj : m_objectDataMap) {
         TextureData* texData = (TextureData*)obj.second.get();
         if (!texData->needRestore()) {
-            GL_LOG("NameSpace::%s: %p: texture data %p does not need restore\n",
-                    __func__, this, texData);
+            GL_LOG("%p: texture data %p does not need restore", this, texData);
             continue;
         }
         const SaveableTexturePtr& saveableTexture = texData->getSaveableTexture();
         if (!saveableTexture.get()) {
-            GL_LOG("NameSpace::%s: %p: warning: no saveableTexture for texture data %p\n",
-                    __func__, this, texData);
+            GL_LOG("%p: warning: no saveableTexture for texture data %p", this, texData);
             continue;
         }
 
         NamedObjectPtr texNamedObj = saveableTexture->getGlobalObject();
         if (!texNamedObj) {
-            GL_LOG("NameSpace::%s: %p: fatal: global object null for texture data %p\n",
-                    __func__, this, texData);
+            GL_LOG("%p: fatal: global object null for texture data %p", this, texData);
             emugl_crash_reporter(
                     "fatal: null global texture object in "
                     "NameSpace::touchTextures");
@@ -303,8 +298,7 @@ void NameSpace::setObjectData(ObjectLocalName p_localName,
 
 void GlobalNameSpace::preSaveAddEglImage(EglImage* eglImage) {
     if (!eglImage->globalTexObj) {
-        GL_LOG("GlobalNameSpace::%s: %p: egl image %p with null texture object\n",
-               __func__, this, eglImage);
+        GL_LOG("%p: egl image %p with null texture object", this, eglImage);
         emugl_crash_reporter(
                 "Fatal: egl image with null texture object\n");
     }
@@ -312,8 +306,7 @@ void GlobalNameSpace::preSaveAddEglImage(EglImage* eglImage) {
     android::base::AutoLock lock(m_lock);
 
     if (!globalName) {
-        GL_LOG("GlobalNameSpace::%s: %p: egl image %p has 0 texture object\n",
-               __func__, this, eglImage);
+        GL_LOG("%p: egl image %p has 0 texture object", this, eglImage);
         return;
     }
 
@@ -331,8 +324,7 @@ void GlobalNameSpace::preSaveAddTex(TextureData* texture) {
     const auto& saveableTexIt = m_textureMap.find(texture->getGlobalName());
 
     if (!texture->getGlobalName()) {
-        GL_LOG("GlobalNameSpace::%s: %p: texture data %p is 0 texture\n",
-               __func__, this, texture);
+        GL_LOG("%p: texture data %p is 0 texture", this, texture);
         return;
     }
 

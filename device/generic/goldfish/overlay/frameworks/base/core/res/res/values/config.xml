@@ -54,6 +54,15 @@
         <item>0:2:15</item> <!-- ID0:Fingerprint:Strong -->
     </string-array>
 
+    <!-- Map of System DeviceState supplied by DeviceStateManager to WM Jetpack posture. -->
+    <string-array name="config_device_state_postures" translatable="false">
+        <item>1:1</item> <!-- CLOSED -->
+        <item>2:2</item> <!-- HALF_OPENED -->
+        <item>3:3</item> <!-- OPENED -->
+        <item>4:4</item> <!-- FLIPPED -->
+        <item>5:5</item> <!-- TENT -->
+    </string-array>
+
     <!-- The device states (supplied by DeviceStateManager) that should be treated as folded by the
          display fold controller. -->
     <integer-array name="config_foldedDeviceStates" translatable="false">
@@ -63,10 +72,6 @@
     <!-- This device is able to support the microphone and camera global toggles. -->
     <bool name="config_supportsMicToggle">true</bool>
     <bool name="config_supportsCamToggle">true</bool>
-    <!-- Restricting eth0 -->
-    <string-array translatable="false" name="config_ethernet_interfaces">
-        <item>eth0;11,12,14;;</item>
-    </string-array>
     <!-- Specifies priority of automatic time sources. Suggestions from higher entries in the list
          take precedence over lower ones.
          See com.android.server.timedetector.TimeDetectorStrategy for available sources. -->
@@ -74,4 +79,7 @@
         <item>telephony</item>
         <item>network</item>
     </string-array>
+
+    <bool name="config_supportMicNearUltrasound">false</bool>
+    <bool name="config_supportSpeakerNearUltrasound">false</bool>
 </resources>

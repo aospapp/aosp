@@ -63,11 +63,6 @@ class AccelOffsetCal final
   bool SetInitialCalibration(
       const CalibrationDataThreeAxis& input_cal_data) final;
 
-  // Indicates which values are modified by this calibration algorithm.
-  CalibrationTypeFlags which_calibration_flags() const final {
-    return CalibrationTypeFlags::BIAS;
-  }
-
   // Returns the calibration sensor type.
   SensorType get_sensor_type() const final {
     return SensorType::kAccelerometerMps2;

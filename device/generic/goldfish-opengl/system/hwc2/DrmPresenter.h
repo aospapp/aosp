@@ -24,6 +24,7 @@
 
 #include <map>
 #include <memory>
+#include <tuple>
 #include <vector>
 
 #include "Common.h"
@@ -38,7 +39,7 @@ class DrmPresenter;
 // A RAII object that will clear a drm framebuffer upon destruction.
 class DrmBuffer {
  public:
-  DrmBuffer(const native_handle_t* handle, DrmPresenter& drmPresenter);
+  DrmBuffer(const native_handle_t* handle, DrmPresenter* drmPresenter);
   ~DrmBuffer();
 
   DrmBuffer(const DrmBuffer&) = delete;
@@ -47,12 +48,13 @@ class DrmBuffer {
   DrmBuffer(DrmBuffer&&) = delete;
   DrmBuffer& operator=(DrmBuffer&&) = delete;
 
-  HWC2::Error flushToDisplay(int display, int* outFlushDoneSyncFd);
+  std::tuple<HWC2::Error, base::unique_fd> flushToDisplay(
+      int display, base::borrowed_fd inWaitSyncFd);
 
  private:
   int convertBoInfo(const native_handle_t* handle);
 
-  DrmPresenter& mDrmPresenter;
+  DrmPresenter* mDrmPresenter;
   hwc_drm_bo_t mBo;
 };
 
@@ -74,9 +76,16 @@ class DrmPresenter {
 
   bool init(const HotplugCallback& cb);
 
-  uint32_t refreshRate() const { return mConnectors[0].mRefreshRateAsInteger; }
+  uint32_t refreshRate(uint32_t display) const {
+    if (display < mConnectors.size()) {
+      return mConnectors[display].mRefreshRateAsInteger;
+    }
 
-  HWC2::Error flushToDisplay(int display, hwc_drm_bo_t& fb, int* outSyncFd);
+    return -1;
+  }
+
+  std::tuple<HWC2::Error, base::unique_fd> flushToDisplay(
+      int display, hwc_drm_bo_t& fb, base::borrowed_fd inWaitSyncFd);
 
   std::optional<std::vector<uint8_t>> getEdid(uint32_t id);
 
@@ -103,6 +112,7 @@ class DrmPresenter {
   struct DrmPlane {
     uint32_t mId = -1;
     uint32_t mCrtcPropertyId = -1;
+    uint32_t mInFenceFdPropertyId = -1;
     uint32_t mFbPropertyId = -1;
     uint32_t mCrtcXPropertyId = -1;
     uint32_t mCrtcYPropertyId = -1;
@@ -121,7 +131,7 @@ class DrmPresenter {
     uint32_t mId = -1;
     uint32_t mActivePropertyId = -1;
     uint32_t mModePropertyId = -1;
-    uint32_t mFencePropertyId = -1;
+    uint32_t mOutFencePtrPropertyId = -1;
     uint32_t mPlaneId = -1;
 
     bool mDidSetCrtc = false;

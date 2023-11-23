@@ -2,6 +2,10 @@
 allow kernel device:chr_file { create setattr };
 allow kernel device:dir { add_name create write };
 allow kernel self:capability mknod;
-allow kernel vendor_file:file { open read };
+allow kernel vendor_file:file { open read getattr};
+allow kernel vendor_file:dir read;
 allow kernel self:system module_request;
 allow vendor_init kernel:system module_request;
+allow kernel sepolicy_file:file getattr;
+allow kernel system_bootstrap_lib_file:dir getattr;
+allow kernel system_bootstrap_lib_file:file getattr;

@@ -24,6 +24,14 @@
 #include <stdint.h>
 #include <cstring>
 #include <vector>
+
+enum class YUVPlane {
+    Y = 0,
+    U = 1,
+    V = 2,
+    UV = 3,
+};
+
 // The purpose of YUVConverter is to use
 // OpenGL shaders to convert YUV images to RGB
 // images that can be displayed on screen.
@@ -54,7 +62,7 @@ public:
     // call when gralloc_unlock updates
     // the host color buffer
     // (rcUpdateColorBuffer)
-    void drawConvert(int x, int y, int width, int height, char* pixels);
+    void drawConvert(int x, int y, int width, int height, const char* pixels);
 
     uint32_t getDataSize();
     // read YUV data into pixels, exactly pixels_size bytes;
@@ -63,65 +71,46 @@ public:
 
     void swapTextures(uint32_t type, uint32_t* textures);
 
-    // NV12 and YUV420 are all packed
-    static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
-                                                 int nHeight,
-                                                 uint8_t* pFrame,
-                                                 uint8_t* pQuad) {
-        std::vector<uint8_t> tmp;
-        if (pQuad == nullptr) {
-            tmp.resize(nWidth * nHeight / 4);
-            pQuad = tmp.data();
-        }
-        int nPitch = nWidth;
-        uint8_t *puv = pFrame + nPitch * nHeight, *pu = puv,
-                *pv = puv + nPitch * nHeight / 4;
-        for (int y = 0; y < nHeight / 2; y++) {
-            for (int x = 0; x < nWidth / 2; x++) {
-                pu[y * nPitch / 2 + x] = puv[y * nPitch + x * 2];
-                pQuad[y * nWidth / 2 + x] = puv[y * nPitch + x * 2 + 1];
-            }
-        }
-        memcpy(pv, pQuad, nWidth * nHeight / 4);
-    }
-
     // public so other classes can call
-    static void createYUVGLTex(GLenum texture_unit,
+    static void createYUVGLTex(GLenum textureUnit,
                                GLsizei width,
                                GLsizei height,
-                               GLuint* texName_out,
-                               bool uvInterleaved);
+                               FrameworkFormat format,
+                               YUVPlane plane,
+                               GLuint* outTextureName);
 private:
     void init(int w, int h, FrameworkFormat format);
     void reset();
 
+    void createYUVGLShader();
+    void createYUVGLFullscreenQuad();
+
     // For dealing with n-pixel-aligned buffers
     void updateCutoffs(float width, float ywidth, float halfwidth, float cwidth);
+
     int mWidth = 0;
     int mHeight = 0;
     FrameworkFormat mFormat;
     // colorbuffer w/h/format, could be different
-    FrameworkFormat mCbFormat;
+    FrameworkFormat mColorBufferFormat;
     // We need the following GL objects:
     GLuint mProgram = 0;
-    GLuint mVbuf = 0;
-    GLuint mIbuf = 0;
-    GLuint mYtex = 0;
-    GLuint mUtex = 0;
-    GLuint mVtex = 0;
-    GLuint mVUtex = 0;
-    GLuint mUVtex = 0;
-    // shader uniform locations
-    GLint mYWidthCutoffLoc = -1;
-    GLint mCWidthCutoffLoc = -1;
-    GLint mYSamplerLoc = -1;
-    GLint mUSamplerLoc = -1;
-    GLint mVSamplerLoc = -1;
-    GLint mVUSamplerLoc = -1;
-    GLint mInCoordLoc = -1;
-    GLint mPosLoc = -1;
+    GLuint mQuadVertexBuffer = 0;
+    GLuint mQuadIndexBuffer = 0;
+    GLuint mTextureY = 0;
+    GLuint mTextureU = 0;
+    GLuint mTextureV = 0;
+    GLint mUniformLocYWidthCutoff = -1;
+    GLint mUniformLocCWidthCutoff = -1;
+    GLint mUniformLocSamplerY = -1;
+    GLint mUniformLocSamplerU = -1;
+    GLint mUniformLocSamplerV = -1;
+    GLint mAttributeLocPos = -1;
+    GLint mAttributeLocTexCoord = -1;
+
     float mYWidthCutoff = 1.0;
     float mCWidthCutoff = 1.0;
+    bool mHasGlsl3Support = false;
 
     // YUVConverter can end up being used
     // in a TextureDraw / subwindow context, and subsequently

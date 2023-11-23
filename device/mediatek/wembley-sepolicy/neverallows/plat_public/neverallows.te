@@ -12,6 +12,7 @@ full_treble_only(`
 
   neverallow {
     coredomain
+    -apexd
     -init
     -ueventd
     -vold
@@ -395,6 +396,7 @@ full_treble_only(`
   neverallow ueventd device:chr_file ~{ getattr create setattr unlink };
 
   neverallow ~{
+    apexd
     dumpstate
     e2fs
     fsck
@@ -445,6 +447,7 @@ full_treble_only(`
 
   neverallow {
     coredomain
+    -apexd
     -cameraserver
     -fastbootd
     -hal_camera
@@ -501,6 +504,7 @@ full_treble_only(`
   neverallow ueventd socket_device:chr_file ~{ getattr create setattr unlink };
 
   neverallow ~{
+    apexd
     dumpstate
     e2fs
     fsck
@@ -513,6 +517,7 @@ full_treble_only(`
     } socket_device:blk_file *;
 
   neverallow {
+    apexd
     dumpstate
     e2fs
     fsck

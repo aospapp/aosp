@@ -16,41 +16,62 @@
 
 #include "FrameBuffer.h"
 
+#include <iomanip>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
 #include "DispatchTables.h"
 #include "GLESVersionDetector.h"
 #include "NativeSubWindow.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderControl.h"
 #include "RenderThreadInfo.h"
 #include "YUVConverter.h"
-#include "gles2_dec/gles2_dec.h"
-
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "vulkan/VkCommonOperations.h"
-#include "vulkan/VkDecoderGlobalState.h"
-
 #include "base/LayoutResolver.h"
 #include "base/Lock.h"
 #include "base/Lookup.h"
-#include "base/StreamSerializing.h"
 #include "base/MemoryTracker.h"
+#include "base/SharedLibrary.h"
+#include "base/StreamSerializing.h"
 #include "base/System.h"
 #include "base/Tracing.h"
-
+#include "gles2_dec/gles2_dec.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/crash_reporter.h"
 #include "host-common/feature_control.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "host-common/vm_operations.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
+#include "vulkan/VkCommonOperations.h"
+#include "vulkan/VkDecoderGlobalState.h"
 
 using android::base::AutoLock;
 using android::base::Stream;
 using android::base::WorkerProcessingResult;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace {
+
+static void EGLAPIENTRY EglDebugCallback(EGLenum error,
+                                         const char *command,
+                                         EGLint messageType,
+                                         EGLLabelKHR threadLabel,
+                                         EGLLabelKHR objectLabel,
+                                         const char *message) {
+    GL_LOG("command:%s message:%s", command, message);
+}
+
+static void GL_APIENTRY GlDebugCallback(GLenum source,
+                                        GLenum type,
+                                        GLuint id,
+                                        GLenum severity,
+                                        GLsizei length,
+                                        const GLchar *message,
+                                        const void *userParam) {
+    GL_LOG("message:%s", message);
+}
 
 // Helper class to call the bind_locked() / unbind_locked() properly.
 typedef ColorBuffer::RecursiveScopedHelperContext ScopedBind;
@@ -141,7 +162,8 @@ FrameBuffer* FrameBuffer::s_theFrameBuffer = NULL;
 HandleType FrameBuffer::s_nextHandle = 0;
 
 static const GLint gles2ContextAttribsESOrGLCompat[] =
-   { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+   { EGL_CONTEXT_CLIENT_VERSION, 2,
+     EGL_NONE };
 
 static const GLint gles2ContextAttribsCoreGL[] =
    { EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -150,7 +172,8 @@ static const GLint gles2ContextAttribsCoreGL[] =
      EGL_NONE };
 
 static const GLint gles3ContextAttribsESOrGLCompat[] =
-   { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+   { EGL_CONTEXT_CLIENT_VERSION, 3,
+     EGL_NONE };
 
 static const GLint gles3ContextAttribsCoreGL[] =
    { EGL_CONTEXT_CLIENT_VERSION, 3,
@@ -186,8 +209,7 @@ static char* getGLES2ExtensionString(EGLDisplay p_dpy) {
     int n;
     if (!s_egl.eglChooseConfig(p_dpy, configAttribs, &config, 1, &n) ||
         n == 0) {
-        GL_LOG("Could not find GLES 2.x config!", __FUNCTION__);
-        ERR("%s: Could not find GLES 2.x config!\n", __FUNCTION__);
+        ERR("Could not find GLES 2.x config!");
         return NULL;
     }
 
@@ -195,23 +217,20 @@ static char* getGLES2ExtensionString(EGLDisplay p_dpy) {
 
     surface = s_egl.eglCreatePbufferSurface(p_dpy, config, pbufAttribs);
     if (surface == EGL_NO_SURFACE) {
-        GL_LOG("Could not create GLES 2.x Pbuffer!");
-        ERR("%s: Could not create GLES 2.x Pbuffer!\n", __FUNCTION__);
+        ERR("Could not create GLES 2.x Pbuffer!");
         return NULL;
     }
 
     EGLContext ctx = s_egl.eglCreateContext(p_dpy, config, EGL_NO_CONTEXT,
                                             getGlesMaxContextAttribs());
     if (ctx == EGL_NO_CONTEXT) {
-        GL_LOG("Could not create GLES 2.x Context!");
-        ERR("%s: Could not create GLES 2.x Context!\n", __FUNCTION__);
+        ERR("Could not create GLES 2.x Context!");
         s_egl.eglDestroySurface(p_dpy, surface);
         return NULL;
     }
 
     if (!s_egl.eglMakeCurrent(p_dpy, surface, surface, ctx)) {
-        GL_LOG("Could not make GLES 2.x context current!");
-        ERR("%s: Could not make GLES 2.x context current!\n", __FUNCTION__);
+        ERR("Could not make GLES 2.x context current!");
         s_egl.eglDestroySurface(p_dpy, surface);
         s_egl.eglDestroyContext(p_dpy, ctx);
         return NULL;
@@ -223,10 +242,7 @@ static char* getGLES2ExtensionString(EGLDisplay p_dpy) {
 
     // It is rare but some drivers actually fail this...
     if (!s_egl.eglMakeCurrent(p_dpy, NULL, NULL, NULL)) {
-        GL_LOG("Could not unbind context. Please try updating graphics card driver!");
-        ERR("%s: Could not unbind context. Please try updating graphics card "
-            "driver!\n",
-            __FUNCTION__);
+        ERR("Could not unbind context. Please try updating graphics card driver!");
         free(extString);
         extString = NULL;
     }
@@ -273,10 +289,15 @@ void FrameBuffer::waitUntilInitialized() {
 
 void FrameBuffer::finalize() {
     AutoLock lock(sGlobals()->lock);
+    AutoLock fbLock(m_lock);
     m_perfStats = false;
     m_perfThread->wait(NULL);
     sInitialized.store(true, std::memory_order_relaxed);
     sGlobals()->condVar.broadcastAndUnlock(&lock);
+
+    for (auto it : m_platformEglContexts) {
+        destroySharedTrivialContext(it.second.context, it.second.surface);
+    }
 
     if (m_shuttingDown) {
         // The only visible thing in the framebuffer is subwindow. Everything else
@@ -320,7 +341,6 @@ void FrameBuffer::finalize() {
     }
 
     m_readbackThread.enqueue({ReadbackCmd::Exit});
-    m_displayVk.reset();
     if (m_vkSurface != VK_NULL_HANDLE) {
         emugl::vkDispatch(false /* not for testing */)
             ->vkDestroySurfaceKHR(m_vkInstance, m_vkSurface, nullptr);
@@ -347,6 +367,27 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    std::unique_ptr<ScopedBind> eglColorBufferBind;
+
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
+    if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
+        SharedLibrary* renderdocLib = nullptr;
+#ifdef _WIN32
+        renderdocLib = SharedLibrary::open(R"(C:\Program Files\RenderDoc\renderdoc.dll)");
+#elif defined(__linux__)
+        renderdocLib = SharedLibrary::open("librenderdoc.so");
+#endif
+        fb->m_renderDoc = emugl::RenderDoc::create(renderdocLib);
+        if (fb->m_renderDoc) {
+            INFO("RenderDoc integration enabled.");
+            renderDocMultipleVkInstances =
+                std::make_unique<emugl::RenderDocWithMultipleVkInstances>(*fb->m_renderDoc);
+            if (!renderDocMultipleVkInstances) {
+                ERR("Failed to initialize RenderDoc with multiple VkInstances. Can't capture any "
+                    "information from guest VkInstances with RenderDoc.");
+            }
+        }
+    }
     // Initialize Vulkan emulation state
     //
     // Note: This must happen before any use of s_egl,
@@ -354,25 +395,37 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // used by underlying EGL driver might become invalid,
     // preventing new contexts from being created that share
     // against those contexts.
+    goldfish_vk::VkEmulation* vkEmu = nullptr;
+    goldfish_vk::VulkanDispatch* vkDispatch = nullptr;
     if (feature_is_enabled(kFeature_Vulkan)) {
-        auto dispatch = emugl::vkDispatch(false /* not for testing */);
-        auto emu = goldfish_vk::createOrGetGlobalVkEmulation(dispatch);
-        bool useDeferredCommands =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS").empty();
-        bool useCreateResourcesWithRequirements =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS").empty();
-        goldfish_vk::setUseDeferredCommands(emu, useDeferredCommands);
-        goldfish_vk::setUseCreateResourcesWithRequirements(emu, useCreateResourcesWithRequirements);
+        vkDispatch = emugl::vkDispatch(false /* not for testing */);
+        vkEmu = goldfish_vk::createGlobalVkEmulation(vkDispatch);
+        if (!vkEmu) {
+            ERR("Failed to initialize global Vulkan emulation. Disable the Vulkan support.");
+        }
+    }
+    if (vkEmu) {
+        fb->m_vulkanEnabled = true;
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
-            fb->m_displayVk = std::make_unique<DisplayVk>(
-                *dispatch, emu->physdev, emu->queueFamilyIndex,
-                emu->queueFamilyIndex, emu->device, emu->queue, emu->queue);
-            fb->m_vkInstance = emu->instance;
+            fb->m_vkInstance = vkEmu->instance;
+        }
+        if (vkEmu->deviceInfo.supportsIdProperties) {
+            GL_LOG("Supports id properties, got a vulkan device UUID");
+            fprintf(stderr, "%s: Supports id properties, got a vulkan device UUID\n", __func__);
+            memcpy(fb->m_vulkanUUID, vkEmu->deviceInfo.idProps.deviceUUID, VK_UUID_SIZE);
+        } else {
+            GL_LOG("Doesn't support id properties, no vulkan device UUID");
+            fprintf(stderr, "%s: Doesn't support id properties, no vulkan device UUID\n", __func__);
         }
     }
 
-    if (s_egl.eglUseOsEglApi)
-        s_egl.eglUseOsEglApi(egl2egl);
+    if (s_egl.eglUseOsEglApi) {
+        auto useNullBackend = EGL_FALSE;
+        if (egl2egl && feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
+            useNullBackend = EGL_TRUE;
+        }
+        s_egl.eglUseOsEglApi(egl2egl, useNullBackend);
+    }
     //
     // Initialize backend EGL display
     //
@@ -391,9 +444,34 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
-    DBG("egl: %d %d\n", fb->m_caps.eglMajor, fb->m_caps.eglMinor);
     GL_LOG("egl: %d %d", fb->m_caps.eglMajor, fb->m_caps.eglMinor);
     s_egl.eglBindAPI(EGL_OPENGL_ES_API);
+
+
+#ifdef ENABLE_GL_LOG
+    if (s_egl.eglDebugMessageControlKHR) {
+        const EGLAttrib controls[] = {
+            EGL_DEBUG_MSG_CRITICAL_KHR,
+            EGL_TRUE,
+            EGL_DEBUG_MSG_ERROR_KHR,
+            EGL_TRUE,
+            EGL_DEBUG_MSG_WARN_KHR,
+            EGL_TRUE,
+            EGL_DEBUG_MSG_INFO_KHR,
+            EGL_FALSE,
+            EGL_NONE,
+            EGL_NONE,
+        };
+
+        if (s_egl.eglDebugMessageControlKHR(&EglDebugCallback, controls) == EGL_SUCCESS) {
+            GL_LOG("Successfully set eglDebugMessageControlKHR");
+        } else {
+            GL_LOG("Failed to eglDebugMessageControlKHR");
+        }
+    } else {
+        GL_LOG("eglDebugMessageControlKHR not available");
+    }
+#endif
 
     GLESDispatchMaxVersion dispatchMaxVersion =
             calcMaxVersionFromDispatch(fb->m_eglDisplay);
@@ -408,20 +486,22 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     int glesMaj, glesMin;
     emugl::getGlesVersion(&glesMaj, &glesMin);
 
-    DBG("gles version: %d %d\n", glesMaj, glesMin);
     GL_LOG("gles version: %d %d\n", glesMaj, glesMin);
 
     fb->m_asyncReadbackSupported = glesMaj > 2;
     if (fb->m_asyncReadbackSupported) {
-        DBG("Async readback supported\n");
         GL_LOG("Async readback supported");
     } else {
-        DBG("Async readback not supported\n");
         GL_LOG("Async readback not supported");
     }
 
+    // TODO (b/207426737): remove Imagination-specific workaround
+    auto vendor = s_egl.eglQueryString(fb->m_eglDisplay, EGL_VENDOR);
+    bool disable_fast_blit = (strcmp(vendor, "Imagination Technologies") == 0);
+
     fb->m_fastBlitSupported =
         (dispatchMaxVersion > GLES_DISPATCH_MAX_VERSION_2) &&
+        !disable_fast_blit &&
         (emugl::getRenderer() == SELECTED_RENDERER_HOST ||
          emugl::getRenderer() == SELECTED_RENDERER_SWIFTSHADER_INDIRECT ||
          emugl::getRenderer() == SELECTED_RENDERER_ANGLE_INDIRECT);
@@ -430,6 +510,20 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         feature_is_enabled(
             kFeature_GuestUsesAngle);
 
+    std::unique_ptr<goldfish_vk::VkEmulationFeatures> vkEmulationFeatures =
+        std::make_unique<goldfish_vk::VkEmulationFeatures>(goldfish_vk::VkEmulationFeatures{
+            .glInteropSupported = false,  // Set later.
+            .deferredCommands =
+                android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
+                    .empty(),
+            .createResourceWithRequirements =
+                android::base::getEnvironmentVariable(
+                    "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
+                    .empty(),
+            .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
+            .guestRenderDoc = std::move(renderDocMultipleVkInstances),
+        });
+
     //
     // if GLES2 plugin has loaded - try to make GLES2 context and
     // get GLES2 extension string
@@ -437,8 +531,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     char* gles2Extensions = getGLES2ExtensionString(fb->m_eglDisplay);
     if (!gles2Extensions) {
         // Could not create GLES2 context - drop GL2 capability
-        GL_LOG("Failed to obtain GLES 2.x extensions string!");
-        ERR("Failed to obtain GLES 2.x extensions string!\n");
+        ERR("Failed to obtain GLES 2.x extensions string!");
         return false;
     }
 
@@ -494,8 +587,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fb->m_eglContext = s_egl.eglCreateContext(fb->m_eglDisplay, fb->m_eglConfig,
                                               EGL_NO_CONTEXT, getGlesMaxContextAttribs());
     if (fb->m_eglContext == EGL_NO_CONTEXT) {
-        GL_LOG("Failed to create context 0x%x", s_egl.eglGetError());
-        ERR("Failed to create context 0x%x\n", s_egl.eglGetError());
+        ERR("Failed to create context 0x%x", s_egl.eglGetError());
         return false;
     }
 
@@ -512,12 +604,12 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             s_egl.eglCreateContext(fb->m_eglDisplay, fb->m_eglConfig,
                                    fb->m_eglContext, getGlesMaxContextAttribs());
     if (fb->m_pbufContext == EGL_NO_CONTEXT) {
-        GL_LOG("Failed to create Pbuffer Context 0x%x", s_egl.eglGetError());
-        ERR("Failed to create Pbuffer Context 0x%x\n", s_egl.eglGetError());
+        ERR("Failed to create Pbuffer Context 0x%x", s_egl.eglGetError());
         return false;
     }
 
     GL_LOG("context creation successful");
+
     //
     // create a 1x1 pbuffer surface which will be used for binding
     // the FB context.
@@ -528,17 +620,15 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fb->m_pbufSurface = s_egl.eglCreatePbufferSurface(
             fb->m_eglDisplay, fb->m_eglConfig, pbufAttribs);
     if (fb->m_pbufSurface == EGL_NO_SURFACE) {
-        GL_LOG("Failed to create pbuf surface for FB 0x%x", s_egl.eglGetError());
-        ERR("Failed to create pbuf surface for FB 0x%x\n", s_egl.eglGetError());
+        ERR("Failed to create pbuf surface for FB 0x%x", s_egl.eglGetError());
         return false;
     }
 
     GL_LOG("attempting to make context current");
     // Make the context current
-    ScopedBind bind(fb->m_colorBufferHelper);
-    if (!bind.isOk()) {
-        GL_LOG("Failed to make current");
-        ERR("Failed to make current\n");
+    eglColorBufferBind = std::make_unique<ScopedBind>(fb->m_colorBufferHelper);
+    if (!eglColorBufferBind->isOk()) {
+        ERR("Failed to make current");
         return false;
     }
     GL_LOG("context-current successful");
@@ -569,8 +659,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     //     GL_OES_EGL_IMAGE (by both GLES implementations [1 and 2])
     //
     if (!fb->m_caps.has_eglimage_texture_2d) {
-        GL_LOG("Failed: Missing egl_image related extension(s)");
-        ERR("Failed: Missing egl_image related extension(s)\n");
+        ERR("Failed: Missing egl_image related extension(s)");
         return false;
     }
 
@@ -580,8 +669,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     //
     fb->m_configs = new FbConfigList(fb->m_eglDisplay);
     if (fb->m_configs->empty()) {
-        GL_LOG("Failed: Initialize set of configs");
-        ERR("Failed: Initialize set of configs\n");
+        ERR("Failed: Initialize set of configs");
         return false;
     }
 
@@ -609,49 +697,187 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // If no configs at all, exit
     //
     if (nGLConfigs + nGL2Configs == 0) {
-        GL_LOG("Failed: No GLES 2.x configs found!");
-        ERR("Failed: No GLES 2.x configs found!\n");
+        ERR("Failed: No GLES 2.x configs found!");
         return false;
     }
 
     GL_LOG("There are sufficient EGLconfigs available");
 
+#ifdef ENABLE_GL_LOG
+    bool debugSetup = false;
+    if (s_gles2.glDebugMessageCallback) {
+        s_gles2.glEnable(GL_DEBUG_OUTPUT);
+        s_gles2.glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_HIGH, 0, nullptr, GL_TRUE);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_MEDIUM, 0, nullptr, GL_TRUE);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_LOW, 0, nullptr, GL_TRUE);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr,
+                                      GL_TRUE);
+        s_gles2.glDebugMessageCallback(&GlDebugCallback, nullptr);
+        debugSetup = s_gles2.glGetError() == GL_NO_ERROR;
+        if (!debugSetup) {
+            ERR("Failed to set up glDebugMessageCallback");
+        } else {
+            GL_LOG("Successfully set up glDebugMessageCallback");
+        }
+    }
+    if (s_gles2.glDebugMessageCallbackKHR && !debugSetup) {
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_HIGH_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_MEDIUM_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_LOW_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_NOTIFICATION_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageCallbackKHR(&GlDebugCallback, nullptr);
+        debugSetup = s_gles2.glGetError() == GL_NO_ERROR;
+        if (!debugSetup) {
+            ERR("Failed to set up glDebugMessageCallbackKHR");
+        } else {
+            GL_LOG("Successfully set up glDebugMessageCallbackKHR");
+        }
+    }
+    if (!debugSetup) {
+        GL_LOG("glDebugMessageCallback and glDebugMessageCallbackKHR not available");
+    }
+#endif
+
     //
     // Cache the GL strings so we don't have to think about threading or
     // current-context when asked for them.
     //
-    fb->m_glVendor = std::string((const char*)s_gles2.glGetString(GL_VENDOR));
-    fb->m_glRenderer = std::string((const char*)s_gles2.glGetString(GL_RENDERER));
-    fb->m_glVersion = std::string((const char*)s_gles2.glGetString(GL_VERSION));
+    bool useVulkanGraphicsDiagInfo =
+        vkEmu && feature_is_enabled(kFeature_VulkanNativeSwapchain) && fb->m_guestUsesAngle;
 
-    DBG("GL Vendor %s\n", fb->m_glVendor.c_str());
-    DBG("GL Renderer %s\n", fb->m_glRenderer.c_str());
-    DBG("GL Extensions %s\n", fb->m_glVersion.c_str());
-    GL_LOG("GL Vendor %s", fb->m_glVendor.c_str());
-    GL_LOG("GL Renderer %s", fb->m_glRenderer.c_str());
-    GL_LOG("GL Extensions %s", fb->m_glVersion.c_str());
+    if (useVulkanGraphicsDiagInfo) {
+        fb->m_graphicsAdapterVendor = vkEmu->deviceInfo.driverVendor;
+        fb->m_graphicsAdapterName = vkEmu->deviceInfo.physdevProps.deviceName;
+
+        uint32_t vkVersion = vkEmu->vulkanInstanceVersion;
+
+        std::stringstream versionStringBuilder;
+        versionStringBuilder << "Vulkan " << VK_API_VERSION_MAJOR(vkVersion) << "."
+                             << VK_API_VERSION_MINOR(vkVersion) << "."
+                             << VK_API_VERSION_PATCH(vkVersion) << " "
+                             << vkEmu->deviceInfo.driverVendor << " "
+                             << vkEmu->deviceInfo.driverVersion;
+        fb->m_graphicsApiVersion = versionStringBuilder.str();
+
+        std::stringstream instanceExtensionsStringBuilder;
+        for (auto& ext : vkEmu->instanceExtensions) {
+            if (instanceExtensionsStringBuilder.tellp() != 0) {
+                instanceExtensionsStringBuilder << " ";
+            }
+            instanceExtensionsStringBuilder << ext.extensionName;
+        }
+
+        fb->m_graphicsApiExtensions = instanceExtensionsStringBuilder.str();
+
+        std::stringstream deviceExtensionsStringBuilder;
+        for (auto& ext : vkEmu->deviceInfo.extensions) {
+            if (deviceExtensionsStringBuilder.tellp() != 0) {
+                deviceExtensionsStringBuilder << " ";
+            }
+            deviceExtensionsStringBuilder << ext.extensionName;
+        }
+
+        fb->m_graphicsDeviceExtensions = deviceExtensionsStringBuilder.str();
+    } else {
+        fb->m_graphicsAdapterVendor = (const char*)s_gles2.glGetString(GL_VENDOR);
+        fb->m_graphicsAdapterName = (const char*)s_gles2.glGetString(GL_RENDERER);
+        fb->m_graphicsApiVersion = (const char*)s_gles2.glGetString(GL_VERSION);
+        fb->m_graphicsApiExtensions = (const char*)s_gles2.glGetString(GL_EXTENSIONS);
+        fb->m_graphicsDeviceExtensions = "N/A";
+    }
+
+    // Attempt to get the device UUID of the gles and match with Vulkan. If
+    // they match, interop is possible. If they don't, then don't trust the
+    // result of interop query to egl and fall back to CPU copy, as we might
+    // have initialized Vulkan devices and GLES contexts from different
+    // physical devices.
+
+    bool vkglesUuidsGood = true;
+
+    // First, if the VkEmulation instance doesn't support ext memory capabilities,
+    // it won't support uuids.
+    if (!vkEmu || !vkEmu->deviceInfo.supportsIdProperties) {
+        vkglesUuidsGood = false;
+    }
+
+    s_gles2.glGetError();
+
+    GLint numDeviceUuids = 0;
+    s_gles2.glGetIntegerv(GL_NUM_DEVICE_UUIDS_EXT, &numDeviceUuids);
+
+    // If underlying gles doesn't support UUID query, we definitely don't
+    // support interop and should not proceed further.
+
+    if (!numDeviceUuids || 1 != numDeviceUuids) {
+        // If numDeviceUuids != 1 it's unclear what gles we're using (SLI? Xinerama?)
+        // and we shouldn't try to interop.
+        vkglesUuidsGood = false;
+    }
+
+    if (vkglesUuidsGood && 1 == numDeviceUuids) {
+        s_gles2.glGetUnsignedBytei_vEXT(GL_DEVICE_UUID_EXT, 0, fb->m_glesUUID);
+        GL_LOG("Underlying gles supports UUID");
+        if (0 == memcmp(fb->m_vulkanUUID, fb->m_glesUUID, VK_UUID_SIZE)) {
+            GL_LOG("vk/gles UUIDs match");
+        } else {
+            GL_LOG("vk/gles UUIDs do not match");
+            vkglesUuidsGood = false;
+        }
+    }
 
     fb->m_textureDraw = new TextureDraw();
     if (!fb->m_textureDraw) {
-        GL_LOG("Failed: creation of TextureDraw instance");
-        ERR("Failed: creation of TextureDraw instance\n");
+        ERR("Failed: creation of TextureDraw instance");
         return false;
     }
 
     if (s_egl.eglQueryVulkanInteropSupportANDROID) {
         fb->m_vulkanInteropSupported =
             s_egl.eglQueryVulkanInteropSupportANDROID();
+        if (!vkglesUuidsGood) {
+            fb->m_vulkanInteropSupported = false;
+        }
     }
 
-    fprintf(stderr, "%s: interop? %d\n", __func__, fb->m_vulkanInteropSupported);
+    GL_LOG("interop? %d", fb->m_vulkanInteropSupported);
     // TODO: 0-copy gl interop on swiftshader vk
     if (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD") == "swiftshader") {
         fb->m_vulkanInteropSupported = false;
-        fprintf(stderr, "%s: vk icd swiftshader, disable interop\n", __func__);
+        GL_LOG("vk icd swiftshader, disable interop");
     }
 
-    fprintf(stderr, "%s: glvk interop final: %d\n", __func__, fb->m_vulkanInteropSupported);
-    goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
+    GL_LOG("glvk interop final: %d", fb->m_vulkanInteropSupported);
+    vkEmulationFeatures->glInteropSupported = fb->m_vulkanInteropSupported;
+    if (feature_is_enabled(kFeature_Vulkan)) {
+        goldfish_vk::initVkEmulationFeatures(std::move(vkEmulationFeatures));
+        if (vkEmu->displayVk) {
+            fb->m_displayVk = vkEmu->displayVk.get();
+        }
+    }
+
+    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
+    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
+    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
+    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
+    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
+
+    // Start up the single sync thread. If we are using Vulkan native
+    // swapchain, then don't initialize SyncThread worker threads with EGL
+    // contexts.
+    SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
 
     //
     // Keep the singleton framebuffer pointer
@@ -661,11 +887,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         AutoLock lock(sGlobals()->lock);
         sInitialized.store(true, std::memory_order_release);
         sGlobals()->condVar.broadcastAndUnlock(&lock);
-    }
-
-    // Start up the single sync thread if GLAsyncSwap enabled
-    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
-        SyncThread::get();
     }
 
     GL_LOG("basic EGL initialization successful");
@@ -680,26 +901,28 @@ bool FrameBuffer::importMemoryToColorBuffer(
 #else
     int handle,
 #endif
-    uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-    uint32_t colorBufferHandle, VkImage image, VkFormat format) {
+    uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage image,
+    const VkImageCreateInfo& imageCi) {
     AutoLock mutex(m_lock);
 
     ColorBufferMap::iterator c(m_colorbuffers.find(colorBufferHandle));
     if (c == m_colorbuffers.end()) {
         // bad colorbuffer handle
-        ERR("FB: importMemoryToColorBuffer cb handle %#x not found\n", colorBufferHandle);
+        ERR("FB: importMemoryToColorBuffer cb handle %#x not found", colorBufferHandle);
         return false;
     }
 
     auto& cb = *c->second.cb;
     std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
-    if (m_displayVk != nullptr) {
-        db = m_displayVk->createDisplayBuffer(
-            image, format, static_cast<uint32_t>(cb.getWidth()),
-            static_cast<uint32_t>(cb.getHeight()));
+    if (m_displayVk) {
+        db = m_displayVk->createDisplayBuffer(image, imageCi);
+        if (!db) {
+            ERR("Fail to create display buffer for ColorBuffer %" PRIu64 ".",
+                static_cast<uint64_t>(colorBufferHandle));
+        }
     }
-    return cb.importMemory(handle, size, dedicated, linearTiling, vulkanOnly,
-                           std::move(db));
+    return cb.importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
+                           vulkanOnly, std::move(db));
 }
 
 void FrameBuffer::setColorBufferInUse(
@@ -711,7 +934,7 @@ void FrameBuffer::setColorBufferInUse(
     ColorBufferMap::iterator c(m_colorbuffers.find(colorBufferHandle));
     if (c == m_colorbuffers.end()) {
         // bad colorbuffer handle
-        ERR("FB: setColorBufferInUse cb handle %#x not found\n", colorBufferHandle);
+        ERR("FB: setColorBufferInUse cb handle %#x not found", colorBufferHandle);
         return;
     }
 
@@ -768,6 +991,8 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
      setDisplayPose(displayId, 0, 0, getWidth(), getHeight(), 0);
      m_perfThread->start();
 
+     memset(m_vulkanUUID, 0x0, VK_UUID_SIZE);
+     memset(m_glesUUID, 0x0, GL_UUID_SIZE_EXT);
 }
 
 FrameBuffer::~FrameBuffer() {
@@ -794,6 +1019,7 @@ FrameBuffer::~FrameBuffer() {
     m_readbackWorker.reset();
 
     goldfish_vk::teardownGlobalVkEmulation();
+    SyncThread::destroy();
 }
 
 WorkerProcessingResult
@@ -818,8 +1044,7 @@ FrameBuffer::sendReadbackWorkerCmd(const Readback& readback) {
     return WorkerProcessingResult::Stop;
 }
 
-WorkerProcessingResult
-FrameBuffer::postWorkerFunc(const Post& post) {
+WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
     switch (post.cmd) {
         case PostCmd::Post:
             m_postWorker->post(post.cb);
@@ -829,10 +1054,24 @@ FrameBuffer::postWorkerFunc(const Post& post) {
                                    post.viewport.height);
             break;
         case PostCmd::Compose: {
+            std::shared_future<void> waitForGpu;
             if (post.composeVersion <= 1) {
-                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(), post.composeBuffer.size());
+                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(),
+                                      post.composeBuffer.size(),
+                                      std::move(post.composeCallback));
             } else {
-                m_postWorker->compose((ComposeDevice_v2*)post.composeBuffer.data(), post.composeBuffer.size());
+                auto composeCallback = std::make_shared<Post::ComposeCallback>(
+                    [composeCallback =
+                         std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
+                        SyncThread::get()->triggerGeneral(
+                            [composeCallback = std::move(composeCallback), waitForGpu] {
+                                (*composeCallback)(waitForGpu);
+                            },
+                            "Wait for host composition");
+                    });
+                m_postWorker->compose(
+                    (ComposeDevice_v2*)post.composeBuffer.data(),
+                    post.composeBuffer.size(), std::move(composeCallback));
             }
             break;
         }
@@ -857,7 +1096,7 @@ FrameBuffer::postWorkerFunc(const Post& post) {
     return WorkerProcessingResult::Continue;
 }
 
-void FrameBuffer::sendPostWorkerCmd(Post post) {
+std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
 #ifdef __APPLE__
     bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
 #else
@@ -875,13 +1114,23 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
         }
         m_postWorker.reset(new PostWorker(
             [this]() {
-                if (m_subWin && m_displayVk == nullptr) {
+                if (m_displayVk) {
+                    if (m_vkSurface == VK_NULL_HANDLE) {
+                        return false;
+                    }
+                    INFO("Recreating swapchain...");
+                    m_displayVk->bindToSurface(m_vkSurface, static_cast<uint32_t>(m_windowWidth),
+                                             static_cast<uint32_t>(m_windowHeight));
+                    INFO("Recreating swapchain completes.");
+                    return true;
+                }
+                if (m_subWin) {
                     return bindSubwin_locked();
                 } else {
                     return bindFakeWindow_locked();
                 }
             },
-            postOnlyOnMainThread, m_eglContext, m_eglSurface));
+            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_displayVk));
         m_postThread.start();
     }
 
@@ -891,6 +1140,9 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
     // transfer ownership of the thread to PostWorker.
     // TODO(lfy): do that refactor
     // For now, this fixes a screenshot issue on macOS.
+    std::future<void> res = std::async(std::launch::deferred, [] {});
+    res.wait();
+    PostCmd postCmd = post.cmd;
     if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
         emugl::get_emugl_window_operations().isRunningInUiThread()) {
         post.cb->readPixelsScaled(
@@ -900,17 +1152,16 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
             post.screenshot.type,
             post.screenshot.rotation,
             post.screenshot.pixels);
-    }
-    else {
-        m_postThread.enqueue(Post(post));
-        if (!postOnlyOnMainThread) {
-            m_postThread.waitQueuedItems();
-        }
-        else if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
-            !emugl::get_emugl_window_operations().isRunningInUiThread()) {
-            m_postThread.waitQueuedItems();
+    } else {
+        std::future<void> completeFuture =
+            m_postThread.enqueue(Post(std::move(post)));
+        if (!postOnlyOnMainThread ||
+            (PostCmd::Screenshot == post.cmd &&
+             !emugl::get_emugl_window_operations().isRunningInUiThread())) {
+            res = std::move(completeFuture);
         }
     }
+    return res;
 }
 
 void FrameBuffer::setPostCallback(
@@ -946,11 +1197,13 @@ void FrameBuffer::setPostCallback(
             m_readbackThread.start();
             m_readbackThread.enqueue({ ReadbackCmd::Init });
         }
-        m_readbackThread.enqueue({ ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h });
-        m_readbackThread.waitQueuedItems();
+        std::future<void> completeFuture = m_readbackThread.enqueue(
+            {ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h});
+        completeFuture.wait();
     } else {
-        m_readbackThread.enqueue({ ReadbackCmd::DelRecordDisplay, displayId });
-        m_readbackThread.waitQueuedItems();
+        std::future<void> completeFuture = m_readbackThread.enqueue(
+            {ReadbackCmd::DelRecordDisplay, displayId});
+        completeFuture.wait();
         m_onPost.erase(displayId);
     }
 }
@@ -1060,9 +1313,11 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
-                m_displayVk->bindToSurface(
-                    m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                    static_cast<uint32_t>(m_windowHeight));
+                if (m_renderDoc) {
+                    m_renderDoc->call(emugl::RenderDoc::kSetActiveWindow,
+                                      RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),
+                                      reinterpret_cast<RENDERDOC_WindowHandle>(m_subWin));
+                }
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(
@@ -1102,28 +1357,35 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                                       m_windowWidth, m_windowHeight);
         }
 
-        if (m_displayVk == nullptr && success && redrawSubwindow) {
+        if (success && redrawSubwindow) {
             // Subwin creation or movement was successful,
             // update viewport and z rotation and draw
             // the last posted color buffer.
             m_dpr = dpr;
             m_zRot = zRot;
-            Post postCmd;
-            postCmd.cmd = PostCmd::Viewport;
-            postCmd.viewport.width = fbw;
-            postCmd.viewport.height = fbh;
-            sendPostWorkerCmd(postCmd);
+            if (m_displayVk == nullptr) {
+                Post postCmd;
+                postCmd.cmd = PostCmd::Viewport;
+                postCmd.viewport.width = fbw;
+                postCmd.viewport.height = fbh;
+                std::future<void> completeFuture =
+                    sendPostWorkerCmd(std::move(postCmd));
+                completeFuture.wait();
 
-            bool posted = false;
+                bool posted = false;
 
-            if (m_lastPostedColorBuffer) {
-                GL_LOG("setupSubwindow: draw last posted cb");
-                posted = postImpl(m_lastPostedColorBuffer, false);
-            }
+                if (m_lastPostedColorBuffer) {
+                    GL_LOG("setupSubwindow: draw last posted cb");
+                    posted = postImpl(m_lastPostedColorBuffer, false);
+                }
 
-            if (!posted) {
-                postCmd.cmd = PostCmd::Clear;
-                sendPostWorkerCmd(postCmd);
+                if (!posted) {
+                    Post postCmd;
+                    postCmd.cmd = PostCmd::Clear;
+                    std::future<void> completeFuture =
+                        sendPostWorkerCmd(std::move(postCmd));
+                    completeFuture.wait();
+                }
             }
         }
     }
@@ -1156,8 +1418,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
 
 bool FrameBuffer::removeSubWindow() {
     if (!m_useSubWindow) {
-        ERR("%s: Cannot remove native sub-window in this configuration\n",
-            __FUNCTION__);
+        ERR("Cannot remove native sub-window in this configuration");
         return false;
     }
     AutoLock lock(sGlobals()->lock);
@@ -1170,8 +1431,7 @@ bool FrameBuffer::removeSubWindow() {
 
 bool FrameBuffer::removeSubWindow_locked() {
     if (!m_useSubWindow) {
-        ERR("%s: Cannot remove native sub-window in this configuration\n",
-            __FUNCTION__);
+        ERR("Cannot remove native sub-window in this configuration");
         return false;
     }
     bool removed = false;
@@ -1216,19 +1476,30 @@ void FrameBuffer::createColorBufferWithHandle(
      FrameworkFormat p_frameworkFormat,
      HandleType handle) {
 
-    AutoLock mutex(m_lock);
+    HandleType resHandle;
+    {
+        AutoLock mutex(m_lock);
 
-    // Check for handle collision
-    if (m_colorbuffers.count(handle) != 0) {
-        // emugl::emugl_crash_reporter(
-        //     "FATAL: color buffer with handle %u already exists",
-        //     handle);
-        ::abort();
+        // Check for handle collision
+        if (m_colorbuffers.count(handle) != 0) {
+            // emugl::emugl_crash_reporter(
+            //     "FATAL: color buffer with handle %u already exists",
+            //     handle);
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
+        }
+
+        resHandle = createColorBufferWithHandleLocked(
+            p_width, p_height, p_internalFormat, p_frameworkFormat,
+            handle);
     }
 
-    createColorBufferWithHandleLocked(
-        p_width, p_height, p_internalFormat, p_frameworkFormat,
-        handle);
+    if (m_displayVk && resHandle == handle) {
+        goldfish_vk::setupVkColorBuffer(
+            handle,
+            false /* not vulkan only */,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT /* memory property */,
+            nullptr /* exported */);
+    }
 }
 
 HandleType FrameBuffer::createColorBufferLocked(int p_width,
@@ -1289,7 +1560,7 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
         }
     } else {
         handle = 0;
-        DBG("Create color buffer failed.\n");
+        ERR("Create color buffer failed.\n");
     }
     return handle;
 }
@@ -1329,7 +1600,7 @@ HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
         m_buffers[handle] = {std::move(buffer)};
     } else {
         handle = 0;
-        DBG("Create buffer failed.\n");
+        ERR("Create buffer failed.\n");
     }
     return handle;
 }
@@ -1546,7 +1817,7 @@ int FrameBuffer::openColorBuffer(HandleType p_colorbuffer) {
     ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
     if (c == m_colorbuffers.end()) {
         // bad colorbuffer handle
-        ERR("FB: openColorBuffer cb handle %#x not found\n", p_colorbuffer);
+        ERR("FB: openColorBuffer cb handle %#x not found", p_colorbuffer);
         return -1;
     }
 
@@ -1601,7 +1872,7 @@ void FrameBuffer::closeBuffer(HandleType p_buffer) {
     AutoLock mutex(m_lock);
 
     if (m_buffers.find(p_buffer) == m_buffers.end()) {
-        ERR("closeColorBuffer: cannot find buffer %u\n",
+        ERR("closeColorBuffer: cannot find buffer %u",
             static_cast<uint32_t>(p_buffer));
     } else {
         goldfish_vk::teardownVkBuffer(p_buffer);
@@ -1713,6 +1984,9 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
     } while (renderThreadWithThisPuidExists);
 
     AutoLock mutex(m_lock);
+    if (!m_eglDisplay) {
+        return;
+    }
     auto colorBuffersToCleanup = cleanupProcGLObjects_locked(puid);
 
     // Run other cleanup callbacks
@@ -1833,7 +2107,7 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
 
     WindowSurfaceMap::iterator w(m_windows.find(p_surface));
     if (w == m_windows.end()) {
-        ERR("FB::flushWindowSurfaceColorBuffer: window handle %#x not found\n",
+        ERR("FB::flushWindowSurfaceColorBuffer: window handle %#x not found",
             p_surface);
         // bad surface handle
         return false;
@@ -1841,8 +2115,9 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
 
     GLenum resetStatus = s_gles2.glGetGraphicsResetStatusEXT();
     if (resetStatus != GL_NO_ERROR) {
-        ERR("Stream server aborting due to graphics reset. ResetStatus: %#x\n", resetStatus);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Stream server aborting due to graphics reset. ResetStatus: " <<
+                std::hex << resetStatus;
     }
 
     WindowSurface* surface = (*w).second.first.get();
@@ -1868,13 +2143,13 @@ bool FrameBuffer::setWindowSurfaceColorBuffer(HandleType p_surface,
     WindowSurfaceMap::iterator w(m_windows.find(p_surface));
     if (w == m_windows.end()) {
         // bad surface handle
-        ERR("%s: bad window surface handle %#x\n", __FUNCTION__, p_surface);
+        ERR("bad window surface handle %#x", p_surface);
         return false;
     }
 
     ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
     if (c == m_colorbuffers.end()) {
-        DBG("%s: bad color buffer handle %#x\n", __FUNCTION__, p_colorbuffer);
+        ERR("bad color buffer handle %#x", p_colorbuffer);
         // bad colorbuffer handle
         return false;
     }
@@ -1944,23 +2219,22 @@ void FrameBuffer::createYUVTextures(uint32_t type,
                                     int width,
                                     int height,
                                     uint32_t* output) {
-    constexpr bool kIsInterleaved = true;
-    constexpr bool kIsNotInterleaved = false;
+    FrameworkFormat format = static_cast<FrameworkFormat>(type);
     AutoLock mutex(m_lock);
     ScopedBind bind(m_colorBufferHelper);
     for (uint32_t i = 0; i < count; ++i) {
-        if (type == FRAMEWORK_FORMAT_NV12) {
+        if (format == FRAMEWORK_FORMAT_NV12) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
-                                         &output[2 * i], kIsNotInterleaved);
+                                         format, YUVPlane::Y, &output[2 * i]);
             YUVConverter::createYUVGLTex(GL_TEXTURE1, width / 2, height / 2,
-                                         &output[2 * i + 1], kIsInterleaved);
-        } else if (type == FRAMEWORK_FORMAT_YUV_420_888) {
+                                         format, YUVPlane::UV, &output[2 * i + 1]);
+        } else if (format == FRAMEWORK_FORMAT_YUV_420_888) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
-                                         &output[3 * i], kIsNotInterleaved);
+                                         format, YUVPlane::Y, &output[3 * i]);
             YUVConverter::createYUVGLTex(GL_TEXTURE1, width / 2, height / 2,
-                                         &output[3 * i + 1], kIsNotInterleaved);
+                                         format, YUVPlane::U, &output[3 * i + 1]);
             YUVConverter::createYUVGLTex(GL_TEXTURE2, width / 2, height / 2,
-                                         &output[3 * i + 2], kIsNotInterleaved);
+                                         format, YUVPlane::V, &output[3 * i + 2]);
         }
     }
 }
@@ -2199,7 +2473,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
                               draw ? draw->getEGLSurface() : EGL_NO_SURFACE,
                               read ? read->getEGLSurface() : EGL_NO_SURFACE,
                               ctx ? ctx->getEGLContext() : EGL_NO_CONTEXT)) {
-        ERR("eglMakeCurrent failed\n");
+        ERR("eglMakeCurrent failed");
         return false;
     }
 
@@ -2321,7 +2595,7 @@ bool FrameBuffer::bind_locked() {
         if (!s_egl.eglMakeCurrent(m_eglDisplay, m_pbufSurface, m_pbufSurface,
                                   m_pbufContext)) {
             if (!m_shuttingDown)
-                ERR("eglMakeCurrent failed\n");
+                ERR("eglMakeCurrent failed");
             return false;
         }
     } else {
@@ -2343,7 +2617,7 @@ bool FrameBuffer::bindSubwin_locked() {
         prevDrawSurf != m_eglSurface) {
         if (!s_egl.eglMakeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface,
                                   m_eglContext)) {
-            ERR("eglMakeCurrent failed in binding subwindow!\n");
+            ERR("eglMakeCurrent failed in binding subwindow!");
             return false;
         }
     }
@@ -2379,7 +2653,7 @@ bool FrameBuffer::bindFakeWindow_locked() {
 
     if (!s_egl.eglMakeCurrent(m_eglDisplay, m_eglFakeWindowSurface,
                               m_eglFakeWindowSurface, m_eglFakeWindowContext)) {
-        ERR("eglMakeCurrent failed in binding fake window!\n");
+        ERR("eglMakeCurrent failed in binding fake window!");
         return false;
     }
     return true;
@@ -2416,8 +2690,8 @@ void FrameBuffer::createTrivialContext(HandleType shared,
     *surfOut = createWindowSurface(0, 1, 1);
 }
 
-void FrameBuffer::createAndBindTrivialSharedContext(EGLContext* contextOut,
-                                                    EGLSurface* surfOut) {
+void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
+                                             EGLSurface* surfOut) {
     assert(contextOut);
     assert(surfOut);
 
@@ -2439,16 +2713,11 @@ void FrameBuffer::createAndBindTrivialSharedContext(EGLContext* contextOut,
         EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
 
     *surfOut = s_egl.eglCreatePbufferSurface(m_eglDisplay, config->getEglConfig(), pbufAttribs);
-
-    s_egl.eglMakeCurrent(m_eglDisplay, *surfOut, *surfOut, *contextOut);
 }
 
-void FrameBuffer::unbindAndDestroyTrivialSharedContext(EGLContext context,
-                                                       EGLSurface surface) {
+void FrameBuffer::destroySharedTrivialContext(EGLContext context,
+                                              EGLSurface surface) {
     if (m_eglDisplay != EGL_NO_DISPLAY) {
-        s_egl.eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE,
-                             EGL_NO_CONTEXT);
-
         s_egl.eglDestroyContext(m_eglDisplay, context);
         s_egl.eglDestroySurface(m_eglDisplay, surface);
     }
@@ -2478,17 +2747,6 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         goto EXIT;
     }
 
-    // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
-    if (m_displayVk != nullptr) {
-        if (m_justVkComposed) {
-            m_justVkComposed = false;
-            goto EXIT;
-        }
-        m_displayVk->post(c->second.cb->getDisplayBufferVk());
-        m_lastPostedColorBuffer = p_colorbuffer;
-        goto EXIT;
-    }
-
     m_lastPostedColorBuffer = p_colorbuffer;
 
     ret = true;
@@ -2500,7 +2758,9 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
         postCmd.cb = c->second.cb.get();
-        sendPostWorkerCmd(postCmd);
+        std::future<void> completeFuture =
+            sendPostWorkerCmd(std::move(postCmd));
+        completeFuture.wait();
     } else {
         markOpened(&c->second);
         c->second.cb->touch();
@@ -2586,9 +2846,9 @@ void FrameBuffer::getPixels(void* pixels, uint32_t bytes, uint32_t displayId) {
         ERR("Display %d not configured for recording yet", displayId);
         return;
     }
-    m_readbackThread.enqueue({ ReadbackCmd::GetPixels, displayId,
-                                           0, pixels, bytes });
-    m_readbackThread.waitQueuedItems();
+    std::future<void> completeFuture = m_readbackThread.enqueue(
+        {ReadbackCmd::GetPixels, displayId, 0, pixels, bytes});
+    completeFuture.wait();
 }
 
 void FrameBuffer::flushReadPipeline(int displayId) {
@@ -2630,6 +2890,9 @@ emugl::Renderer::FlushReadPixelPipeline FrameBuffer::getFlushReadPixelPipeline()
 
 bool FrameBuffer::repost(bool needLockAndBind) {
     GL_LOG("Reposting framebuffer.");
+    if (m_displayVk) {
+        return true;
+    }
     if (m_lastPostedColorBuffer &&
         sInitialized.load(std::memory_order_relaxed)) {
         GL_LOG("Has last posted colorbuffer and is initialized; post.");
@@ -2689,14 +2952,14 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
                                                                      nullptr,
                                                                      nullptr,
                                                                      nullptr)) {
-        fprintf(stderr, "Screenshot of invalid display %d", displayId);
+        ERR("Screenshot of invalid display %d", displayId);
         *width = 0;
         *height = 0;
         pixels.resize(0);
         return;
     }
     if (nChannels != 3 && nChannels != 4) {
-        fprintf(stderr, "Screenshot only support 3(RGB) or 4(RGBA) channels");
+        ERR("Screenshot only support 3(RGB) or 4(RGBA) channels");
         *width = 0;
         *height = 0;
         pixels.resize(0);
@@ -2733,16 +2996,15 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     scrCmd.screenshot.rotation = desiredRotation;
     scrCmd.screenshot.pixels = pixels.data();
 
-    sendPostWorkerCmd(scrCmd);
+    std::future<void> completeFuture = sendPostWorkerCmd(std::move(scrCmd));
+    completeFuture.wait();
 }
 
 void FrameBuffer::onLastColorBufferRef(uint32_t handle) {
     if (!mOutstandingColorBufferDestroys.trySend((HandleType)handle)) {
-        fprintf(
-            stderr,
-            "%s: warning: too many outstanding "
-            "color buffer destroys. leaking handle 0x%x\n",
-            __func__, handle);
+        ERR("warning: too many outstanding "
+            "color buffer destroys. leaking handle 0x%x",
+            handle);
     }
 }
 
@@ -2759,6 +3021,44 @@ bool FrameBuffer::decColorBufferRefCountLocked(HandleType p_colorbuffer) {
 }
 
 bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
+    std::promise<void> promise;
+    std::future<void> completeFuture = promise.get_future();
+    auto composeRes = composeWithCallback(
+        bufferSize, buffer, [&](std::shared_future<void> waitForGpu) {
+            waitForGpu.wait();
+            promise.set_value();
+        });
+    if (!composeRes) {
+        return false;
+    }
+    completeFuture.wait();
+
+    if (needPost) {
+        ComposeDevice* composeDevice = (ComposeDevice*)buffer;
+        AutoLock mutex(m_lock);
+
+        switch (composeDevice->version) {
+            case 1: {
+                post(composeDevice->targetHandle, false);
+                break;
+            }
+            case 2: {
+                ComposeDevice_v2* composeDeviceV2 = (ComposeDevice_v2*)buffer;
+                if (composeDeviceV2->displayId == 0) {
+                    post(composeDeviceV2->targetHandle, false);
+                }
+                break;
+            }
+            default: {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
+                                      Post::ComposeCallback callback) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
 
@@ -2768,68 +3068,39 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
         composeCmd.composeVersion = 1;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+        composeCmd.composeCallback =
+            std::make_shared<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
-        sendPostWorkerCmd(composeCmd);
-        if(needPost) {
-            post(p->targetHandle, false);
-        }
+        sendPostWorkerCmd(std::move(composeCmd));
         return true;
     }
 
     case 2: {
-       // support for multi-display
-       ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
-       if (p2->displayId != 0) {
-           mutex.unlock();
-           setDisplayColorBuffer(p2->displayId, p2->targetHandle);
-           mutex.lock();
-       }
-       if (m_displayVk) {
-           // We don't copy the render result to the targetHandle color buffer
-           // when using the Vulkan native host swapchain, because we directly
-           // render to the swapchain image instead of rendering onto a
-           // ColorBuffer, and we don't readback from the ColorBuffer so far.
-           ColorBufferMap::iterator c;
-
-           std::vector<ColorBufferPtr> cbs; // Keep ColorBuffers alive
-           std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>> composeBuffers;
-           ComposeDevice_v2* const composeDevice = p2;
-           const ComposeLayer* const l = (ComposeLayer*)composeDevice->layer;
-           for (int i = 0; i < composeDevice->numLayers; ++i) {
-               c = m_colorbuffers.find(l[i].cbHandle);
-               if (c == m_colorbuffers.end()) {
-                   composeBuffers.push_back(nullptr);
-                   continue;
-               }
-               cbs.push_back(c->second.cb);
-               auto db = c->second.cb->getDisplayBufferVk();
-               if (!db) {
-                   mutex.unlock();
-                   goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
-                   mutex.lock();
-                   db = c->second.cb->getDisplayBufferVk();
-               }
-               composeBuffers.push_back(db);
-           }
-
-           m_displayVk->compose(composeDevice->numLayers, l, composeBuffers);
-           m_justVkComposed = true;
-       } else {
-           Post composeCmd;
-           composeCmd.composeVersion = 2;
-           composeCmd.composeBuffer.resize(bufferSize);
-           memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-           composeCmd.cmd = PostCmd::Compose;
-           sendPostWorkerCmd(composeCmd);
-           if (p2->displayId == 0 && needPost) {
-               post(p2->targetHandle, false);
-           }
-       }
-       return true;
+        // support for multi-display
+        ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
+        if (p2->displayId != 0) {
+            mutex.unlock();
+            setDisplayColorBuffer(p2->displayId, p2->targetHandle);
+            mutex.lock();
+        }
+        Post composeCmd;
+        composeCmd.composeVersion = 2;
+        composeCmd.composeBuffer.resize(bufferSize);
+        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+        composeCmd.composeCallback =
+            std::make_shared<Post::ComposeCallback>(callback);
+        composeCmd.cmd = PostCmd::Compose;
+        // Composition without holding the FrameBuffer lock here can lead to a
+        // race condition, because it is possible to access
+        // FrameBuffer::m_colorbuffers, which is a std::unordered_map, at the
+        // same time from different threads, which may cause undefined behaviour.
+        // TODO: Fix the potential data race on FrameBuffer::m_colorbuffers here.
+        sendPostWorkerCmd(std::move(composeCmd));
+        return true;
     }
 
     default:
-       fprintf(stderr, "yet to handle composition device version: %d\n", p->version);
+       ERR("yet to handle composition device version: %d", p->version);
        return false;
     }
 }
@@ -3013,7 +3284,7 @@ bool FrameBuffer::onLoad(Stream* stream,
         assert(m_contexts.empty());
         assert(m_windows.empty());
         if (!m_colorbuffers.empty()) {
-            fprintf(stderr, "%s: warning: on load, stale colorbuffers: %zu\n", __func__, m_colorbuffers.size());
+            ERR("warning: on load, stale colorbuffers: %zu", m_colorbuffers.size());
             m_colorbuffers.clear();
         }
         assert(m_colorbuffers.empty());
@@ -3143,11 +3414,9 @@ void FrameBuffer::unregisterProcessCleanupCallback(void* key) {
 
     auto& callbackMap = m_procOwnedCleanupCallbacks[tInfo->m_puid];
     if (callbackMap.find(key) == callbackMap.end()) {
-        fprintf(
-            stderr,
-            "%s: warning: tried to erase nonexistent key %p "
-            "associated with process %llu\n",
-            __func__, key, (unsigned long long)(tInfo->m_puid));
+        ERR("warning: tried to erase nonexistent key %p "
+            "associated with process %llu",
+            key, (unsigned long long)(tInfo->m_puid));
     }
     callbackMap.erase(key);
 }
@@ -3236,8 +3505,7 @@ void FrameBuffer::waitForGpu(uint64_t eglsync) {
     FenceSync* fenceSync = FenceSync::getFromHandle(eglsync);
 
     if (!fenceSync) {
-        fprintf(stderr, "%s: err: fence sync 0x%llx not found\n", __func__,
-                (unsigned long long)eglsync);
+        ERR("err: fence sync 0x%llx not found", (unsigned long long)eglsync);
         return;
     }
 
@@ -3250,17 +3518,103 @@ void FrameBuffer::waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle) 
     // Note: this will always be nullptr.
     FenceSync* fenceSync = FenceSync::getFromHandle(fenceHandle);
 
-    // Note: this will always signal right away.
+    // Note: This will always signal right away.
     SyncThread::get()->triggerBlockedWaitNoTimeline(fenceSync);
+}
+
+void FrameBuffer::asyncWaitForGpuWithCb(uint64_t eglsync, FenceCompletionCallback cb) {
+    FenceSync* fenceSync = FenceSync::getFromHandle(eglsync);
+
+    if (!fenceSync) {
+        ERR("err: fence sync 0x%llx not found", (unsigned long long)eglsync);
+        return;
+    }
+
+    SyncThread::get()->triggerWaitWithCompletionCallback(fenceSync, std::move(cb));
+}
+
+void FrameBuffer::asyncWaitForGpuVulkanWithCb(uint64_t deviceHandle, uint64_t fenceHandle, FenceCompletionCallback cb) {
+    (void)deviceHandle;
+    SyncThread::get()->triggerWaitVkWithCompletionCallback((VkFence)fenceHandle, std::move(cb));
+}
+
+void FrameBuffer::asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb) {
+    SyncThread::get()->triggerWaitVkQsriWithCompletionCallback((VkImage)image, std::move(cb));
+}
+
+void FrameBuffer::waitForGpuVulkanQsri(uint64_t image) {
+    (void)image;
+    // Signal immediately, because this was a sync wait and it's vulkan.
+    SyncThread::get()->triggerBlockedWaitNoTimeline(nullptr);
 }
 
 void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
 
-VkImageLayout FrameBuffer::getVkImageLayoutForPresent() const {
-    if (m_displayVk == nullptr) {
+VkImageLayout FrameBuffer::getVkImageLayoutForComposeLayer() const {
+    if (m_displayVk) {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;
+}
+
+bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {
+    if (!resource) {
+        ERR("Error: resource was null");
+    }
+
+    AutoLock mutex(m_lock);
+
+    ColorBufferMap::iterator c(m_colorbuffers.find(handle));
+    if (c == m_colorbuffers.end()) {
+        ERR("Error: resource %u not found as a ColorBuffer", handle);
+        return false;
+    }
+
+    switch (type) {
+        case RESOURCE_TYPE_EGL_NATIVE_PIXMAP:
+            return (*c).second.cb->importEglNativePixmap(resource);
+        case RESOURCE_TYPE_EGL_IMAGE:
+            return (*c).second.cb->importEglImage(resource);
+        default:
+            ERR("Error: unsupported resource type: %u", type);
+            return false;
+    }
+
+    return true;
+}
+
+void* FrameBuffer::platformCreateSharedEglContext(void) {
+    AutoLock lock(m_lock);
+
+    EGLContext context = 0;
+    EGLSurface surface = 0;
+    createSharedTrivialContext(&context, &surface);
+
+    void* underlyingContext = s_egl.eglGetNativeContextANDROID(m_eglDisplay, context);
+    if (!underlyingContext) {
+        ERR("Error: Underlying egl backend could not produce a native EGL context.");
+        return nullptr;
+    }
+
+    m_platformEglContexts[underlyingContext] = { context, surface };
+
+    return underlyingContext;
+}
+
+bool FrameBuffer::platformDestroySharedEglContext(void* underlyingContext) {
+    AutoLock lock(m_lock);
+
+    auto it = m_platformEglContexts.find(underlyingContext);
+    if (it == m_platformEglContexts.end()) {
+        ERR("Error: Could not find underlying egl context %p (perhaps already destroyed?)", underlyingContext);
+        return false;
+    }
+
+    destroySharedTrivialContext(it->second.context, it->second.surface);
+
+    m_platformEglContexts.erase(it);
+
+    return true;
 }

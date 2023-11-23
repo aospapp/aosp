@@ -272,6 +272,9 @@ GoldfishComponentStore::GoldfishComponentStore()
     if (useAndroidGoldfishComponentInstance("avcdec")) {
         emplace("libcodec2_goldfish_avcdec.so");
     }
+    if (useAndroidGoldfishComponentInstance("hevcdec")) {
+        emplace("libcodec2_goldfish_hevcdec.so");
+    }
 }
 
 c2_status_t

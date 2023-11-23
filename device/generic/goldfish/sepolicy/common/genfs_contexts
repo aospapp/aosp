@@ -15,7 +15,12 @@ genfscon sysfs /devices/platform/rtc-test.1/rtc/rtc2/hctosys u:object_r:sysfs_rt
 genfscon sysfs /devices/platform/rtc-test.2/rtc/rtc3/hctosys u:object_r:sysfs_rtc:s0
 
 # /sys/class/net
+# x86_64
 genfscon sysfs /devices/pci0000:00/0000:00:08.0/virtio5/net u:object_r:sysfs_net:s0
+genfscon sysfs /devices/pci0000:00/0000:00:08.0/virtio6/net u:object_r:sysfs_net:s0
+# arm64
+genfscon sysfs /devices/platform/a003400.virtio_mmio/virtio1/net u:object_r:sysfs_net:s0
+
 genfscon sysfs /devices/virtual/mac80211_hwsim/hwsim0/net u:object_r:sysfs_net:s0
 genfscon sysfs /devices/virtual/mac80211_hwsim/hwsim1/net u:object_r:sysfs_net:s0
 
@@ -45,6 +50,17 @@ genfscon sysfs /devices/platform/a003e00.virtio_mmio/virtio6/block/vde/vde1/stat
 genfscon sysfs /devices/platform/9020000.goldfish_battery/power_supply u:object_r:sysfs_batteryinfo:s0
 
 # symlinks from /sys/class/wakeup
+# On arm64 emulator, wakeup[0-5] are symlinks to the following nodes under /sys
+genfscon sysfs /devices/platform/9010000.pl031/wakeup/wakeup0                              u:object_r:sysfs_wakeup:s0
+# For arm64 GKI 5.4
+genfscon sysfs /devices/platform/9010000.pl031/rtc/rtc0/wakeup1                            u:object_r:sysfs_wakeup:s0
+# For arm64 GKI 5.10
+genfscon sysfs /devices/platform/9010000.pl031/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup1   u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/a040000.goldfish_battery/power_supply/ac/wakeup2          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/a040000.goldfish_battery/power_supply/battery/wakeup3     u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/rtc-test.1/wakeup/wakeup4                                 u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/rtc-test.2/wakeup/wakeup5                                 u:object_r:sysfs_wakeup:s0
+
 genfscon sysfs /devices/LNXSYSTM:00/LNXPWRBN:00/wakeup/wakeup                      u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/LNXSYSTM:00/LNXSYBUS:00/GFSH0001:00/wakeup/wakeup          u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/LNXSYSTM:00/LNXSYBUS:00/GFSH0003:00/wakeup/wakeup          u:object_r:sysfs_wakeup:s0

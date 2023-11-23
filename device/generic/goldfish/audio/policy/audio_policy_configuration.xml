@@ -24,9 +24,14 @@
         <!-- Primary Audio HAL -->
         <xi:include href="primary_audio_policy_configuration.xml"/>
 
+        <!-- A2dp Input Audio HAL -->
+        <xi:include href="a2dp_in_audio_policy_configuration_7_0.xml"/>
+
         <!-- Remote Submix Audio HAL -->
         <xi:include href="r_submix_audio_policy_configuration.xml"/>
 
+        <!-- Bluetooth Audio HAL -->
+        <xi:include href="bluetooth_audio_policy_configuration_7_0.xml"/>
     </modules>
     <!-- End of Modules section -->
 

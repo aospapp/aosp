@@ -14,6 +14,8 @@
 
 LOCAL_PATH := $(call my-dir)
 
+$(eval $(call declare-1p-copy-files,device/linaro/poplar/audio,))
+
 # The default audio HAL module, which is a stub, that is loaded if no other
 # device specific modules are present. The exact load order can be seen in
 # libhardware/hardware.c

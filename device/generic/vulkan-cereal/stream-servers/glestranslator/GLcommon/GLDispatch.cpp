@@ -19,11 +19,8 @@
 
 #include "base/Lock.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 
-#include "ErrorLog.h"
-
-// #define GL_LOG(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
-#define GL_LOG(fmt,...)
 
 #ifdef __linux__
 #include <GL/glx.h>
@@ -120,6 +117,54 @@ android::base::Lock GLDispatch::s_lock;
 
 LIST_GLES_FUNCTIONS(GL_DISPATCH_DEFINE_POINTER, GL_DISPATCH_DEFINE_POINTER)
 
+#if defined(ENABLE_DISPATCH_LOG)
+
+// With dispatch debug logging enabled, the original loaded function pointers
+// are moved to the "_underlying" suffixed function pointers and then the non
+// suffixed functions pointers are updated to be the "_dispatchDebugLogWrapper"
+// suffixed functions from the ".impl" files. For example,
+//
+// void glEnable_dispatchDebugLogWrapper(GLenum cap) {
+//   DISPATCH_DEBUG_LOG("glEnable(cap:%d)", cap);
+//   GLDispatch::glEnable_underlying(cap);
+// }
+//
+// GLDispatch::glEnable_underlying = dlsym(lib, "glEnable");
+// GLDispatch::glEnable = glEnable_dispatchLoggingWrapper;
+
+#include "OpenGLESDispatch/gles_common_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles_extensions_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles1_only_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles1_extensions_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles2_only_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles2_extensions_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles3_only_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles3_extensions_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles31_only_dispatch_logging_wrappers.impl"
+#include "OpenGLESDispatch/gles32_only_dispatch_logging_wrappers.impl"
+
+#define LOAD_GL_FUNC_DEBUG_LOG_WRAPPER(return_type, func_name, signature, args) do { \
+        func_name##_underlying = func_name; \
+        func_name = func_name##_dispatchLoggingWrapper; \
+    } while(0);
+
+#define LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER(return_type, func_name, signature, args) do { \
+        func_name##_underlying = func_name; \
+        func_name = func_name##_dispatchLoggingWrapper; \
+    } while (0);
+
+#define GL_DISPATCH_DEFINE_UNDERLYING_POINTER(return_type, function_name, signature, args) \
+    return_type (*GLDispatch::function_name##_underlying) signature = NULL;
+
+LIST_GLES_FUNCTIONS(GL_DISPATCH_DEFINE_UNDERLYING_POINTER, GL_DISPATCH_DEFINE_UNDERLYING_POINTER)
+
+#else
+
+#define LOAD_GL_FUNC_DEBUG_LOG_WRAPPER(return_type, func_name, signature, args)
+#define LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER(return_type, func_name, signature, args)
+
+#endif
+
 // Constructor.
 GLDispatch::GLDispatch() : m_isLoaded(false) {}
 
@@ -138,7 +183,10 @@ void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib, EGLGetProc
 
     /* Loading OpenGL functions which are needed for implementing BOTH GLES 1.1 & GLES 2.0*/
     LIST_GLES_COMMON_FUNCTIONS(LOAD_GL_FUNC)
+    LIST_GLES_COMMON_FUNCTIONS(LOAD_GL_FUNC_DEBUG_LOG_WRAPPER)
+
     LIST_GLES_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC)
+    LIST_GLES_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
 
     /* Load both GLES1 and GLES2. On core profile, GLES 1 implementation will
      * require GLES 3 function supports and set version to GLES_3_0. Thus
@@ -146,20 +194,31 @@ void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib, EGLGetProc
      * let's just load both of them.
      */
     LIST_GLES1_ONLY_FUNCTIONS(LOAD_GL_FUNC)
+    LIST_GLES1_ONLY_FUNCTIONS(LOAD_GL_FUNC_DEBUG_LOG_WRAPPER)
+
     LIST_GLES1_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC)
+    LIST_GLES1_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
+
     LIST_GLES2_ONLY_FUNCTIONS(LOAD_GL_FUNC)
+    LIST_GLES2_ONLY_FUNCTIONS(LOAD_GL_FUNC_DEBUG_LOG_WRAPPER)
+
     LIST_GLES2_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC)
+    LIST_GLES2_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
 
     /* Load OpenGL ES 3.x functions through 3.1. Not all are supported;
      * leave it up to EGL to determine support level. */
 
     if (version >= GLES_3_0) {
         LIST_GLES3_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC)
+        LIST_GLES3_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
+
         LIST_GLES3_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC)
+        LIST_GLES3_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
     }
 
     if (version >= GLES_3_1) {
         LIST_GLES31_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC)
+        LIST_GLES31_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
     }
 
     m_isLoaded = true;

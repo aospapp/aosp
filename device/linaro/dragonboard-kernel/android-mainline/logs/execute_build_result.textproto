@@ -1,0 +1,3 @@
+successful:  true
+log_file:  "/buildbot/dist_dirs/aosp_kernel-common-android-mainline-linux-kernel_db845c/7972315/logs/build.log"
+tee_err_log_file:  "/buildbot/dist_dirs/aosp_kernel-common-android-mainline-linux-kernel_db845c/7972315/logs/build_tee_error.log"

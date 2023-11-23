@@ -16,7 +16,7 @@
 PRODUCT_PACKAGE_OVERLAYS := device/generic/car/common/overlay
 
 $(call inherit-product, device/generic/car/emulator/aosp_car_emulator.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/sdk.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/sdk_phone_armv7.mk)
 
 EMULATOR_VENDOR_NO_SOUND := true
 PRODUCT_NAME := sdk_car_arm

@@ -65,6 +65,21 @@
             <Limit name="measured-frame-rate-3840x2160" range="235-247" />
             <Feature name="adaptive-playback" />
         </MediaCodec>
+        <MediaCodec name="c2.goldfish.hevc.decoder" type="video/hevc">
+            <Limit name="size" min="96x96" max="4096x4096" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="24-2073600" />
+            <Limit name="bitrate" range="1-120000000" />
+            <Limit name="frame-rate" range="1-480" />
+            <Limit name="performance-point-3840x2160" value="30" />
+            <Limit name="measured-frame-rate-320x240" range="257-266" />
+            <Limit name="measured-frame-rate-720x480" range="262-264" />
+            <Limit name="measured-frame-rate-1280x720" range="227-251" />
+            <Limit name="measured-frame-rate-1920x1080" range="235-247" />
+            <Limit name="measured-frame-rate-3840x2160" range="235-247" />
+            <Feature name="adaptive-playback" />
+        </MediaCodec>
         <MediaCodec name="OMX.google.h264.decoder" type="video/avc">
             <Limit name="size" min="2x2" max="2560x2560" />
             <Limit name="alignment" value="2x2" />

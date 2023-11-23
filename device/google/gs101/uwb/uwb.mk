@@ -35,7 +35,8 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_UWB_CAL_DIR)/UWB-calibration-tj.conf:$(TARGET_COPY_OUT_VENDOR)/etc/UWB-calibration-tj.conf \
     $(LOCAL_UWB_CAL_DIR)/UWB-calibration-tm.conf:$(TARGET_COPY_OUT_VENDOR)/etc/UWB-calibration-tm.conf \
     $(LOCAL_UWB_CAL_DIR)/UWB-calibration-ua.conf:$(TARGET_COPY_OUT_VENDOR)/etc/UWB-calibration-ua.conf \
-    $(LOCAL_UWB_CAL_DIR)/UWB-calibration-uz.conf:$(TARGET_COPY_OUT_VENDOR)/etc/UWB-calibration-uz.conf
+    $(LOCAL_UWB_CAL_DIR)/UWB-calibration-uz.conf:$(TARGET_COPY_OUT_VENDOR)/etc/UWB-calibration-uz.conf \
+    $(LOCAL_UWB_CAL_DIR)/init.uwb.calib.xtal.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.uwb.calib.sh \
 
 PRODUCT_COPY_FILES += \
-    frameworks/native/data/etc/android.hardware.uwb.xml:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/permissions/android.hardware.uwb.xml
+    frameworks/native/data/etc/android.hardware.uwb.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.uwb.xml

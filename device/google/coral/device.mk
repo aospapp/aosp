@@ -435,12 +435,13 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.vendor.bluetooth.emb_wp_mode=false \
     ro.vendor.bluetooth.wipower=false
 
+# Bluetooth ftmdaemon needs libbt-hidlclient.so
+PRODUCT_SOONG_NAMESPACES += vendor/qcom/proprietary/bluetooth/hidl_client
+
 # DRM HAL
 PRODUCT_PACKAGES += \
-    android.hardware.drm@1.0-impl \
-    android.hardware.drm@1.0-service \
-    android.hardware.drm@1.4-service.clearkey \
-    android.hardware.drm@1.4-service.widevine
+    android.hardware.drm-service.clearkey \
+    android.hardware.drm-service.widevine
 
 # NFC and Secure Element packages
 PRODUCT_PACKAGES += \
@@ -459,8 +460,11 @@ PRODUCT_COPY_FILES += \
     device/google/coral/nfc/libese-hal-st.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libese-hal-st.conf \
     device/google/coral/nfc/libnfc-nci.conf:$(TARGET_COPY_OUT_PRODUCT)/etc/libnfc-nci.conf
 
+# USB HAL
 PRODUCT_PACKAGES += \
-    android.hardware.usb@1.3-service.coral
+    android.hardware.usb-service.coral
+PRODUCT_PACKAGES += \
+    android.hardware.usb.gadget-service.coral
 
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl-coral \
@@ -543,7 +547,7 @@ PRODUCT_PACKAGES += \
 
 # Context hub HAL
 PRODUCT_PACKAGES += \
-    android.hardware.contexthub@1.2-service.generic
+    android.hardware.contexthub-service.generic
 
 # CHRE tools
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
@@ -624,11 +628,9 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_PACKAGES += \
     audio.primary.msmnile \
-    audio.a2dp.default \
     audio.usb.default \
     audio.r_submix.default \
     libaudio-resampler \
-    audio.hearing_aid.default \
     audio.bluetooth.default
 
 PRODUCT_PACKAGES += \
@@ -872,8 +874,12 @@ ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 endif
 
 # Preopt SystemUI
-PRODUCT_DEXPREOPT_SPEED_APPS += \
-    SystemUIGoogle
+PRODUCT_DEXPREOPT_SPEED_APPS += SystemUIGoogle  # For internal
+PRODUCT_DEXPREOPT_SPEED_APPS += SystemUI  # For AOSP
+
+# Compile SystemUI on device with `speed`.
+PRODUCT_PROPERTY_OVERRIDES += \
+    dalvik.vm.systemuicompilerfilter=speed
 
 # Enable stats logging in LMKD
 TARGET_LMKD_STATS_LOG := true
@@ -967,7 +973,7 @@ PRODUCT_PACKAGES += $(HIDL_WRAPPER)
 
 # Increment the SVN for any official public releases
 PRODUCT_PROPERTY_OVERRIDES += \
-	ro.vendor.build.svn=55
+	ro.vendor.build.svn=62
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/powerhint.json:$(TARGET_COPY_OUT_VENDOR)/etc/powerhint.json

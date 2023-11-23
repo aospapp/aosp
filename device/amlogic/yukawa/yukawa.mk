@@ -6,7 +6,11 @@ $(call inherit-product, device/amlogic/yukawa/yukawa-common.mk)
 PRODUCT_NAME := yukawa
 PRODUCT_DEVICE := yukawa
 
-MOD_DIR = device/amlogic/yukawa-kernel/$(TARGET_KERNEL_USE)
+ifndef TARGET_KERNEL_USE
+TARGET_KERNEL_USE := 5.10
+endif
+
+MOD_DIR := device/amlogic/yukawa-kernel/$(TARGET_KERNEL_USE)
 
 #
 # Put all the modules in the rootfs...

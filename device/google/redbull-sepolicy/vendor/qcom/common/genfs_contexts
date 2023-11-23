@@ -6,6 +6,7 @@ genfscon sysfs /class/uio                                                       
 genfscon sysfs /devices/virtual/kgsl/kgsl/proc                                                                                         u:object_r:sysfs_kgsl_proc:s0
 genfscon sysfs /devices/platform/soc/0.qcom,rmtfs_sharedmem                                                                            u:object_r:sysfs_rmtfs:s0
 genfscon sysfs /devices/platform/soc/soc:qcom,kgsl-hyp                                                                                 u:object_r:sysfs_msm_subsys:s0
+genfscon sysfs /devices/platform/soc/3d00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/perfcounter                                                   u:object_r:sysfs_kgsl_shell:s0
 genfscon sysfs /bus/esoc                                                                                                               u:object_r:sysfs_esoc:s0
 genfscon sysfs /bus/msm_subsys                                                                                                         u:object_r:sysfs_msm_subsys:s0
 genfscon debugfs /wlan                                                                                                                 u:object_r:debugfs_wlan:s0
@@ -17,6 +18,7 @@ genfscon debugfs /tzdbg                                                         
 genfscon sysfs /module/diagchar                                                                                                        u:object_r:sysfs_diag:s0
 genfscon proc /debugdriver/driverdump                                                                                                  u:object_r:proc_wifi_dbg:s0
 genfscon proc /ath_pktlog/cld                                                                                                          u:object_r:proc_wifi_dbg:s0
+genfscon proc /shs                                                                                                                     u:object_r:proc_shs:s0
 genfscon sysfs /devices/platform/soc/a88000.i2c/i2c-0/0-000c/a88000.i2c:qcom,smb1355@c:qcom,smb1355-charger@1000/power_supply          u:object_r:sysfs_batteryinfo:s0
 genfscon sysfs /devices/platform/soc/ae00000.qcom,mdss_rotator                                                                         u:object_r:sysfs_msm_subsys:s0
 genfscon sysfs /devices/platform/soc/18800000.qcom,icnss/net                                                                           u:object_r:sysfs_net:s0

@@ -18,7 +18,7 @@ $(call inherit-product, $(LOCAL_PATH)/minimal_system.mk)
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/updatable_apex.mk)
 
-$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_no_zygote.mk)
 
 PRODUCT_NAME := fvp_mini
 PRODUCT_DEVICE := fvpbase
@@ -42,7 +42,6 @@ SKIP_BOOT_JARS_CHECK ?= true
 
 PRODUCT_PACKAGES += \
     com.android.runtime \
-    gdbserver \
     init_vendor \
     ip \
     ping \

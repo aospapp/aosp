@@ -37,6 +37,7 @@ struct generic_audio_device {
   int next_tone_frequency_to_assign; // Protected by this->lock
   // Play on Speaker zone selection
   int last_zone_selected_to_play; // Protected by this->lock
+  bool hfp_running; 
 };
 
 static struct generic_audio_device *device_handle;

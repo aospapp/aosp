@@ -65,13 +65,13 @@ $(call add-clean-step, rm -f $(PRODUCT_OUT)/vendor/etc/init/android.hardware.pow
 # Health storage HAL
 $(call add-clean-step, find $(PRODUCT_OUT) -type f -name "*android.hardware.health.storage@1.0*" -print0 | xargs -0 rm -f)
 
-# Update to USB HAL 1.3
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.usb@1.2-service.slider)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.usb@1.2-service.slider.rc)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.usb@1.2-service.slider.xml)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.usb@1.3-service.slider)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.usb@1.3-service.slider.rc)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.usb@1.3-service.slider.xml)
+# USB HAL to AIDL
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.usb-service.gs101)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.usb.gadget-service.gs101)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.usb-service.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.usb.gadget-service-gs101.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.usb-service.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.usb.gadget@1.2-service.gs101.xml)
 
 # Power Stats HAL 1.0 to AIDL
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.power.stats@1.0-service.gs101)
@@ -83,3 +83,9 @@ $(call add-clean-step, rm -f $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.keyma
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/vendor/etc/init/android.hardware.keymaster@4.0-service.trusty.rc)
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.keymaster@4.0-service.trusty.xml)
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/vendor/bin/hw/wait_for_strongbox)
+
+# Health HAL to AIDL
+$(call add-clean-step, find $(PRODUCT_OUT)/system -type f -name "*charger*" -print0 | xargs -0 rm -f)
+$(call add-clean-step, find $(PRODUCT_OUT)/vendor -type f -name "*health@*" -print0 | xargs -0 rm -f)
+$(call add-clean-step, find $(PRODUCT_OUT)/recovery/root -type f -name "*charger*" -print0 | xargs -0 rm -f)
+$(call add-clean-step, find $(PRODUCT_OUT)/recovery/root -type f -name "*health@*" -print0 | xargs -0 rm -f)

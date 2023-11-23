@@ -16,8 +16,10 @@ on init
 
     start watchdogd
 
+on early-fs
+    start vold
+
 on fs
-    mount_all /vendor/etc/fstab.${ro.hardware}
     setprop ro.crypto.fuse_sdcard false
 
 on post-fs
@@ -113,3 +115,9 @@ service bugreport /system/bin/dumpstate -d -p -z
     class main
     disabled
     oneshot
+
+# TODO: disable this service once we implement system suspend
+service suspend_blocker /vendor/bin/suspend_blocker
+    class early_hal # Start together with system_suspend HAL
+    group system
+    user root

@@ -17,12 +17,14 @@
 #include "host/libs/vm_manager/vm_manager.h"
 
 #include <android-base/logging.h>
+#include <fruit/fruit.h>
 
 #include <iomanip>
 #include <memory>
 
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/vm_manager/crosvm_manager.h"
+#include "host/libs/vm_manager/gem5_manager.h"
 #include "host/libs/vm_manager/qemu_manager.h"
 
 namespace cuttlefish {
@@ -32,8 +34,10 @@ std::unique_ptr<VmManager> GetVmManager(const std::string& name, Arch arch) {
   std::unique_ptr<VmManager> vmm;
   if (name == QemuManager::name()) {
     vmm.reset(new QemuManager(arch));
+  } else if (name == Gem5Manager::name()) {
+    vmm.reset(new Gem5Manager(arch));
   } else if (name == CrosvmManager::name()) {
-    vmm.reset(new CrosvmManager(arch));
+    vmm.reset(new CrosvmManager());
   }
   if (!vmm) {
     LOG(ERROR) << "Invalid VM manager: " << name;
@@ -61,6 +65,16 @@ std::string ConfigureMultipleBootDevices(const std::string& pci_path,
   return {boot_devices_prop};
 }
 
+fruit::Component<fruit::Required<const CuttlefishConfig>, VmManager>
+VmManagerComponent() {
+  return fruit::createComponent().registerProvider(
+      [](const CuttlefishConfig& config) {
+        auto vmm = GetVmManager(config.vm_manager(), config.target_arch());
+        CHECK(vmm) << "Invalid VMM/Arch: \"" << config.vm_manager() << "\""
+                   << (int)config.target_arch() << "\"";
+        return vmm.release();  // fruit takes ownership of raw pointers
+      });
+}
+
 } // namespace vm_manager
 } // namespace cuttlefish
-

@@ -56,6 +56,12 @@ func (c *cvdHostPackage) DepsMutator(ctx android.BottomUpMutatorContext) {
 		{Mutator: "arch", Variation: android.Common.String()},
 	}
 	for _, dep := range strings.Split(
+		ctx.Config().VendorConfig("cvd").String("grub_config"), " ") {
+		if ctx.OtherModuleExists(dep) {
+			ctx.AddVariationDependencies(variations, cvdHostPackageDependencyTag, dep)
+		}
+	}
+	for _, dep := range strings.Split(
 		ctx.Config().VendorConfig("cvd").String("launch_configs"), " ") {
 		if ctx.OtherModuleExists(dep) {
 			ctx.AddVariationDependencies(variations, cvdHostPackageDependencyTag, dep)
@@ -81,7 +87,7 @@ var pctx = android.NewPackageContext("android/soong/cuttlefish")
 
 func (c *cvdHostPackage) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	zipFile := android.PathForModuleOut(ctx, "package.zip")
-	c.CopyDepsToZip(ctx, zipFile)
+	c.CopyDepsToZip(ctx, c.GatherPackagingSpecs(ctx), zipFile)
 
 	// Dir where to extract the zip file and construct the final tar.gz from
 	packageDir := android.PathForModuleOut(ctx, ".temp")

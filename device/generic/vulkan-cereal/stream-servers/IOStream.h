@@ -15,8 +15,8 @@
 */
 #pragma once
 
-#include "ErrorLog.h"
 #include "base/Stream.h"
+#include "host-common/logging.h"
 
 #include <assert.h>
 #include <inttypes.h>

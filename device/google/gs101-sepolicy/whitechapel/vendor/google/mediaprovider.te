@@ -1,1 +1,2 @@
-dontaudit mediaprovider sysfs_vendor_sched:dir search;
+dontaudit mediaprovider proc_vendor_sched:dir search;
+dontaudit mediaprovider proc_vendor_sched:file write;

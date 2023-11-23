@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package {
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
@@ -24,36 +23,39 @@ package {
         "//device/google/gs101:device_google_gs101_license",
     ],
 }
-
-cc_library_shared {
-    name: "android.hardware.health@2.1-impl-gs101",
-    stem: "android.hardware.health@2.0-impl-2.1-gs101",
-
-    proprietary: true,
+cc_defaults {
+    name: "android.hardware.health-service.gs101-defaults",
+    defaults: [
+        "libhealth_aidl_impl_user",
+        "libhealth_aidl_charger_defaults",
+    ],
     relative_install_path: "hw",
+    vintf_fragments: ["android.hardware.health-service.gs101.xml"],
     srcs: [
         "Health.cpp",
     ],
-
     cflags: [
         "-Wall",
         "-Werror",
     ],
-
     static_libs: [
-        "android.hardware.health@1.0-convert",
-        "libbatterymonitor",
-        "libhealth2impl",
-        "libhealthloop",
+        "libhealth_aidl_impl",
     ],
-
+}
+cc_binary {
+    name: "android.hardware.health-service.gs101",
+    defaults: ["android.hardware.health-service.gs101-defaults"],
+    proprietary: true,
+    init_rc: ["android.hardware.health-service.gs101.rc"],
+    overrides: ["charger"],
     shared_libs: [
-        "libbase",
-        "libcutils",
-        "libhidlbase",
         "libpixelhealth",
-        "libutils",
-        "android.hardware.health@2.0",
-        "android.hardware.health@2.1",
     ],
+}
+cc_binary {
+    name: "android.hardware.health-service.gs101_recovery",
+    defaults: ["android.hardware.health-service.gs101-defaults"],
+    recovery: true,
+    init_rc: ["android.hardware.health-service.gs101_recovery.rc"],
+    overrides: ["charger.recovery"],
 }

@@ -4,3 +4,8 @@ modalias_handling enabled
 # for android sync framework
 /dev/pvr_sync             0666   system     graphics
 /dev/pvrsrvkm             0666   system     graphics
+
+# for C2Store use, do not really care about the graphics group here
+# but it seems to be used by the gralloc.am57x.so library too,
+# set it to graphics for now
+/dev/ion                  0666   system     graphics

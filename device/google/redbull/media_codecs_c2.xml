@@ -67,7 +67,7 @@
         <!-- C2 decoders -->
         <MediaCodec name="c2.qti.avc.decoder" type="video/avc">
             <Alias name="OMX.qcom.video.decoder.avc" />
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" range="64-1958400" />
@@ -81,7 +81,7 @@
             <Feature name="adaptive-playback" />
         </MediaCodec>
         <MediaCodec name="c2.qti.avc.decoder.low_latency" type="video/avc">
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" range="64-1958400" />
@@ -97,7 +97,7 @@
         </MediaCodec>
         <MediaCodec name="c2.qti.avc.decoder.secure" type="video/avc" >
             <Alias name="OMX.qcom.video.decoder.avc.secure" />
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="1" max="1958400" />
@@ -112,7 +112,7 @@
         </MediaCodec>
         <MediaCodec name="c2.qti.hevc.decoder" type="video/hevc" >
             <Alias name="OMX.qcom.video.decoder.hevc" />
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="64" max="1958400" />
@@ -126,7 +126,7 @@
             <Limit name="concurrent-instances" max="16" />
         </MediaCodec>
         <MediaCodec name="c2.qti.hevc.decoder.low_latency" type="video/hevc" >
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="64" max="1958400" />
@@ -142,7 +142,7 @@
         </MediaCodec>
         <MediaCodec name="c2.qti.hevc.decoder.secure" type="video/hevc" >
             <Alias name="OMX.qcom.video.decoder.hevc.secure" />
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="24" max="2073600" />
@@ -157,7 +157,7 @@
         </MediaCodec>
         <MediaCodec name="c2.qti.vp8.decoder" type="video/x-vnd.on2.vp8" >
             <Alias name="OMX.qcom.video.decoder.vp8" />
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="64" max="1036800" />
@@ -172,7 +172,7 @@
         </MediaCodec>
         <MediaCodec name="c2.qti.vp9.decoder" type="video/x-vnd.on2.vp9" >
             <Alias name="OMX.qcom.video.decoder.vp9" />
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="64" max="1958400" />
@@ -183,10 +183,10 @@
             <Limit name="performance-point-1920x1080" value="120" />
             <Limit name="performance-point-1280x720" value="240" />
             <Feature name="adaptive-playback" />
-            <Limit name="concurrent-instances" max="7" />
+            <Limit name="concurrent-instances" max="6" />
         </MediaCodec>
         <MediaCodec name="c2.qti.vp9.decoder.secure" type="video/x-vnd.on2.vp9" >
-            <Limit name="size" min="128x128" max="4096x2176" />
+            <Limit name="size" min="96x96" max="4096x2176" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="24" max="2073600" />

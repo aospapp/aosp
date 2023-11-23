@@ -32,7 +32,9 @@ TARGET_CPU_ABI := arm64-v8a
 TARGET_CPU_VARIANT := cortex-a55
 TARGET_CPU_VARIANT_RUNTIME := cortex-a55
 
-ifeq (,$(filter %_64,$(TARGET_PRODUCT)))
+DEVICE_IS_64BIT_ONLY ?= $(if $(filter %_64,$(TARGET_PRODUCT)),true,false)
+
+ifneq ($(DEVICE_IS_64BIT_ONLY),true)
 TARGET_2ND_ARCH := arm
 TARGET_2ND_ARCH_VARIANT := armv8-a
 TARGET_2ND_CPU_ABI := armeabi-v7a
@@ -44,7 +46,6 @@ endif
 BOARD_KERNEL_CMDLINE += dyndbg=\"func alloc_contig_dump_pages +p\"
 BOARD_KERNEL_CMDLINE += earlycon=exynos4210,0x10A00000 console=ttySAC0,115200 androidboot.console=ttySAC0 printk.devkmsg=on
 BOARD_KERNEL_CMDLINE += cma_sysfs.experimental=Y
-BOARD_KERNEL_CMDLINE += stack_depot_disable=off page_pinner=on
 BOARD_KERNEL_CMDLINE += swiotlb=noforce
 BOARD_BOOTCONFIG += androidboot.boot_devices=14700000.ufs
 
@@ -68,12 +69,7 @@ TARGET_RECOVERY_WIPE := device/google/gs101/conf/recovery.wipe
 # This is the fstab file that will be included in the recovery image.  Note that
 # recovery doesn't care about the encryption settings, so it doesn't matter
 # whether we use the normal or the fips fstab here.
-#
-# Since this is a generated file, it's necessary to use intermediates-dir-for in
-# order to refer to it correctly.  And since intermediates-dir-for isn't defined
-# yet when this file is included, it's necessary to use a deferred variable
-# assignment ( = ) rather than an immediate variable assignment ( := ).
-TARGET_RECOVERY_FSTAB = $(call intermediates-dir-for,ETC,fstab.gs101)/fstab.gs101
+TARGET_RECOVERY_FSTAB_GENRULE = gen_fstab.gs101
 
 TARGET_RECOVERY_PIXEL_FORMAT := ABGR_8888
 TARGET_RECOVERY_UI_MARGIN_HEIGHT := 165
@@ -116,29 +112,20 @@ BOARD_USES_GRALLOC_ION_SYNC := true
 BOARD_USES_SWIFTSHADER := false
 
 # Gralloc4
-SOONG_CONFIG_NAMESPACES += arm_gralloc
-SOONG_CONFIG_arm_gralloc := \
-	gralloc_arm_no_external_afbc \
-	mali_gpu_support_afbc_basic \
-	mali_gpu_support_afbc_wideblk \
-	gralloc_init_afbc \
-	gralloc_ion_sync_on_lock \
-	dpu_support_1010102_afbc
-
 ifeq ($(BOARD_USES_SWIFTSHADER),true)
-SOONG_CONFIG_arm_gralloc_gralloc_arm_no_external_afbc := true
-SOONG_CONFIG_arm_gralloc_mali_gpu_support_afbc_basic := false
-SOONG_CONFIG_arm_gralloc_mali_gpu_support_afbc_wideblk := false
-SOONG_CONFIG_arm_gralloc_gralloc_init_afbc := false
-SOONG_CONFIG_arm_gralloc_dpu_support_1010102_afbc := false
+$(call soong_config_set,arm_gralloc,gralloc_arm_no_external_afbc,true)
+$(call soong_config_set,arm_gralloc,mali_gpu_support_afbc_basic,false)
+$(call soong_config_set,arm_gralloc,mali_gpu_support_afbc_wideblk,false)
+$(call soong_config_set,arm_gralloc,gralloc_init_afbc,false)
+$(call soong_config_set,arm_gralloc,dpu_support_1010102_afbc,false)
 else
-SOONG_CONFIG_arm_gralloc_gralloc_arm_no_external_afbc := false
-SOONG_CONFIG_arm_gralloc_mali_gpu_support_afbc_basic := true
-SOONG_CONFIG_arm_gralloc_mali_gpu_support_afbc_wideblk := true
-SOONG_CONFIG_arm_gralloc_gralloc_init_afbc := true
-SOONG_CONFIG_arm_gralloc_dpu_support_1010102_afbc := true
+$(call soong_config_set,arm_gralloc,gralloc_arm_no_external_afbc,false)
+$(call soong_config_set,arm_gralloc,mali_gpu_support_afbc_basic,true)
+$(call soong_config_set,arm_gralloc,mali_gpu_support_afbc_wideblk,true)
+$(call soong_config_set,arm_gralloc,gralloc_init_afbc,true)
+$(call soong_config_set,arm_gralloc,dpu_support_1010102_afbc,true)
 endif # ifeq ($(BOARD_USES_SWIFTSHADER),true)
-SOONG_CONFIG_arm_gralloc_gralloc_ion_sync_on_lock := $(BOARD_USES_GRALLOC_ION_SYNC)
+$(call soong_config_set,arm_gralloc,gralloc_ion_sync_on_lock,$(BOARD_USES_GRALLOC_ION_SYNC))
 
 # Graphics
 #BOARD_USES_EXYNOS_DATASPACE_FEATURE := true
@@ -197,39 +184,27 @@ BOARD_GOOGLE_DYNAMIC_PARTITIONS_PARTITION_LIST := \
 # Set error limit to BOARD_SUPER_PARTITON_SIZE - 500MB
 BOARD_SUPER_PARTITION_ERROR_LIMIT := 8006926336
 
+# Testing related defines
+BOARD_PERFSETUP_SCRIPT := platform_testing/scripts/perf-setup/r4o6-setup.sh
+
 #
 # AUDIO & VOICE
 #
 BOARD_USES_GENERIC_AUDIO := true
 
-SOONG_CONFIG_NAMESPACES += aoc_audio_func
-
-SOONG_CONFIG_aoc_audio_func += \
-    ext_hidl
-
-SOONG_CONFIG_aoc_audio_func_ext_hidl := true
+$(call soong_config_set,aoc_audio_func,ext_hidl,true)
 
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
-SOONG_CONFIG_aoc_audio_func += \
-    dump_usecase_data \
-    hal_socket_control \
-    record_tunning_keys
-
-SOONG_CONFIG_aoc_audio_func_dump_usecase_data := true
-SOONG_CONFIG_aoc_audio_func_hal_socket_control := true
-SOONG_CONFIG_aoc_audio_func_record_tunning_keys := true
+$(call soong_config_set,aoc_audio_func,dump_usecase_data,true)
+$(call soong_config_set,aoc_audio_func,hal_socket_control,true)
+$(call soong_config_set,aoc_audio_func,record_tunning_keys,true)
 endif
 
 ifneq (,$(filter aosp_%,$(TARGET_PRODUCT)))
-SOONG_CONFIG_aoc_audio_func += aosp_build
-
-SOONG_CONFIG_aoc_audio_func_aosp_build := true
+$(call soong_config_set,aoc_audio_func,aosp_build,true)
 endif
 
-SOONG_CONFIG_NAMESPACES += haptics
-SOONG_CONFIG_haptics += \
-    actuator_model
-SOONG_CONFIG_haptics_actuator_model := $(ACTUATOR_MODEL)
+$(call soong_config_set,haptics,actuator_model,$(ACTUATOR_MODEL))
 
 # Primary AudioHAL Configuration
 #BOARD_USE_COMMON_AUDIOHAL := true
@@ -340,26 +315,10 @@ BOARD_VNDK_VERSION := current
 # H/W align restriction of MM IPs
 BOARD_EXYNOS_S10B_FORMAT_ALIGN := 64
 
-# WiFi
-BOARD_WLAN_DEVICE := bcmdhd
-BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_bcmdhd
-BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_bcmdhd
-WPA_SUPPLICANT_VERSION := VER_0_8_X
-BOARD_WPA_SUPPLICANT_DRIVER := NL80211
-BOARD_HOSTAPD_DRIVER := NL80211
-# Wifi interface combination - {1 STA + 1 AP (bridged or single)} or {1 STA + 1 P2P}
-# or {1 STA + 1 NAN} or {2 STA}
-WIFI_HAL_INTERFACE_COMBINATIONS := {{{STA}, 1}, {{P2P, NAN, AP}, 1}}, {{{STA}, 2}}
-WIFI_FEATURE_WIFI_EXT_HAL := true
-WIFI_FEATURE_IMU_DETECTION := true
-# Avoid Wifi reset on MAC Address change
-WIFI_AVOID_IFACE_RESET_MAC_CHANGE := true
-WIFI_FEATURE_HOSTAPD_11AX := true
-
 # NeuralNetworks
 GPU_SOURCE_PRESENT := $(wildcard vendor/arm/mali/valhall)
 GPU_PREBUILD_PRESENT := $(wildcard vendor/google_devices/gs101/prebuilts/gpu/libs)
-ifneq "$(or $(GPU_SOURCE_PRESENT),$(GPU_PREBUILD_PRESENT))" ""
+ifneq (,$(strip $(GPU_SOURCE_PRESENT) $(GPU_PREBUILD_PRESENT)))
 ARMNN_COMPUTE_CL_ENABLE := 1
 else
 ARMNN_COMPUTE_CL_ENABLE := 0
@@ -390,10 +349,10 @@ BOARD_BUILD_SYSTEM_ROOT_IMAGE := false
 # Vendor ramdisk image for kernel development
 BOARD_BUILD_VENDOR_RAMDISK_IMAGE := true
 
-BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE := device/google/gs101/vendor_dlkm.blocklist
-
 KERNEL_MODULE_DIR := $(TARGET_KERNEL_DIR)
 KERNEL_MODULES := $(wildcard $(KERNEL_MODULE_DIR)/*.ko)
+
+BOARD_VENDOR_KERNEL_MODULES_BLOCKLIST_FILE := $(KERNEL_MODULE_DIR)/vendor_dlkm.modules.blocklist
 
 BOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD := $(strip $(shell cat $(KERNEL_MODULE_DIR)/vendor_boot.modules.load))
 ifndef BOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD
@@ -417,5 +376,8 @@ BOARD_KERNEL_CMDLINE += at24.write_timeout=100
 
 # Enable larger logbuf
 BOARD_KERNEL_CMDLINE += log_buf_len=1024K
+
+# Protected VM firmware
+BOARD_PVMFWIMAGE_PARTITION_SIZE := 0x00100000
 
 -include vendor/google_devices/gs101/proprietary/BoardConfigVendor.mk

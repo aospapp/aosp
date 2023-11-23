@@ -15,20 +15,20 @@
  */
 
 #pragma once
-#include <android/hardware/audio/7.0/IStream.h>
+#include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/IStream.h)
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 using ::android::sp;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
-using namespace ::android::hardware::audio::common::V7_0;
-using namespace ::android::hardware::audio::V7_0;
+using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
+using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
 
 struct StreamCommon {
     StreamCommon(int32_t ioHandle,
@@ -54,7 +54,7 @@ struct StreamCommon {
 };
 
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

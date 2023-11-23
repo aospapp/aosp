@@ -1,6 +1,6 @@
 allow radio hal_exynos_rild_hwservice:hwservice_manager find;
-allow radio sysfs_vendor_sched:dir r_dir_perms;
-allow radio sysfs_vendor_sched:file w_file_perms;
+allow radio proc_vendor_sched:dir r_dir_perms;
+allow radio proc_vendor_sched:file w_file_perms;
 
 # Allow telephony to access file descriptor of the QOS socket
 # so it can make sure the QOS is meant for the intended addresses

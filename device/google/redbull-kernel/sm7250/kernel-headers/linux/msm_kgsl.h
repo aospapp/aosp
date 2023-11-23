@@ -74,6 +74,7 @@
 #define KGSL_OBJLIST_PROFILE 0x00000010U
 #define KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP 0
 #define KGSL_CMD_SYNCPOINT_TYPE_FENCE 1
+#define KGSL_CMD_SYNCPOINT_TYPE_TIMELINE 2
 #define KGSL_MEMFLAGS_SECURE 0x00000008ULL
 #define KGSL_MEMFLAGS_GPUREADONLY 0x01000000U
 #define KGSL_MEMFLAGS_GPUWRITEONLY 0x02000000U
@@ -576,6 +577,11 @@ struct kgsl_cmd_syncpoint_timestamp {
 struct kgsl_cmd_syncpoint_fence {
   int fd;
 };
+struct kgsl_cmd_syncpoint_timeline {
+  __u64 timelines;
+  __u32 count;
+  __u32 timelines_size;
+};
 struct kgsl_cmd_syncpoint {
   int type;
   void * priv;
@@ -795,4 +801,66 @@ struct kgsl_gpu_sparse_command {
   unsigned int id;
 };
 #define IOCTL_KGSL_GPU_SPARSE_COMMAND _IOWR(KGSL_IOC_TYPE, 0x55, struct kgsl_gpu_sparse_command)
+#define KGSL_GPU_AUX_COMMAND_TIMELINE (1 << 1)
+#define KGSL_GPU_AUX_COMMAND_SYNC KGSL_CMDBATCH_SYNC
+struct kgsl_gpu_aux_command_generic {
+  __u64 priv;
+  __u64 size;
+  __u32 type;
+  __u32 padding;
+};
+struct kgsl_gpu_aux_command {
+  __u64 flags;
+  __u64 cmdlist;
+  __u32 cmdsize;
+  __u32 numcmds;
+  __u64 synclist;
+  __u32 syncsize;
+  __u32 numsyncs;
+  __u32 context_id;
+  __u32 timestamp;
+};
+#define IOCTL_KGSL_GPU_AUX_COMMAND _IOWR(KGSL_IOC_TYPE, 0x57, struct kgsl_gpu_aux_command)
+struct kgsl_timeline_create {
+  __u64 seqno;
+  __u32 id;
+  __u32 padding;
+};
+#define IOCTL_KGSL_TIMELINE_CREATE _IOWR(KGSL_IOC_TYPE, 0x58, struct kgsl_timeline_create)
+struct kgsl_timeline_val {
+  __u64 seqno;
+  __u32 timeline;
+  __u32 padding;
+};
+#define KGSL_TIMELINE_WAIT_ALL 1
+#define KGSL_TIMELINE_WAIT_ANY 2
+struct kgsl_timeline_wait {
+  __s64 tv_sec;
+  __s64 tv_nsec;
+  __u64 timelines;
+  __u32 count;
+  __u32 timelines_size;
+  __u32 flags;
+  __u32 padding;
+};
+#define IOCTL_KGSL_TIMELINE_WAIT _IOW(KGSL_IOC_TYPE, 0x59, struct kgsl_timeline_wait)
+#define IOCTL_KGSL_TIMELINE_QUERY _IOWR(KGSL_IOC_TYPE, 0x5A, struct kgsl_timeline_val)
+struct kgsl_timeline_signal {
+  __u64 timelines;
+  __u32 count;
+  __u32 timelines_size;
+};
+#define IOCTL_KGSL_TIMELINE_SIGNAL _IOW(KGSL_IOC_TYPE, 0x5B, struct kgsl_timeline_signal)
+struct kgsl_timeline_fence_get {
+  __u64 seqno;
+  __u32 timeline;
+  int handle;
+};
+#define IOCTL_KGSL_TIMELINE_FENCE_GET _IOWR(KGSL_IOC_TYPE, 0x5C, struct kgsl_timeline_fence_get)
+#define IOCTL_KGSL_TIMELINE_DESTROY _IOW(KGSL_IOC_TYPE, 0x5D, __u32)
+struct kgsl_gpu_aux_command_timeline {
+  __u64 timelines;
+  __u32 count;
+  __u32 timelines_size;
+};
 #endif

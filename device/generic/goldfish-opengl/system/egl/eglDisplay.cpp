@@ -23,10 +23,10 @@
 #endif
 
 #include <string>
-
 #include <dlfcn.h>
-
 #include <GLES3/gl31.h>
+
+#include <system/graphics.h>
 
 static const int systemEGLVersionMajor = 1;
 static const int systemEGLVersionMinor = 4;
@@ -111,13 +111,9 @@ bool eglDisplay::initialize(EGLClient_eglInterface *eglIface)
             return false;
         }
 
-#ifdef WITH_GLES2
         m_gles2_iface = loadGLESClientAPI("libGLESv2_emulation",
                                           eglIface,
                                           &s_gles2_lib);
-        // Note that if loading gles2 failed, we can still run with no
-        // GLES2 support, having GLES2 is not mandatory.
-#endif
 
         //
         // establish connection with the host
@@ -211,7 +207,7 @@ void eglDisplay::processConfigs()
 {
     for (intptr_t i=0; i<m_numConfigs; i++) {
         EGLConfig config = getConfigAtIndex(i);
-        PixelFormat format;
+        uint32_t format;
         if (getConfigNativePixelFormat(config, &format)) {
             setConfigAttrib(config, EGL_NATIVE_VISUAL_ID, format);
         }
@@ -544,7 +540,7 @@ EGLBoolean eglDisplay::setConfigAttrib(EGLConfig config, EGLint attrib, EGLint v
 }
 
 
-EGLBoolean eglDisplay::getConfigNativePixelFormat(EGLConfig config, PixelFormat * format)
+EGLBoolean eglDisplay::getConfigNativePixelFormat(EGLConfig config, uint32_t * format)
 {
     EGLint redSize, blueSize, greenSize, alphaSize;
 
@@ -570,11 +566,9 @@ EGLBoolean eglDisplay::getConfigNativePixelFormat(EGLConfig config, PixelFormat 
     }
 
     //calculate the GL internal format
-    if ((redSize==8)&&(greenSize==8)&&(blueSize==8)&&(alphaSize==8)) *format = PIXEL_FORMAT_RGBA_8888; //XXX: BGR?
-    else if ((redSize==8)&&(greenSize==8)&&(blueSize==8)&&(alphaSize==0)) *format = PIXEL_FORMAT_RGBX_8888; //XXX or PIXEL_FORMAT_RGB_888
-    else if ((redSize==5)&&(greenSize==6)&&(blueSize==5)&&(alphaSize==0)) *format = PIXEL_FORMAT_RGB_565;
-    else if ((redSize==5)&&(greenSize==5)&&(blueSize==5)&&(alphaSize==1)) *format = PIXEL_FORMAT_RGBA_5551;
-    else if ((redSize==4)&&(greenSize==4)&&(blueSize==4)&&(alphaSize==4)) *format = PIXEL_FORMAT_RGBA_4444;
+    if ((redSize==8)&&(greenSize==8)&&(blueSize==8)&&(alphaSize==8)) *format = HAL_PIXEL_FORMAT_RGBA_8888; //XXX: BGR?
+    else if ((redSize==8)&&(greenSize==8)&&(blueSize==8)&&(alphaSize==0)) *format = HAL_PIXEL_FORMAT_RGBX_8888; //XXX or HAL_PIXEL_FORMAT_RGB_888
+    else if ((redSize==5)&&(greenSize==6)&&(blueSize==5)&&(alphaSize==0)) *format = HAL_PIXEL_FORMAT_RGB_565;
     else {
         return EGL_FALSE;
     }

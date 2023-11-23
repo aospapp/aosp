@@ -47,6 +47,7 @@
     <ctl name="Voip Dtx Mode" value="0" />
     <ctl name="TTY Mode" value="OFF" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia1" value="0" />
+    <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia2" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia4" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia5" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia7" value="0" />
@@ -185,6 +186,7 @@
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia2" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia4" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia7" value="0" />
+    <ctl name="AFE_PCM_RX Audio Mixer MultiMedia8" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia10" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia11" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia12" value="0" />
@@ -268,6 +270,7 @@
     <!-- Incall Music -->
     <ctl name="Incall_Music Audio Mixer MultiMedia2" value="0" />
     <ctl name="Incall_Music Audio Mixer MultiMedia9" value="0" />
+    <ctl name="Incall_Music_2 Audio Mixer MultiMedia9" value="0" />
     <!-- Incall Music End -->
 
     <!-- compress-voip-call start -->
@@ -336,6 +339,9 @@
     <ctl name="RX INT1_1 MIX1 INP0" value="ZERO" />
     <ctl name="RX INT1_1 MIX1 INP1" value="ZERO" />
     <ctl name="RX INT1_1 MIX1 INP2" value="ZERO" />
+    <ctl name="RX INT0 MIX2 INP" value="ZERO" />
+    <ctl name="RX INT1 MIX2 INP" value="ZERO" />
+    <ctl name="RX INT2 MIX2 INP" value="ZERO" />
     <ctl name="RX_CDC_DMA_RX_0 Audio Mixer MultiMedia1" value="0" />
     <ctl name="RX INT0 DEM MUX" value="NORMAL_DSM_OUT" />
     <ctl name="RX INT1 DEM MUX" value="NORMAL_DSM_OUT" />
@@ -460,7 +466,6 @@
     <ctl name="IIR0 INP3 MUX" value="ZERO" />
 
     <!-- vbat related data -->
-    <ctl name="GSM mode Enable" value="OFF" />
     <ctl name="WSA_Softclip0 Enable" value="0" />
     <ctl name="WSA_Softclip1 Enable" value="0" />
     <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="0" />
@@ -470,8 +475,6 @@
 
     <!-- defaults for mmap record -->
     <ctl name="MultiMedia16 Mixer TX_CDC_DMA_TX_3" value="0" />
-    <ctl name="MultiMedia16 Mixer SLIM_7_TX" value="0" />
-    <ctl name="MultiMedia16 Mixer SLIM_8_TX" value="0" />
     <ctl name="MultiMedia16 Mixer USB_AUDIO_TX" value="0" />
 
     <!-- ALC5513 config -->
@@ -514,9 +517,21 @@
     <ctl name="TAS25XX_ALGO_BYPASS" value="FALSE" />
     <!-- TAS2562 control setting end-->
 
+    <!-- HDMI -->
+    <ctl name="HDMI Mixer MultiMedia1" value="0" />
+    <ctl name="HDMI Mixer MultiMedia4" value="0" />
+    <ctl name="HDMI Mixer MultiMedia5" value="0" />
+    <ctl name="HDMI Mixer MultiMedia8" value="0" />
+    <ctl name="HDMI Mixer MultiMedia9" value="0" />
+    <ctl name="HDMI Mixer MultiMedia10" value="0" />
+    <ctl name="HDMI Mixer MultiMedia16" value="0" />
+
+    <!-- HIFI -->
+    <ctl name="MultiMedia2 Mixer TX_CDC_DMA_TX_3" value="0" />
+
+
     <!-- These are audio route (FE to BE) specific mixer settings -->
     <path name="gsm-mode">
-        <ctl name="GSM mode Enable" value="ON" />
     </path>
 
     <path name="echo-reference">
@@ -882,7 +897,6 @@
     </path>
 
     <path name="low-latency-playback resume">
-        <ctl name="MultiMedia5_RX QOS Vote" value="Enable" />
     </path>
 
     <path name="audio-ull-playback">
@@ -1254,7 +1268,6 @@
     </path>
 
     <path name="low-latency-record capture-fm">
-      <ctl name="MultiMedia8 Mixer SLIM_8_TX" value="1" />
     </path>
 
     <path name="spkr-vi-record vi-feedback">
@@ -1902,7 +1915,6 @@
     </path>
 
     <path name="spkr-rx-calib">
-        <ctl name="QUIN_TDM_RX_DL_HL Switch" value="1" />
     </path>
 
     <path name="spkr-vi-record">
@@ -2029,7 +2041,6 @@
         <ctl name="IIR0 INP0 Volume" value="54" />
         <ctl name="IIR0 INP0 MUX" value="DEC0" />
         <ctl name="RX INT2 MIX2 INP" value="SRC0" />
-        <ctl name="WSA_RX0 INT0 SIDETONE MIX" value="SRC0" />
     </path>
 
     <path name="afe-sidetone">
@@ -2810,7 +2821,6 @@
     </path>
 
     <path name="mmap-record bt-sco">
-      <ctl name="MultiMedia16 Mixer SLIM_7_TX" value="1" />
     </path>
 
     <path name="mmap-record bt-sco-wb">
@@ -2823,7 +2833,6 @@
     </path>
 
     <path name="mmap-record capture-fm">
-      <ctl name="MultiMedia16 Mixer SLIM_8_TX" value="1" />
     </path>
 
     <path name="mmap-record usb-headset-mic">

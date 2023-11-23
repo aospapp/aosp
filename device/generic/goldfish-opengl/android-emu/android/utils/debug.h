@@ -1,24 +1,24 @@
-// Copyright 2007-2008 The Android Open Source Project
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/* Copyright (C) 2007-2008 The Android Open Source Project
+**
+** This software is licensed under the terms of the GNU General Public
+** License version 2, as published by the Free Software Foundation, and
+** may be copied, distributed, and modified under those terms.
+**
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+*/
 
 #pragma once
 
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "android/utils/compiler.h"
+#include "android/utils/log_severity.h"
 
 ANDROID_BEGIN_HEADER
 
@@ -69,90 +69,86 @@ ANDROID_BEGIN_HEADER
     _VERBOSE_TAG(virtualscene, "Virtual scene rendering")                      \
     _VERBOSE_TAG(automation, "Automation")                                     \
     _VERBOSE_TAG(offworld, "Offworld")                                         \
+    _VERBOSE_TAG(videoinjection, "Video injection")                            \
+    _VERBOSE_TAG(foldable, "Foldable Device")                                  \
+    _VERBOSE_TAG(curl, "Libcurl requests")                                     \
+    _VERBOSE_TAG(car_rotary, "Car rotary controller")                          \
+    _VERBOSE_TAG(wifi, "Virtio Wifi")                                          \
+    _VERBOSE_TAG(tvremote, "TV remote")                                        \
+    _VERBOSE_TAG(time, "Prefix a timestamp when logging")                      \
+    _VERBOSE_TAG(ini, "Log details around ini files.")                         \
+    _VERBOSE_TAG(bluetooth, "Log bluetooth details.")                          \
+    _VERBOSE_TAG(log, "Include timestamp, thread and location in logs")
 
-#define  _VERBOSE_TAG(x,y)  VERBOSE_##x,
+#define _VERBOSE_TAG(x, y) VERBOSE_##x,
 typedef enum {
-    VERBOSE_TAG_LIST
-    VERBOSE_MAX  /* do not remove */
+    VERBOSE_TAG_LIST VERBOSE_MAX /* do not remove */
 } VerboseTag;
-#undef  _VERBOSE_TAG
+#undef _VERBOSE_TAG
 
 extern uint64_t android_verbose;
 
 // Enable/disable verbose logs from the base/* family.
 extern void base_enable_verbose_logs();
 extern void base_disable_verbose_logs();
+#define VERBOSE_ENABLE(tag) android_verbose |= (1ULL << VERBOSE_##tag)
 
-#define  VERBOSE_ENABLE(tag)    \
-    android_verbose |= (1ULL << VERBOSE_##tag)
+#define VERBOSE_DISABLE(tag) android_verbose &= (1ULL << VERBOSE_##tag)
 
-#define  VERBOSE_DISABLE(tag)   \
-    android_verbose &= (1ULL << VERBOSE_##tag)
+#define VERBOSE_CHECK(tag) ((android_verbose & (1ULL << VERBOSE_##tag)) != 0)
 
-#define  VERBOSE_CHECK(tag)    \
-    ((android_verbose & (1ULL << VERBOSE_##tag)) != 0)
+#define VERBOSE_CHECK_ANY() (android_verbose != 0)
 
-#define  VERBOSE_CHECK_ANY()    \
-    (android_verbose != 0)
+extern void __emu_log_print(LogSeverity prio,
+                            const char* file,
+                            int line,
+                            const char* fmt,
+                            ...);
 
-#define  VERBOSE_PRINT(tag,...)  \
-    do { if (VERBOSE_CHECK(tag)) dprint(__VA_ARGS__); } while (0)
+#ifndef EMULOG
+#define EMULOG(priority, fmt, ...) \
+    __emu_log_print(priority, __FILE__, __LINE__, fmt, ##__VA_ARGS__);
+#endif
 
-// This omits the "emulator: " prefix.
-#define  VERBOSE_DPRINT(tag,format,...)  \
-    do { if (VERBOSE_CHECK(tag)) { \
-         dprintn(format "\n", \
-                 ##__VA_ARGS__); } } while(0)
+#define VERBOSE_PRINT(tag, ...)                      \
+    if (VERBOSE_CHECK(tag)) {                        \
+        EMULOG(EMULATOR_LOG_VERBOSE, ##__VA_ARGS__); \
+    }
 
-#define  VERBOSE_FUNCTION_PRINT(tag,format,...)  \
-    do { if (VERBOSE_CHECK(tag)) \
-         dprintn("emulator: %s: " format "\n", \
-                 __func__, ##__VA_ARGS__); } while(0)
+#define VERBOSE_INFO(tag, ...)                    \
+    if (VERBOSE_CHECK(tag)) {                     \
+        EMULOG(EMULATOR_LOG_INFO, ##__VA_ARGS__); \
+    }
 
-// This omits the "emulator: " prefix.
-#define  VERBOSE_FUNCTION_DPRINT(tag,format,...)  \
-    do { if (VERBOSE_CHECK(tag)) \
-         dprintn("%s: " format "\n", \
-                 __func__, ##__VA_ARGS__); } while(0)
+#define VERBOSE_DPRINT(tag, ...) VERBOSE_PRINT(tag, __VA_ARGS__)
 
-#define  VERBOSE_TID_PRINT(tag,...)  \
-    do { if (VERBOSE_CHECK(tag)) \
-         android_tid_function_print(true, NULL, __VA_ARGS__); \
-    } while (0)
+extern void dprintn(const char* format, ...);
 
-// This omits the "emulator: " prefix.
-#define  VERBOSE_TID_DPRINT(tag,...)  \
-    do { if (VERBOSE_CHECK(tag)) \
-         android_tid_function_print(false, NULL, __VA_ARGS__); } \
-    while (0)
+extern void fdprintfnv(FILE* fp,
+                       const char* level,
+                       const char* format,
+                       va_list args);
 
-#define  VERBOSE_TID_FUNCTION_PRINT(tag,...) \
-    do { if (VERBOSE_CHECK(tag)) \
-         android_tid_function_print(true, __func__, __VA_ARGS__); } \
-    while (0)
+// Logging support.
 
-// This omits the "emulator: " prefix.
-#define  VERBOSE_TID_FUNCTION_DPRINT(tag,...) \
-    do { if (VERBOSE_CHECK(tag)) \
-         android_tid_function_print(false, __func__, __VA_ARGS__); } \
-    while (0)
+#define dprint(fmt, ...)                                 \
+    if (EMULATOR_LOG_VERBOSE >= android_log_severity) {  \
+        EMULOG(EMULATOR_LOG_VERBOSE, fmt, ##__VA_ARGS__) \
+    }
 
-/** DEBUG TRACE SUPPORT
- **
- ** Debug messages can be sent by calling these functions:
- **
- ** 'dprint' prints "emulator: ", the message, then appends a '\n'
- ** 'dprintn' prints the message as is
- ** 'dprintnv' is 'dprintn' but allows you to use a va_list argument
- ** 'dwarning' prints "emulator: WARNING: ", then appends a '\n'
- ** 'derror' prints "emulator: ERROR: ", then appends a '\n'
- */
-
-extern void   dprint( const char*  format, ... );
-extern void   dprintn( const char*  format, ... );
-extern void   dprintnv( const char*  format, va_list  args );
-extern void   dwarning( const char*  format, ... );
-extern void   derror( const char*  format, ... );
+#define dinfo(fmt, ...)                               \
+    if (EMULATOR_LOG_INFO >= android_log_severity) {  \
+        EMULOG(EMULATOR_LOG_INFO, fmt, ##__VA_ARGS__) \
+    }
+#define dwarning(fmt, ...)                               \
+    if (EMULATOR_LOG_WARNING >= android_log_severity) {  \
+        EMULOG(EMULATOR_LOG_WARNING, fmt, ##__VA_ARGS__) \
+    }
+#define derror(fmt, ...)                               \
+    if (EMULATOR_LOG_ERROR >= android_log_severity) {  \
+        EMULOG(EMULATOR_LOG_ERROR, fmt, ##__VA_ARGS__) \
+    }
+#define dfatal(fmt, ...) EMULOG(EMULATOR_LOG_FATAL, fmt, ##__VA_ARGS__)
 
 /** MULTITHREADED DEBUG TRACING
  **
@@ -160,9 +156,10 @@ extern void   derror( const char*  format, ... );
  ** It prints "emulator: " or not (depending on |use_emulator_prefix|),
  ** the thread id, a function name (|function|), the message, and finally '\n'.
  */
-extern void   android_tid_function_print(bool use_emulator_prefix,
-                                         const char* function,
-                                         const char*  format, ... );
+extern void android_tid_function_print(bool use_emulator_prefix,
+                                       const char* function,
+                                       const char* format,
+                                       ...);
 
 /** STDOUT/STDERR REDIRECTION
  **
@@ -171,7 +168,7 @@ extern void   android_tid_function_print(bool use_emulator_prefix,
  ** on Linux.
  **/
 
-extern void  stdio_disable( void );
-extern void  stdio_enable( void );
+extern void stdio_disable(void);
+extern void stdio_enable(void);
 
 ANDROID_END_HEADER

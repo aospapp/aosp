@@ -1,0 +1,3 @@
+# Bt Wifi Coexistence device
+type wb_coexistence_dev, dev_type;
+

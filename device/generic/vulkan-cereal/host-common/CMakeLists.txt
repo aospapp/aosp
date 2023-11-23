@@ -10,6 +10,33 @@ else()
         opengl/NativeGpuInfo_linux.cpp)
 endif()
 
+if (RECORDER_DELEGATE_LIB)
+    set(gfxstream-base-metrics-sources
+        ../base/MetricsRecorderDelegate.cpp)
+    set(gfxstream-base-metrics-link-libraries
+        recorder_delegate_lib)
+else()
+    set(gfxstream-base-metrics-sources
+        ../base/MetricsNoOp.cpp)
+    set(gfxstream-base-metrics-link-libraries)
+endif()
+
+# TODO(gregschlom) move this to base
+add_library(logging-base
+    STATIC
+    logging.cpp
+    GfxstreamFatalError.cpp
+    ${gfxstream-base-metrics-sources})
+target_include_directories(
+    logging-base
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/include)
+target_link_libraries(
+    logging-base
+    PRIVATE
+    ${gfxstream-base-metrics-link-libraries})
+
 add_library(
     gfxstream-host-common
     STATIC
@@ -64,8 +91,8 @@ add_library(
     opengl/logger.cpp
     opengl/OpenglEsPipe.cpp
     ${gfxstream-host-common-opengles-platform-sources}
-
     )
+
 target_include_directories(
     gfxstream-host-common
     PRIVATE
@@ -75,7 +102,9 @@ target_include_directories(
 target_link_libraries(
     gfxstream-host-common
     PRIVATE
-    gfxstream-base)
+    gfxstream-base
+    logging-base
+)
 
 # Tests
 add_library(
@@ -101,11 +130,25 @@ add_executable(
     address_space_host_memory_allocator_unittests.cpp
     address_space_shared_slots_host_memory_allocator_unittests.cpp
     HostAddressSpace_unittest.cpp
-    HostmemIdMapping_unittest.cpp)
+    HostmemIdMapping_unittest.cpp
+    logging_unittest.cpp
+    GfxstreamFatalError_unittest.cpp
+    RenderDoc_unittest.cpp)
+
+target_include_directories(
+    gfxstream-host-common_unittests
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}/include)
+
 target_link_libraries(
     gfxstream-host-common_unittests
     PRIVATE
     gfxstream-base
     gfxstream-host-common
     gfxstream-host-common-testing-support
-    gtest_main)
+    gtest_main
+    gmock_main)
+
+gtest_discover_tests(gfxstream-host-common_unittests)
+
+set_test_include_files()

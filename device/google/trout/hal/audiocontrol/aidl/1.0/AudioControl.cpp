@@ -118,4 +118,12 @@ bool AudioControl::isHealthy() {
     return true;
 }
 
+void AudioControl::start() {
+    mAudioControlServer->Start();
+}
+
+void AudioControl::join() {
+    mAudioControlServer->Join();
+}
+
 }  // namespace aidl::android::hardware::automotive::audiocontrol

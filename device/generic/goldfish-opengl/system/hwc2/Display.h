@@ -17,6 +17,7 @@
 #ifndef ANDROID_HWC_DISPLAY_H
 #define ANDROID_HWC_DISPLAY_H
 
+#include <android-base/unique_fd.h>
 #include <android/hardware/graphics/common/1.0/types.h>
 
 #include <array>
@@ -94,8 +95,8 @@ class Display {
                                  float* outMaxAverageLuminance,
                                  float* outMinLuminance);
   HWC2::Error getName(uint32_t* outSize, char* outName);
-  HWC2::Error addReleaseFenceLocked(int32_t fence);
-  HWC2::Error addReleaseLayerLocked(hwc2_layer_t layerId);
+  HWC2::Error addReleaseFenceLocked(hwc2_layer_t layerId,
+                                    base::unique_fd fence);
   HWC2::Error getReleaseFences(uint32_t* outNumElements,
                                hwc2_layer_t* outLayers, int32_t* outFences);
   HWC2::Error clearReleaseFencesAndIdsLocked();
@@ -212,8 +213,7 @@ class Display {
   // Ordered layers available after validate().
   std::vector<Layer*> mOrderedLayers;
 
-  std::vector<hwc2_display_t> mReleaseLayerIds;
-  std::vector<int32_t> mReleaseFences;
+  std::unordered_map<hwc2_layer_t, base::unique_fd> mReleaseFences;
   std::optional<hwc2_config_t> mActiveConfigId;
   std::unordered_map<hwc2_config_t, DisplayConfig> mConfigs;
   std::set<android_color_mode_t> mColorModes = {HAL_COLOR_MODE_NATIVE};

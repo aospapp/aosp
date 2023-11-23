@@ -14,31 +14,35 @@
  * limitations under the License.
  */
 
-#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <log/log.h>
 //#include <cutils/bitops.h>
 #include <cutils/sched_policy.h>
 #include <system/audio.h>
 #include <sys/resource.h>
 #include <pthread.h>
+#include PATH(APM_XSD_ENUMS_H_FILENAME)
 #include "util.h"
 #include "debug.h"
 
 namespace xsd {
-using namespace ::android::audio::policy::configuration::V7_0;
+using namespace ::android::audio::policy::configuration::CPP_VERSION;
 }
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 namespace util {
+
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioConfigBaseOptional;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioPortExtendedInfo;
+using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::AudioMicrophoneDirectionality;
 
 namespace {
 
 const std::array<uint32_t, 8> kSupportedRatesHz = {
-    8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000
+    8000, 11025, 16000, 22050, 32000, 44100, 48000
 };
 
 bool checkSampleRateHz(uint32_t value, uint32_t &suggested) {
@@ -128,6 +132,24 @@ size_t getBytesPerSample(const AudioFormat &format) {
     }
 }
 
+bool checkAudioConfig(const AudioConfig &cfg) {
+    if (xsd::isUnknownAudioFormat(cfg.base.format)
+            || xsd::isUnknownAudioChannelMask(cfg.base.channelMask)) {
+        return false;
+    }
+    if (cfg.offloadInfo.getDiscriminator() ==
+            AudioConfig::OffloadInfo::hidl_discriminator::info) {
+        if (const auto& info = cfg.offloadInfo.info();
+                xsd::isUnknownAudioFormat(info.base.format)
+                || xsd::isUnknownAudioChannelMask(info.base.channelMask)
+                || (!info.streamType.empty() && xsd::isUnknownAudioStreamType(info.streamType))
+                || xsd::isUnknownAudioUsage(info.usage)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool checkAudioConfig(const bool isOut,
                       size_t duration_ms,
                       const AudioConfig &src,
@@ -154,6 +176,57 @@ bool checkAudioConfig(const bool isOut,
     return result;
 }
 
+bool checkAudioPortConfig(const AudioPortConfig &cfg) {
+    if (cfg.base.format.getDiscriminator() ==
+            AudioConfigBaseOptional::Format::hidl_discriminator::value) {
+        if (xsd::isUnknownAudioFormat(cfg.base.format.value())) {
+            return false;
+        }
+    }
+    if (cfg.base.channelMask.getDiscriminator() ==
+            AudioConfigBaseOptional::ChannelMask::hidl_discriminator::value) {
+        if (xsd::isUnknownAudioChannelMask(cfg.base.channelMask.value())) {
+            return false;
+        }
+    }
+    if (cfg.gain.getDiscriminator() ==
+            AudioPortConfig::OptionalGain::hidl_discriminator::config) {
+        for (const auto& gainMode : cfg.gain.config().mode) {
+            if (xsd::isUnknownAudioGainMode(gainMode)) {
+                return false;
+            }
+        }
+        if (xsd::isUnknownAudioChannelMask(cfg.gain.config().channelMask)) {
+            return false;
+        }
+    }
+    switch (cfg.ext.getDiscriminator()) {
+        case AudioPortExtendedInfo::hidl_discriminator::device:
+            if (xsd::isUnknownAudioDevice(cfg.ext.device().deviceType)) {
+                return false;
+            }
+            break;
+        case AudioPortExtendedInfo::hidl_discriminator::mix:
+            switch (cfg.ext.mix().useCase.getDiscriminator()) {
+                case AudioPortExtendedInfo::AudioPortMixExt::UseCase::hidl_discriminator::stream:
+                    if (const auto& stream = cfg.ext.mix().useCase.stream();
+                            !stream.empty() && xsd::isUnknownAudioStreamType(stream)) {
+                        return false;
+                    }
+                    break;
+                case AudioPortExtendedInfo::AudioPortMixExt::UseCase::hidl_discriminator::source:
+                    if (xsd::isUnknownAudioSource(cfg.ext.mix().useCase.source())) {
+                        return false;
+                    }
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+    return true;
+}
+
 TimeSpec nsecs2TimeSpec(nsecs_t ns) {
     TimeSpec ts;
     ts.tvSec = ns2s(ns);
@@ -168,7 +241,7 @@ void setThreadPriority(int prio) {
 
 }  // namespace util
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

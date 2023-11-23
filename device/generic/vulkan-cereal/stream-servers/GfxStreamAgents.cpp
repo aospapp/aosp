@@ -45,10 +45,6 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                               uint32_t dpi,
                               uint32_t flag,
                               bool add) -> int {
-            DEBUG_LOG(stderr,
-                    "setMultiDisplay (mock): %d, x: %d, y: %d, w: %d, h: %d, "
-                    "dpi: %d, flag: %d\n",
-                    id, x, y, w, h, dpi, flag);
             return 0;
         },
         .getMultiDisplay = [](uint32_t id,
@@ -59,7 +55,6 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                               uint32_t* dpi,
                               uint32_t* flag,
                               bool* enabled) -> bool {
-            DEBUG_LOG(stderr, "getMultiDisplay (mock) id %u\n", id);
             if (mMultiDisplay.find(id) == mMultiDisplay.end()) {
                 if (enabled) {
                     *enabled = false;
@@ -98,8 +93,6 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                                   uint32_t* dpi,
                                   uint32_t* flag,
                                   uint32_t* cb) -> bool {
-            DEBUG_LOG(stderr, "getNextMultiDisplay (mock) start_id %u\n",
-                    start_id);
             uint32_t key;
             std::map<uint32_t, android::MultiDisplayInfo>::iterator i;
             if (start_id < 0) {

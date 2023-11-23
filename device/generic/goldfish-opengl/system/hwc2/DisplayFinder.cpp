@@ -31,6 +31,29 @@ constexpr int32_t HertzToPeriodNanos(uint32_t hertz) {
   return 1000 * 1000 * 1000 / hertz;
 }
 
+static int getVsyncHzFromProperty() {
+  static constexpr const auto kVsyncProp = "ro.boot.qemu.vsync";
+
+  const auto vsyncProp = android::base::GetProperty(kVsyncProp, "");
+  DEBUG_LOG("%s: prop value is: %s", __FUNCTION__, vsyncProp.c_str());
+
+  uint64_t vsyncPeriod;
+  if (!android::base::ParseUint(vsyncProp, &vsyncPeriod)) {
+    ALOGE("%s: failed to parse vsync period '%s', returning default 60",
+          __FUNCTION__, vsyncProp.c_str());
+    return 60;
+  }
+
+  return static_cast<int>(vsyncPeriod);
+}
+
+int32_t getVsyncForDisplay(DrmPresenter* drmPresenter, uint32_t displayId) {
+  const int32_t vsyncPeriodForDisplay = drmPresenter->refreshRate(displayId);
+  return vsyncPeriodForDisplay < 0
+             ? HertzToPeriodNanos(getVsyncHzFromProperty())
+             : HertzToPeriodNanos(vsyncPeriodForDisplay);
+}
+
 HWC2::Error findCuttlefishDisplays(std::vector<DisplayMultiConfigs>& displays) {
   DEBUG_LOG("%s", __FUNCTION__);
 
@@ -39,6 +62,8 @@ HWC2::Error findCuttlefishDisplays(std::vector<DisplayMultiConfigs>& displays) {
 
   hwc2_display_t displayId = 0;
   for (const auto& deviceDisplayConfig : deviceConfig.display_config()) {
+    // crosvm does not fully support EDID yet, so we solely rely on the
+    // device config for our vsync.
     const auto vsyncPeriodNanos =
         HertzToPeriodNanos(deviceDisplayConfig.refresh_rate_hz());
 
@@ -62,29 +87,12 @@ HWC2::Error findCuttlefishDisplays(std::vector<DisplayMultiConfigs>& displays) {
   return HWC2::Error::None;
 }
 
-static int getVsyncHzFromProperty() {
-  static constexpr const auto kVsyncProp = "ro.boot.qemu.vsync";
-
-  const auto vsyncProp = android::base::GetProperty(kVsyncProp, "");
-  DEBUG_LOG("%s: prop value is: %s", __FUNCTION__, vsyncProp.c_str());
-
-  uint64_t vsyncPeriod;
-  if (!android::base::ParseUint(vsyncProp, &vsyncPeriod)) {
-    ALOGE("%s: failed to parse vsync period '%s', returning default 60",
-          __FUNCTION__, vsyncProp.c_str());
-    return 60;
-  }
-
-  return static_cast<int>(vsyncPeriod);
-}
-
 HWC2::Error findGoldfishPrimaryDisplay(
-    std::vector<DisplayMultiConfigs>& displays) {
+    DrmPresenter* drmPresenter, std::vector<DisplayMultiConfigs>& displays) {
   DEBUG_LOG("%s", __FUNCTION__);
 
   DEFINE_AND_VALIDATE_HOST_CONNECTION
   hostCon->lock();
-  const int32_t vsyncPeriodNanos = HertzToPeriodNanos(getVsyncHzFromProperty());
   DisplayMultiConfigs display;
   display.displayId = 0;
   if (rcEnc->hasHWCMultiConfigs()) {
@@ -102,7 +110,7 @@ HWC2::Error findGoldfishPrimaryDisplay(
           rcEnc->rcGetFBDisplayConfigsParam(rcEnc, configId, FB_HEIGHT),  //
           rcEnc->rcGetFBDisplayConfigsParam(rcEnc, configId, FB_XDPI),    //
           rcEnc->rcGetFBDisplayConfigsParam(rcEnc, configId, FB_YDPI),    //
-          vsyncPeriodNanos                                                //
+          getVsyncForDisplay(drmPresenter, configId)                      //
           ));
     }
   } else {
@@ -113,7 +121,7 @@ HWC2::Error findGoldfishPrimaryDisplay(
         rcEnc->rcGetFBParam(rcEnc, FB_HEIGHT),  //
         rcEnc->rcGetFBParam(rcEnc, FB_XDPI),    //
         rcEnc->rcGetFBParam(rcEnc, FB_YDPI),    //
-        vsyncPeriodNanos                        //
+        getVsyncForDisplay(drmPresenter, 0)     //
         ));
   }
   hostCon->unlock();
@@ -179,8 +187,9 @@ HWC2::Error findGoldfishSecondaryDisplays(
   return HWC2::Error::None;
 }
 
-HWC2::Error findGoldfishDisplays(std::vector<DisplayMultiConfigs>& displays) {
-  HWC2::Error error = findGoldfishPrimaryDisplay(displays);
+HWC2::Error findGoldfishDisplays(DrmPresenter* drmPresenter,
+                                 std::vector<DisplayMultiConfigs>& displays) {
+  HWC2::Error error = findGoldfishPrimaryDisplay(drmPresenter, displays);
   if (error != HWC2::Error::None) {
     ALOGE("%s failed to find Goldfish primary display", __FUNCTION__);
     return error;
@@ -194,14 +203,35 @@ HWC2::Error findGoldfishDisplays(std::vector<DisplayMultiConfigs>& displays) {
   return error;
 }
 
+// This is currently only used for Gem5 bring-up where virtio-gpu and drm
+// are not currently available. For now, just return a placeholder display.
+HWC2::Error findNoOpDisplays(std::vector<DisplayMultiConfigs>& displays) {
+  displays.push_back(DisplayMultiConfigs{
+      .displayId = 0,
+      .activeConfigId = 0,
+      .configs = {DisplayConfig(0,
+                                /*width=*/720,                          //
+                                /*heighth=*/1280,                       //
+                                /*dpiXh=*/320,                          //
+                                /*dpiYh=*/320,                          //
+                                /*vsyncPeriod=*/HertzToPeriodNanos(30)  //
+                                )},
+  });
+
+  return HWC2::Error::None;
+}
+
 }  // namespace
 
-HWC2::Error findDisplays(std::vector<DisplayMultiConfigs>& displays) {
+HWC2::Error findDisplays(DrmPresenter* drmPresenter,
+                         std::vector<DisplayMultiConfigs>& displays) {
   HWC2::Error error = HWC2::Error::None;
-  if (IsCuttlefish()) {
+  if (IsNoOpMode()) {
+    error = findNoOpDisplays(displays);
+  } else if (IsCuttlefish()) {
     error = findCuttlefishDisplays(displays);
   } else {
-    error = findGoldfishDisplays(displays);
+    error = findGoldfishDisplays(drmPresenter, displays);
   }
 
   if (error != HWC2::Error::None) {

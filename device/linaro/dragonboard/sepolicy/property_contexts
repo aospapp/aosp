@@ -1,0 +1,2 @@
+vendor.usb.controller  u:object_r:vendor_usb_prop:s0
+vendor.hw  u:object_r:vendor_hw_prop:s0

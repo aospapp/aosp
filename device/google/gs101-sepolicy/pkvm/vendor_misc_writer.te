@@ -1,0 +1,2 @@
+# Allow pkvm_enabler to execute misc_writer.
+allow vendor_misc_writer vendor_misc_writer_exec:file execute_no_trans;

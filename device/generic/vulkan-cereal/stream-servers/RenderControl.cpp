@@ -235,6 +235,12 @@ static const char* kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batch
 // Synchronized glBufferData call
 static const char* kSyncBufferData = "ANDROID_EMU_sync_buffer_data";
 
+// Async vkQSRI
+static const char* kVulkanAsyncQsri = "ANDROID_EMU_vulkan_async_qsri";
+
+// Read color buffer DMA
+static const char* kReadColorBufferDma = "ANDROID_EMU_read_color_buffer_dma";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -309,14 +315,9 @@ static bool shouldEnableHostComposition() {
 }
 
 static bool shouldEnableVulkan() {
-    auto supportInfo =
-        goldfish_vk::VkDecoderGlobalState::get()->
-            getHostFeatureSupport();
-    bool flagEnabled =
-        feature_is_enabled(kFeature_Vulkan);
     // TODO: Restrict further to devices supporting external memory.
-    return supportInfo.supportsVulkan &&
-           flagEnabled;
+    return feature_is_enabled(kFeature_Vulkan) &&
+           goldfish_vk::VkDecoderGlobalState::get()->getHostFeatureSupport().supportsVulkan;
 }
 
 static bool shouldEnableDeferredVulkanCommands() {
@@ -342,6 +343,13 @@ static bool shouldEnableVulkanShaderFloat16Int8() {
 
 static bool shouldEnableAsyncQueueSubmit() {
     return shouldEnableVulkan();
+}
+
+static bool shouldEnableVulkanAsyncQsri() {
+    return shouldEnableVulkan() &&
+        (feature_is_enabled(kFeature_GLAsyncSwap) ||
+         (feature_is_enabled(kFeature_VirtioGpuNativeSync) &&
+          feature_is_enabled(kFeature_VirtioGpuFenceContexts)));
 }
 
 const char* maxVersionToFeatureString(GLESDispatchMaxVersion version) {
@@ -467,7 +475,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         feature_is_enabled(kFeature_YUV420888toNV21);
     bool YUVCacheEnabled =
         feature_is_enabled(kFeature_YUVCache);
-    bool AsyncUnmapBufferEnabled = false;
+    bool AsyncUnmapBufferEnabled = feature_is_enabled(kFeature_AsyncComposeSupport);
     bool vulkanIgnoredHandlesEnabled =
         shouldEnableVulkan() && feature_is_enabled(kFeature_VulkanIgnoredHandles);
     bool virtioGpuNextEnabled =
@@ -481,6 +489,8 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
     bool vulkanBatchedDescriptorSetUpdate = shouldEnableBatchedDescriptorSetUpdate();
     bool syncBufferDataEnabled = true;
+    bool vulkanAsyncQsri = shouldEnableVulkanAsyncQsri();
+    bool readColorBufferDma = directMemEnabled && hasSharedSlotsHostMemoryAllocatorEnabled;
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -609,6 +619,16 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += " ";
     }
 
+    if (vulkanAsyncQsri && name == GL_EXTENSIONS) {
+        glStr += kVulkanAsyncQsri;
+        glStr += " ";
+    }
+
+    if (readColorBufferDma && name == GL_EXTENSIONS) {
+        glStr += kReadColorBufferDma;
+        glStr += " ";
+    }
+
     if (name == GL_EXTENSIONS) {
 
         GLESDispatchMaxVersion guestExtVer = GLES_DISPATCH_MAX_VERSION_2;
@@ -634,15 +654,21 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
         if (feature_is_enabled(kFeature_S3tcTextureSupport)) {
             glStr += "GL_EXT_texture_compression_s3tc ";
-       }
+        }
+
+        if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
+            glStr += "GL_EXT_texture_compression_rgtc ";
+        }
 
         // Host side tracing support.
         glStr += kHostSideTracing;
         glStr += " ";
 
-        // Async makecurrent support.
-       // glStr += kAsyncFrameCommands;
-       // glStr += " ";
+        if (feature_is_enabled(kFeature_AsyncComposeSupport)) {
+            // Async makecurrent support.
+            glStr += kAsyncFrameCommands;
+            glStr += " ";
+        }
 
         if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
             glStr += kGLESNoHostError;
@@ -1516,6 +1542,23 @@ static void rcDestroySyncKHRAsync(uint64_t handle) {
     fenceSync->decRef();
 }
 
+static int rcReadColorBufferDMA(uint32_t colorBuffer,
+                                GLint x, GLint y,
+                                GLint width, GLint height,
+                                GLenum format, GLenum type, void* pixels, uint32_t pixels_size)
+{
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return -1;
+    }
+
+    // Update from Vulkan if necessary
+    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+
+    fb->readColorBuffer(colorBuffer, x, y, width, height, format, type, pixels);
+    return 0;
+}
+
 void initRenderControlContext(renderControl_decoder_context_t *dec)
 {
     dec->rcGetRendererVersion = rcGetRendererVersion;
@@ -1582,4 +1625,5 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcComposeAsyncWithoutPost = rcComposeAsyncWithoutPost;
     dec->rcCreateDisplayById = rcCreateDisplayById;
     dec->rcSetDisplayPoseDpi = rcSetDisplayPoseDpi;
+    dec->rcReadColorBufferDMA = rcReadColorBufferDMA;
 }

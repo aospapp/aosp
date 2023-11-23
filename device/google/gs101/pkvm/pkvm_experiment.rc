@@ -1,0 +1,13 @@
+service vendor.pkvm_enable /vendor/bin/misc_writer --set-enable-pkvm
+    disabled
+    oneshot
+
+service vendor.pkvm_disable /vendor/bin/misc_writer --set-disable-pkvm
+    disabled
+    oneshot
+
+on property:persist.device_config.virtualization_framework_native.isolated_compilation_enabled=true
+    start vendor.pkvm_enable
+
+on property:persist.device_config.virtualization_framework_native.isolated_compilation_enabled=false
+    start vendor.pkvm_disable

@@ -16,6 +16,22 @@
 
 LOCAL_PATH := $(call my-dir)
 
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,default-permissions.xml,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,libnfc-nci.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,fstab.postinstall,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,ueventd.rc,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,wpa_supplicant.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,hals.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,media_profiles_V1_0.xml,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,media_codecs_performance.xml,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,device_state_configuration.xml,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,task_profiles.json,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,p2p_supplicant.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,wpa_supplicant.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/bramble,wpa_supplicant_overlay.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+
+$(eval $(call declare-1p-copy-files,device/google/bramble,audio_policy_configuration.xml))
+
 ifeq ($(USES_DEVICE_GOOGLE_BRAMBLE),true)
   subdir_makefiles=$(call first-makefiles-under,$(LOCAL_PATH))
   $(foreach mk,$(subdir_makefiles),$(info including $(mk) ...)$(eval include $(mk)))

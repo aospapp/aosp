@@ -28,9 +28,9 @@ namespace perfetto {
 namespace base {
 
 struct ProcStat {
-  unsigned long int utime = 0l;
-  unsigned long int stime = 0l;
-  long int rss_pages = -1l;
+  unsigned long int utime = 0L;
+  unsigned long int stime = 0L;
+  long int rss_pages = -1L;
 };
 
 bool ReadProcStat(int fd, ProcStat* out);

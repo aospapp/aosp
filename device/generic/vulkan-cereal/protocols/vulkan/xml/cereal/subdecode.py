@@ -264,7 +264,8 @@ def emit_dispatch_call(api, cgen):
     if api.name in driver_workarounds_global_lock_apis:
         cgen.stmt("lock()")
 
-    cgen.vkApiCall(api, customPrefix="vk->", customParameters=customParams)
+    cgen.vkApiCall(api, customPrefix="vk->", customParameters=customParams,
+                   retVarDecl=False, retVarAssign=False)
 
     if api.name in driver_workarounds_global_lock_apis:
         cgen.stmt("unlock()")
@@ -274,7 +275,7 @@ def emit_global_state_wrapped_call(api, cgen):
     customParams = ["pool", "(VkCommandBuffer)(boxed_dispatchHandle)"] + \
         list(map(lambda p: p.paramName, api.parameters[1:]))
     cgen.vkApiCall(api, customPrefix="this->on_",
-                   customParameters=customParams)
+                   customParameters=customParams, retVarDecl=False, retVarAssign=False)
 
 
 def emit_default_decoding(typeInfo, api, cgen):
@@ -293,6 +294,7 @@ custom_decodes = {
     "vkCmdCopyImageToBuffer": emit_global_state_wrapped_decoding,
     "vkCmdExecuteCommands": emit_global_state_wrapped_decoding,
     "vkBeginCommandBuffer": emit_global_state_wrapped_decoding,
+    "vkEndCommandBuffer": emit_global_state_wrapped_decoding,
     "vkResetCommandBuffer": emit_global_state_wrapped_decoding,
     "vkCmdPipelineBarrier": emit_global_state_wrapped_decoding,
     "vkCmdBindPipeline": emit_global_state_wrapped_decoding,
@@ -332,7 +334,7 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.beginBlock()  # while loop
 
         self.cgen.stmt("uint32_t opcode = *(uint32_t *)ptr")
-        self.cgen.stmt("int32_t packetLen = *(int32_t *)(ptr + 4)")
+        self.cgen.stmt("uint32_t packetLen = *(uint32_t *)(ptr + 4)")
         self.cgen.stmt(
             "if (end - ptr < packetLen) return ptr - (unsigned char*)buf")
 
@@ -370,9 +372,7 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.line("default:")
         self.cgen.beginBlock()
         self.cgen.stmt(
-            "fprintf(stderr, \"Fatal, unrecognized opcode %u\\n\", opcode)")
-        self.cgen.stmt("abort()")
-        self.cgen.stmt("return ptr - (unsigned char *)buf")
+            "GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER)) << \"Unrecognized opcode \" << opcode")
         self.cgen.endBlock()
 
         self.cgen.endBlock()  # switch stmt

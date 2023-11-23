@@ -42,6 +42,9 @@ LOCAL_C_INCLUDES += \
         system/media/audio_utils/include \
         system/media/audio_effects/include
 
+ifeq ($(TARGET_USE_HDMI_AUDIO),true)
+    LOCAL_CFLAGS += -DUSE_HDMI_AUDIO
+endif
 ifneq ($(findstring google_aec, $(call all-makefiles-under,$(TOPDIR)vendor/amlogic/yukawa)),)
     LOCAL_SHARED_LIBRARIES += google_aec
     LOCAL_CFLAGS += -DAEC_HAL

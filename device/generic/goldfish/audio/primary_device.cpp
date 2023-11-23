@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <log/log.h>
 #include <system/audio.h>
+#include PATH(APM_XSD_ENUMS_H_FILENAME)
 #include "primary_device.h"
 #include "stream_in.h"
 #include "stream_out.h"
@@ -24,13 +24,13 @@
 #include "debug.h"
 
 namespace xsd {
-using namespace ::android::audio::policy::configuration::V7_0;
+using namespace ::android::audio::policy::configuration::CPP_VERSION;
 }
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 constexpr size_t kInBufferDurationMs = 15;
@@ -38,13 +38,13 @@ constexpr size_t kOutBufferDurationMs = 22;
 
 using ::android::hardware::Void;
 
-PrimaryDevice::PrimaryDevice() {}
+Device::Device() {}
 
-Return<Result> PrimaryDevice::initCheck() {
+Return<Result> Device::initCheck() {
     return Result::OK;
 }
 
-Return<Result> PrimaryDevice::setMasterVolume(float volume) {
+Return<Result> Device::setMasterVolume(float volume) {
     if (isnan(volume) || volume < 0 || volume > 1.0) {
         return FAILURE(Result::INVALID_ARGUMENTS);
     }
@@ -54,35 +54,34 @@ Return<Result> PrimaryDevice::setMasterVolume(float volume) {
     return Result::OK;
 }
 
-Return<void> PrimaryDevice::getMasterVolume(getMasterVolume_cb _hidl_cb) {
+Return<void> Device::getMasterVolume(getMasterVolume_cb _hidl_cb) {
     _hidl_cb(Result::OK, mMasterVolume);
     return Void();
 }
 
-Return<Result> PrimaryDevice::PrimaryDevice::setMicMute(bool mute) {
+Return<Result> Device::setMicMute(bool mute) {
     mMicMute = mute;
     updateInputStreamMicMute(mute);
     return Result::OK;
 }
 
-Return<void> PrimaryDevice::getMicMute(getMicMute_cb _hidl_cb) {
+Return<void> Device::getMicMute(getMicMute_cb _hidl_cb) {
     _hidl_cb(Result::OK, mMicMute);
     return Void();
 }
 
-Return<Result> PrimaryDevice::setMasterMute(bool mute) {
+Return<Result> Device::setMasterMute(bool mute) {
     mMasterMute = mute;
     updateOutputStreamVolume(mute ? 0.0f : mMasterVolume);
     return Result::OK;
 }
 
-Return<void> PrimaryDevice::getMasterMute(getMasterMute_cb _hidl_cb) {
+Return<void> Device::getMasterMute(getMasterMute_cb _hidl_cb) {
     _hidl_cb(Result::OK, mMasterMute);
     return Void();
 }
 
-Return<void> PrimaryDevice::getInputBufferSize(const AudioConfig& config,
-                                               getInputBufferSize_cb _hidl_cb) {
+Return<void> Device::getInputBufferSize(const AudioConfig& config, getInputBufferSize_cb _hidl_cb) {
     AudioConfig suggestedConfig;
     if (util::checkAudioConfig(false, kInBufferDurationMs, config, suggestedConfig)) {
         const size_t sz =
@@ -98,93 +97,43 @@ Return<void> PrimaryDevice::getInputBufferSize(const AudioConfig& config,
     return Void();
 }
 
-Return<void> PrimaryDevice::openOutputStream(int32_t ioHandle,
-                                             const DeviceAddress& device,
-                                             const AudioConfig& config,
-                                             const hidl_vec<AudioInOutFlag>& flags,
-                                             const SourceMetadata& sourceMetadata,
-                                             openOutputStream_cb _hidl_cb) {
-    if (!StreamOut::validateDeviceAddress(device)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
-        return Void();
-    }
-    if (!StreamOut::validateFlags(flags)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
-        return Void();
-    }
-    if (!StreamOut::validateSourceMetadata(sourceMetadata)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
-        return Void();
-    }
-
-    AudioConfig suggestedConfig;
-    if (util::checkAudioConfig(true, kOutBufferDurationMs, config, suggestedConfig)) {
-        auto stream = std::make_unique<StreamOut>(
-            this, ioHandle, device, suggestedConfig, flags, sourceMetadata);
-
-        stream->setMasterVolume(mMasterMute ? 0.0f : mMasterVolume);
-
-        {
-            std::lock_guard<std::mutex> guard(mMutex);
-            LOG_ALWAYS_FATAL_IF(!mOutputStreams.insert(stream.get()).second);
-        }
-
-        _hidl_cb(Result::OK, stream.release(), suggestedConfig);
-    } else {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, suggestedConfig);
-    }
-
+Return<void> Device::openOutputStream(int32_t ioHandle,
+                                      const DeviceAddress& device,
+                                      const AudioConfig& config,
+                                      const hidl_vec<AudioInOutFlag>& flags,
+                                      const SourceMetadata& sourceMetadata,
+                                      openOutputStream_cb _hidl_cb) {
+    auto [result, stream, cfg] = openOutputStreamImpl(ioHandle, device,
+            config, flags, sourceMetadata);
+    _hidl_cb(result, stream, cfg);
     return Void();
 }
 
-Return<void> PrimaryDevice::openInputStream(int32_t ioHandle,
-                                            const DeviceAddress& device,
-                                            const AudioConfig& config,
-                                            const hidl_vec<AudioInOutFlag>& flags,
-                                            const SinkMetadata& sinkMetadata,
-                                            openInputStream_cb _hidl_cb) {
-    if (!StreamIn::validateDeviceAddress(device)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
-        return Void();
-    }
-    if (!StreamIn::validateFlags(flags)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
-        return Void();
-    }
-    if (!StreamIn::validateSinkMetadata(sinkMetadata)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
-        return Void();
-    }
-
-    AudioConfig suggestedConfig;
-    if (util::checkAudioConfig(false, kInBufferDurationMs, config, suggestedConfig)) {
-        auto stream = std::make_unique<StreamIn>(
-            this, ioHandle, device, suggestedConfig, flags, sinkMetadata);
-
-        stream->setMicMute(mMicMute);
-
-        {
-            std::lock_guard<std::mutex> guard(mMutex);
-            LOG_ALWAYS_FATAL_IF(!mInputStreams.insert(stream.get()).second);
-        }
-
-        _hidl_cb(Result::OK, stream.release(), suggestedConfig);
-    } else {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, suggestedConfig);
-    }
-
+Return<void> Device::openInputStream(int32_t ioHandle,
+                                     const DeviceAddress& device,
+                                     const AudioConfig& config,
+                                     const hidl_vec<AudioInOutFlag>& flags,
+                                     const SinkMetadata& sinkMetadata,
+                                     openInputStream_cb _hidl_cb) {
+    auto [result, stream, cfg] = openInputStreamImpl(ioHandle, device,
+            config, flags, sinkMetadata);
+    _hidl_cb(result, stream, cfg);
     return Void();
 }
 
-Return<bool> PrimaryDevice::supportsAudioPatches() {
+Return<bool> Device::supportsAudioPatches() {
     return true;
 }
 
-Return<void> PrimaryDevice::createAudioPatch(const hidl_vec<AudioPortConfig>& sources,
-                                             const hidl_vec<AudioPortConfig>& sinks,
-                                             createAudioPatch_cb _hidl_cb) {
+Return<void> Device::createAudioPatch(const hidl_vec<AudioPortConfig>& sources,
+                                      const hidl_vec<AudioPortConfig>& sinks,
+                                      createAudioPatch_cb _hidl_cb) {
     if (sources.size() == 1 && sinks.size() == 1) {
         AudioPatch patch;
+        if (!util::checkAudioPortConfig(sources[0]) || !util::checkAudioPortConfig(sinks[0])) {
+            _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), 0);
+            return Void();
+        }
         patch.source = sources[0];
         patch.sink = sinks[0];
 
@@ -205,10 +154,10 @@ Return<void> PrimaryDevice::createAudioPatch(const hidl_vec<AudioPortConfig>& so
     return Void();
 }
 
-Return<void> PrimaryDevice::updateAudioPatch(AudioPatchHandle previousPatchHandle,
-                                             const hidl_vec<AudioPortConfig>& sources,
-                                             const hidl_vec<AudioPortConfig>& sinks,
-                                             updateAudioPatch_cb _hidl_cb) {
+Return<void> Device::updateAudioPatch(AudioPatchHandle previousPatchHandle,
+                                      const hidl_vec<AudioPortConfig>& sources,
+                                      const hidl_vec<AudioPortConfig>& sinks,
+                                      updateAudioPatch_cb _hidl_cb) {
     const auto i = mAudioPatches.find(previousPatchHandle);
     if (i == mAudioPatches.end()) {
         _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), previousPatchHandle);
@@ -228,33 +177,33 @@ Return<void> PrimaryDevice::updateAudioPatch(AudioPatchHandle previousPatchHandl
     return Void();
 }
 
-Return<Result> PrimaryDevice::releaseAudioPatch(AudioPatchHandle patchHandle) {
+Return<Result> Device::releaseAudioPatch(AudioPatchHandle patchHandle) {
     return (mAudioPatches.erase(patchHandle) == 1) ? Result::OK : FAILURE(Result::INVALID_ARGUMENTS);
 }
 
-Return<void> PrimaryDevice::getAudioPort(const AudioPort& port, getAudioPort_cb _hidl_cb) {
+Return<void> Device::getAudioPort(const AudioPort& port, getAudioPort_cb _hidl_cb) {
     _hidl_cb(FAILURE(Result::NOT_SUPPORTED), port);
     return Void();
 }
 
-Return<Result> PrimaryDevice::setAudioPortConfig(const AudioPortConfig& config) {
+Return<Result> Device::setAudioPortConfig(const AudioPortConfig& config) {
     (void)config;
     return FAILURE(Result::NOT_SUPPORTED);
 }
 
-Return<Result> PrimaryDevice::setScreenState(bool turnedOn) {
+Return<Result> Device::setScreenState(bool turnedOn) {
     (void)turnedOn;
     return Result::OK;
 }
 
-Return<void> PrimaryDevice::getHwAvSync(getHwAvSync_cb _hidl_cb) {
+Return<void> Device::getHwAvSync(getHwAvSync_cb _hidl_cb) {
     _hidl_cb(FAILURE(Result::NOT_SUPPORTED), {});
     return Void();
 }
 
-Return<void> PrimaryDevice::getParameters(const hidl_vec<ParameterValue>& context,
-                                          const hidl_vec<hidl_string>& keys,
-                                          getParameters_cb _hidl_cb) {
+Return<void> Device::getParameters(const hidl_vec<ParameterValue>& context,
+                                   const hidl_vec<hidl_string>& keys,
+                                   getParameters_cb _hidl_cb) {
     (void)context;
     if (keys.size() == 0) {
         _hidl_cb(Result::OK, {});
@@ -264,41 +213,263 @@ Return<void> PrimaryDevice::getParameters(const hidl_vec<ParameterValue>& contex
     return Void();
 }
 
-Return<Result> PrimaryDevice::setParameters(const hidl_vec<ParameterValue>& context,
-                                            const hidl_vec<ParameterValue>& parameters) {
+Return<Result> Device::setParameters(const hidl_vec<ParameterValue>& context,
+                                     const hidl_vec<ParameterValue>& parameters) {
     (void)context;
     (void)parameters;
     return Result::OK;
 }
 
-Return<void> PrimaryDevice::getMicrophones(getMicrophones_cb _hidl_cb) {
+Return<void> Device::getMicrophones(getMicrophones_cb _hidl_cb) {
     _hidl_cb(Result::OK, {util::getMicrophoneInfo()});
     return Void();
 }
 
-Return<Result> PrimaryDevice::setConnectedState(const DeviceAddress& dev_addr, bool connected) {
+Return<Result> Device::setConnectedState(const DeviceAddress& dev_addr, bool connected) {
     (void)dev_addr;
     (void)connected;
     return FAILURE(Result::NOT_SUPPORTED);
 }
 
-Return<Result> PrimaryDevice::close() {
+Return<Result> Device::close() {
     std::lock_guard<std::mutex> guard(mMutex);
 
     return (mInputStreams.empty() && mOutputStreams.empty())
         ? Result::OK : FAILURE(Result::INVALID_STATE);
 }
 
-Return<Result> PrimaryDevice::addDeviceEffect(AudioPortHandle device, uint64_t effectId) {
+Return<Result> Device::addDeviceEffect(AudioPortHandle device, uint64_t effectId) {
     (void)device;
     (void)effectId;
     return FAILURE(Result::NOT_SUPPORTED);
 }
 
-Return<Result> PrimaryDevice::removeDeviceEffect(AudioPortHandle device, uint64_t effectId) {
+Return<Result> Device::removeDeviceEffect(AudioPortHandle device, uint64_t effectId) {
     (void)device;
     (void)effectId;
     return FAILURE(Result::NOT_SUPPORTED);
+}
+
+void Device::unrefDevice(StreamIn *sin) {
+    std::lock_guard<std::mutex> guard(mMutex);
+    LOG_ALWAYS_FATAL_IF(mInputStreams.erase(sin) < 1);
+}
+
+void Device::unrefDevice(StreamOut *sout) {
+    std::lock_guard<std::mutex> guard(mMutex);
+    LOG_ALWAYS_FATAL_IF(mOutputStreams.erase(sout) < 1);
+}
+
+void Device::updateOutputStreamVolume(float masterVolume) const {
+    std::lock_guard<std::mutex> guard(mMutex);
+    for (StreamOut *stream : mOutputStreams) {
+        stream->setMasterVolume(masterVolume);
+    }
+}
+
+void Device::updateInputStreamMicMute(bool micMute) const {
+    std::lock_guard<std::mutex> guard(mMutex);
+    for (StreamIn *stream : mInputStreams) {
+        stream->setMicMute(micMute);
+    }
+}
+
+std::tuple<Result, sp<IStreamOut>, AudioConfig> Device::openOutputStreamImpl(
+        int32_t ioHandle, const DeviceAddress& device,
+        const AudioConfig& config, const hidl_vec<AudioInOutFlag>& flags,
+        const SourceMetadata& sourceMetadata) {
+    if (!StreamOut::validateDeviceAddress(device)
+            || !util::checkAudioConfig(config)
+            || !StreamOut::validateFlags(flags)
+            || !StreamOut::validateSourceMetadata(sourceMetadata)) {
+        return {FAILURE(Result::INVALID_ARGUMENTS), {}, {}};
+    }
+
+    AudioConfig suggestedConfig;
+    if (util::checkAudioConfig(true, kOutBufferDurationMs, config, suggestedConfig)) {
+        auto stream = std::make_unique<StreamOut>(
+            this, ioHandle, device, suggestedConfig, flags, sourceMetadata);
+
+        stream->setMasterVolume(mMasterMute ? 0.0f : mMasterVolume);
+
+        {
+            std::lock_guard<std::mutex> guard(mMutex);
+            LOG_ALWAYS_FATAL_IF(!mOutputStreams.insert(stream.get()).second);
+        }
+
+        return {Result::OK, stream.release(), suggestedConfig};
+    }
+    return {FAILURE(Result::INVALID_ARGUMENTS), {}, suggestedConfig};
+}
+
+std::tuple<Result, sp<IStreamIn>, AudioConfig> Device::openInputStreamImpl(
+        int32_t ioHandle, const DeviceAddress& device,
+        const AudioConfig& config, const hidl_vec<AudioInOutFlag>& flags,
+        const SinkMetadata& sinkMetadata) {
+    if (!StreamIn::validateDeviceAddress(device)
+            || !util::checkAudioConfig(config)
+            || !StreamIn::validateFlags(flags)
+            || !StreamIn::validateSinkMetadata(sinkMetadata)) {
+        return {FAILURE(Result::INVALID_ARGUMENTS), {}, {}};
+    }
+
+    AudioConfig suggestedConfig;
+    if (util::checkAudioConfig(false, kInBufferDurationMs, config, suggestedConfig)) {
+        auto stream = std::make_unique<StreamIn>(
+            this, ioHandle, device, suggestedConfig, flags, sinkMetadata);
+
+        stream->setMicMute(mMicMute);
+
+        {
+            std::lock_guard<std::mutex> guard(mMutex);
+            LOG_ALWAYS_FATAL_IF(!mInputStreams.insert(stream.get()).second);
+        }
+
+        return {Result::OK, stream.release(), suggestedConfig};
+    }
+    return {FAILURE(Result::INVALID_ARGUMENTS), {}, suggestedConfig};
+}
+
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+Return<void> Device::openOutputStream_7_1(int32_t ioHandle, const DeviceAddress& device,
+        const AudioConfig& config, const hidl_vec<AudioInOutFlag>& flags,
+        const SourceMetadata& sourceMetadata, openOutputStream_7_1_cb _hidl_cb) {
+    auto [result, stream, cfg] = openOutputStreamImpl(ioHandle, device,
+            config, flags, sourceMetadata);
+    _hidl_cb(result, stream, cfg);
+    return Void();
+}
+
+Return<Result> Device::setConnectedState_7_1(const AudioPort& devicePort,
+                                             bool connected) {
+    (void)devicePort;
+    (void)connected;
+    return FAILURE(Result::NOT_SUPPORTED);
+}
+#endif
+
+// ==================
+
+PrimaryDevice::PrimaryDevice() : mDevice(sp<Device>::make()) {
+}
+
+Return<Result> PrimaryDevice::initCheck() {
+    return mDevice->initCheck();
+}
+
+Return<Result> PrimaryDevice::setMasterVolume(float volume) {
+    return mDevice->setMasterVolume(volume);
+}
+
+Return<void> PrimaryDevice::getMasterVolume(getMasterVolume_cb _hidl_cb) {
+    return mDevice->getMasterVolume(_hidl_cb);
+}
+
+Return<Result> PrimaryDevice::setMicMute(bool mute) {
+    return mDevice->setMicMute(mute);
+}
+
+Return<void> PrimaryDevice::getMicMute(getMicMute_cb _hidl_cb) {
+    return mDevice->getMicMute(_hidl_cb);
+}
+
+Return<Result> PrimaryDevice::setMasterMute(bool mute) {
+    return mDevice->setMasterMute(mute);
+}
+
+Return<void> PrimaryDevice::getMasterMute(getMasterMute_cb _hidl_cb) {
+    return mDevice->getMasterMute(_hidl_cb);
+}
+
+Return<void> PrimaryDevice::getInputBufferSize(const AudioConfig& config,
+                                               getInputBufferSize_cb _hidl_cb) {
+    return mDevice->getInputBufferSize(config, _hidl_cb);
+}
+
+Return<void> PrimaryDevice::openOutputStream(int32_t ioHandle,
+                                             const DeviceAddress& device,
+                                             const AudioConfig& config,
+                                             const hidl_vec<AudioInOutFlag>& flags,
+                                             const SourceMetadata& sourceMetadata,
+                                             openOutputStream_cb _hidl_cb) {
+    return mDevice->openOutputStream(ioHandle, device, config, flags, sourceMetadata, _hidl_cb);
+}
+
+Return<void> PrimaryDevice::openInputStream(int32_t ioHandle,
+                                            const DeviceAddress& device,
+                                            const AudioConfig& config,
+                                            const hidl_vec<AudioInOutFlag>& flags,
+                                            const SinkMetadata& sinkMetadata,
+                                            openInputStream_cb _hidl_cb) {
+    return mDevice->openInputStream(ioHandle, device, config, flags, sinkMetadata, _hidl_cb);
+}
+
+Return<bool> PrimaryDevice::supportsAudioPatches() {
+    return mDevice->supportsAudioPatches();
+}
+
+Return<void> PrimaryDevice::createAudioPatch(const hidl_vec<AudioPortConfig>& sources,
+                                             const hidl_vec<AudioPortConfig>& sinks,
+                                             createAudioPatch_cb _hidl_cb) {
+    return mDevice->createAudioPatch(sources, sinks, _hidl_cb);
+}
+
+Return<void> PrimaryDevice::updateAudioPatch(int32_t previousPatch,
+                                             const hidl_vec<AudioPortConfig>& sources,
+                                             const hidl_vec<AudioPortConfig>& sinks,
+                                             updateAudioPatch_cb _hidl_cb) {
+    return mDevice->updateAudioPatch(previousPatch, sources, sinks, _hidl_cb);
+}
+
+Return<Result> PrimaryDevice::releaseAudioPatch(int32_t patch) {
+    return mDevice->releaseAudioPatch(patch);
+}
+
+Return<void> PrimaryDevice::getAudioPort(const AudioPort& port, getAudioPort_cb _hidl_cb) {
+    return mDevice->getAudioPort(port, _hidl_cb);
+}
+
+Return<Result> PrimaryDevice::setAudioPortConfig(const AudioPortConfig& config) {
+    return mDevice->setAudioPortConfig(config);
+}
+
+Return<Result> PrimaryDevice::setScreenState(bool turnedOn) {
+    return mDevice->setScreenState(turnedOn);
+}
+
+Return<void> PrimaryDevice::getHwAvSync(getHwAvSync_cb _hidl_cb) {
+    return mDevice->getHwAvSync(_hidl_cb);
+}
+
+Return<void> PrimaryDevice::getParameters(const hidl_vec<ParameterValue>& context,
+                                          const hidl_vec<hidl_string>& keys,
+                                          getParameters_cb _hidl_cb) {
+    return mDevice->getParameters(context, keys, _hidl_cb);
+}
+
+Return<Result> PrimaryDevice::setParameters(const hidl_vec<ParameterValue>& context,
+                                            const hidl_vec<ParameterValue>& parameters) {
+    return mDevice->setParameters(context, parameters);
+}
+
+Return<void> PrimaryDevice::getMicrophones(getMicrophones_cb _hidl_cb) {
+    return mDevice->getMicrophones(_hidl_cb);
+}
+
+Return<Result> PrimaryDevice::setConnectedState(const DeviceAddress& dev_addr, bool connected) {
+    return mDevice->setConnectedState(dev_addr, connected);
+}
+
+Return<Result> PrimaryDevice::close() {
+    return mDevice->close();
+}
+
+Return<Result> PrimaryDevice::addDeviceEffect(AudioPortHandle device, uint64_t effectId) {
+    return mDevice->addDeviceEffect(device, effectId);
+}
+
+Return<Result> PrimaryDevice::removeDeviceEffect(AudioPortHandle device, uint64_t effectId) {
+    return mDevice->removeDeviceEffect(device, effectId);
 }
 
 Return<Result> PrimaryDevice::setVoiceVolume(float volume) {
@@ -388,32 +559,8 @@ Return<Result> PrimaryDevice::updateRotation(IPrimaryDevice::Rotation rotation) 
     return FAILURE(Result::NOT_SUPPORTED);
 }
 
-void PrimaryDevice::unrefDevice(StreamIn *sin) {
-    std::lock_guard<std::mutex> guard(mMutex);
-    LOG_ALWAYS_FATAL_IF(mInputStreams.erase(sin) < 1);
-}
-
-void PrimaryDevice::unrefDevice(StreamOut *sout) {
-    std::lock_guard<std::mutex> guard(mMutex);
-    LOG_ALWAYS_FATAL_IF(mOutputStreams.erase(sout) < 1);
-}
-
-void PrimaryDevice::updateOutputStreamVolume(float masterVolume) const {
-    std::lock_guard<std::mutex> guard(mMutex);
-    for (StreamOut *stream : mOutputStreams) {
-        stream->setMasterVolume(masterVolume);
-    }
-}
-
-void PrimaryDevice::updateInputStreamMicMute(bool micMute) const {
-    std::lock_guard<std::mutex> guard(mMutex);
-    for (StreamIn *stream : mInputStreams) {
-        stream->setMicMute(micMute);
-    }
-}
-
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

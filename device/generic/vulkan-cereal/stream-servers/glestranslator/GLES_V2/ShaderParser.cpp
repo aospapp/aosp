@@ -187,3 +187,18 @@ void ShaderParser::setCompileStatus(bool val) {
     m_compileStatus = val;
     m_compiledSrc = m_parsedSrc.c_str();
 }
+
+void ShaderParser::attachProgram(GLuint program) {
+    android::base::AutoLock lock(m_programsLock);
+    m_programs.insert(program);
+}
+
+void ShaderParser::detachProgram(GLuint program) {
+    android::base::AutoLock lock(m_programsLock);
+    m_programs.erase(program);
+}
+
+bool ShaderParser::hasAttachedPrograms() const {
+    android::base::AutoLock lock(m_programsLock);
+    return m_programs.size() > 0;
+}

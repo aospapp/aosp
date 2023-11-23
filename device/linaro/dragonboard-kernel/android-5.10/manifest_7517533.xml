@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8'?>
+
+<manifest>
+  <remote name="aosp" fetch="https://android.googlesource.com/" review="https://android.googlesource.com/" />
+
+  <default revision="master" remote="aosp" sync-j="4" />
+
+  <superproject name="kernel/superproject" remote="aosp" />
+
+  <project path="build" name="kernel/build" revision="d2eaa478c2bb56b9a0d2b56dc2e9046de6bf5a26" />
+
+  <project path="hikey-modules" name="kernel/hikey-modules" revision="29186c26014764e1ed94548b285b3f020beed758" />
+
+  <project path="common" name="kernel/common" revision="d870ecaadb2299dadfb8ed3993b731e37d3cbc21" />
+
+  <project path="kernel/common-patches" name="kernel/common-patches" revision="4b7b3cca89062f62deb205dee8b0a68799b0c5c9">
+    <linkfile dest="common/patches" src="android-mainline" />
+</project>
+
+  <project path="kernel/tests" name="kernel/tests" revision="82413484a6b925a397b08bdde8ddf7deb00cd8b6" />
+
+  <project path="kernel/configs" name="kernel/configs" revision="8ac586c9b95e6e8880e4145653bbe64e1cf72b6c" />
+
+  <project path="common-modules/virtual-device" name="kernel/common-modules/virtual-device" revision="ea450f227fbf05e279a24f1a0ed7458f903002ad" />
+
+  <project path="prebuilts/clang/host/linux-x86" name="platform/prebuilts/clang/host/linux-x86" clone-depth="1" revision="25167e0ae2e8829c7f766b413a21f557076d2c1f" />
+
+  <project path="prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" name="platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" clone-depth="1" revision="5c50d9486dca1adc26e09981f8a8898cff7c835a" />
+
+  <project path="prebuilts/boot-artifacts" name="platform/prebuilts/boot-artifacts" revision="45d30d07ad284018481ebb419b5d01b5de72ed02" />
+
+  <project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" clone-depth="1" revision="8d48ac9b21ef0de09625bef682409d972fc25567" />
+
+  <project path="prebuilts/kernel-build-tools" name="kernel/prebuilts/build-tools" clone-depth="1" revision="7fcf9ce4214abbf50a4e312df0668eea6562eceb" />
+
+  <project path="tools/mkbootimg" name="platform/system/tools/mkbootimg" revision="0639d39c1228da0467331dd19dd0ad32a45bf953" />
+</manifest>

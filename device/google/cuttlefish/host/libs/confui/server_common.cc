@@ -17,60 +17,37 @@
 #include "host/libs/confui/server_common.h"
 namespace cuttlefish {
 namespace confui {
-static FsmInput UserEvtToFsmInput(UserResponse::type user_response) {
-  if (user_response == UserResponse::kConfirm) {
-    return FsmInput::kUserUnknown;
-  }
-  if (user_response == UserResponse::kCancel) {
-    return FsmInput::kUserCancel;
-  }
-  return FsmInput::kUserUnknown;
-}
-
-FsmInput ToFsmInput(const ConfUiMessage& confui_msg) {
-  ConfUiCmd cmd = ToCmd(confui_msg.type_);
-  if (cmd == ConfUiCmd::kUserInputEvent) {
-    return UserEvtToFsmInput(confui_msg.msg_);
-  }
-  const auto hal_cmd = cmd;
-  switch (hal_cmd) {
+FsmInput ToFsmInput(const ConfUiMessage& msg) {
+  const auto cmd = msg.GetType();
+  switch (cmd) {
+    case ConfUiCmd::kUserInputEvent:
+      return FsmInput::kUserEvent;
     case ConfUiCmd::kUnknown:
       return FsmInput::kHalUnknown;
     case ConfUiCmd::kStart:
       return FsmInput::kHalStart;
     case ConfUiCmd::kStop:
       return FsmInput::kHalStop;
-    case ConfUiCmd::kSuspend:
-      return FsmInput::kHalSuspend;
-    case ConfUiCmd::kRestore:
-      return FsmInput::kHalRestore;
     case ConfUiCmd::kAbort:
       return FsmInput::kHalAbort;
     case ConfUiCmd::kCliAck:
     case ConfUiCmd::kCliRespond:
     default:
-      ConfUiLog(FATAL) << "The" << ToString(hal_cmd)
-                       << "is not handled by Session";
+      ConfUiLog(FATAL) << "The" << ToString(cmd)
+                       << "is not handled by the Session FSM but "
+                       << "directly calls Abort()";
   }
   return FsmInput::kHalUnknown;
 }
 
 std::string ToString(FsmInput input) {
   switch (input) {
-    case FsmInput::kUserConfirm:
-      return {"kUserConfirm"};
-    case FsmInput::kUserCancel:
-      return {"kUserCancel"};
-    case FsmInput::kUserUnknown:
-      return {"kUserUnknown"};
+    case FsmInput::kUserEvent:
+      return {"kUserEvent"};
     case FsmInput::kHalStart:
       return {"kHalStart"};
     case FsmInput::kHalStop:
       return {"kHalStop"};
-    case FsmInput::kHalSuspend:
-      return {"kHalSuspend"};
-    case FsmInput::kHalRestore:
-      return {"kHalRestore"};
     case FsmInput::kHalAbort:
       return {"kHalAbort"};
     case FsmInput::kHalUnknown:
@@ -88,10 +65,10 @@ std::string ToString(const MainLoopState& state) {
       return "kInSession";
     case MainLoopState::kWaitStop:
       return "kWaitStop";
-    case MainLoopState::kSuspended:
-      return "kSuspended";
     case MainLoopState::kAwaitCleanup:
       return "kAwaitCleanup";
+    case MainLoopState::kTerminated:
+      return "kTerminated";
     default:
       return "kInvalid";
   }

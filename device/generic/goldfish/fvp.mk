@@ -56,25 +56,23 @@ PRODUCT_PACKAGES += \
     android.hardware.gatekeeper@1.0-service.software \
     android.hardware.graphics.allocator@2.0-service \
     android.hardware.graphics.allocator@2.0-impl \
-    android.hardware.graphics.composer@2.4-service \
+    android.hardware.graphics.composer@2.1-service \
     android.hardware.graphics.mapper@2.0-impl \
     android.hardware.health@2.0-service \
+    android.hardware.neuralnetworks@1.3-service-sample-all \
+    android.hardware.neuralnetworks@1.3-service-sample-limited \
     android.hardware.keymaster@4.0-service \
     android.hardware.keymaster@4.0-impl \
     gralloc.minigbm \
     hwcomposer.drm_minigbm \
-    libEGL_swiftshader \
-    libGLESv1_CM_swiftshader \
-    libGLESv2_swiftshader \
-
-PRODUCT_PACKAGES += \
-    android.hardware.bluetooth@1.1-service.sim \
-    android.hardware.bluetooth.audio@2.0-impl
-PRODUCT_PROPERTY_OVERRIDES += vendor.bt.rootcanal_test_console=off
+    libEGL_angle \
+    libGLESv1_CM_angle \
+    libGLESv2_angle \
+    vulkan.pastel \
 
 PRODUCT_HOST_PACKAGES += bind_to_localhost
 
-PRODUCT_PACKAGE_OVERLAYS := device/generic/goldfish/overlay
+PRODUCT_PACKAGE_OVERLAYS := device/generic/goldfish/fvpbase/overlay
 
 PRODUCT_NAME := fvp
 PRODUCT_DEVICE := fvpbase
@@ -84,11 +82,8 @@ PRODUCT_MODEL := AOSP on FVP
 PRODUCT_COPY_FILES += \
     device/generic/goldfish/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
     frameworks/native/data/etc/android.hardware.ethernet.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.ethernet.xml \
-    frameworks/native/data/etc/android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml \
-    frameworks/native/data/etc/android.hardware.bluetooth.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth.xml \
     frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \
     frameworks/native/data/etc/android.hardware.usb.host.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.host.xml \
-    system/bt/vendor_libs/test_vendor_lib/data/controller_properties.json:vendor/etc/bluetooth/controller_properties.json \
     device/generic/goldfish/fvpbase/fstab.fvpbase:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.fvpbase \
     device/generic/goldfish/fvpbase/fstab.qemu:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.qemu \
     device/generic/goldfish/fvpbase/fstab.initrd:$(TARGET_COPY_OUT_RAMDISK)/fstab.fvpbase \
@@ -108,9 +103,10 @@ PRODUCT_BUILD_BOOT_IMAGE := true
 
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     qemu.hw.mainkeys=0 \
-    ro.hardware.egl=swiftshader \
     ro.hw_timeout_multiplier=50 \
     debug.sf.nobootanimation=1 \
+    ro.hardware.egl=angle \
+    ro.hardware.vulkan=pastel \
 
 PRODUCT_REQUIRES_INSECURE_EXECMEM_FOR_SWIFTSHADER := true
 

@@ -1,1 +1,3 @@
 gpu_access(system_server)
+allow system_server wifi_hal_prop:file {open read getattr map};
+allow system_server vendor_file:dir read;

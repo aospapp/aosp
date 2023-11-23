@@ -46,11 +46,10 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.audio.low_latency.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.audio.low_latency.xml
 ## build packages
 PRODUCT_PACKAGES += \
-    android.hardware.audio@2.0-impl \
-    android.hardware.audio@2.0-service \
-    android.hardware.audio.effect@2.0-impl \
-    android.hardware.soundtrigger@2.0-impl \
-    audio.a2dp.default \
+    android.hardware.audio@4.0-impl \
+    android.hardware.audio@4.0-service \
+    android.hardware.audio.effect@4.0-impl \
+    android.hardware.soundtrigger@4.0-impl \
     audio.usb.default \
     audio.r_submix.default \
     audio.primary.poplar
@@ -177,6 +176,14 @@ PRODUCT_PROPERTY_OVERRIDES += \
     wifi.interface=wlan0 \
     wifi.supplicant_scan_interval=15
 
+# Cuttlefish Health HAL:
+PRODUCT_PACKAGES += \
+    android.hardware.health@2.1-impl-cuttlefish \
+    android.hardware.health@2.1-service
+
+# Software Gatekeeper HAL
+PRODUCT_PACKAGES += \
+    android.hardware.gatekeeper@1.0-service.software
 
 # manifest.xml
 DEVICE_MANIFEST_FILE := $(LOCAL_PATH)/manifest.xml

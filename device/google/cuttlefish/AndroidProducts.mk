@@ -16,24 +16,26 @@
 
 PRODUCT_MAKEFILES := \
 	aosp_cf_arm_only_phone:$(LOCAL_DIR)/vsoc_arm_only/phone/aosp_cf.mk \
-	aosp_cf_arm64_auto:$(LOCAL_DIR)/vsoc_arm64/auto/aosp_cf.mk \
+	aosp_cf_arm64_auto:$(LOCAL_DIR)/vsoc_arm64_only/auto/aosp_cf.mk \
 	aosp_cf_arm64_phone:$(LOCAL_DIR)/vsoc_arm64/phone/aosp_cf.mk \
+	aosp_cf_arm64_phone_hwasan:$(LOCAL_DIR)/vsoc_arm64/phone/aosp_cf_hwasan.mk \
 	aosp_cf_arm64_only_phone:$(LOCAL_DIR)/vsoc_arm64_only/phone/aosp_cf.mk \
-	aosp_cf_x86_64_auto:$(LOCAL_DIR)/vsoc_x86_64/auto/device.mk \
+	aosp_cf_arm64_only_phone_hwasan:$(LOCAL_DIR)/vsoc_arm64_only/phone/aosp_cf_hwasan.mk \
+	aosp_cf_arm64_slim:$(LOCAL_DIR)/vsoc_arm64_only/slim/aosp_cf.mk \
+	aosp_cf_x86_64_auto:$(LOCAL_DIR)/vsoc_x86_64/auto/aosp_cf.mk \
 	aosp_cf_x86_64_pc:$(LOCAL_DIR)/vsoc_x86_64/pc/aosp_cf.mk \
 	aosp_cf_x86_64_phone:$(LOCAL_DIR)/vsoc_x86_64/phone/aosp_cf.mk \
-	aosp_cf_x86_64_tv:$(LOCAL_DIR)/vsoc_x86_64/tv/device.mk \
+	aosp_cf_x86_64_tv:$(LOCAL_DIR)/vsoc_x86_64/tv/aosp_cf.mk \
 	aosp_cf_x86_64_foldable:$(LOCAL_DIR)/vsoc_x86_64/phone/aosp_cf_foldable.mk \
 	aosp_cf_x86_64_only_phone:$(LOCAL_DIR)/vsoc_x86_64_only/phone/aosp_cf.mk \
-	aosp_cf_x86_auto:$(LOCAL_DIR)/vsoc_x86/auto/device.mk \
+	aosp_cf_x86_64_slim:$(LOCAL_DIR)/vsoc_x86_64_only/slim/aosp_cf.mk \
+	aosp_cf_x86_auto:$(LOCAL_DIR)/vsoc_x86/auto/aosp_cf.mk \
 	aosp_cf_x86_pasan:$(LOCAL_DIR)/vsoc_x86/pasan/aosp_cf.mk \
 	aosp_cf_x86_phone:$(LOCAL_DIR)/vsoc_x86/phone/aosp_cf.mk \
-	aosp_cf_x86_phone_noapex:$(LOCAL_DIR)/vsoc_x86_noapex/aosp_cf_noapex.mk \
 	aosp_cf_x86_only_phone:$(LOCAL_DIR)/vsoc_x86_only/phone/aosp_cf.mk \
-	aosp_cf_x86_go_phone:$(LOCAL_DIR)/vsoc_x86/go_phone/device.mk \
-	aosp_cf_x86_go_512_phone:$(LOCAL_DIR)/vsoc_x86/go_512_phone/device.mk \
-	aosp_cf_x86_tv:$(LOCAL_DIR)/vsoc_x86/tv/device.mk
-
+	aosp_cf_x86_go_phone:$(LOCAL_DIR)/vsoc_x86/go/aosp_cf.mk \
+	aosp_cf_x86_tv:$(LOCAL_DIR)/vsoc_x86/tv/aosp_cf.mk \
+	aosp_cf_x86_wear:$(LOCAL_DIR)/vsoc_x86/wear/aosp_cf.mk \
 
 COMMON_LUNCH_CHOICES := \
 	aosp_cf_arm64_auto-userdebug \

@@ -14,6 +14,7 @@
 #
 full_treble_only(`
   neverallow ~{
+    apexd
     init
     merged_hal_service
     mtk_hal_bluetooth
@@ -25,6 +26,7 @@ full_treble_only(`
     hal_bluetooth_btlinux
     hal_bluetooth_default
     hal_drm_clearkey
+    hal_drm_clearkey_aidl
     hal_drm_default
     hal_drm_widevine
     hal_fingerprint_default
@@ -48,6 +50,7 @@ full_treble_only(`
     hal_bluetooth_btlinux
     hal_bluetooth_default
     hal_drm_clearkey
+    hal_drm_clearkey_aidl
     hal_drm_default
     hal_drm_widevine
     hal_fingerprint_default
@@ -150,6 +153,7 @@ full_treble_only(`
     -appdomain
     -hal_cas_default
     -hal_drm_clearkey
+    -hal_drm_clearkey_aidl
     -hal_drm_default
     -hal_drm_widevine
     -merged_hal_service
@@ -160,6 +164,7 @@ full_treble_only(`
     appdomain
     app_zygote
     hal_drm_clearkey
+    hal_drm_clearkey_aidl
     hal_drm_default
     hal_drm_widevine
     init
@@ -187,6 +192,7 @@ full_treble_only(`
 
   neverallow {
     hal_drm_clearkey
+    hal_drm_clearkey_aidl
     hal_drm_default
     hal_drm_widevine
     mediadrmserver
@@ -213,10 +219,12 @@ full_treble_only(`
 #
 full_treble_only(`
   neverallow ~{
+    apexd
     cameraserver
     fastbootd
     hal_camera
     hal_camera_default
+    hal_evs_default
     init
     mtk_hal_camera
     otapreopt_chroot
@@ -234,6 +242,7 @@ full_treble_only(`
     fastbootd
     hal_camera
     hal_camera_default
+    hal_evs_default
     mtk_hal_camera
     system_server
     shell

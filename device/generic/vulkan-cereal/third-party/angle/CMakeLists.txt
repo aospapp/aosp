@@ -6,7 +6,7 @@ elseif (WIN32)
     set(angle-common-platform-sources
         src/common/system_utils_win.cpp
         src/common/system_utils_win32.cpp
-        src/common/system_utils_winuwp)
+        src/common/system_utils_winuwp.cpp)
 else()
     set(angle-common-platform-sources
         src/common/system_utils_posix.cpp

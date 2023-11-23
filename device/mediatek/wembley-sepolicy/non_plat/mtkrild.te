@@ -53,7 +53,7 @@ allow mtkrild sdcardfs:dir r_dir_perms;
 allow mtkrild proc_net:file w_file_perms;
 
 # Set and get routes directly via netlink.
-allow mtkrild self:netlink_route_socket nlmsg_write;
+allow mtkrild self:netlink_route_socket { nlmsg_write bind nlmsg_readpriv nlmsg_getneigh };
 
 # Allow read/write to devices/files
 allow mtkrild mtk_radio_device:dir search;

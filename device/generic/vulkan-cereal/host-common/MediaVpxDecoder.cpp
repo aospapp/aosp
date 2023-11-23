@@ -52,6 +52,8 @@ uint64_t MediaVpxDecoder::readId(void* ptr) {
     return key;
 }
 
+MediaVpxDecoder::~MediaVpxDecoder() {}
+
 MediaVpxDecoderPlugin* MediaVpxDecoder::getDecoder(uint64_t key) {
     {
         std::lock_guard<std::mutex> g(mMapLock);

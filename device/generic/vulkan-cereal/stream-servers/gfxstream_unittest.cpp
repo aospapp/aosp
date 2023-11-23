@@ -30,6 +30,7 @@ protected:
     uint32_t cookie;
     static const bool useWindow;
     struct virgl_renderer_callbacks callbacks;
+    struct gfxstream_callbacks gfxstreamcallbacks;
     static constexpr uint32_t width = 256;
     static constexpr uint32_t height = 256;
     static std::unique_ptr<OSWindow> window;
@@ -39,6 +40,11 @@ protected:
           callbacks({
                   0,
                   sWriteFence,
+                  0,
+                  0,
+                  0,
+          }),
+          gfxstreamcallbacks({
                   0,
                   0,
                   0,
@@ -78,7 +84,7 @@ TEST_F(GfxStreamBackendTest, Init) {
     gfxstream_backend_init(width, height, 0, &cookie,
                            GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT |
                                    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT,
-                           &callbacks);
+                           &callbacks, &gfxstreamcallbacks);
 }
 
 TEST_F(GfxStreamBackendTest, InitOpenGLWindow) {
@@ -86,7 +92,8 @@ TEST_F(GfxStreamBackendTest, InitOpenGLWindow) {
         return;
     }
     gfxstream_backend_init(width, height, 0, &cookie,
-                           GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT, &callbacks);
+                           GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT, &callbacks,
+                           &gfxstreamcallbacks);
     gfxstream_backend_setup_window(window->getFramebufferNativeWindow(), 0, 0,
                                        width, height, width, height);
 }
@@ -95,7 +102,7 @@ TEST_F(GfxStreamBackendTest, SimpleFlush) {
     gfxstream_backend_init(width, height, 0, &cookie,
                            GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT |
                                    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT,
-                           &callbacks);
+                           &callbacks, &gfxstreamcallbacks);
 
     const uint32_t res_id = 8;
     struct virgl_renderer_resource_create_args create_resource_args = {
@@ -127,7 +134,7 @@ TEST_F(GfxStreamBackendTest, DISABLED_ApiCallLinkTest) {
     gfxstream_backend_init(width, height, 0, &cookie,
             GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT |
             GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT,
-            &callbacks);
+            &callbacks, &gfxstreamcallbacks);
 
     const uint32_t res_id = 8;
     struct virgl_renderer_resource_create_args create_resource_args = {
@@ -174,11 +181,4 @@ TEST_F(GfxStreamBackendTest, DISABLED_ApiCallLinkTest) {
     pipe_virgl_renderer_ctx_attach_resource(0, 0);
     pipe_virgl_renderer_ctx_detach_resource(0, 0);
     pipe_virgl_renderer_resource_get_info(0, 0);
-    stream_renderer_resource_create_v2(0, 0);
-    stream_renderer_resource_get_hva(0);
-    stream_renderer_resource_get_hva_size(0);
-    stream_renderer_resource_set_hv_slot(0, 0);
-    stream_renderer_resource_get_hv_slot(0);
-    stream_renderer_resource_map(0, 0, 0);
-    stream_renderer_resource_unmap(0);
 }

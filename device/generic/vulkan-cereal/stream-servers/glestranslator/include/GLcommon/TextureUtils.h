@@ -19,6 +19,7 @@
 #include "GLEScontext.h"
 #include "PaletteTexture.h"
 #include "etc.h"
+#include "rgtc.h"
 
 #include <functional>
 #include <GLES/gl.h>
@@ -37,6 +38,7 @@ bool isEtc2Format(GLenum internalformat);
 bool isBptcFormat(GLenum internalformat);
 bool isS3tcFormat(GLenum internalformat);
 bool isPaletteFormat(GLenum internalformat);
+bool isRgtcFormat(GLenum internalformat);
 int getCompressedFormats(int majorVersion, int* formats);
 void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
                             GLenum internalformat, GLsizei width,
@@ -98,5 +100,32 @@ uint32_t texImageSize(GLenum internalformat,
                       int unpackAlignment,
                       GLsizei width,
                       GLsizei height);
+
+GLenum getFormatFromInternalFormat(GLint internalFormat);
+GLenum getTypeFromInternalFormat(GLint internalFormat);
+
+class TextureUnpackReset {
+   public:
+    // Initial value for unpack
+    static constexpr GLint kUnpackRowLength = 0;
+    static constexpr GLint kUnpackImageHeight = 0;
+    static constexpr GLint kUnpackSkipRows = 0;
+    static constexpr GLint kUnpackSkipPixels = 0;
+    static constexpr GLint kUnpackSkipImages = 0;
+    static constexpr GLint kUnpackAlignment = 4;
+
+    TextureUnpackReset(GLEScontext* ctx);
+    ~TextureUnpackReset();
+
+    GLint unpackRowLength;
+    GLint unpackImageHeight;
+    GLint unpackSkipRows;
+    GLint unpackSkipPixels;
+    GLint unpackSkipImages;
+    GLint unpackAlignment;
+    GLEScontext* glesContext = nullptr;
+   private:
+    GLint unpackCheckAndUpdate(GLenum name, GLint newValue);
+};
 
 #endif

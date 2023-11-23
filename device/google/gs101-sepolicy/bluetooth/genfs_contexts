@@ -1,0 +1,7 @@
+genfscon sysfs /devices/platform/odm/odm:btbcm/rfkill/rfkill0/state                             u:object_r:sysfs_bluetooth_writable:s0
+genfscon sysfs /devices/platform/odm/odm:btbcm/rfkill/rfkill2/state                             u:object_r:sysfs_bluetooth_writable:s0
+genfscon proc /bluetooth/sleep/lpm                                                              u:object_r:proc_bluetooth_writable:s0
+genfscon proc /bluetooth/sleep/btwrite                                                          u:object_r:proc_bluetooth_writable:s0
+genfscon proc /bluetooth/sleep/btwake                                                           u:object_r:proc_bluetooth_writable:s0
+genfscon proc /bluetooth/timesync                                                               u:object_r:proc_bluetooth_writable:s0
+

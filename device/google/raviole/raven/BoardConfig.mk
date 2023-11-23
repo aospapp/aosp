@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-ifdef PHONE_CAR_BOARD_CONFIG
-  include $(PHONE_CAR_BOARD_CONFIG)
+ifdef PHONE_CAR_BOARD_PRODUCT
+  include device/google_car/$(PHONE_CAR_BOARD_PRODUCT)/BoardConfig.mk
 else
   TARGET_BOARD_INFO_FILE := device/google/raviole/board-info.txt
   TARGET_BOOTLOADER_BOARD_NAME := raven
@@ -23,6 +23,7 @@ else
   USES_DEVICE_GOOGLE_RAVIOLE := true
 
   include device/google/gs101/BoardConfig-common.mk
+  include device/google/gs101/wifi/BoardConfig-wifi.mk
   -include vendor/google_devices/gs101/prebuilts/BoardConfigVendor.mk
   -include vendor/google_devices/raven/proprietary/BoardConfigVendor.mk
 endif

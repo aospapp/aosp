@@ -29,4 +29,4 @@ DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE += device/google/redfin/device_framewor
 # Testing related defines
 #   #BOARD_PERFSETUP_SCRIPT := platform_testing/scripts/perf-setup/r3-setup.sh
 
--include vendor/google_devices/$(TARGET_BOOTLOADER_BOARD_NAME)/proprietary/BoardConfigVendor.mk
+-include vendor/google_devices/redfin/proprietary/BoardConfigVendor.mk

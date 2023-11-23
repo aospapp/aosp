@@ -211,7 +211,6 @@ type md1dsp_block_device, dev_type;
 type md1arm7_block_device, dev_type;
 type md3img_block_device, dev_type;
 type mmcblk1_block_device, dev_type;
-type mmcblk1p1_block_device, dev_type;
 type bootdevice_block_device, dev_type;
 type odm_block_device, dev_type;
 type oem_block_device, dev_type;

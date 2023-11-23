@@ -24,10 +24,10 @@ public:
     explicit ReadBuffer(size_t bufSize);
     ~ReadBuffer();
 
-    void setNeededFreeTailSize(int size);
-    int getData(IOStream *stream, int minSize); // get fresh data from the stream
+    void setNeededFreeTailSize(size_t size);
+    int getData(IOStream *stream, size_t minSize); // get fresh data from the stream
     unsigned char *buf() { return m_readPtr; } // return the next read location
-    size_t validData() { return m_validData; } // return the amount of valid data in readptr
+    size_t validData() const { return m_validData; } // return the amount of valid data in readptr
     void consume(size_t amount); // notify that 'amount' data has been consumed;
 
     void onLoad(android::base::Stream* stream);
@@ -41,7 +41,7 @@ private:
     size_t m_validData;
 
     uint64_t m_tailMoveTimeUs = 0;
-    int m_neededFreeTailSize = 0;
+    size_t m_neededFreeTailSize = 0;
 };
 
 }  // namespace emugl

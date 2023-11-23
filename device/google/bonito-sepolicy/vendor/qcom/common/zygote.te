@@ -1,2 +1,0 @@
-# Allow the Zygote to read vendor graphics device properties
-get_prop(zygote, vendor_display_prop)

@@ -1,2 +1,3 @@
 # b/177389198
 dontaudit gmscore_app adbd_prop:file *;
+dontaudit gmscore_app proc_vendor_sched:file write;

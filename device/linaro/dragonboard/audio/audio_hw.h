@@ -22,10 +22,8 @@
 
 #include "fir_filter.h"
 
-#define CARD_OUT 0
 #define PORT_HDMI 0
 #define PORT_INTERNAL_SPEAKER 1
-#define CARD_IN 0
 #define PORT_BUILTIN_MIC 3
 
 #define MIXER_XML_PATH "/vendor/etc/mixer_paths.xml"

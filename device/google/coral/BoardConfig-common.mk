@@ -193,6 +193,11 @@ TARGET_USES_HARDWARE_QCOM_AUDIO_INCALL_STEREO_CAPTURE_ENABLED := true
 
 # SoundTrigger hal flag of new codec
 USE_SOUND_TRIGGER_HAL := iaxxx
+# Setup configuration in Soong namespace
+$(call soong_config_set,knowles,use_sound_trigger_hal,$(USE_SOUND_TRIGGER_HAL))
+ifeq ($(PLATFORM_VERSION),P)
+$(call soong_config_set,knowles,sound_trigger_hal_is_android_p,true)
+endif
 
 # Graphics
 TARGET_USES_GRALLOC1 := true

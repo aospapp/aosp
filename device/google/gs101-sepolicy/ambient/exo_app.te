@@ -1,0 +1,21 @@
+type exo_app, coredomain, domain;
+
+app_domain(exo_app)
+net_domain(exo_app)
+
+allow exo_app app_api_service:service_manager find;
+allow exo_app audioserver_service:service_manager find;
+allow exo_app cameraserver_service:service_manager find;
+allow exo_app mediaserver_service:service_manager find;
+allow exo_app radio_service:service_manager find;
+allow exo_app fwk_stats_service:service_manager find;
+allow exo_app mediametrics_service:service_manager find;
+allow exo_app virtual_device_service:service_manager find;
+allow exo_app gpu_device:dir search;
+
+allow exo_app uhid_device:chr_file rw_file_perms;
+
+binder_call(exo_app, statsd)
+binder_use(exo_app)
+
+get_prop(exo_app, device_config_runtime_native_boot_prop)

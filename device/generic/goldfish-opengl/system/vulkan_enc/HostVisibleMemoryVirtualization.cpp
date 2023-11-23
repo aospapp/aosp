@@ -25,11 +25,16 @@
 
 #include <set>
 
-#ifdef ANDROID
+#if defined(__ANDROID__) || defined(__linux__)
 #include <unistd.h>
 #include <errno.h>
 #endif
+
 #include <sys/mman.h>
+
+#if !defined(HOST_BUILD) && defined(VIRTIO_GPU)
+#include <xf86drm.h>
+#endif
 
 using android::base::guest::SubAllocator;
 
@@ -259,33 +264,45 @@ void destroyHostMemAlloc(
     bool freeMemorySyncSupported,
     VkEncoder* enc,
     VkDevice device,
-    HostMemAlloc* toDestroy) {
-
-    if (toDestroy->initResult != VK_SUCCESS) return;
-    if (!toDestroy->initialized) return;
-
-#ifdef ANDROID
-    if (toDestroy->fd > 0) {
+    HostMemAlloc* toDestroy,
+    bool doLock) {
+#if !defined(HOST_BUILD) && defined(VIRTIO_GPU)
+    if (toDestroy->rendernodeFd >= 0) {
 
         if (toDestroy->memoryAddr) {
             int ret = munmap((void*)toDestroy->memoryAddr, toDestroy->memorySize);
-            ALOGE("%s: trying to unmap addr = 0x%" PRIx64", size = %d, ret = %d, errno = %d\n", __func__, toDestroy->memoryAddr, (int32_t)toDestroy->memorySize, ret, errno);
+            if (ret != 0) {
+                ALOGE("%s: fail to unmap addr = 0x%" PRIx64", size = %d, ret = "
+                      "%d, errno = %d", __func__, toDestroy->memoryAddr,
+                      (int32_t)toDestroy->memorySize, ret, errno);
+            }
         }
 
-        ALOGE("%s: trying to close fd = %d\n", __func__, toDestroy->fd);
-        int ret = close(toDestroy->fd);
-        if (ret != 0) {
-            ALOGE("%s: fail to close fd = %d, ret = %d, errno = %d\n", __func__, toDestroy->fd, ret, errno);
-        } else {
-            ALOGE("%s: successfully close fd = %d, ret = %d\n", __func__, toDestroy->fd, ret);
+        if (toDestroy->boCreated) {
+            ALOGV("%s: trying to destroy bo = %u\n", __func__,
+                  toDestroy->boHandle);
+            struct drm_gem_close drmGemClose = {};
+            drmGemClose.handle = toDestroy->boHandle;
+            int ret = drmIoctl(toDestroy->rendernodeFd, DRM_IOCTL_GEM_CLOSE, &drmGemClose);
+            if (ret != 0) {
+                ALOGE("%s: fail to close gem = %u, ret = %d, errno = %d\n",
+                      __func__, toDestroy->boHandle, ret, errno);
+            } else {
+                ALOGV("%s: successfully close gem = %u, ret = %d\n", __func__,
+                      toDestroy->boHandle, ret);
+            }
         }
     }
 #endif
 
+    if (toDestroy->initResult != VK_SUCCESS) return;
+    if (!toDestroy->initialized) return;
+
+
     if (freeMemorySyncSupported) {
-        enc->vkFreeMemorySyncGOOGLE(device, toDestroy->memory, nullptr, false /* no lock */);
+        enc->vkFreeMemorySyncGOOGLE(device, toDestroy->memory, nullptr, doLock);
     } else {
-        enc->vkFreeMemory(device, toDestroy->memory, nullptr, false /* no lock */);
+        enc->vkFreeMemory(device, toDestroy->memory, nullptr, doLock);
     }
 
     delete toDestroy->subAlloc;

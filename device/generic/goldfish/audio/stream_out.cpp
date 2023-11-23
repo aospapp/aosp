@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <log/log.h>
 #include <fmq/EventFlag.h>
 #include <fmq/MessageQueue.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 #include <utils/ThreadDefs.h>
+#include PATH(APM_XSD_ENUMS_H_FILENAME)
 #include <future>
 #include <thread>
 #include "stream_out.h"
@@ -31,18 +31,18 @@
 #include "debug.h"
 
 namespace xsd {
-using namespace ::android::audio::policy::configuration::V7_0;
+using namespace ::android::audio::policy::configuration::CPP_VERSION;
 }
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 using ::android::hardware::Void;
-using namespace ::android::hardware::audio::common::V7_0;
-using namespace ::android::hardware::audio::V7_0;
+using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
+using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
 
 namespace {
 
@@ -101,6 +101,7 @@ struct WriteThread : public IOThread {
     std::future<pthread_t> getTid() {
         return mTid.get_future();
     }
+
 
     void threadLoop() {
         util::setThreadPriority(PRIORITY_URGENT_AUDIO);
@@ -229,7 +230,7 @@ struct WriteThread : public IOThread {
 
 } // namespace
 
-StreamOut::StreamOut(sp<PrimaryDevice> dev,
+StreamOut::StreamOut(sp<Device> dev,
                      int32_t ioHandle,
                      const DeviceAddress& device,
                      const AudioConfig& config,
@@ -460,7 +461,7 @@ Return<Result> StreamOut::flush() {
 Return<void> StreamOut::getPresentationPosition(getPresentationPosition_cb _hidl_cb) {
     const auto w = static_cast<WriteThread*>(mWriteThread.get());
     if (!w) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_STATE), {}, {});
         return Void();
     }
 
@@ -514,6 +515,23 @@ Return<Result> StreamOut::setPlaybackRateParameters(const PlaybackRate &playback
     return FAILURE(Result::NOT_SUPPORTED);
 }
 
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+Return<Result> StreamOut::setLatencyMode(LatencyMode mode __unused) {
+    return FAILURE(Result::NOT_SUPPORTED);
+};
+
+Return<void> StreamOut::getRecommendedLatencyModes(getRecommendedLatencyModes_cb _hidl_cb) {
+    hidl_vec<LatencyMode> hidlModes;
+    _hidl_cb(Result::NOT_SUPPORTED, hidlModes);
+    return Void();
+};
+
+Return<Result> StreamOut::setLatencyModeCallback(
+        const sp<IStreamOutLatencyModeCallback>& callback __unused) {
+    return FAILURE(Result::NOT_SUPPORTED);
+};
+#endif
+
 void StreamOut::setMasterVolume(float masterVolume) {
     std::lock_guard<std::mutex> guard(mMutex);
     mMasterVolume = masterVolume;
@@ -535,12 +553,23 @@ bool StreamOut::validateFlags(const hidl_vec<AudioInOutFlag>& flags) {
 }
 
 bool StreamOut::validateSourceMetadata(const SourceMetadata& sourceMetadata) {
-    (void)sourceMetadata;
+    for (const auto& track : sourceMetadata.tracks) {
+        if (xsd::isUnknownAudioUsage(track.usage)
+                || xsd::isUnknownAudioContentType(track.contentType)
+                || xsd::isUnknownAudioChannelMask(track.channelMask)) {
+            return false;
+        }
+        for (const auto& tag : track.tags) {
+            if (!xsd::isVendorExtension(tag)) {
+                return false;
+            }
+        }
+    }
     return true;
 }
 
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

@@ -44,6 +44,8 @@ f( void, glXSwapBuffers, (Display *dpy, GLXDrawable drawable )) \
     f(XFree) \
     f(XSync) \
     f(XSetErrorHandler) \
+    f(XCreatePixmap) \
+    f(XFreePixmap) \
 
 #define LIST_XLIB_FUNCTYPES(f) \
 f( Display*, XOpenDisplay, (_Xconst char*)) \
@@ -118,6 +120,8 @@ f( Status, XGetGeometry, ( \
 f( int, XFree, (void*)) \
 f( int, XSync, (Display*, Bool)) \
 f( XErrorHandler, XSetErrorHandler, (XErrorHandler)) \
+f( Pixmap, XCreatePixmap, (Display*, Drawable, unsigned int, unsigned int, unsigned int)) \
+f( void, XFreePixmap, (Display*, Pixmap)) \
 
 #define DECLARE_FUNCTION_TYPEDEF(rettype, name, args) \
     typedef rettype (*name##_t)args;

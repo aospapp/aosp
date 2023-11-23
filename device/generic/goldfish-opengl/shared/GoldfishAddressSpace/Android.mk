@@ -8,6 +8,8 @@ LOCAL_SRC_FILES := goldfish_address_space.cpp
 
 LOCAL_CFLAGS += -DLOG_TAG=\"goldfish-address-space\"
 
+LOCAL_C_INCLUDES += device/generic/goldfish-opengl/system/include
+
 $(call emugl-export,SHARED_LIBRARIES,liblog android-emu-shared)
 $(call emugl-export,C_INCLUDES,$(LOCAL_PATH)/include)
 $(call emugl-end-module)

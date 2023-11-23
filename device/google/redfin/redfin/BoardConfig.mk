@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-ifdef PHONE_CAR_BOARD_CONFIG
-  include $(PHONE_CAR_BOARD_CONFIG)
+ifdef PHONE_CAR_BOARD_PRODUCT
+  include device/google_car/$(PHONE_CAR_BOARD_PRODUCT)/BoardConfig.mk
 else
   TARGET_BOOTLOADER_BOARD_NAME := redfin
   TARGET_SCREEN_DENSITY := 440
@@ -27,5 +27,5 @@ else
   # Testing related defines
   #BOARD_PERFSETUP_SCRIPT := platform_testing/scripts/perf-setup/r3-setup.sh
 
-  -include vendor/google_devices/$(TARGET_BOOTLOADER_BOARD_NAME)/proprietary/BoardConfigVendor.mk
+  -include vendor/google_devices/redfin/proprietary/BoardConfigVendor.mk
 endif

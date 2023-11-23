@@ -64,7 +64,7 @@ void *CommandBufferStagingStream::allocBuffer(size_t minSize) {
     }
 
     return (void*)(m_buf + m_writePos);
-};
+}
 
 int CommandBufferStagingStream::commitBuffer(size_t size)
 {

@@ -22,7 +22,7 @@
 
     <overlay
         android:targetPackage="android"
-        android:priority="-1"
+        android:priority="0"
         android:isStatic="true" />
 
 </manifest>

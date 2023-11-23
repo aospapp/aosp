@@ -13,9 +13,11 @@
 // limitations under the License.
 #pragma once
 
-#include "AndroidBufferQueue.h"
-
 #include <system/window.h>
+
+#include <cstdarg>
+
+#include "AndroidBufferQueue.h"
 
 namespace aemu {
 

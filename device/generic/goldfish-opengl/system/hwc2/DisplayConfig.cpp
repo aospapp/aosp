@@ -57,11 +57,13 @@ int32_t DisplayConfig::getAttribute(HWC2::Attribute attribute) const {
     return mHeight;
   }
   if (attribute == HWC2::Attribute::DpiX) {
-    // From hwcomposer2.h, HWC2_ATTRIBUTE_DPI_X returns "Dots per thousand inches (DPI * 1000)".
+    // From hwcomposer2.h, HWC2_ATTRIBUTE_DPI_X returns "Dots per thousand
+    // inches (DPI * 1000)".
     return getDotsPerThousandInchesX();
   }
   if (attribute == HWC2::Attribute::DpiY) {
-    // From hwcomposer2.h, HWC2_ATTRIBUTE_DPI_Y returns "Dots per thousand inches (DPI * 1000)"
+    // From hwcomposer2.h, HWC2_ATTRIBUTE_DPI_Y returns "Dots per thousand
+    // inches (DPI * 1000)"
     return getDotsPerThousandInchesY();
   }
   if (attribute == HWC2::Attribute::VsyncPeriod) {

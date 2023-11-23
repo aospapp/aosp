@@ -28,7 +28,6 @@ constexpr float GyroOffsetOtcCal::kHighQualityRps;
 
 void GyroOffsetOtcCal::Initialize(const GyroCalParameters& gyro_cal_parameters,
                                   const OverTempCalParameters& otc_parameters) {
-  gyro_is_enabled_ = true;
   gyroCalInit(&gyro_cal_, &gyro_cal_parameters);
   overTempCalInit(&over_temp_cal_, &otc_parameters);
   InitializeCalData();
@@ -36,17 +35,6 @@ void GyroOffsetOtcCal::Initialize(const GyroCalParameters& gyro_cal_parameters,
 
 CalibrationTypeFlags GyroOffsetOtcCal::SetMeasurement(
     const SensorData& sample) {
-  // Bypass calibration data process and updates when the gyro sensor is not
-  // enabled.
-  if (!gyro_is_enabled_) {
-    // Tracks any updates in temperature.
-    if (sample.type == SensorType::kTemperatureCelsius) {
-      temperature_celsius_ = sample.data[SensorIndex::kSingleAxis];
-    }
-
-    return CalibrationTypeFlags::NONE;
-  }
-
   // Routes the input sensor sample to the calibration algorithm.
   switch (sample.type) {
     case SensorType::kAccelerometerMps2:
@@ -90,12 +78,9 @@ CalibrationTypeFlags GyroOffsetOtcCal::SetMeasurement(
     uint64_t calibration_time_nanos = 0;
     gyroCalGetBias(&gyro_cal_, &offset[0], &offset[1], &offset[2],
                    &temperature_celsius, &calibration_time_nanos);
-
-    if (temperature_celsius != kInvalidTemperatureCelsius) {
-      overTempCalUpdateSensorEstimate(&over_temp_cal_, calibration_time_nanos,
-                                      offset, temperature_celsius);
-      cal_update_callback_flags |= CalibrationTypeFlags::OTC_STILL_BIAS;
-    }
+    overTempCalUpdateSensorEstimate(&over_temp_cal_, calibration_time_nanos,
+                                    offset, temperature_celsius);
+    cal_update_callback_flags |= CalibrationTypeFlags::OTC_STILL_BIAS;
   }
 
   // Checks the OTC for a new calibration model update.
@@ -191,15 +176,6 @@ bool GyroOffsetOtcCal::SetInitialCalibration(
   cal_data_.num_model_pts = over_temp_cal_.num_model_pts;
 
   return true;
-}
-
-void GyroOffsetOtcCal::UpdateSensorEnableState(SensorType sensor_type,
-                                               uint8_t sensor_index,
-                                               bool is_enabled) {
-  if (sensor_type == SensorType::kGyroscopeRps &&
-      sensor_index_ == sensor_index) {
-    gyro_is_enabled_ = is_enabled;
-  }
 }
 
 }  // namespace online_calibration

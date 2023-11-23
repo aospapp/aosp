@@ -1,8 +1,15 @@
 genfscon sysfs   /devices/platform/88f00000.memory/rmtfs					u:object_r:sysfs_rmtfs:s0
+genfscon sysfs   /devices/platform/88f00000.rmtfs/rmtfs						u:object_r:sysfs_rmtfs:s0
 genfscon sysfs   /devices/platform/remoteproc-adsp/remoteproc					u:object_r:sysfs_remoteproc:s0
 genfscon sysfs   /devices/platform/remoteproc-cdsp/remoteproc					u:object_r:sysfs_remoteproc:s0
 genfscon sysfs   /devices/platform/soc@0/4080000.remoteproc					u:object_r:sysfs_remoteproc:s0
+genfscon sysfs   /devices/platform/soc@0/8300000.remoteproc					u:object_r:sysfs_remoteproc:s0
+genfscon sysfs   /devices/platform/soc@0/17300000.remoteproc					u:object_r:sysfs_remoteproc:s0
 genfscon sysfs   /devices/platform/soc@0/ae00000.mdss						u:object_r:sysfs_gpu:s0
+genfscon sysfs   /class/udc									u:object_r:sysfs_udc:s0
+genfscon sysfs   /firmware/devicetree/base/compatible						u:object_r:sysfs_dt_compatible:s0
+
+#wakeups on db845c
 genfscon sysfs   /devices/platform/soc@0/1c00000.pci/pci0000:00/0000:00:00.0/0000:01:00.0/wakeup/wakeup1					u:object_r:sysfs_wakeup:s0
 genfscon sysfs   /devices/platform/soc@0/a6f8800.usb/wakeup/wakeup2										u:object_r:sysfs_wakeup:s0
 genfscon sysfs   /devices/platform/soc@0/a8f8800.usb/wakeup/wakeup3										u:object_r:sysfs_wakeup:s0
@@ -10,3 +17,9 @@ genfscon sysfs   /devices/platform/soc@0/c440000.spmi/spmi-0/0-00/c440000.spmi:p
 genfscon sysfs   /devices/platform/soc@0/c440000.spmi/spmi-0/0-00/c440000.spmi:pmic@0:pon@800/c440000.spmi:pmic@0:pon@800:resin/wakeup/wakeup5	u:object_r:sysfs_wakeup:s0
 genfscon sysfs   /devices/platform/soc@0/c440000.spmi/spmi-0/0-00/c440000.spmi:pmic@0:rtc@6000/wakeup/wakeup6					u:object_r:sysfs_wakeup:s0
 genfscon sysfs   /devices/platform/soc@0/c440000.spmi/spmi-0/0-00/c440000.spmi:pmic@0:rtc@6000/rtc/rtc0/alarmtimer.2.auto/wakeup/wakeup7	u:object_r:sysfs_wakeup:s0
+
+#wakeups on RB5
+genfscon sysfs   /devices/platform/soc@0/a6f8800.usb/wakeup/wakeup0										u:object_r:sysfs_wakeup:s0
+genfscon sysfs   /devices/platform/soc@0/a8f8800.usb/wakeup/wakeup1										u:object_r:sysfs_wakeup:s0
+genfscon sysfs   /devices/platform/soc@0/c440000.spmi/spmi-0/0-00/c440000.spmi:pmic@0:rtc@6000/wakeup/wakeup3					u:object_r:sysfs_wakeup:s0
+genfscon sysfs   /devices/platform/soc@0/c440000.spmi/spmi-0/0-00/c440000.spmi:pmic@0:rtc@6000/rtc/rtc0/alarmtimer.1.auto/wakeup/wakeup4	u:object_r:sysfs_wakeup:s0

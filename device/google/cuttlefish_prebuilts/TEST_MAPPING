@@ -4,6 +4,12 @@
       "name": "netd_integration_test"
     },
     {
+      "name": "OverlayDeviceTests"
+    },
+    {
+      "name": "CtsNativeVerifiedBootTestCases"
+    },
+    {
       "name": "CtsBionicTestCases"
     },
     {
@@ -17,6 +23,26 @@
         "options": [
             {
                 "include-filter": "android.provider.cts.media."
+            }
+        ]
+    },
+    {
+        "name": "CtsIncrementalInstallHostTestCases",
+        "options": [
+            {
+                "exclude-annotation": "androidx.test.filters.FlakyTest"
+            },
+            {
+                "exclude-annotation": "androidx.test.filters.LargeTest"
+            },
+            {
+                "exclude-annotation": "org.junit.Ignore"
+            },
+            {
+                "exclude-annotation": "android.platform.test.annotations.LargeTest"
+            },
+            {
+                "include-filter": "android.incrementalinstall.cts"
             }
         ]
     },
@@ -59,6 +85,11 @@
     },
     {
       "name": "StagedRollbackTest"
+    }
+  ],
+  "imports": [
+    {
+      "path": "packages/modules/Virtualization"
     }
   ]
 }

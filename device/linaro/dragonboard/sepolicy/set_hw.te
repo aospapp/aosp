@@ -1,0 +1,11 @@
+type set_hw, domain;
+type set_hw_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(set_hw);
+
+vendor_public_prop(vendor_hw_prop)
+set_prop(set_hw, vendor_hw_prop)
+get_prop(vendor_init, vendor_hw_prop)
+
+allow set_hw vendor_shell_exec:file rx_file_perms;
+allow set_hw vendor_toolbox_exec:file rx_file_perms;
+allow set_hw sysfs_dt_compatible:file { open read };

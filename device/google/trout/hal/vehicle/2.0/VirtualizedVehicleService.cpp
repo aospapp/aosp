@@ -18,8 +18,7 @@
 #include <android/binder_process.h>
 #include <hidl/HidlTransportSupport.h>
 
-#include <vhal_v2_0/EmulatedVehicleConnector.h>
-#include <vhal_v2_0/EmulatedVehicleHal.h>
+#include <vhal_v2_0/DefaultVehicleHal.h>
 #include <vhal_v2_0/VehicleHalManager.h>
 
 #include "GrpcVehicleClient.h"
@@ -41,8 +40,7 @@ int main(int argc, char* argv[]) {
 
     auto store = std::make_unique<VehiclePropertyStore>();
     auto connector = vhal_impl::makeGrpcVehicleClient(serverInfo->getServerUri());
-    auto hal = std::make_unique<vhal_impl::EmulatedVehicleHal>(store.get(), connector.get());
-    auto emulator = std::make_unique<vhal_impl::VehicleEmulator>(hal.get());
+    auto hal = std::make_unique<vhal_impl::DefaultVehicleHal>(store.get(), connector.get());
     auto service = std::make_unique<VehicleHalManager>(hal.get());
 
     configureRpcThreadpool(4, true /* callerWillJoin */);

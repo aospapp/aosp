@@ -57,4 +57,4 @@ JSON_DUMP := [ "" $(JSON_DUMP) ]
 cmake:
 	@rm -f $(JSON_FILE)
 	$(call write-to-file,$(JSON_FILE),30,$(JSON_DUMP))
-	$(hide) python cmake_transform.py -i $(JSON_FILE) -c $(JSON_FILE) -o ${_BUILD_ROOT} 
+	$(hide) python3 cmake_transform.py -i $(JSON_FILE) -c $(JSON_FILE) -o ${_BUILD_ROOT}

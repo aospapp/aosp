@@ -17,11 +17,11 @@
 
 #include "base/Lock.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 
 #include "CoreProfileConfigs.h"
 #include "GLcommon/GLLibrary.h"
 
-#include "apigen-codec-common/ErrorLog.h"
 #include "apigen-codec-common/X11Support.h"
 
 #include <string.h>
@@ -313,7 +313,7 @@ public:
 
     GLXContext context() const { return mContext; }
 
-    ~GlxContext() {
+    virtual ~GlxContext() {
         PROFILE_SLOW("~GlxContext()");
         getGlxApi()->glXDestroyContext(mDisplay, mContext);
     }

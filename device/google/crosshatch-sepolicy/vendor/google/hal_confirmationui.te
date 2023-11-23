@@ -1,3 +1,0 @@
-binder_call(hal_confirmationui_server, hal_tui_comm)
-binder_call(hal_confirmationui_server, citadeld)
-allow hal_confirmationui_server citadeld_service:service_manager find;

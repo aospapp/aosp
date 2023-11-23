@@ -1,5 +1,7 @@
 # Copyright 2006 The Android Open Source Project
 
+ifndef EMULATOR_DISABLE_RADIO
+
 ifndef ENABLE_VENDOR_RIL_SERVICE
 
 LOCAL_PATH:= $(call my-dir)
@@ -44,4 +46,5 @@ endif
 
 include $(BUILD_EXECUTABLE)
 
+endif
 endif

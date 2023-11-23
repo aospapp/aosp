@@ -14,14 +14,16 @@
 
 #pragma once
 
-#include "base/Compiler.h"
-#include "base/ConditionVariable.h"
-#include "base/Lock.h"
-#include "base/FunctorThread.h"
-
 #include <functional>
+#include <future>
+#include <optional>
 #include <utility>
 #include <vector>
+
+#include "base/Compiler.h"
+#include "base/ConditionVariable.h"
+#include "base/FunctorThread.h"
+#include "base/Lock.h"
 
 //
 // WorkerThread<Item> encapsulates an asynchronous processing queue for objects
@@ -91,54 +93,39 @@ public:
         if (!mStarted || mFinished)
             return;
 
-        SyncPoint sync;
-        enqueueImpl(&sync);
-        base::AutoLock lock(sync.lock);
-        sync.cv.wait(&lock, [&sync] { return sync.signaled; });
+        // Enqueue an empty sync command.
+        std::future<void> completeFuture = enqueueImpl(Command());
+        completeFuture.wait();
     }
     // Waits for worker thread to complete.
     void join() { mThread.wait(); }
 
     // Moves the |item| into internal queue for processing.
-    void enqueue(Item&& item) { enqueueImpl(std::move(item)); }
+    std::future<void> enqueue(Item&& item) {
+        return enqueueImpl(Command(std::move(item)));
+    }
 
-private:
-    struct SyncPoint {
-        bool signaled = false;
-        base::ConditionVariable cv;
-        base::Lock lock;
-    };
+   private:
     struct Command {
-        Command(Item&& it) : hasItem(true), workItem(std::move(it)) {}
-        Command(SyncPoint* sp) : hasItem(false), syncPoint(sp) {}
-        Command(Command&& other) : hasItem(other.hasItem) {
-            if (hasItem) {
-                new (&workItem) Item(std::move(other.workItem));
-            } else {
-                syncPoint = other.syncPoint;
-            }
-        }
-        ~Command() {
-            if (hasItem) {
-                workItem.~Item();
-            }
-        }
+        Command() : mWorkItem(std::nullopt) {}
+        Command(Item&& it) : mWorkItem(std::move(it)) {}
+        Command(Command&& other)
+            : mCompletedPromise(std::move(other.mCompletedPromise)),
+              mWorkItem(std::move(other.mWorkItem)) {}
 
-        bool hasItem;
-        union {
-            SyncPoint* syncPoint;
-            Item workItem;
-        };
+        std::promise<void> mCompletedPromise;
+        std::optional<Item> mWorkItem;
     };
 
-    template <class T>
-    void enqueueImpl(T&& x) {
+    std::future<void> enqueueImpl(Command command) {
         base::AutoLock lock(mLock);
         bool signal = mQueue.empty();
-        mQueue.emplace_back(Command(std::move(x)));
+        std::future<void> res = command.mCompletedPromise.get_future();
+        mQueue.emplace_back(std::move(command));
         if (signal) {
             mCv.signalAndUnlock(&lock);
         }
+        return res;
     }
 
     void worker() {
@@ -154,16 +141,17 @@ private:
             }
 
             for (Command& item : todo) {
-                if (item.hasItem) {
+                bool shouldStop = false;
+                if (item.mWorkItem) {
                     // Normal work item
-                    if (mProcessor(std::move(item.workItem)) == Result::Stop) {
-                        return;
+                    if (mProcessor(std::move(item.mWorkItem.value())) ==
+                        Result::Stop) {
+                        shouldStop = true;
                     }
-                } else {
-                    // Sync point
-                    base::AutoLock lock(item.syncPoint->lock);
-                    item.syncPoint->signaled = true;
-                    item.syncPoint->cv.signalAndUnlock(&lock);
+                }
+                item.mCompletedPromise.set_value();
+                if (shouldStop) {
+                    return;
                 }
             }
 

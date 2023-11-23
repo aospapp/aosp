@@ -1,6 +1,6 @@
 # Required by the bootcontrol HAL for the 'set_active' command.
 recovery_only(`
-allow fastbootd secure_element_device:chr_file rw_file_perms;
+allow fastbootd st54spi_device:chr_file rw_file_perms;
 allow fastbootd devinfo_block_device:blk_file rw_file_perms;
 allow fastbootd sda_block_device:blk_file rw_file_perms;
 allow fastbootd sysfs_ota:file rw_file_perms;

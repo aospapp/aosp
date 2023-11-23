@@ -3,4 +3,4 @@ service android-hardware-media-c2-goldfish-hal-1-0 /vendor/bin/hw/android.hardwa
     user media
     group mediadrm drmrpc
     ioprio rt 4
-    writepid /dev/cpuset/foreground/tasks
+    task_profiles ProcessCapacityHigh

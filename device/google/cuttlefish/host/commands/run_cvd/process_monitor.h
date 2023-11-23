@@ -20,12 +20,10 @@
 #include <thread>
 #include <vector>
 
-#include <common/libs/utils/subprocess.h>
+#include "common/libs/utils/result.h"
+#include "common/libs/utils/subprocess.h"
 
 namespace cuttlefish {
-
-struct MonitorEntry;
-using OnSocketReadyCb = std::function<bool(MonitorEntry*, int)>;
 
 struct MonitorEntry {
   std::unique_ptr<Command> cmd;
@@ -35,30 +33,49 @@ struct MonitorEntry {
 // Keeps track of launched subprocesses, restarts them if they unexpectedly exit
 class ProcessMonitor {
  public:
-  ProcessMonitor(bool restart_subprocesses);
-  // Adds a command to the list of commands to be run and monitored. The
-  // callback will be called when the subprocess has ended.  If the callback
-  // returns false the subprocess will no longer be monitored. Can only be
-  // called before StartAndMonitorProcesses is called. OnSocketReadyCb will be
-  // called inside a forked process.
-  void AddCommand(Command cmd);
-  template <typename T>
-  void AddCommands(T&& commands) {
-    for (auto& command : commands) {
-      AddCommand(std::move(command));
+  class Properties {
+   public:
+    Properties& RestartSubprocesses(bool) &;
+    Properties RestartSubprocesses(bool) &&;
+
+    Properties& AddCommand(Command) &;
+    Properties AddCommand(Command) &&;
+
+    template <typename T>
+    Properties& AddCommands(T commands) & {
+      for (auto& command : commands) {
+        AddCommand(std::move(command));
+      }
+      return *this;
     }
-  }
+
+    template <typename T>
+    Properties AddCommands(T commands) && {
+      for (auto& command : commands) {
+        AddCommand(std::move(command));
+      }
+      return std::move(*this);
+    }
+
+   private:
+    bool restart_subprocesses_;
+    std::vector<MonitorEntry> entries_;
+
+    friend class ProcessMonitor;
+  };
+  ProcessMonitor(Properties&&);
 
   // Start all processes given by AddCommand.
-  bool StartAndMonitorProcesses();
+  Result<void> StartAndMonitorProcesses();
   // Stops all monitored subprocesses.
-  bool StopMonitoredProcesses();
- private:
-  bool MonitorRoutine();
+  Result<void> StopMonitoredProcesses();
 
-  bool restart_subprocesses_;
-  std::vector<MonitorEntry> monitored_processes_;
+ private:
+  Result<void> MonitorRoutine();
+
+  Properties properties_;
   pid_t monitor_;
   SharedFD monitor_socket_;
 };
+
 }  // namespace cuttlefish

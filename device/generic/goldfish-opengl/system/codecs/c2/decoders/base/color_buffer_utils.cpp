@@ -19,10 +19,10 @@
 #include <android-base/strings.h>
 #include <log/log.h>
 #include <gralloc_cb_bp.h>
-#include <drm/virtgpu_drm.h>
 #include <xf86drm.h>
 
 #include "cros_gralloc_handle.h"
+#include "virtgpu_drm.h"
 
 static bool isMinigbmFromProperty() {
   static constexpr const auto kGrallocProp = "ro.hardware.gralloc";

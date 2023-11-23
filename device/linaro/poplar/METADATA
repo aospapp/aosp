@@ -2,6 +2,6 @@
 #     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
 #     DEPENDING ON IT IN YOUR PROJECT. ***
 third_party {
-  # would be NOTICE save for the proprietary directory
+  license_note: "would be NOTICE save for the proprietary directory"
   license_type: BY_EXCEPTION_ONLY
 }

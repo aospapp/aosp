@@ -26,3 +26,11 @@ PRODUCT_PACKAGES += \
 
 # To enable access to /dev/dvb*
 BOARD_SEPOLICY_DIRS += device/google/atv/sepolicy/vendor
+
+# Configure Bluetooth
+# Class of Device
+#   Service Class: 0x2C -> 44 (Rendering, Capturing, Audio)
+#   Major Device Class: 0x04 -> 4 (Audio/Video)
+#   Minor Device Class: 0x20 -> 32 (Set-top box) // default value, should be set to 0x3C for a TV
+PRODUCT_VENDOR_PROPERTIES += \
+    bluetooth.device.class_of_device?=44,4,32

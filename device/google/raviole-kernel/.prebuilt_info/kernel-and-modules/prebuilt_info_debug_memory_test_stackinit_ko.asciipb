@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8166600"
+    target: "slider_gki_debug_memory"
+    source_file: "test_stackinit.ko"
+  }
+  dest_file: "debug_memory/test_stackinit.ko"
+  version: "Linux version 5.10.93-android13-0-00426-g7edc8bc69d7d-ab8166600 (build-user@build-host) (Android (8075178, based on r437112b) clang version 14.0.1 (https://android.googlesource.com/toolchain/llvm-project 8671348b81b95fc603505dfc881b45103bee1731), LLD 14.0.1) #1 SMP PREEMPT Thu Jan 27 11:39:17 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/raviole-kernel"
+}

@@ -15,8 +15,7 @@
 #pragma once
 
 #include "base/TypeTraits.h"
-
-#include "base/logging.h"
+#include "host-common/logging.h"
 
 #include <cassert>
 #include <initializer_list>
@@ -353,14 +352,14 @@ public:
 
     T& value() {
         if (!constructed()) {
-            ALOGE("Optional not constructed");
+            ERR("Optional not constructed");
             abort();
         }
         return get();
     }
     constexpr const T& value() const {
         if (!constructed()) {
-            ALOGE("Optional not constructed");
+            ERR("Optional not constructed");
             abort();
         }
         return get();
@@ -383,14 +382,14 @@ public:
     // Pointer-like operators
     T& operator*() {
         if (!constructed()) {
-            ALOGE("Optional not constructed");
+            ERR("Optional not constructed");
             abort();
         }
         return get();
     }
     constexpr const T& operator*() const {
         if (!constructed()) {
-            ALOGE("Optional not constructed");
+            ERR("Optional not constructed");
             abort();
         }
         return get();
@@ -398,14 +397,14 @@ public:
 
     T* operator->() {
         if (!constructed()) {
-            ALOGE("Optional not constructed");
+            ERR("Optional not constructed");
             abort();
         }
         return &get();
     }
     constexpr const T* operator->() const {
         if (!constructed()) {
-            ALOGE("Optional not constructed");
+            ERR("Optional not constructed");
             abort();
         }
         return &get();

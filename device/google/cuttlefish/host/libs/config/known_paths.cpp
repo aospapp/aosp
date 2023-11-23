@@ -53,7 +53,7 @@ std::string ModemSimulatorBinary() {
 }
 
 std::string RootCanalBinary() {
-  return DefaultHostArtifactsPath("bin/root-canal");
+  return HostBinaryPath("root-canal");
 }
 
 std::string SocketVsockProxyBinary() {
@@ -64,6 +64,11 @@ std::string TombstoneReceiverBinary() {
   return HostBinaryPath("tombstone_receiver");
 }
 
+std::string VehicleHalGrpcServerBinary() {
+  return HostBinaryPath(
+      "android.hardware.automotive.vehicle@2.0-virtualization-grpc-server");
+}
+
 std::string WebRtcBinary() {
   return HostBinaryPath("webRTC");
 }
@@ -72,8 +77,14 @@ std::string WebRtcSigServerBinary() {
   return HostBinaryPath("webrtc_operator");
 }
 
-std::string VncServerBinary() {
-  return HostBinaryPath("vnc_server");
+std::string WebRtcSigServerProxyBinary() {
+  return HostBinaryPath("operator_proxy");
+}
+
+std::string WmediumdBinary() { return HostBinaryPath("wmediumd"); }
+
+std::string WmediumdGenConfigBinary() {
+  return HostBinaryPath("wmediumd_gen_config");
 }
 
 } // namespace cuttlefish

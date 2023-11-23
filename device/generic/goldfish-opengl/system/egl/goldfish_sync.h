@@ -16,6 +16,7 @@
 #define ANDROID_INCLUDE_HARDWARE_GOLDFISH_SYNC_H
 
 #define GOLDFISH_SYNC_VULKAN_SEMAPHORE_SYNC 0x00000001
+#define GOLDFISH_SYNC_VULKAN_QSRI 0x00000002
 
 #ifdef HOST_BUILD
 
@@ -44,10 +45,8 @@ static __inline__ int goldfish_sync_signal(int goldfish_sync_fd) {
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <sys/cdefs.h>
-#ifdef EMULATOR_OPENGL_POST_O
 #include <sys/ioctl.h>
 #include <sys/unistd.h>
-#endif
 #include <fcntl.h>
 
 // Make it conflict with ioctls that are not likely to be used

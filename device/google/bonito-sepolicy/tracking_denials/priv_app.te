@@ -1,2 +1,0 @@
-# b/149063676
-dontaudit priv_app sysfs_msm_subsys:file read;

@@ -27,7 +27,7 @@
 #include <qemu_pipe_bp.h>
 
 #ifdef __Fuchsia__
-#include <fuchsia/hardware/goldfish/llcpp/fidl.h>
+#include <fidl/fuchsia.hardware.goldfish/cpp/wire.h>
 #include <lib/zx/event.h>
 #include <lib/zx/vmo.h>
 #endif
@@ -61,7 +61,7 @@ private:
 #ifdef __Fuchsia__
     std::unique_ptr<::fidl::WireSyncClient<fuchsia_hardware_goldfish::PipeDevice>>
         m_device;
-    std::unique_ptr<::fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe>>
+    ::fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe>
         m_pipe;
     zx::event m_event;
     zx::vmo m_vmo;

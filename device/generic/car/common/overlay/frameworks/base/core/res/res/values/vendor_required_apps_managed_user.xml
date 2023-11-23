@@ -30,6 +30,7 @@
         <item>com.google.android.car.kitchensink</item>
         <item>com.google.android.car.netdbug</item>
         <item>com.google.android.car.networking.preferenceupdater</item>
+	<item>com.google.android.car.networking.railway</item>
         <item>com.google.android.car.setupwizard</item>
         <item>com.google.android.car.uxr.oas</item>
         <item>com.google.android.car.uxr.sample</item>

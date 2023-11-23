@@ -20,15 +20,13 @@ package {
 cc_binary {
     name: "fetch_cvd",
     srcs: [
-        "build_api.cc",
-        "credential_source.cc",
-        "curl_wrapper.cc",
         "fetch_cvd.cc",
-        "install_zip.cc",
     ],
     static_libs: [
+        "libcuttlefish_web",
         "libcuttlefish_host_config",
         "libgflags",
+        "libext2_blkid",
     ],
     target: {
         host: {

@@ -23,8 +23,8 @@ import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
-import android.telephony.CellInfoGsm;
-import android.telephony.CellSignalStrengthGsm;
+import android.telephony.CellInfoLte;
+import android.telephony.CellSignalStrengthLte;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
@@ -35,7 +35,6 @@ import com.android.compatibility.common.util.PropertyUtil;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -141,13 +140,11 @@ public class RilE2eTests {
         Assert.assertSame(TelephonyManager.DATA_CONNECTED, mTeleManager.getDataState());
     }
 
-    // See b/74256305
-    @Ignore
     @Test
     public void testSignalLevels() throws Exception {
-        CellInfoGsm cellinfogsm = (CellInfoGsm)mTeleManager.getAllCellInfo().get(0);
-        CellSignalStrengthGsm cellSignalStrengthGsm = cellinfogsm.getCellSignalStrength();
-        int bars = cellSignalStrengthGsm.getLevel();
+        CellInfoLte cellInfo = (CellInfoLte) mTeleManager.getAllCellInfo().get(0);
+        CellSignalStrengthLte signalStrength = cellInfo.getCellSignalStrength();
+        int bars = signalStrength.getLevel();
         Assert.assertThat("Signal Bars", bars, greaterThan(1));
     }
 }

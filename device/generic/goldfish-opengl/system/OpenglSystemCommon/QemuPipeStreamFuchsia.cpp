@@ -90,9 +90,9 @@ int QemuPipeStream::connect(void)
         ALOGE("zx::channel::create failed: %d", pipe_ends.status_value());
         return ZX_HANDLE_INVALID;
     }
-    m_device->OpenPipe(std::move(pipe_ends->server));
+    (*m_device)->OpenPipe(std::move(pipe_ends->server));
     m_pipe =
-        std::make_unique<fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe>>(
+        fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe>(
             std::move(pipe_ends->client));
 
     zx::event event;

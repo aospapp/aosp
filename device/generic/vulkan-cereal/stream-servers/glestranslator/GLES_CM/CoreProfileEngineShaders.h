@@ -186,46 +186,28 @@ void main() {
             currentColor = textureColor;
         } else {
             textureColor = texture(tex_sampler, texcoord_varying.xy);
-            switch (texture_env_mode) {
-            case kReplace:
-                switch (texture_format) {
-                case kAlpha:
-                    currentColor.rgb = color_varying.rgb;
+            if (texture_format == kAlpha) {
+                currentColor.rgb = color_varying.rgb;
+                if (texture_env_mode == kReplace) {
                     currentColor.a = textureColor.a;
-                    break;
-                case kRGBA:
-                case kLuminanceAlpha:
-                    currentColor.rgba = textureColor.rgba;
-                    break;
-                case kRGB:
-                case kLuminance:
-                default:
-                    currentColor.rgb = textureColor.rgb;
-                    currentColor.a = color_varying.a;
-                    break;
-                }
-                break;
-            case kCombine:
-            case kModulate:
-            default:
-                switch (texture_format) {
-                case kAlpha:
-                    currentColor.rgb = color_varying.rgb;
+                } else {
                     currentColor.a = color_varying.a * textureColor.a;
-                    break;
-                case kRGBA:
-                case kLuminanceAlpha:
-                    currentColor.rgba = color_varying.rgba * textureColor.rgba;
-                    break;
-                case kRGB:
-                case kLuminance:
-                default:
-                    currentColor.rgb = color_varying.rgb * textureColor.rgb;
-                    currentColor.a = color_varying.a;
-                    break;
                 }
-                break;
             }
+            if (texture_format == kRGBA || texture_format == kLuminanceAlpha) {
+                if (texture_env_mode == kReplace) {
+                    currentColor.rgba = textureColor.rgba;
+                } else {
+                    currentColor.rgba = color_varying.rgba * textureColor.rgba;
+                }
+            } else {
+                if (texture_env_mode == kReplace) {
+                    currentColor.rgb = textureColor.rgb;
+                } else {
+                    currentColor.rgb = color_varying.rgb * textureColor.rgb;
+                }
+                currentColor.a = color_varying.a;
+           }
         }
     } else {
         currentColor = color_varying;

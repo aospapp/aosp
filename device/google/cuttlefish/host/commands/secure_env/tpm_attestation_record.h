@@ -15,10 +15,16 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <keymaster/attestation_context.h>
+
+namespace cuttlefish {
 
 class TpmAttestationRecordContext : public keymaster::AttestationContext {
 public:
@@ -37,8 +43,14 @@ public:
      keymaster_algorithm_t algorithm, keymaster_error_t* error) const override;
  keymaster::CertificateChain GetAttestationChain(
      keymaster_algorithm_t algorithm, keymaster_error_t* error) const override;
+ void SetVerifiedBootInfo(std::string_view verified_boot_state,
+                          std::string_view bootloader_state,
+                          const std::vector<uint8_t>& vbmeta_digest);
 
 private:
-    mutable std::unique_ptr<VerifiedBootParams> vb_params_;
-    std::vector<uint8_t> unique_id_hbk_;
+ std::vector<uint8_t> vbmeta_digest_;
+ VerifiedBootParams vb_params_;
+ std::vector<uint8_t> unique_id_hbk_;
 };
+
+}  // namespace cuttlefish

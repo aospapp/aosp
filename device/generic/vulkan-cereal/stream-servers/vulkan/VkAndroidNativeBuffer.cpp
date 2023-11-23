@@ -12,19 +12,90 @@
 // limitations under the License.
 #include "VkAndroidNativeBuffer.h"
 
-#include "cereal/common/goldfish_vk_private_defs.h"
-#include "cereal/common/goldfish_vk_extension_structs.h"
+#include <string.h>
 
-#include "stream-servers/FrameBuffer.h"
+#include <future>
+
 #include "GrallocDefs.h"
+#include "SyncThread.h"
 #include "VkCommonOperations.h"
 #include "VulkanDispatch.h"
-
-#include <string.h>
+#include "cereal/common/goldfish_vk_extension_structs.h"
+#include "cereal/common/goldfish_vk_private_defs.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "stream-servers/FrameBuffer.h"
+#include "vulkan/vk_enum_string_helper.h"
 
 #define VK_ANB_ERR(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
+#define ENABLE_VK_ANB_DEBUG 0
+
+#if ENABLE_VK_ANB_DEBUG
+#define VK_ANB_DEBUG(fmt,...) fprintf(stderr, "vk-anb-debug: %s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define VK_ANB_DEBUG_OBJ(obj, fmt,...) fprintf(stderr, "vk-anb-debug: %s:%d:%p " fmt "\n", __func__, __LINE__, obj, ##__VA_ARGS__);
+#else
+#define VK_ANB_DEBUG(fmt,...)
+#define VK_ANB_DEBUG_OBJ(obj, fmt,...)
+#endif
+
+using android::base::AutoLock;
+using android::base::Lock;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace goldfish_vk {
+
+AndroidNativeBufferInfo::QsriWaitFencePool::QsriWaitFencePool(VulkanDispatch* vk, VkDevice device)
+    : mVk(vk), mDevice(device) {}
+
+VkFence AndroidNativeBufferInfo::QsriWaitFencePool::getFenceFromPool() {
+    VK_ANB_DEBUG("enter");
+    AutoLock lock(mLock);
+    VkFence fence = VK_NULL_HANDLE;
+    if (mAvailableFences.empty()) {
+        VkFenceCreateInfo fenceCreateInfo = {
+            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 0, 0,
+        };
+        mVk->vkCreateFence(mDevice, &fenceCreateInfo, nullptr, &fence);
+        VK_ANB_DEBUG("no fences in pool, created %p", fence);
+    } else {
+        fence = mAvailableFences.back();
+        mAvailableFences.pop_back();
+        VkResult res = mVk->vkResetFences(mDevice, 1, &fence);
+        if (res != VK_SUCCESS) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Fail to reset Qsri VkFence: " << res << "(" << string_VkResult(res) << ").";
+        }
+        VK_ANB_DEBUG("existing fence in pool: %p. also reset the fence", fence);
+    }
+    mUsedFences.emplace(fence);
+    VK_ANB_DEBUG("exit");
+    return fence;
+}
+
+AndroidNativeBufferInfo::QsriWaitFencePool::~QsriWaitFencePool() {
+    VK_ANB_DEBUG("enter");
+    // Nothing in the fence pool is unsignaled
+    if (!mUsedFences.empty()) {
+        VK_ANB_ERR("%zu VkFences are still being used when destroying the Qsri fence pool.",
+                   mUsedFences.size());
+    }
+    for (auto fence : mAvailableFences) {
+        VK_ANB_DEBUG("destroy fence %p", fence);
+        mVk->vkDestroyFence(mDevice, fence, nullptr);
+    }
+    VK_ANB_DEBUG("exit");
+}
+
+void AndroidNativeBufferInfo::QsriWaitFencePool::returnFence(VkFence fence) {
+    AutoLock lock(mLock);
+    if (!mUsedFences.erase(fence)) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Return an unmanaged Qsri VkFence back to the pool.";
+        return;
+    }
+    mAvailableFences.push_back(fence);
+}
 
 bool parseAndroidNativeBufferInfo(
     const VkImageCreateInfo* pCreateInfo,
@@ -48,8 +119,7 @@ VkResult prepareAndroidNativeBufferImage(
     const VkPhysicalDeviceMemoryProperties* memProps,
     AndroidNativeBufferInfo* out) {
 
-    *out = {};
-
+    out->vk = vk;
     out->device = device;
     out->vkFormat = pCreateInfo->format;
     out->extent = pCreateInfo->extent;
@@ -77,7 +147,8 @@ VkResult prepareAndroidNativeBufferImage(
 
     if (colorBufferVulkanCompatible && externalMemoryCompatible &&
         setupVkColorBuffer(out->colorBufferHandle, false /* not Vulkan only */,
-                           0u /* memoryProperty */, &out->isGlTexture)) {
+                           0u /* memoryProperty */, &out->useVulkanNativeImage)) {
+        releaseColorBufferFromHostComposingSync({out->colorBufferHandle});
         out->externallyBacked = true;
     }
 
@@ -198,26 +269,34 @@ VkResult prepareAndroidNativeBufferImage(
             out->stagingMemoryTypeIndex,
         };
 
-        if (VK_SUCCESS !=
-            vk->vkAllocateMemory(
-                device, &allocInfo, nullptr,
-                &out->stagingMemory)) {
+        VkResult res = vk->vkAllocateMemory(device, &allocInfo, nullptr,
+                                            &out->stagingMemory);
+        if (VK_SUCCESS != res) {
             VK_ANB_ERR(
-                "VK_ANDROID_native_buffer: could not allocate "
-                "staging memory. requested size: %zu", (size_t)(out->memReqs.size));
+                "VK_ANDROID_native_buffer: could not allocate staging memory. "
+                "res = %d. requested size: %zu",
+                (int)res, (size_t)(out->memReqs.size));
             teardownAndroidNativeBufferImage(vk, out);
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
         VkBufferCreateInfo stagingBufferCreateInfo = {
-            VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, 0, 0,
+            VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            0,
+            0,
             out->memReqs.size,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            out->sharingMode,
-            (uint32_t)out->queueFamilyIndices.size(),
-            out->queueFamilyIndices.size() ? out->queueFamilyIndices.data() : nullptr,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_SHARING_MODE_EXCLUSIVE,
+            0,
+            nullptr,
         };
+        if (out->queueFamilyIndices.size() > 1) {
+            stagingBufferCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+            stagingBufferCreateInfo.queueFamilyIndexCount =
+                static_cast<uint32_t>(out->queueFamilyIndices.size());
+            stagingBufferCreateInfo.pQueueFamilyIndices =
+                out->queueFamilyIndices.data();
+        }
 
         if (VK_SUCCESS !=
             vk->vkCreateBuffer(
@@ -250,6 +329,9 @@ VkResult prepareAndroidNativeBufferImage(
         }
     }
 
+    out->qsriWaitFencePool =
+        std::make_unique<AndroidNativeBufferInfo::QsriWaitFencePool>(out->vk, out->device);
+    out->qsriTimeline = std::make_unique<VkQsriTimeline>();
     return VK_SUCCESS;
 }
 
@@ -273,11 +355,20 @@ void teardownAndroidNativeBufferImage(
     for (auto queueState : anbInfo->queueStates) {
         queueState.teardown(vk, device);
     }
+
     anbInfo->queueStates.clear();
 
     anbInfo->acquireQueueState.teardown(vk, device);
 
-    *anbInfo = {};
+    anbInfo->vk = nullptr;
+    anbInfo->device = VK_NULL_HANDLE;
+    anbInfo->image = VK_NULL_HANDLE;
+    anbInfo->imageMemory = VK_NULL_HANDLE;
+    anbInfo->stagingBuffer = VK_NULL_HANDLE;
+    anbInfo->mappedStagingPtr = nullptr;
+    anbInfo->stagingMemory = VK_NULL_HANDLE;
+
+    anbInfo->qsriWaitFencePool = nullptr;
 }
 
 void getGralloc0Usage(VkFormat format, VkImageUsageFlags imageUsage,
@@ -349,10 +440,12 @@ void AndroidNativeBufferInfo::QueueState::setup(
     VulkanDispatch* vk,
     VkDevice device,
     VkQueue queueIn,
-    uint32_t queueFamilyIndexIn) {
+    uint32_t queueFamilyIndexIn,
+    android::base::Lock* queueLockIn) {
 
     queue = queueIn;
     queueFamilyIndex = queueFamilyIndexIn;
+    lock = queueLockIn;
 
     VkCommandPoolCreateInfo poolCreateInfo = {
         VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, 0,
@@ -395,11 +488,15 @@ void AndroidNativeBufferInfo::QueueState::setup(
 void AndroidNativeBufferInfo::QueueState::teardown(
     VulkanDispatch* vk, VkDevice device) {
 
-    if (queue) vk->vkQueueWaitIdle(queue);
+    if (queue) {
+        AutoLock qlock(*lock);
+        vk->vkQueueWaitIdle(queue);
+    }
     if (cb) vk->vkFreeCommandBuffers(device, pool, 1, &cb);
     if (pool) vk->vkDestroyCommandPool(device, pool, nullptr);
     if (fence) vk->vkDestroyFence(device, fence, nullptr);
 
+    lock = nullptr;
     queue = VK_NULL_HANDLE;
     pool = VK_NULL_HANDLE;
     cb = VK_NULL_HANDLE;
@@ -412,6 +509,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
     VkDevice device,
     VkQueue defaultQueue,
     uint32_t defaultQueueFamilyIndex,
+    Lock* defaultQueueLock,
     VkSemaphore semaphore,
     VkFence fence,
     AndroidNativeBufferInfo* anbInfo) {
@@ -423,25 +521,25 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
         !anbInfo->everAcquired;
 
     anbInfo->everAcquired = true;
-        // fprintf(stderr, "%s: call\n", __func__);
 
     if (firstTimeSetup) {
-
         VkSubmitInfo submitInfo = {
             VK_STRUCTURE_TYPE_SUBMIT_INFO, 0,
             0, nullptr, nullptr,
             0, nullptr,
-            1, &semaphore,
+            (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
+            semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
         };
-
+        AutoLock qlock(*defaultQueueLock);
         vk->vkQueueSubmit(defaultQueue, 1, &submitInfo, fence);
     } else {
 
         const AndroidNativeBufferInfo::QueueState& queueState =
                 anbInfo->queueStates[anbInfo->lastUsedQueueFamilyIndex];
 
-        // For GL interop, transfer back to present layout from general.
-        if (anbInfo->isGlTexture) {
+        // If we used the Vulkan image without copying it back
+        // to the CPU, reset the layout to PRESENT.
+        if (anbInfo->useVulkanNativeImage) {
             fb->setColorBufferInUse(anbInfo->colorBufferHandle, true);
 
             VkCommandBufferBeginInfo beginInfo = {
@@ -453,25 +551,27 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
 
             vk->vkBeginCommandBuffer(queueState.cb2, &beginInfo);
 
-            VkImageMemoryBarrier backToPresentSrc = {
-                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-                VK_ACCESS_HOST_READ_BIT, 0,
-                fb->getVkImageLayoutForPresent(),
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                VK_QUEUE_FAMILY_EXTERNAL,
-                anbInfo->lastUsedQueueFamilyIndex,
-                anbInfo->image,
-                {
-                    VK_IMAGE_ASPECT_COLOR_BIT,
-                    0, 1, 0, 1,
-                },
+            VkImageMemoryBarrier queueTransferBarrier = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+                .dstQueueFamilyIndex = anbInfo->lastUsedQueueFamilyIndex,
+                .image = anbInfo->image,
+                .subresourceRange =
+                    {
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        0,
+                        1,
+                        0,
+                        1,
+                    },
             };
-
-            vk->vkCmdPipelineBarrier(queueState.cb2,
-                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
-                    nullptr, 0, nullptr, 1, &backToPresentSrc);
-
+            vk->vkCmdPipelineBarrier(queueState.cb2, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                                     1, &queueTransferBarrier);
             vk->vkEndCommandBuffer(queueState.cb2);
 
             VkSubmitInfo submitInfo = {
@@ -482,10 +582,11 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 nullptr,
                 1,
                 &queueState.cb2,
-                1,
-                &semaphore,
+                (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
+                semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
 
+            AutoLock qlock(*queueState.lock);
             // TODO(kaiyili): initiate ownership transfer from DisplayVk here
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         } else {
@@ -495,8 +596,10 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 VK_STRUCTURE_TYPE_SUBMIT_INFO, 0,
                 0, nullptr, nullptr,
                 0, nullptr,
-                1, &semaphore,
+                (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
+                semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
+            AutoLock qlock(*queueState.lock);
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         }
     }
@@ -504,15 +607,19 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
     return VK_SUCCESS;
 }
 
+static constexpr uint64_t kTimeoutNs = 3ULL * 1000000000ULL;
+
 VkResult syncImageToColorBuffer(
     VulkanDispatch* vk,
     uint32_t queueFamilyIndex,
     VkQueue queue,
+    Lock* queueLock,
     uint32_t waitSemaphoreCount,
     const VkSemaphore* pWaitSemaphores,
     int* pNativeFenceFd,
-    AndroidNativeBufferInfo* anbInfo) {
+    std::shared_ptr<AndroidNativeBufferInfo> anbInfo) {
 
+    auto anbInfoPtr = anbInfo.get();
     auto fb = FrameBuffer::getFB();
     fb->lock();
 
@@ -531,7 +638,7 @@ VkResult syncImageToColorBuffer(
 
     if (!queueState.queue) {
         queueState.setup(
-            vk, anbInfo->device, queue, queueFamilyIndex);
+            vk, anbInfo->device, queue, queueFamilyIndex, queueLock);
     }
 
     // Record our synchronization commands.
@@ -543,30 +650,30 @@ VkResult syncImageToColorBuffer(
 
     vk->vkBeginCommandBuffer(queueState.cb, &beginInfo);
 
-    // If GL texture, transfer image layout to "general" for GL interop.
-    if (anbInfo->isGlTexture) {
-        VkImageMemoryBarrier present2GeneralBarrier = {
-            VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-            VK_ACCESS_HOST_READ_BIT, 0,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            fb->getVkImageLayoutForPresent(),
-            queueFamilyIndex,
-            VK_QUEUE_FAMILY_EXTERNAL,
-            anbInfo->image,
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0, 1, 0, 1,
-            },
+    // If using the Vulkan image directly (rather than copying it back to
+    // the CPU), change its layout for that use.
+    if (anbInfo->useVulkanNativeImage) {
+        VkImageMemoryBarrier queueTransferBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .srcQueueFamilyIndex = queueFamilyIndex,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+            .image = anbInfo->image,
+            .subresourceRange =
+                {
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    0,
+                    1,
+                    0,
+                    1,
+                },
         };
-
-        vk->vkCmdPipelineBarrier(
-            queueState.cb,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &present2GeneralBarrier);
+        vk->vkCmdPipelineBarrier(queueState.cb, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                 &queueTransferBarrier);
 
     } else {
         // Not a GL texture. Read it back and put it back in present layout.
@@ -660,13 +767,44 @@ VkResult syncImageToColorBuffer(
     };
 
     // TODO(kaiyili): initiate ownership transfer to DisplayVk here.
-    vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, VK_NULL_HANDLE);
-
+    VkFence qsriFence = anbInfo->qsriWaitFencePool->getFenceFromPool();
+    AutoLock qLock(*queueLock);
+    vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, qsriFence);
+    auto waitForQsriFenceTask = [anbInfoPtr, anbInfo, vk, device = anbInfo->device, qsriFence] {
+        (void)anbInfoPtr;
+        VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: enter");
+        VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: wait for fence %p...", qsriFence);
+        VkResult res = vk->vkWaitForFences(device, 1, &qsriFence, VK_FALSE, kTimeoutNs);
+        switch (res) {
+            case VK_SUCCESS:
+                break;
+            case VK_TIMEOUT:
+                VK_ANB_ERR("Timeout when waiting for the Qsri fence.");
+                break;
+            default:
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "Fail to wait for the Qsri VkFence: " << res << "(" << string_VkResult(res)
+                    << ").";
+        }
+        VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: wait for fence %p...(done)", qsriFence);
+        anbInfo->qsriWaitFencePool->returnFence(qsriFence);
+    };
     fb->unlock();
 
-    if (anbInfo->isGlTexture) {
+    if (anbInfo->useVulkanNativeImage) {
+        VK_ANB_DEBUG_OBJ(anbInfoPtr, "using native image, so use sync thread to wait");
         fb->setColorBufferInUse(anbInfo->colorBufferHandle, false);
+        // Queue wait to sync thread with completion callback
+        // Pass anbInfo by value to get a ref
+        SyncThread::get()->triggerGeneral(
+            [waitForQsriFenceTask = std::move(waitForQsriFenceTask), anbInfo]() mutable {
+                waitForQsriFenceTask();
+                anbInfo->qsriTimeline->signalNextPresentAndPoll();
+            },
+            "wait for the guest Qsri VkFence signaled");
     } else {
+        VK_ANB_DEBUG_OBJ(anbInfoPtr, "not using native image, so wait right away");
+        waitForQsriFenceTask();
 
         VkMappedMemoryRange toInvalidate = {
             VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, 0,
@@ -700,6 +838,7 @@ VkResult syncImageToColorBuffer(
                 colorBufferHandle,
                 anbInfo->mappedStagingPtr,
                 bpp * anbInfo->extent.width * anbInfo->extent.height);
+        anbInfo->qsriTimeline->signalNextPresentAndPoll();
     }
 
     return VK_SUCCESS;

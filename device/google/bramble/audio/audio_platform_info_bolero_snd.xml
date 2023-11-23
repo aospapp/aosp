@@ -36,7 +36,7 @@
         <device name="SND_DEVICE_OUT_VOICE_MUSIC_TX" acdb_id="3"/>
         <device name="SND_DEVICE_OUT_VOICE_HANDSET_TMUS" acdb_id="98"/>
         <device name="SND_DEVICE_OUT_VOICE_TTY_HCO_HANDSET" acdb_id="14"/>
-        <device name="SND_DEVICE_OUT_VOICE_TTY_HCO_SPEAKER" acdb_id="14"/>
+<!--        <device name="SND_DEVICE_OUT_VOICE_TTY_HCO_SPEAKER" acdb_id="14"/> -->
         <device name="SND_DEVICE_OUT_VOICE_HAC_HANDSET" acdb_id="201"/>
         <device name="SND_DEVICE_OUT_SPEAKER_SAFE_AND_USB_HEADSET" acdb_id="514"/>
         <device name="SND_DEVICE_OUT_VOICE_USB_HEADPHONES" acdb_id="56"/>
@@ -91,7 +91,7 @@
         <device name="SND_DEVICE_IN_UNPROCESSED_HEADSET_MIC" acdb_id="147"/>
         <device name="SND_DEVICE_IN_USB_HEADSET_MIC" acdb_id="55"/>
         <device name="SND_DEVICE_IN_VOICE_TTY_VCO_HANDSET_MIC" acdb_id="19"/>
-        <device name="SND_DEVICE_IN_VOICE_TTY_VCO_SPEAKER_MIC" acdb_id="19"/>
+<!--        <device name="SND_DEVICE_IN_VOICE_TTY_VCO_SPEAKER_MIC" acdb_id="19"/>  -->
         <device name="SND_DEVICE_IN_VOICE_REC_DMIC_STEREO" acdb_id="144"/>
     </acdb_ids>
 
@@ -308,8 +308,8 @@
         <device name="SND_DEVICE_IN_VOICE_REC_DMIC_FLUENCE" backend="handset-mic" interface="PRI_TDM_TX_0"/>
         <device name="SND_DEVICE_IN_AANC_HANDSET_MIC" backend="handset-mic" interface="PRI_TDM_TX_0"/>
         <device name="SND_DEVICE_IN_QUAD_MIC" backend="handset-mic" interface="PRI_TDM_TX_0"/>
-        <device name="SND_DEVICE_IN_HANDSET_STEREO_DMIC" backend="handset-mic" interface="PRI_TDM_TX_0"/>
-        <device name="SND_DEVICE_IN_SPEAKER_STEREO_DMIC" backend="speaker-mic" interface="PRI_TDM_TX_0"/>
+<!--        <device name="SND_DEVICE_IN_HANDSET_STEREO_DMIC" backend="handset-mic" interface="PRI_TDM_TX_0"/> -->
+        <device name="SND_DEVICE_IN_SPEAKER_DMIC_STEREO" backend="speaker-mic" interface="PRI_TDM_TX_0"/>
         <device name="SND_DEVICE_IN_CAPTURE_VI_FEEDBACK" interface="WSA_CDC_DMA_TX_0"/>
         <device name="SND_DEVICE_IN_CAPTURE_VI_FEEDBACK_MONO_1" interface="WSA_CDC_DMA_TX_0"/>
         <device name="SND_DEVICE_IN_CAPTURE_VI_FEEDBACK_MONO_2" interface="WSA_CDC_DMA_TX_0"/>
@@ -545,13 +545,13 @@
                         <mic_info mic_device_id="builtin_mic_2"
                             channel_mapping="AUDIO_MICROPHONE_CHANNEL_MAPPING_PROCESSED"/>
                     </snd_dev>
-                    <snd_dev in_snd_device="SND_DEVICE_IN_HANDSET_STEREO_DMIC">
+                    <snd_dev in_snd_device="SND_DEVICE_IN_HANDSET_DMIC_STEREO">
                         <mic_info mic_device_id="builtin_mic_1"
                             channel_mapping="AUDIO_MICROPHONE_CHANNEL_MAPPING_PROCESSED"/>
                         <mic_info mic_device_id="builtin_mic_2"
                             channel_mapping="AUDIO_MICROPHONE_CHANNEL_MAPPING_PROCESSED"/>
                     </snd_dev>
-                    <snd_dev in_snd_device="SND_DEVICE_IN_SPEAKER_STEREO_DMIC">
+                    <snd_dev in_snd_device="SND_DEVICE_IN_SPEAKER_DMIC_STEREO">
                         <mic_info mic_device_id="builtin_mic_1"
                             channel_mapping="AUDIO_MICROPHONE_CHANNEL_MAPPING_PROCESSED"/>
                         <mic_info mic_device_id="builtin_mic_2"

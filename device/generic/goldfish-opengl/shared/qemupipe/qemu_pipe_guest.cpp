@@ -33,7 +33,7 @@ enum class VsockPort {
     Ping = 5001,
 };
 
-std::atomic<bool> gVsockAvailable = false;
+std::atomic<bool> gVsockAvailable{false};
 
 bool is_graphics_pipe(const char* name) {
     if (!strcmp(name, "opengles")) { return true; }

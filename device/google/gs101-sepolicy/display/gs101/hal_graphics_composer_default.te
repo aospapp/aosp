@@ -28,6 +28,9 @@ get_prop(hal_graphics_composer_default, vendor_persist_sys_default_prop)
 # allow HWC to get vendor_display_prop
 get_prop(hal_graphics_composer_default, vendor_display_prop)
 
+# allow HWC to get device_config_surface_flinger_native_boot_prop for adpf flags
+get_prop(hal_graphics_composer_default, device_config_surface_flinger_native_boot_prop)
+
 # allow HWC to access vendor_displaycolor_service
 add_service(hal_graphics_composer_default, vendor_displaycolor_service)
 

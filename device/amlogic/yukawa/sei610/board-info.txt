@@ -1,2 +1,0 @@
-require board=sei610
-require version-bootloader=U-Boot 2021.01-00035-g6180f7834d

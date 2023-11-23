@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <log/log.h>
 #include <fmq/EventFlag.h>
 #include <fmq/MessageQueue.h>
@@ -23,6 +22,7 @@
 #include <utils/ThreadDefs.h>
 #include <future>
 #include <thread>
+#include PATH(APM_XSD_ENUMS_H_FILENAME)
 #include "stream_in.h"
 #include "device_port_source.h"
 #include "deleters.h"
@@ -31,13 +31,13 @@
 #include "debug.h"
 
 namespace xsd {
-using namespace ::android::audio::policy::configuration::V7_0;
+using namespace ::android::audio::policy::configuration::CPP_VERSION;
 }
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 using ::android::hardware::Void;
@@ -221,7 +221,7 @@ struct ReadThread : public IOThread {
 
 } // namespace
 
-StreamIn::StreamIn(sp<PrimaryDevice> dev,
+StreamIn::StreamIn(sp<Device> dev,
                    int32_t ioHandle,
                    const DeviceAddress& device,
                    const AudioConfig& config,
@@ -399,7 +399,22 @@ Return<uint32_t> StreamIn::getInputFramesLost() {
 }
 
 Return<void> StreamIn::getCapturePosition(getCapturePosition_cb _hidl_cb) {
-    _hidl_cb(FAILURE(Result::NOT_SUPPORTED), 0, 0);  // see ReadThread::doGetCapturePosition
+    const auto r = static_cast<ReadThread*>(mReadThread.get());
+    if (!r) {
+        _hidl_cb(FAILURE(Result::INVALID_STATE), {}, {});
+        return Void();
+    }
+
+    const auto s = r->mSource.get();
+    if (!s) {
+        _hidl_cb(Result::OK, mFrames, systemTime(SYSTEM_TIME_MONOTONIC));
+    } else {
+        uint64_t frames;
+        uint64_t time;
+        const Result r = s->getCapturePosition(frames, time);
+        _hidl_cb(r, frames, time);
+    }
+
     return Void();
 }
 
@@ -436,12 +451,22 @@ bool StreamIn::validateFlags(const hidl_vec<AudioInOutFlag>& flags) {
 }
 
 bool StreamIn::validateSinkMetadata(const SinkMetadata& sinkMetadata) {
-    (void)sinkMetadata;
+    for (const auto& track : sinkMetadata.tracks) {
+        if (xsd::isUnknownAudioSource(track.source)
+                || xsd::isUnknownAudioChannelMask(track.channelMask)) {
+            return false;
+        }
+        for (const auto& tag : track.tags) {
+            if (!xsd::isVendorExtension(tag)) {
+                return false;
+            }
+        }
+    }
     return true;
 }
 
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

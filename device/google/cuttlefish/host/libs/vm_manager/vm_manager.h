@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/libs/utils/subprocess.h>
+#include <fruit/fruit.h>
+#include <host/libs/config/cuttlefish_config.h>
 
 #include <string>
 #include <vector>
-
-#include <common/libs/utils/subprocess.h>
-#include <host/libs/config/cuttlefish_config.h>
 
 namespace cuttlefish {
 namespace vm_manager {
 
 // Superclass of every guest VM manager.
 class VmManager {
- protected:
-  const Arch arch_;
-
  public:
   // This is the number of HVC virtual console ports that should be configured
   // by the VmManager. Because crosvm currently allocates these ports as the
@@ -40,7 +37,7 @@ class VmManager {
   // need to consume host resources, except for the PCI ID. Use this trick to
   // keep the number of PCI IDs assigned constant for all flags/vm manager
   // combinations
-  static const int kDefaultNumHvcs = 6;
+  static const int kDefaultNumHvcs = 8;
 
   // This is the number of virtual disks (block devices) that should be
   // configured by the VmManager. Related to the description above regarding
@@ -58,11 +55,11 @@ class VmManager {
   // the persistent disk
   static const int kDefaultNumBootDevices = 2;
 
-  VmManager(Arch arch) : arch_(arch) {}
   virtual ~VmManager() = default;
 
   virtual bool IsSupported() = 0;
-  virtual std::vector<std::string> ConfigureGpuMode(const std::string&) = 0;
+  virtual std::vector<std::string> ConfigureGraphics(
+      const CuttlefishConfig& config) = 0;
   virtual std::string ConfigureBootDevices(int num_disks) = 0;
 
   // Starts the VMM. It will usually build a command and pass it to the
@@ -72,6 +69,9 @@ class VmManager {
   virtual std::vector<cuttlefish::Command> StartCommands(
       const CuttlefishConfig& config) = 0;
 };
+
+fruit::Component<fruit::Required<const CuttlefishConfig>, VmManager>
+VmManagerComponent();
 
 std::unique_ptr<VmManager> GetVmManager(const std::string&, Arch arch);
 

@@ -33,6 +33,6 @@ AUDIO_FEATURE_CONFIG_ENABLE_TAS_SPK_PROT := true
 AUDIO_FEATURE_CONFIG_ENABLE_TAS_STEREO := true
 AUDIO_FEATURE_CONFIG_ENABLE_TAS_SET_RE_IN_HAL := true
 
--include vendor/google_devices/$(TARGET_BOOTLOADER_BOARD_NAME)/proprietary/BoardConfigVendor.mk
+-include vendor/google_devices/barbet/proprietary/BoardConfigVendor.mk
 
 -include device/google/barbet/soong/pixel_soong_config.mk

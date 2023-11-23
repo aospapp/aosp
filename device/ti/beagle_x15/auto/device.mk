@@ -16,7 +16,7 @@
 
 #Automotive
 PRODUCT_PACKAGES += \
-	android.hardware.automotive.vehicle@2.0-service \
+	android.hardware.automotive.vehicle@2.0-default-service \
 
 PRODUCT_COPY_FILES += \
 	frameworks/native/data/etc/android.hardware.type.automotive.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.type.automotive.xml \

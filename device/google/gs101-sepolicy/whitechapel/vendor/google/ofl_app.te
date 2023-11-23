@@ -11,7 +11,10 @@ userdebug_or_eng(`
   allow ofl_app radio_service:service_manager find;
   allow ofl_app surfaceflinger_service:service_manager find;
 
-  # Access to directly update firmware on secure_element
-  typeattribute secure_element_device mlstrustedobject;
-  allow ofl_app secure_element_device:chr_file rw_file_perms;
+  # Access to directly update firmware on st54spi_device
+  typeattribute st54spi_device mlstrustedobject;
+  allow ofl_app st54spi_device:chr_file rw_file_perms;
+  # Access to directly update firmware on st33spi_device
+  typeattribute st33spi_device mlstrustedobject;
+  allow ofl_app st33spi_device:chr_file rw_file_perms;
 ')

@@ -86,7 +86,7 @@ typedef enum {
     bool stencilRenderableFormat(GLint internalformat);
 
 #ifdef __cplusplus
-};
+}
 #endif
 
 namespace GLUtils {
@@ -174,5 +174,5 @@ namespace GLUtils {
         return -1;
     }
 
-}; // namespace GLUtils
+} // namespace GLUtils
 #endif

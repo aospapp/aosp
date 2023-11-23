@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8053307"
+    target: "bluejay_debug_api"
+    source_file: "videobuf2-dma-sg.ko"
+  }
+  dest_file: "debug_api/videobuf2-dma-sg.ko"
+  version: "Linux version 5.10.66-android12-9-00001-g982761134d97-ab8033671 (build-user@build-host) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee), LLD 12.0.5 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld c935d99d7cf2016289302412d708641d52d2f7ee)) #1 SMP PREEMPT Fri Dec 24 01:58:08 UTC 2021"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/bluejay-kernel"
+}

@@ -81,6 +81,7 @@
 #define TIOCGPTLCK _IOR('T', 0x39, int)
 #define TIOCGEXCL _IOR('T', 0x40, int)
 #define TIOCGPTPEER _IO('T', 0x41)
+#define TIOCFAULT 0x54EC
 #define TIOCPMGET 0x544D
 #define TIOCPMPUT 0x544E
 #define TIOCPMACT 0x544F

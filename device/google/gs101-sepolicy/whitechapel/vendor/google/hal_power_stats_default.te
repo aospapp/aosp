@@ -15,6 +15,7 @@ allow hal_power_stats_default sysfs_edgetpu:file r_file_perms;
 
 binder_call(hal_power_stats_default, citadeld)
 r_dir_file(hal_power_stats_default, sysfs_aoc)
+r_dir_file(hal_power_stats_default, sysfs_aoc_dumpstate)
 r_dir_file(hal_power_stats_default, sysfs_cpu)
 r_dir_file(hal_power_stats_default, sysfs_leds)
 r_dir_file(hal_power_stats_default, sysfs_acpm_stats)

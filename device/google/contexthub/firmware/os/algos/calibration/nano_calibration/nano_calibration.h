@@ -15,8 +15,7 @@
  */
 
 /*
- * This module provides a helper class for storage, recall, and updating of
- * calibration data using the ASH (Android Sensor Hub) API for dynamic runtime
+ * This module provides a containing class (NanoSensorCal) for dynamic runtime
  * calibration algorithms that affect the following sensors:
  *       - Accelerometer (offset)
  *       - Gyroscope (offset, with over-temperature compensation)
@@ -28,21 +27,16 @@
  *       - Magnetometer  [micro Tesla, uT]
  *       - Temperature   [Celsius].
  *
- * INPUTS:
- *   This module uses pointers to runtime calibration algorithm objects.
- *   These must be constructed and initialized outside of this class. The owner
- *   bears the burden of managing the lifetime of these objects with respect to
- *   the NanoSensorCal class which depends on these objects and handles their
- *   interaction with the Android ASH/CHRE system. This arrangement makes it
- *   convenient to abstract the specific algorithm implementations (i.e., choice
- *   of calibration algorithm, parameter tuning, etc.) at the nanoapp level
- *   without the need to specialize the standard functionality implemented here.
+ * NOTE1: Define NANO_SENSOR_CAL_DBG_ENABLED to enable debug messaging.
  *
- *     OnlineCalibration<CalibrationDataThreeAxis> *online_cal
- *       Pointer to the sensor calibration algorithm that provides calibration
- *       updates.
- *
- * NOTE: Define NANO_SENSOR_CAL_DBG_ENABLED to enable debug messaging.
+ * NOTE2: This module uses pointers to runtime calibration algorithm objects.
+ * These must be constructed and initialized outside of this class. The owner
+ * bares the burden of managing the lifetime of these objects with respect to
+ * the NanoSensorCal class which depends on these objects and handles their
+ * interaction with the Android ASH/CHRE system. This arrangement makes it
+ * convenient to modify the specific algorithm implementations (i.e., choice of
+ * calibration algorithm, parameter tuning, etc.) at the nanoapp level without
+ * the need to specialize the standard functionality implemented here.
  */
 
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_NANO_CALIBRATION_NANO_CALIBRATION_H_
@@ -55,6 +49,7 @@
 
 #include <cstdint>
 
+#include "calibration/online_calibration/common_data/calibration_callback.h"
 #include "calibration/online_calibration/common_data/calibration_data.h"
 #include "calibration/online_calibration/common_data/online_calibration.h"
 #include "calibration/online_calibration/common_data/result_callback_interface.h"
@@ -64,10 +59,10 @@
 namespace nano_calibration {
 
 /*
- * NanoSensorCal is a helper class for dynamic runtime calibration sensor
+ * NanoSensorCal is a container class for dynamic runtime calibration sensor
  * algorithms used by the IMU_Cal CHRE nanoapp. The main purpose of this class
- * is to manage sensor calibration data persistence (storage & recall), and to
- * provide calibration updates to CHRE using the ASH API.
+ * is to transfer sensor data to the sensor calibration algorithms and provide
+ * calibration updates to CHRE using the ASH API.
  */
 class NanoSensorCal {
  public:
@@ -79,56 +74,94 @@ class NanoSensorCal {
 
   NanoSensorCal() = default;
 
-  // Provides ASH calibration updates using the sensor calibration associated
-  // with the 'online_cal' algorithm. The input bit mask 'new_cal_flags'
-  // describe the new calibration elements to update.
-  void UpdateCalibration(online_calibration::CalibrationTypeFlags new_cal_flags,
-                         const OnlineCalibrationThreeAxis &online_cal);
+  // Sets the sensor calibration object pointers and initializes the algorithms
+  // using runtime values recalled using Android Sensor Hub (ASH). A nullptr may
+  // be passed in to disable a particular sensor calibration.
+  void Initialize(OnlineCalibrationThreeAxis *accel_cal,
+                  OnlineCalibrationThreeAxis *gyro_cal,
+                  OnlineCalibrationThreeAxis *mag_cal);
 
-  // Loads runtime calibration data from the system registry using ASH. This is
-  // usually called once whenever the owning runtime calibration algorithm is
-  // initialized.
-  void LoadAshCalibration(OnlineCalibrationThreeAxis *online_cal);
+  // Sends new sensor samples to the calibration algorithms.
+  void HandleSensorSamples(uint16_t event_type,
+                           const chreSensorThreeAxisData *event_data);
 
-  // Sets the pointer to a calibration result logger.
+  // Provides temperature updates to the calibration algorithms.
+  void HandleTemperatureSamples(uint16_t event_type,
+                                const chreSensorFloatData *event_data);
+
   void set_result_callback(
       online_calibration::ResultCallbackInterface *result_callback) {
     result_callback_ = result_callback;
   }
 
  private:
+  // Passes sensor data to the runtime calibration algorithms.
+  void ProcessSample(const online_calibration::SensorData &sample);
+
+  // Loads runtime calibration data using the Android Sensor Hub API. Returns
+  // 'true' when runtime calibration values were successfully recalled and used
+  // for algorithm initialization. 'sensor_tag' is a string that identifies a
+  // sensor-specific identifier for log messages. Updates 'flags' to indicate
+  // which runtime calibration parameters were recalled.
+  bool LoadAshCalibration(uint8_t chreSensorType,
+                          OnlineCalibrationThreeAxis *online_cal,
+                          online_calibration::CalibrationTypeFlags *flags,
+                          const char *sensor_tag);
+
   // Provides sensor calibration updates using the ASH API for the specified
   // sensor type. 'cal_data' contains the new calibration data. 'flags' is used
   // to indicate all of the valid calibration values that should be provided
   // with the update. Returns 'true' with a successful ASH update.
   bool NotifyAshCalibration(
-      uint8_t chre_sensor_type, uint8_t sensor_index, uint8_t calibration_index,
+      uint8_t chreSensorType,
       const online_calibration::CalibrationDataThreeAxis &cal_data,
-      online_calibration::CalibrationTypeFlags flags, char const *sensor_tag);
+      online_calibration::CalibrationTypeFlags flags, const char *sensor_tag);
 
   // Checks whether 'ash_cal_parameters' is a valid set of runtime calibration
   // data and can be used for algorithm initialization. Updates 'flags' to
-  // indicate which runtime calibration parameters were detected. Returns true
-  // if valid runtime calibration data is detected and may be used.
-  bool DetectRuntimeCalibration(
-      uint8_t chre_sensor_type, const char *sensor_tag, uint8_t sensor_index,
-      uint8_t calibration_index, const ashCalParams &ash_cal_parameters,
-      online_calibration::CalibrationTypeFlags &flags);
+  // indicate which runtime calibration parameters were detected.
+  bool DetectRuntimeCalibration(uint8_t chreSensorType, const char *sensor_tag,
+                                online_calibration::CalibrationTypeFlags *flags,
+                                ashCalParams *ash_cal_parameters);
 
   // Helper functions for logging calibration information.
+  void PrintAshCalParams(const ashCalParams &cal_params,
+                         const char *sensor_tag);
+
   void PrintCalibration(
       const online_calibration::CalibrationDataThreeAxis &cal_data,
-      uint8_t sensor_index, uint8_t calibration_index,
       online_calibration::CalibrationTypeFlags flags, const char *sensor_tag);
 
-  bool IsGyroLogUpdateAllowed(uint64_t timestamp_nanos);
+  bool HandleGyroLogMessage(uint64_t timestamp_nanos);
+
+  // Pointer to the accelerometer runtime calibration object.
+  OnlineCalibrationThreeAxis *accel_cal_ = nullptr;
+
+  // Pointer to the gyroscope runtime calibration object.
+  OnlineCalibrationThreeAxis *gyro_cal_ = nullptr;
 
   // Limits the log messaging update rate for the gyro calibrations since these
   // can occur frequently with rapid temperature changes.
   uint64_t gyro_notification_time_nanos_ = 0;
-  uint64_t initial_gyro_cal_time_nanos_ = 0;
+  uint64_t initialization_start_time_nanos_ = 0;
 
-  // Pointer to a calibration result logger (e.g., telemetry).
+  // Pointer to the magnetometer runtime calibration object.
+  OnlineCalibrationThreeAxis *mag_cal_ = nullptr;
+
+  // Flags that determine which calibration elements are updated with the ASH
+  // API. These are reset during initialization, and latched when a particular
+  // calibration update is detected upon a valid recall of parameters and/or
+  // during runtime. The latching behavior is used to start sending calibration
+  // values of a given type (e.g., bias, over-temp model, etc.) once they are
+  // detected and thereafter.
+  online_calibration::CalibrationTypeFlags accel_cal_update_flags_ =
+      online_calibration::CalibrationTypeFlags::NONE;
+  online_calibration::CalibrationTypeFlags gyro_cal_update_flags_ =
+      online_calibration::CalibrationTypeFlags::NONE;
+  online_calibration::CalibrationTypeFlags mag_cal_update_flags_ =
+      online_calibration::CalibrationTypeFlags::NONE;
+
+  // Pointer to telemetry logger.
   online_calibration::ResultCallbackInterface *result_callback_ = nullptr;
 };
 

@@ -68,8 +68,8 @@
             <Limit name="measured-frame-rate-176x144" range="1400-1560" /> <!-- SHOULDN'T HAVE TWEAKED N=220 v90%=4.0 -->
         </MediaCodec>
         <MediaCodec name="c2.android.avc.encoder" type="video/avc" update="true">
-            <Limit name="measured-frame-rate-320x240" range="287-326" /> <!-- Manual N=20 -->
-            <Limit name="measured-frame-rate-720x480" range="122-124" /> <!-- Manual N=20 -->
+            <Limit name="measured-frame-rate-320x240" range="500-600" /> <!-- Manual N=20 -->
+            <Limit name="measured-frame-rate-720x480" range="200-250" /> <!-- Manual N=20 -->
             <Limit name="measured-frame-rate-1280x720" range="76-80" /> <!-- Manual N=20 -->
             <Limit name="measured-frame-rate-1920x1080" range="44-49" /> <!-- Manual N=20 -->
         </MediaCodec>

@@ -28,7 +28,7 @@ namespace android {
 
 class GuestComposer : public Composer {
  public:
-  GuestComposer() = default;
+  GuestComposer(DrmPresenter* drmPresenter);
 
   GuestComposer(const GuestComposer&) = delete;
   GuestComposer& operator=(const GuestComposer&) = delete;
@@ -36,7 +36,7 @@ class GuestComposer : public Composer {
   GuestComposer(GuestComposer&&) = delete;
   GuestComposer& operator=(GuestComposer&&) = delete;
 
-  HWC2::Error init(const HotplugCallback& cb) override;
+  HWC2::Error init() override;
 
   HWC2::Error onDisplayCreate(Display*) override;
 
@@ -54,8 +54,8 @@ class GuestComposer : public Composer {
 
   // Performs the actual composition of layers and presents the composed result
   // to the display.
-  HWC2::Error presentDisplay(Display* display,
-                             int32_t* outPresentFence) override;
+  std::tuple<HWC2::Error, base::unique_fd> presentDisplay(
+      Display* display) override;
 
   HWC2::Error onActiveConfigChange(Display* /*display*/) override {
     return HWC2::Error::None;
@@ -97,7 +97,7 @@ class GuestComposer : public Composer {
 
   Gralloc mGralloc;
 
-  DrmPresenter mDrmPresenter;
+  DrmPresenter* mDrmPresenter;
 
   // Cuttlefish on QEMU does not have a display. Disable presenting to avoid
   // spamming logcat with DRM commit failures.

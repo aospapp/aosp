@@ -34,11 +34,6 @@ $(call inherit-product, device/generic/common/gsi_system_ext.mk)
 $(call inherit-product, device/generic/common/gsi_product.mk)
 
 #
-# All components inherited here go to boot image
-#
-$(call inherit-product, $(SRC_TARGET_DIR)/board/generic_x86_64/device.mk)
-
-#
 # Special settings to skip mount product and system_ext on the device,
 # so this product can be tested isolated from those partitions.
 #

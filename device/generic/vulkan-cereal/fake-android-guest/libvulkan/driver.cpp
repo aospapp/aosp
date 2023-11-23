@@ -763,18 +763,17 @@ VkResult EnumerateInstanceExtensionProperties(
     VkExtensionProperties* pProperties) {
 
     std::vector<VkExtensionProperties> loader_extensions;
-    loader_extensions.push_back({
-        VK_KHR_SURFACE_EXTENSION_NAME,
-        VK_KHR_SURFACE_SPEC_VERSION});
-    loader_extensions.push_back({
-        VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
-        VK_KHR_ANDROID_SURFACE_SPEC_VERSION});
-    loader_extensions.push_back({
-        VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME,
-        VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION});
-    loader_extensions.push_back({
-        VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
-        VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION});
+    loader_extensions.push_back(VkExtensionProperties{
+        VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_SPEC_VERSION});
+    loader_extensions.push_back(
+        VkExtensionProperties{VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+                              VK_KHR_ANDROID_SURFACE_SPEC_VERSION});
+    loader_extensions.push_back(
+        VkExtensionProperties{VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME,
+                              VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION});
+    loader_extensions.push_back(
+        VkExtensionProperties{VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
+                              VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION});
 
     static const VkExtensionProperties loader_debug_report_extension = {
         VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_SPEC_VERSION,
@@ -871,22 +870,23 @@ VkResult EnumerateDeviceExtensionProperties(
     const InstanceData& data = GetData(physicalDevice);
     // extensions that are unconditionally exposed by the loader
     std::vector<VkExtensionProperties> loader_extensions;
-    loader_extensions.push_back({
-        VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME,
-        VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION});
+    loader_extensions.push_back(
+        VkExtensionProperties{VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME,
+                              VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION});
 
     bool hdrBoardConfig = false;
     if (hdrBoardConfig) {
-        loader_extensions.push_back({VK_EXT_HDR_METADATA_EXTENSION_NAME,
-                                     VK_EXT_HDR_METADATA_SPEC_VERSION});
+      loader_extensions.push_back(
+          VkExtensionProperties{VK_EXT_HDR_METADATA_EXTENSION_NAME,
+                                VK_EXT_HDR_METADATA_SPEC_VERSION});
     }
 
     VkPhysicalDevicePresentationPropertiesANDROID presentation_properties;
     if (QueryPresentationProperties(physicalDevice, &presentation_properties) &&
         presentation_properties.sharedImage) {
-        loader_extensions.push_back({
-            VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME,
-            VK_KHR_SHARED_PRESENTABLE_IMAGE_SPEC_VERSION});
+      loader_extensions.push_back(
+          VkExtensionProperties{VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME,
+                                VK_KHR_SHARED_PRESENTABLE_IMAGE_SPEC_VERSION});
     }
 
     // conditionally add VK_GOOGLE_display_timing if present timestamps are

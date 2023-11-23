@@ -13,21 +13,21 @@
 // limitations under the License.
 
 #include "base/SharedLibrary.h"
-#include "base/PathUtils.h"
+
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <functional>
 #include <vector>
 
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
+#include "base/PathUtils.h"
+#include "host-common/logging.h"
 
 #ifndef _WIN32
 #include <dlfcn.h>
 #include <stdlib.h>
 #endif
-
-#define GL_LOG(fmt,...) fprintf(stderr, "%s:%d " fmt, __func__, __LINE__, ##__VA_ARGS__);
 
 using android::base::PathUtils;
 
@@ -61,7 +61,7 @@ static SharedLibrary::LibraryMap s_libraryMap;
 
 // static
 SharedLibrary* SharedLibrary::open(const char* libraryName) {
-    GL_LOG("SharedLibrary::open for [%s]\n", libraryName);
+    INFO("SharedLibrary::open for [%s]\n", libraryName);
     char error[1];
     return open(libraryName, error, sizeof(error));
 }
@@ -72,7 +72,8 @@ SharedLibrary* SharedLibrary::open(const char* libraryName,
     auto lib = s_libraryMap.find(libraryName);
 
     if (lib == s_libraryMap.end()) {
-        GL_LOG("SharedLibrary::open for [%s]: not found in map, open for the first time\n", libraryName);
+        INFO("SharedLibrary::open for [%s]: not found in map, open for the first time\n",
+             libraryName);
         SharedLibrary* load = do_open(libraryName, error, errorSize);
         if (load != nullptr) {
             s_libraryMap[libraryName] =
@@ -90,21 +91,20 @@ SharedLibrary* SharedLibrary::open(const char* libraryName,
 SharedLibrary* SharedLibrary::do_open(const char* libraryName,
                                    char* error,
                                    size_t errorSize) {
-    GL_LOG("SharedLibrary::open for [%s] (win32): call LoadLibrary\n", libraryName);
+    INFO("SharedLibrary::open for [%s] (win32): call LoadLibrary\n", libraryName);
     HMODULE lib = LoadLibraryA(libraryName);
 
     // Try a bit harder to find the shared library if we cannot find it.
     if (!lib) {
-        GL_LOG("SharedLibrary::open for [%s] can't find in default path. Searching alternatives...\n",
-               libraryName);
+        INFO("SharedLibrary::open for [%s] can't find in default path. Searching alternatives...\n",
+             libraryName);
         sSearchPaths()->forEachPath([&lib, libraryName](const std::string& path) {
             if (!lib) {
                 auto libName = PathUtils::join(path, libraryName);
-                GL_LOG("SharedLibrary::open for [%s]: trying [%s]\n",
-                       libraryName, libName.c_str());
+                INFO("SharedLibrary::open for [%s]: trying [%s]\n", libraryName, libName.c_str());
                 lib = LoadLibraryA(libName.c_str());
-                GL_LOG("SharedLibrary::open for [%s]: trying [%s]. found? %d\n",
-                       libraryName, libName.c_str(), lib != nullptr);
+                INFO("SharedLibrary::open for [%s]: trying [%s]. found? %d\n", libraryName,
+                     libName.c_str(), lib != nullptr);
             }
         });
     }
@@ -113,14 +113,12 @@ SharedLibrary* SharedLibrary::do_open(const char* libraryName,
         constexpr size_t kMaxPathLength = 2048;
         char fullPath[kMaxPathLength];
         GetModuleFileNameA(lib, fullPath, kMaxPathLength);
-        GL_LOG("SharedLibrary::open succeeded for [%s]. File name: [%s]\n",
-               libraryName, fullPath);
+        INFO("SharedLibrary::open succeeded for [%s]. File name: [%s]\n", libraryName, fullPath);
         return new SharedLibrary(lib);
     }
 
     if (errorSize == 0) {
-        GL_LOG("SharedLibrary::open for [%s] failed, but no error\n",
-               libraryName);
+        INFO("SharedLibrary::open for [%s] failed, but no error\n", libraryName);
         return NULL;
     }
 
@@ -153,8 +151,7 @@ SharedLibrary* SharedLibrary::do_open(const char* libraryName,
     if (ret > 0 && error[ret - 1] == '\r') {
         error[--ret] = '\0';
     }
-    GL_LOG("Failed to load [%s]. Error string: [%s]\n",
-           libraryName, error);
+    INFO("Failed to load [%s]. Error string: [%s]\n", libraryName, error);
 
     return NULL;
 }
@@ -186,7 +183,7 @@ SharedLibrary::FunctionPtr SharedLibrary::findSymbol(
 SharedLibrary* SharedLibrary::do_open(const char* libraryName,
                                    char* error,
                                    size_t errorSize) {
-    GL_LOG("SharedLibrary::open for [%s] (posix): begin\n", libraryName);
+    INFO("SharedLibrary::open for [%s] (posix): begin\n", libraryName);
 
     const char* libPath = libraryName;
     char* path = NULL;
@@ -215,40 +212,44 @@ SharedLibrary* SharedLibrary::do_open(const char* libraryName,
     // On OSX, some libraries don't include an extension (notably OpenGL)
     // On OSX we try to open |libraryName| first.  If that doesn't exist,
     // we try |libraryName|.dylib
-    GL_LOG("SharedLibrary::open for [%s] (posix,darwin): call dlopen\n", libraryName);
+    INFO("SharedLibrary::open for [%s] (posix,darwin): call dlopen\n", libraryName);
     void* lib = dlopen(libraryName, RTLD_NOW);
     if (lib == NULL) {
-        GL_LOG("SharedLibrary::open for [%s] (posix,darwin): failed, "
-               "try again with [%s]\n", libraryName, libPath);
+        INFO(
+            "SharedLibrary::open for [%s] (posix,darwin): failed, "
+            "try again with [%s]\n",
+            libraryName, libPath);
         lib = dlopen(libPath, RTLD_NOW);
 
         sSearchPaths()->forEachPath([&lib, libraryName, libPath](const std::string& path) {
             if (!lib) {
                 auto libName = PathUtils::join(path, libraryName);
-                GL_LOG("SharedLibrary::open for [%s] (posix,darwin): still failed, "
-                       "try [%s]\n", libraryName, libName.c_str());
+                INFO(
+                    "SharedLibrary::open for [%s] (posix,darwin): still failed, "
+                    "try [%s]\n",
+                    libraryName, libName.c_str());
                 lib = dlopen(libName.c_str(), RTLD_NOW);
                 if (!lib) {
                     auto libPathName = PathUtils::join(path, libPath);
-                    GL_LOG("SharedLibrary::open for [%s] (posix,darwin): still failed, "
-                           "try [%s]\n", libraryName, libPathName.c_str());
+                    INFO(
+                        "SharedLibrary::open for [%s] (posix,darwin): still failed, "
+                        "try [%s]\n",
+                        libraryName, libPathName.c_str());
                     lib = dlopen(libPathName.c_str(), RTLD_NOW);
                 }
             }
         });
     }
 #else
-    GL_LOG("SharedLibrary::open for [%s] (posix,linux): call dlopen on [%s]\n",
-           libraryName, libPath);
+    INFO("SharedLibrary::open for [%s] (posix,linux): call dlopen on [%s]\n", libraryName, libPath);
     void* lib = dlopen(libPath, RTLD_NOW);
 #endif
 
     sSearchPaths()->forEachPath([&lib, libPath, libraryName](const std::string& path) {
         if (!lib) {
             auto libPathName = PathUtils::join(path, libPath);
-            GL_LOG("SharedLibrary::open for [%s] (posix): try again with %s\n",
-                   libraryName,
-                   libPathName.c_str());
+            INFO("SharedLibrary::open for [%s] (posix): try again with %s\n", libraryName,
+                 libPathName.c_str());
             lib = dlopen(libPathName.c_str(), RTLD_NOW);
         }
     });
@@ -262,8 +263,7 @@ SharedLibrary* SharedLibrary::do_open(const char* libraryName,
     }
 
     snprintf(error, errorSize, "%s", dlerror());
-    GL_LOG("SharedLibrary::open for [%s] failed (posix). dlerror: [%s]\n",
-           libraryName, error);
+    INFO("SharedLibrary::open for [%s] failed (posix). dlerror: [%s]\n", libraryName, error);
     return NULL;
 }
 

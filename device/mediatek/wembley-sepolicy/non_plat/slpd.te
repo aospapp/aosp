@@ -16,3 +16,5 @@ net_domain(slpd)
 
 # mtk_agpsd will send the current SUPL profile to SLPD
 allow slpd mtk_agpsd:unix_dgram_socket sendto;
+
+allow slpd self:netlink_route_socket { bind nlmsg_readpriv nlmsg_getneigh };

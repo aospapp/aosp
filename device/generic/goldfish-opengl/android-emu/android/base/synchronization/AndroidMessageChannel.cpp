@@ -21,12 +21,12 @@ namespace guest {
 MessageChannelBase::MessageChannelBase(size_t capacity) : mCapacity(capacity) {}
 
 size_t MessageChannelBase::size() const {
-    AutoLock lock(mLock);
+    AutoLock<Lock> lock(mLock);
     return mCount;
 }
 
 void MessageChannelBase::stop() {
-    android::base::guest::AutoLock lock(mLock);
+    android::base::guest::AutoLock<Lock> lock(mLock);
     mStopped = true;
     mCount = 0;
     mCanRead.broadcast();
@@ -34,12 +34,12 @@ void MessageChannelBase::stop() {
 }
 
 bool MessageChannelBase::isStopped() const {
-    AutoLock lock(mLock);
+    AutoLock<Lock> lock(mLock);
     return isStoppedLocked();
 }
 
 void MessageChannelBase::waitForEmpty() {
-    AutoLock lock(mLock);
+    AutoLock<Lock> lock(mLock);
     while (mCount > 0) {
         mCanWrite.wait(&lock);
     }

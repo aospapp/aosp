@@ -212,8 +212,8 @@ int ApiGen::genContext(const std::string & filename, SideType side)
 
     //client site set error virtual func
     if (side == CLIENT_SIDE) {
-        fprintf(fp, "\tvirtual void setError(unsigned int  error){ (void)error; };\n");
-        fprintf(fp, "\tvirtual unsigned int getError(){ return 0; };\n");
+        fprintf(fp, "\tvirtual void setError(unsigned int  error){ (void)error; }\n");
+        fprintf(fp, "\tvirtual unsigned int getError(){ return 0; }\n");
     }
 
     fprintf(fp, "};\n");
@@ -536,6 +536,27 @@ static void addGuestTimePrinting(const EntryPoint* e, bool hasTimeBeforeReadback
 #endif
 }
 
+static void addEncoderDebugLog(const EntryPoint* e, FILE* fp) {
+    fprintf(fp, "\tENCODER_DEBUG_LOG(\"%s(", e->name().c_str());
+
+    const VarsArray& vars = e->vars();
+    for (size_t i = 0; i < vars.size(); i++) {
+        const Var& var = vars[i];
+        if (i != 0) {
+            fprintf(fp, ", ");
+        }
+        fprintf(fp, "%s:%s", var.name().c_str(), var.type()->printFormat().c_str());
+    }
+
+    fprintf(fp, ")\"");
+    for (size_t i = 0; i < vars.size(); i++) {
+        const Var& var = vars[i];
+        fprintf(fp, ", %s", var.name().c_str());
+    }
+
+    fprintf(fp, ");\n");
+}
+
 int ApiGen::genEncoderImpl(const std::string &filename)
 {
     FILE *fp = fopen(filename.c_str(), "wt");
@@ -551,7 +572,9 @@ int ApiGen::genEncoderImpl(const std::string &filename)
     fprintf(fp, "#include \"%s_enc.h\"\n\n\n", m_basename.c_str());
     fprintf(fp, "#include <vector>\n\n");
     fprintf(fp, "#include <stdio.h>\n\n");
-    fprintf(fp, "#include \"android/base/Tracing.h\"\n");
+    fprintf(fp, "#include \"android/base/Tracing.h\"\n\n");
+    fprintf(fp, "#include \"EncoderDebug.h\"\n\n");
+
     fprintf(fp, "namespace {\n\n");
 
     // unsupport printout
@@ -572,9 +595,8 @@ int ApiGen::genEncoderImpl(const std::string &filename)
 
         e->print(fp, true, "_enc", /* classname + "::" */"", "void *self");
         fprintf(fp, "{\n");
-#if DLOG_ALL_ENCODES
-        fprintf(fp, "ALOGD(\"%%s: enter\", __FUNCTION__);\n");
-#endif
+
+        addEncoderDebugLog(e, fp);
 
         fprintf(fp, "\tAEMU_SCOPED_TRACE(\"%s encode\");\n", e->name().c_str());
 
@@ -792,11 +814,19 @@ int ApiGen::genEncoderImpl(const std::string &filename)
                     if (evars[j].guestUnpackExpression() != "") {
                         fprintf(fp, "%s%s;\n", indent, evars[j].guestUnpackExpression().c_str());
                     } else {
-                        fprintf(fp, "%sstream->readback(%s, __size_%s);\n",
+                        if (evars[j].isDMA()) {
+                            fprintf(fp, "%s// Skip readback for var %s as it's DMA\n", indent, varname);
+                        } else {
+                            fprintf(fp, "%sstream->readback(%s, __size_%s);\n",
+                                    indent, varname, varname);
+                        }
+                    }
+                    if (evars[j].isDMA()) {
+                        fprintf(fp, "%s// Skip checksum for var %s as it's DMA\n", indent, varname);
+                    } else {
+                        fprintf(fp, "%sif (useChecksum) checksumCalculator->addBuffer(%s, __size_%s);\n",
                                 indent, varname, varname);
                     }
-                    fprintf(fp, "%sif (useChecksum) checksumCalculator->addBuffer(%s, __size_%s);\n",
-                            indent, varname, varname);
                     if (evars[j].nullAllowed()) {
                         fprintf(fp, "\t}\n");
                     }
@@ -971,6 +1001,7 @@ int ApiGen::genDecoderImpl(const std::string &filename)
     fprintf(fp, "#include \"%s_dec.h\"\n\n\n", m_basename.c_str());
     fprintf(fp, "#include \"ProtocolUtils.h\"\n\n");
     fprintf(fp, "#include \"ChecksumCalculatorThreadInfo.h\"\n\n");
+    fprintf(fp, "#include \"host-common/logging.h\"\n\n");
     fprintf(fp, "#include <stdio.h>\n\n");
     fprintf(fp, "typedef unsigned int tsize_t; // Target \"size_t\", which is 32-bit for now. It may or may not be the same as host's size_t when emugen is compiled.\n\n");
 
@@ -990,7 +1021,7 @@ int ApiGen::genDecoderImpl(const std::string &filename)
     // decoder switch;
     fprintf(fp, "size_t %s::decode(void *buf, size_t len, IOStream *stream, ChecksumCalculator* checksumCalc) {\n", classname.c_str());
     fprintf(fp,
-"\tif (len < 8) return 0; \n\
+"\tif (len < 8) return 0;\n\
 #ifdef CHECK_GL_ERRORS\n\
 \tchar lastCall[256] = {0};\n\
 #endif\n\
@@ -1004,8 +1035,8 @@ R"(    const size_t checksumSize = checksumCalc->checksumByteSize();
     }
     fprintf(fp,
 "\twhile (end - ptr >= 8) {\n\
-\t\tuint32_t opcode = *(uint32_t *)ptr;   \n\
-\t\tint32_t packetLen = *(int32_t *)(ptr + 4);\n\
+\t\tuint32_t opcode = *(uint32_t *)ptr;\n\
+\t\tuint32_t packetLen = *(uint32_t *)(ptr + 4);\n\
 \t\tif (end - ptr < packetLen) return ptr - (unsigned char*)buf;\n");
     if (changesChecksum) {
         fprintf(fp,
@@ -1035,6 +1066,7 @@ R"(        // Do this on every iteration, as some commands may change the checks
         std::string printString;
         for (size_t i = 0; i < e->vars().size(); i++) {
             Var *v = &e->vars()[i];
+            printString +=  v->name() + ":";
             if (!v->isVoid())  printString += (v->isPointer() ? "%p(%u)" : v->type()->printFormat()) + " ";
         }
 
@@ -1056,12 +1088,7 @@ R"(        // Do this on every iteration, as some commands may change the checks
             retvalType = e->retval().type()->name();
         }
 
-#define SKIP_DEBUG_PRINT 1
-
         for (int pass = PASS_FIRST; pass < PASS_LAST; pass++) {
-#if SKIP_DEBUG_PRINT
-            if (pass == PASS_DebugPrint) continue;
-#endif
 
 #if INSTRUMENT_TIMING_HOST
             if (pass == PASS_FunctionCall) {
@@ -1086,14 +1113,15 @@ R"(        // Do this on every iteration, as some commands may change the checks
                 }
             } else if (pass == PASS_DebugPrint) {
                 if (strstr(m_basename.c_str(), "gl")) {
-                    fprintf(fp, "\t\t#ifdef CHECK_GL_ERRORS\n");
-                    fprintf(fp, "\t\tGLint err = this->glGetError();\n");
-                    fprintf(fp, "\t\tif (err) fprintf(stderr, \"%s Error (pre-call): 0x%%X before %s\\n\", err);\n",
+                    fprintf(fp, "\t\t\t#ifdef CHECK_GL_ERRORS\n");
+                    fprintf(fp, "\t\t\tGLint err = this->glGetError();\n");
+                    fprintf(fp, "\t\t\tif (err) fprintf(stderr, \"%s Error (pre-call): 0x%%X before %s\\n\", err);\n",
                             m_basename.c_str(), e->name().c_str());
-                    fprintf(fp, "\t\t#endif\n");
+                    fprintf(fp, "\t\t\t#endif\n");
                 }
+
                 fprintf(fp,
-                        "\t\t\tDEBUG(\"%s(%%p): %s(%s)\\n\", stream",
+                        "\t\t\tDECODER_DEBUG_LOG(\"%s(%%p): %s(%s)\", stream",
                         m_basename.c_str(),
                         e->name().c_str(),
                         printString.c_str());
@@ -1362,7 +1390,7 @@ R"(        // Do this on every iteration, as some commands may change the checks
                 fprintf(fp,
                         "\t\t\tif (useChecksum) {\n"
                         "\t\t\t\tChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, %s, "
-                        "ptr + %s, checksumSize, "
+                        "ptr + %s, checksumSize,"
                         "\n\t\t\t\t\t\"%s::decode,"
                         " OP_%s: GL checksumCalculator failure\\n\");\n"
                         "\t\t\t}\n",

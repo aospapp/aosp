@@ -33,7 +33,7 @@
 
 struct renderControl_encoder_context_t;
 
-extern bool processPipeInit(HostConnectionType connType, renderControl_encoder_context_t *rcEnc);
+extern bool processPipeInit(int stream_handle, HostConnectionType connType, renderControl_encoder_context_t *rcEnc);
 extern uint64_t getPuid();
 
 // For testing purposes; this will close the current process pipe if opened, reset the state to initial,

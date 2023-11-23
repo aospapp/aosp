@@ -20,7 +20,6 @@
 #include "snapshot/common.h"
 #include "host-common/logging.h"
 
-#include "ErrorLog.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
 
@@ -227,8 +226,8 @@ RenderChannelPtr RendererImpl::createRenderChannel(
             mLoaderRenderThread.reset();
         }
 
-        DBG("Started new RenderThread (total %" PRIu64 ") @%p\n",
-            static_cast<uint64_t>(mChannels.size()), channel->renderThread());
+        GL_LOG("Started new RenderThread (total %" PRIu64 ") @%p",
+               static_cast<uint64_t>(mChannels.size()), channel->renderThread());
     }
 
     return channel;
@@ -591,6 +590,30 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
         },
         .set_guest_managed_color_buffer_lifetime = [](bool guestManaged) {
             FrameBuffer::getFB()->setGuestManagedColorBufferLifetime(true);
+        },
+        .async_wait_for_gpu_with_cb = [](uint64_t eglsync, FenceCompletionCallback cb) {
+            FrameBuffer::getFB()->asyncWaitForGpuWithCb(eglsync, cb);
+        },
+        .async_wait_for_gpu_vulkan_with_cb = [](uint64_t device, uint64_t fence, FenceCompletionCallback cb) {
+            FrameBuffer::getFB()->asyncWaitForGpuVulkanWithCb(device, fence, cb);
+        },
+        .async_wait_for_gpu_vulkan_qsri_with_cb = [](uint64_t image, FenceCompletionCallback cb) {
+            FrameBuffer::getFB()->asyncWaitForGpuVulkanQsriWithCb(image, cb);
+        },
+        .wait_for_gpu_vulkan_qsri = [](uint64_t image) {
+            FrameBuffer::getFB()->waitForGpuVulkanQsri(image);
+        },
+        .platform_import_resource = [](uint32_t handle, uint32_t type, void* resource) {
+            return FrameBuffer::getFB()->platformImportResource(handle, type, resource);
+        },
+        .platform_resource_info = [](uint32_t handle, int32_t* width, int32_t* height, int32_t* internal_format) {
+            return FrameBuffer::getFB()->getColorBufferInfo(handle, width, height, internal_format);
+        },
+        .platform_create_shared_egl_context = []() {
+            return FrameBuffer::getFB()->platformCreateSharedEglContext();
+        },
+        .platform_destroy_shared_egl_context = [](void* context) {
+            return FrameBuffer::getFB()->platformDestroySharedEglContext(context);
         },
 };
 

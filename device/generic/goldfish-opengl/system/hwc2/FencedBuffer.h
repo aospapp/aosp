@@ -27,16 +27,20 @@ class FencedBuffer {
   FencedBuffer() : mBuffer(nullptr) {}
 
   void setBuffer(buffer_handle_t buffer) { mBuffer = buffer; }
-  void setFence(int fenceFd) {
-    mFence = std::make_shared<base::unique_fd>(fenceFd);
-  }
+  void setFence(base::unique_fd fence) { mFence = std::move(fence); }
 
   buffer_handle_t getBuffer() const { return mBuffer; }
-  int getFence() const { return mFence ? dup(mFence->get()) : -1; }
+  base::unique_fd getFence() const {
+    if (mFence.ok()) {
+      return base::unique_fd(dup(mFence.get()));
+    } else {
+      return base::unique_fd();
+    }
+  }
 
  private:
   buffer_handle_t mBuffer;
-  std::shared_ptr<android::base::unique_fd> mFence;
+  android::base::unique_fd mFence;
 };
 
 }  // namespace android

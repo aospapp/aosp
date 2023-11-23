@@ -17,13 +17,15 @@
 #include "remote_keymaster.h"
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
+#include <android-base/strings.h>
 #include <keymaster/android_keymaster_messages.h>
 #include <keymaster/keymaster_configuration.h>
 
 namespace keymaster {
 
 RemoteKeymaster::RemoteKeymaster(cuttlefish::KeymasterChannel* channel,
-                                 uint32_t message_version)
+                                 int32_t message_version)
     : channel_(channel), message_version_(message_version) {}
 
 RemoteKeymaster::~RemoteKeymaster() {}
@@ -65,6 +67,48 @@ bool RemoteKeymaster::Initialize() {
   if (rsp.error != KM_ERROR_OK) {
     LOG(ERROR) << "Failed to configure keymaster: " << rsp.error;
     return false;
+  }
+
+  // Set the vendor patchlevel to value retrieved from system property (which
+  // requires SELinux permission).
+  ConfigureVendorPatchlevelRequest vendor_req(message_version());
+  vendor_req.vendor_patchlevel = GetVendorPatchlevel();
+  ConfigureVendorPatchlevelResponse vendor_rsp =
+      ConfigureVendorPatchlevel(vendor_req);
+  if (vendor_rsp.error != KM_ERROR_OK) {
+    LOG(ERROR) << "Failed to configure keymaster vendor patchlevel: "
+               << vendor_rsp.error;
+    return false;
+  }
+
+  // Set the boot patchlevel to value retrieved from system property (which
+  // requires SELinux permission).
+  ConfigureBootPatchlevelRequest boot_req(message_version());
+  static constexpr char boot_prop_name[] = "ro.vendor.boot_security_patch";
+  auto boot_prop_value = android::base::GetProperty(boot_prop_name, "");
+  boot_prop_value = android::base::StringReplace(boot_prop_value.data(), "-",
+                                                 "", /* all */ true);
+  boot_req.boot_patchlevel = std::stoi(boot_prop_value);
+  ConfigureBootPatchlevelResponse boot_rsp = ConfigureBootPatchlevel(boot_req);
+  if (boot_rsp.error != KM_ERROR_OK) {
+    LOG(ERROR) << "Failed to configure keymaster boot patchlevel: "
+               << boot_rsp.error;
+    return false;
+  }
+
+  // Pass verified boot information to the remote KM implementation
+  auto vbmeta_digest = GetVbmetaDigest();
+  if (vbmeta_digest) {
+    ConfigureVerifiedBootInfoRequest request(
+        message_version(), GetVerifiedBootState(), GetBootloaderState(),
+        *vbmeta_digest);
+    ConfigureVerifiedBootInfoResponse response =
+        ConfigureVerifiedBootInfo(request);
+    if (response.error != KM_ERROR_OK) {
+      LOG(ERROR) << "Failed to configure keymaster verified boot info: "
+                 << response.error;
+      return false;
+    }
   }
 
   return true;
@@ -122,15 +166,25 @@ void RemoteKeymaster::Configure(const ConfigureRequest& request,
 
 void RemoteKeymaster::GenerateKey(const GenerateKeyRequest& request,
                                   GenerateKeyResponse* response) {
-  GenerateKeyRequest datedRequest(request.message_version);
-  datedRequest.key_description = request.key_description;
-
-  if (!request.key_description.Contains(TAG_CREATION_DATETIME)) {
+  if (message_version_ < MessageVersion(KmVersion::KEYMINT_1) &&
+      !request.key_description.Contains(TAG_CREATION_DATETIME)) {
+    GenerateKeyRequest datedRequest(request.message_version);
     datedRequest.key_description.push_back(TAG_CREATION_DATETIME,
                                            java_time(time(NULL)));
+    ForwardCommand(GENERATE_KEY, datedRequest, response);
+  } else {
+    ForwardCommand(GENERATE_KEY, request, response);
   }
+}
 
-  ForwardCommand(GENERATE_KEY, datedRequest, response);
+void RemoteKeymaster::GenerateRkpKey(const GenerateRkpKeyRequest& request,
+                                     GenerateRkpKeyResponse* response) {
+  ForwardCommand(GENERATE_RKP_KEY, request, response);
+}
+
+void RemoteKeymaster::GenerateCsr(const GenerateCsrRequest& request,
+                                  GenerateCsrResponse* response) {
+  ForwardCommand(GENERATE_CSR, request, response);
 }
 
 void RemoteKeymaster::GetKeyCharacteristics(
@@ -234,8 +288,35 @@ EarlyBootEndedResponse RemoteKeymaster::EarlyBootEnded() {
 void RemoteKeymaster::GenerateTimestampToken(
     GenerateTimestampTokenRequest& request,
     GenerateTimestampTokenResponse* response) {
-  // TODO(aosp/1641315): Send a message to the host.
   ForwardCommand(GENERATE_TIMESTAMP_TOKEN, request, response);
+}
+
+ConfigureVendorPatchlevelResponse RemoteKeymaster::ConfigureVendorPatchlevel(
+    const ConfigureVendorPatchlevelRequest& request) {
+  ConfigureVendorPatchlevelResponse response(message_version());
+  ForwardCommand(CONFIGURE_VENDOR_PATCHLEVEL, request, &response);
+  return response;
+}
+
+ConfigureBootPatchlevelResponse RemoteKeymaster::ConfigureBootPatchlevel(
+    const ConfigureBootPatchlevelRequest& request) {
+  ConfigureBootPatchlevelResponse response(message_version());
+  ForwardCommand(CONFIGURE_BOOT_PATCHLEVEL, request, &response);
+  return response;
+}
+
+ConfigureVerifiedBootInfoResponse RemoteKeymaster::ConfigureVerifiedBootInfo(
+    const ConfigureVerifiedBootInfoRequest& request) {
+  ConfigureVerifiedBootInfoResponse response(message_version());
+  ForwardCommand(CONFIGURE_VERIFIED_BOOT_INFO, request, &response);
+  return response;
+}
+
+GetRootOfTrustResponse RemoteKeymaster::GetRootOfTrust(
+    const GetRootOfTrustRequest& request) {
+  GetRootOfTrustResponse response(message_version());
+  ForwardCommand(GET_ROOT_OF_TRUST, request, &response);
+  return response;
 }
 
 }  // namespace keymaster

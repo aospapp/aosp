@@ -16,33 +16,38 @@
 
 #pragma once
 #include <array>
-#include <android/hardware/audio/common/7.0/types.h>
-#include <android/hardware/audio/7.0/types.h>
+#include PATH(android/hardware/audio/common/COMMON_TYPES_FILE_VERSION/types.h)
+#include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/types.h)
 #include <utils/Timers.h>
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 namespace util {
 
 using ::android::hardware::hidl_bitfield;
 using ::android::hardware::hidl_string;
-using ::android::hardware::audio::common::V7_0::AudioFormat;
-using ::android::hardware::audio::common::V7_0::AudioChannelMask;
-using ::android::hardware::audio::common::V7_0::AudioConfig;
-using ::android::hardware::audio::V7_0::MicrophoneInfo;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioFormat;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioChannelMask;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioConfig;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioPortConfig;
+using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::MicrophoneInfo;
+using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::TimeSpec;
 
 MicrophoneInfo getMicrophoneInfo();
 
 size_t countChannels(const AudioChannelMask &mask);
 size_t getBytesPerSample(const AudioFormat &format);
 
+bool checkAudioConfig(const AudioConfig &cfg);
 bool checkAudioConfig(bool isOut,
                       size_t duration_ms,
                       const AudioConfig &cfg,
                       AudioConfig &suggested);
+
+bool checkAudioPortConfig(const AudioPortConfig& cfg);
 
 TimeSpec nsecs2TimeSpec(nsecs_t);
 
@@ -50,7 +55,7 @@ void setThreadPriority(int prio);
 
 }  // namespace util
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

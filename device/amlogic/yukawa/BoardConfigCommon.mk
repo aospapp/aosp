@@ -82,7 +82,7 @@ BOARD_SUPER_PARTITION_SIZE := 2415919104
 endif
 BOARD_DB_DYNAMIC_PARTITIONS_SIZE := 2411724800  # Reserve 4M for DAP metadata
 BOARD_SUPER_PARTITION_METADATA_DEVICE := super
-BOARD_SUPER_IMAGE_IN_UPDATE_PACKAGE := true
+# BOARD_SUPER_IMAGE_IN_UPDATE_PACKAGE := true
 
 
 # Recovery
@@ -142,6 +142,10 @@ ifneq ($(TARGET_MEM_SIZE),)
 BOARD_KERNEL_CMDLINE += mem=$(TARGET_MEM_SIZE)
 endif
 
+ifneq ($(TARGET_KERNEL_CFG),)
+BOARD_KERNEL_CMDLINE += $(TARGET_KERNEL_CFG)
+endif
+
 USE_E2FSPROGS := true
 
 BOARD_USES_GENERIC_AUDIO := false
@@ -154,9 +158,6 @@ BOARD_SEPOLICY_DIRS += \
         device/amlogic/yukawa/sepolicy
 
 DEVICE_MANIFEST_FILE += device/amlogic/yukawa/manifest.xml
-ifeq ($(TARGET_USE_AB_SLOT), true)
-DEVICE_MANIFEST_FILE += device/amlogic/yukawa/hal/bootctrl/bootctrl.xml
-endif
 
 ifneq ($(TARGET_KERNEL_USE), 4.19)
 DEVICE_MANIFEST_FILE += device/amlogic/yukawa/manifest_kernel5.xml

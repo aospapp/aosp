@@ -48,8 +48,10 @@ vendor_internal_prop(vendor_touchpanel_prop)
 vendor_internal_prop(vendor_tcpdump_log_prop)
 
 # Fingerprint
-vendor_internal_prop(vendor_fingerprint_fake_prop)
+vendor_internal_prop(vendor_fingerprint_prop)
 
 # Dynamic sensor
 vendor_internal_prop(vendor_dynamic_sensor_prop)
 
+# UWB calibration
+system_vendor_config_prop(vendor_uwb_calibration_prop)

@@ -18,9 +18,9 @@
 
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "GLcommon/GLLibrary.h"
-#include "apigen-codec-common/ErrorLog.h"
 #include "ShaderCache.h"
 
 #ifdef ANDROID
@@ -35,6 +35,7 @@
 #include <EGL/eglext.h>
 #include <EGL/eglext_angle.h>
 #include <GLES2/gl2.h>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -115,8 +116,18 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(EGLBoolean, eglSwapInterval,                                             \
       (EGLDisplay display, EGLint interval))                                   \
     X(void, eglSetBlobCacheFuncsANDROID, (EGLDisplay display,                  \
-        EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))                 \
+      EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))                   \
+    X(EGLImage, eglCreateImageKHR, (EGLDisplay dpy,                            \
+      EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
+      const EGLint *attrib_list))                                              \
+    X(EGLBoolean, eglDestroyImageKHR, (EGLDisplay dpy, EGLImage image))        \
+    X(EGLImage, eglCreateImage, (EGLDisplay dpy,                               \
+      EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
+      const EGLAttrib *attrib_list))                                           \
+    X(EGLBoolean, eglDestroyImage, (EGLDisplay dpy, EGLImage image))           \
     X(EGLBoolean, eglReleaseThread, (void))                                    \
+    X(EGLint, eglDebugMessageControlKHR,                                       \
+      (EGLDEBUGPROCKHR callback, const EGLAttrib * attrib_list))               \
 
 namespace {
 using namespace EglOS;
@@ -226,7 +237,7 @@ public:
         mDisplay(display),
         mNativeCtx(context) { }
 
-    ~EglOsEglContext() {
+    virtual ~EglOsEglContext() {
         D("%s %p\n", __FUNCTION__, mNativeCtx);
         if (!mDispatcher->eglDestroyContext(mDisplay, mNativeCtx)) {
             // TODO: print a better error message
@@ -237,6 +248,7 @@ public:
         return mNativeCtx;
     }
 
+    virtual void* getNative() { return (void*)mNativeCtx; }
 private:
     EglOsEglDispatcher* mDispatcher = nullptr;
     EGLDisplay mDisplay;
@@ -259,9 +271,21 @@ private:
 
 class EglOsEglDisplay : public EglOS::Display {
 public:
-    EglOsEglDisplay();
+    EglOsEglDisplay(bool nullEgl);
     ~EglOsEglDisplay();
     virtual EglOS::GlesVersion getMaxGlesVersion();
+    virtual const char* getExtensionString();
+    virtual const char* getVendorString();
+    virtual EGLImage createImageKHR(
+            EGLDisplay dpy,
+            EGLContext ctx,
+            EGLenum target,
+            EGLClientBuffer buffer,
+            const EGLint *attrib_list);
+    virtual EGLBoolean destroyImageKHR(
+            EGLDisplay dpy,
+            EGLImage image);
+    virtual EGLDisplay getNative();
     void queryConfigs(int renderableType,
                       AddConfigCallback* addConfigFunc,
                       void* addConfigOpaque);
@@ -286,21 +310,41 @@ public:
         return mDispatcher.eglGetProcAddress(func);
     }
 
+    EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib* attribs) {
+        return mDispatcher.eglDebugMessageControlKHR(callback, attribs);
+    }
+
 private:
     bool mVerbose = false;
     EGLDisplay mDisplay;
     EglOsEglDispatcher mDispatcher;
     bool mHeadless = false;
+    std::string mClientExts;
+    std::string mVendor;
 
 #ifdef __linux__
     ::Display* mGlxDisplay = nullptr;
 #endif // __linux__
 };
 
-EglOsEglDisplay::EglOsEglDisplay() {
+EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
     mVerbose = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
 
-    if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
+    if (nullEgl) {
+        const EGLAttrib attr[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE,
+            EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE,
+            EGL_NONE
+        };
+
+        mDisplay = mDispatcher.eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE,
+            (void*)EGL_DEFAULT_DISPLAY,
+            attr);
+
+        if (mDisplay == EGL_NO_DISPLAY) {
+            fprintf(stderr, "%s: no display found that supports null backend\n", __func__);
+        }
+    } else if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
         const EGLAttrib attr[] = {
             EGL_PLATFORM_ANGLE_TYPE_ANGLE,
             EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
@@ -324,9 +368,18 @@ EglOsEglDisplay::EglOsEglDisplay() {
     mDispatcher.eglInitialize(mDisplay, nullptr, nullptr);
     mDispatcher.eglSwapInterval(mDisplay, 0);
     auto clientExts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    auto vendor = mDispatcher.eglQueryString(mDisplay, EGL_VENDOR);
 
     if (mVerbose) {
         fprintf(stderr, "%s: client exts: [%s]\n", __func__, clientExts);
+    }
+
+    if (clientExts) {
+        mClientExts = clientExts;
+    }
+
+    if (vendor) {
+        mVendor = vendor;
     }
 
     mDispatcher.eglBindAPI(EGL_OPENGL_ES_API);
@@ -355,7 +408,43 @@ EglOsEglDisplay::~EglOsEglDisplay() {
 
 EglOS::GlesVersion EglOsEglDisplay::getMaxGlesVersion() {
     // TODO: Detect and return the highest version like in GLESVersionDetector.cpp
-    return EglOS::GlesVersion::ES30;
+    // GLES3.2 will also need some more autogen + enums if anyone is interested.
+    return EglOS::GlesVersion::ES31;
+}
+
+const char* EglOsEglDisplay::getExtensionString() {
+    return mClientExts.c_str();
+}
+
+const char* EglOsEglDisplay::getVendorString() {
+    return mVendor.c_str();
+}
+
+EGLImage EglOsEglDisplay::createImageKHR(
+        EGLDisplay dpy,
+        EGLContext ctx,
+        EGLenum target,
+        EGLClientBuffer buffer,
+        const EGLint *attrib_list) {
+    if (mDispatcher.eglCreateImageKHR) {
+        return mDispatcher.eglCreateImageKHR(dpy, ctx, target, buffer, attrib_list);
+    } else {
+        return EGL_NO_IMAGE_KHR;
+    }
+}
+
+EGLBoolean EglOsEglDisplay::destroyImageKHR(
+        EGLDisplay dpy,
+        EGLImage image) {
+    if (mDispatcher.eglDestroyImage) {
+        return mDispatcher.eglDestroyImageKHR(dpy, image);
+    } else {
+        return EGL_FALSE;
+    }
+}
+
+EGLDisplay EglOsEglDisplay::getNative() {
+    return mDisplay;
 }
 
 void EglOsEglDisplay::queryConfigs(int renderableType,
@@ -473,6 +562,10 @@ EglOsEglDisplay::createContext(EGLint profileMask,
     // Always GLES3
     std::vector<EGLint> attributes = { EGL_CONTEXT_CLIENT_VERSION, 3 };
     auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    auto vendor = mDispatcher.eglQueryString(mDisplay, EGL_VENDOR);
+
+    // TODO (b/207426737): remove Imagination-specific workaround
+    bool disable_robustness = vendor && (strcmp(vendor, "Imagination Technologies") == 0);
 
     bool disableValidation = android::base::getEnvironmentVariable("ANDROID_EMUGL_EGL_VALIDATION") == "0";
     if (exts != nullptr && emugl::hasExtension(exts, "EGL_KHR_create_context_no_error") && disableValidation) {
@@ -480,7 +573,7 @@ EglOsEglDisplay::createContext(EGLint profileMask,
         attributes.push_back(EGL_TRUE);
     }
 
-    if (exts != nullptr && emugl::hasExtension(exts, "EGL_EXT_create_context_robustness")) {
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_EXT_create_context_robustness") && !disable_robustness) {
         attributes.push_back(EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT);
         attributes.push_back(EGL_LOSE_CONTEXT_ON_RESET_EXT);
     }
@@ -663,19 +756,19 @@ bool EglOsEglDisplay::checkWindowPixelFormatMatch(EGLNativeWindowType win,
 #endif // __APPLE__
 }
 
-static EglOsEglDisplay* sHostDisplay() {
-    static EglOsEglDisplay* d = new EglOsEglDisplay;
+static EglOsEglDisplay* sHostDisplay(bool nullEgl = false) {
+    static EglOsEglDisplay* d = new EglOsEglDisplay(nullEgl);
     return d;
 }
 
 class EglEngine : public EglOS::Engine {
 public:
-    EglEngine() = default;
+    EglEngine(bool nullEgl) : EglOS::Engine(), mUseNullEgl(nullEgl) {}
     ~EglEngine() = default;
 
     EglOS::Display* getDefaultDisplay() {
         D("%s\n", __FUNCTION__);
-        return sHostDisplay();
+        return sHostDisplay(mUseNullEgl);
     }
     GlLibrary* getGlLibrary() {
         D("%s\n", __FUNCTION__);
@@ -690,20 +783,25 @@ public:
         return sHostDisplay()->createWindowSurface(pf, wnd);
     }
 
+    EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib* attribs) override {
+        return sHostDisplay()->eglDebugMessageControlKHR(callback, attribs);
+    }
+
 private:
     EglOsGlLibrary mGlLib;
+    bool mUseNullEgl;
 };
 
 }  // namespace
 
-static EglEngine* sHostEngine() {
-    static EglEngine* res = new EglEngine;
+static EglEngine* sHostEngine(bool nullEgl) {
+    static EglEngine* res = new EglEngine(nullEgl);
     return res;
 }
 
 namespace EglOS {
-Engine* getEgl2EglHostInstance() {
+Engine* getEgl2EglHostInstance(bool nullEgl) {
     D("%s\n", __FUNCTION__);
-    return sHostEngine();
+    return sHostEngine(nullEgl);
 }
 }  // namespace EglOS

@@ -14,77 +14,40 @@
 
 #pragma once
 
-#include <memory>
+#include <aidl/device/google/atv/audio_proxy/AudioDrain.h>
+#include <aidl/device/google/atv/audio_proxy/TimeSpec.h>
 
-// clang-format off
-#include PATH(android/hardware/audio/FILE_VERSION/types.h)
-#include PATH(android/hardware/audio/common/FILE_VERSION/types.h)
-// clang-format on
+#include <memory>
 
 #include "public/audio_proxy.h"
 
 namespace audio_proxy {
-namespace AUDIO_PROXY_CPP_VERSION {
 
-using ::android::hardware::hidl_bitfield;
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
-
-using namespace ::android::hardware::audio::common::CPP_VERSION;
-using namespace ::android::hardware::audio::CPP_VERSION;
+using aidl::device::google::atv::audio_proxy::AudioDrain;
+using aidl::device::google::atv::audio_proxy::TimeSpec;
 
 // C++ friendly wrapper of audio_proxy_stream_out. It handles type conversion
-// between C type and hidl type.
+// between C type and aidl type.
 class AudioProxyStreamOut final {
  public:
   AudioProxyStreamOut(audio_proxy_stream_out_t* stream,
                       audio_proxy_device_t* device);
   ~AudioProxyStreamOut();
 
-  size_t getBufferSize() const;
-  uint64_t getFrameCount() const;
-
-  hidl_vec<uint32_t> getSupportedSampleRates(AudioFormat format) const;
-  uint32_t getSampleRate() const;
-  Result setSampleRate(uint32_t rate);
-
-  hidl_vec<hidl_bitfield<AudioChannelMask>> getSupportedChannelMasks(
-      AudioFormat format) const;
-  hidl_bitfield<AudioChannelMask> getChannelMask() const;
-  Result setChannelMask(hidl_bitfield<AudioChannelMask> mask);
-
-  hidl_vec<AudioFormat> getSupportedFormats() const;
-  AudioFormat getFormat() const;
-  Result setFormat(AudioFormat format);
-
-  Result standby();
-
-  Result setParameters(const hidl_vec<ParameterValue>& context,
-                       const hidl_vec<ParameterValue>& parameters);
-  hidl_vec<ParameterValue> getParameters(
-      const hidl_vec<ParameterValue>& context,
-      const hidl_vec<hidl_string>& keys) const;
-
-  uint32_t getLatency() const;
   ssize_t write(const void* buffer, size_t bytes);
-  Result getRenderPosition(uint32_t* dsp_frames) const;
-  Result getNextWriteTimestamp(int64_t* timestamp) const;
-  Result getPresentationPosition(uint64_t* frames, TimeSpec* timestamp) const;
+  void getPresentationPosition(int64_t* frames, TimeSpec* timestamp) const;
 
-  Result pause();
-  Result resume();
+  void standby();
+  void pause();
+  void resume();
+  void drain(AudioDrain type);
+  void flush();
 
-  bool supportsDrain() const;
-  Result drain(AudioDrain type);
-
-  Result flush();
-
-  Result setVolume(float left, float right);
+  void setVolume(float left, float right);
 
  private:
   audio_proxy_stream_out_t* const mStream;
   audio_proxy_device_t* const mDevice;
 };
 
-}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

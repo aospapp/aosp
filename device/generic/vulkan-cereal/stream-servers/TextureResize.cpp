@@ -16,20 +16,19 @@
 
 #include "TextureResize.h"
 
-#include "DispatchTables.h"
-#include "FrameBuffer.h"
-
-#include "host-common/misc.h"
-
-#include "GLES2/gl2ext.h"
-
 #include <stdio.h>
 #include <string.h>
+
 #include <sstream>
 #include <string>
 #include <utility>
 
-#define ERR(...)  fprintf(stderr, __VA_ARGS__)
+#include "DispatchTables.h"
+#include "FrameBuffer.h"
+#include "GLES2/gl2ext.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
+
 // #define V(...)  VERBOSE_PRINT(gles,__VA_ARGS__)
 #define V(...)
 #define MAX_FACTOR_POWER 4

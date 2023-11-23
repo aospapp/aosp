@@ -1,0 +1,17 @@
+type shsusrd, domain;
+type shsusrd_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(shsusrd)
+
+allow shsusrd sysfs_soc:dir search;
+allow shsusrd sysfs_soc:file r_file_perms;
+allow shsusrd sysfs_ssr:file r_file_perms;
+allow shsusrd sysfs_msm_subsys:dir r_dir_perms;
+
+allow shsusrd proc_shs:file rw_file_perms;
+allow shsusrd proc_shs:dir r_dir_perms;
+allow shsusrd self:netlink_generic_socket create_socket_perms_no_ioctl;
+allow shsusrd self:qipcrtr_socket create_socket_perms_no_ioctl;
+
+allow shsusrd shsusr_data_file:dir rw_dir_perms;
+allow shsusrd shsusr_data_file:file create_file_perms;

@@ -22,14 +22,13 @@
 namespace cuttlefish {
 namespace modem {
 
-int DeviceConfig::host_port() {
+int DeviceConfig::host_id() {
   if (!cuttlefish::CuttlefishConfig::Get()) {
-      return 6500;
+    return 1000;
   }
   auto config = cuttlefish::CuttlefishConfig::Get();
   auto instance = config->ForDefaultInstance();
-  auto host_port = instance.host_port();
-  return host_port;
+  return instance.modem_simulator_host_id();
 }
 
 std::string DeviceConfig::PerInstancePath(const char* file_name) {
@@ -70,6 +69,14 @@ std::string DeviceConfig::ril_dns() {
   }
   const auto& ril_config = device_config_helper->GetDeviceConfig().ril_config();
   return ril_config.dns();
+}
+
+std::ifstream DeviceConfig::open_ifstream_crossplat(const char* filename) {
+    return std::ifstream(filename);
+}
+
+std::ofstream DeviceConfig::open_ofstream_crossplat(const char* filename, std::ios_base::openmode mode) {
+    return std::ofstream(filename, mode);
 }
 
 }  // namespace modem

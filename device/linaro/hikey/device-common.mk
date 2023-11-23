@@ -17,6 +17,28 @@
 # Enable updating of APEXes
 $(call inherit-product, $(SRC_TARGET_DIR)/product/updatable_apex.mk)
 
+# Check vendor package version
+# If you need to make changes to the vendor partition,
+# please modify the source git project here:
+#   https://staging-git.codelinaro.org/linaro/linaro-aosp/aosp-linaro-vendor-package
+include $(LOCAL_PATH)/vendor-package-ver.mk
+ifneq (,$(wildcard $(LINARO_VENDOR_PATH)/hikey960/$(EXPECTED_LINARO_VENDOR_VERSION)/version.mk))
+  # Unfortunately inherit-product doesn't export build variables from the
+  # called make file to the caller, so we have to include it directly here.
+  include $(LINARO_VENDOR_PATH)/hikey960/$(EXPECTED_LINARO_VENDOR_VERSION)/version.mk
+  ifneq ($(TARGET_LINARO_VENDOR_VERSION), $(EXPECTED_LINARO_VENDOR_VERSION))
+    $(warning TARGET_LINARO_VENDOR_VERSION ($(TARGET_LINARO_VENDOR_VERSION)) does not match exiting the build ($(EXPECTED_LINARO_VENDOR_VERSION)).)
+    $(warning Please download new binaries here:)
+    $(warning    $(VND_PKG_URL) )
+    $(warning And extract in the ANDROID_TOP_DIR)
+  endif
+else
+  $(warning Missing Linaro Vendor Package!)
+  $(warning Please download new binaries here:)
+  $(warning    $(VND_PKG_URL) )
+  $(warning And extract in the ANDROID_TOP_DIR)
+endif
+$(warning EXPECTED_LINARO_VENDOR_VERSION=$(EXPECTED_LINARO_VENDOR_VERSION))
 
 ifneq (,$(filter $(TARGET_PRODUCT),hikey960_tv hikey_tv))
 # Setup TV Build
@@ -34,7 +56,7 @@ endif
 # Set vendor kernel path
 PRODUCT_VENDOR_KERNEL_HEADERS := device/linaro/hikey/kernel-headers
 
-PRODUCT_SHIPPING_API_LEVEL := 29
+PRODUCT_SHIPPING_API_LEVEL := 31
 PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
 
 
@@ -69,24 +91,24 @@ PRODUCT_PROPERTY_OVERRIDES += wifi.interface=wlan0 \
 PRODUCT_RUNTIMES := runtime_libart_default
 
 # Build default bluetooth a2dp and usb audio HALs
-PRODUCT_PACKAGES += audio.a2dp.default \
-		    audio.bluetooth.default \
+PRODUCT_PACKAGES += audio.bluetooth.default \
 		    audio.usb.default \
 		    audio.r_submix.default \
 		    tinyplay
 
 PRODUCT_PACKAGES += \
-    android.hardware.audio@4.0-impl:32 \
-    android.hardware.audio.effect@4.0-impl:32 \
-    android.hardware.audio@2.0-service \
-    android.hardware.soundtrigger@2.0-impl \
+    android.hardware.audio.service \
+    android.hardware.audio@7.0-impl \
+    android.hardware.audio.effect@7.0-impl \
+    android.hardware.soundtrigger@2.3-impl \
     android.hardware.bluetooth.audio@2.0-impl
+
 
 PRODUCT_PACKAGES += vndk_package
 
 PRODUCT_PACKAGES += \
-    android.hardware.drm@1.0-impl \
-    android.hardware.drm@1.0-service
+    android.hardware.drm@1.3-service.clearkey \
+    android.hardware.drm@1.3-service.widevine \
 
 # Graphics HAL
 PRODUCT_PACKAGES += \
@@ -94,27 +116,22 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.allocator@2.0-service \
     android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.composer@2.1-service \
-    android.hardware.graphics.mapper@2.0-impl
+    android.hardware.graphics.mapper@2.0-impl-2.1 \
 
-# Memtrack
-PRODUCT_PACKAGES += memtrack.default \
-    android.hardware.memtrack@1.0-service \
-    android.hardware.memtrack@1.0-impl
-
-ifeq ($(HIKEY_USE_LEGACY_TI_BLUETOOTH), true)
-PRODUCT_PACKAGES += android.hardware.bluetooth@1.0-service.hikey uim
-else
 PRODUCT_PACKAGES += android.hardware.bluetooth@1.1-service.btlinux
-endif
 
-# PowerHAL
+#
+# Power HAL
+#
 PRODUCT_PACKAGES += \
-	android.hardware.power@1.1-impl \
-	android.hardware.power@1.1-service.hikey-common
+    android.hardware.power-service.example
 
-#GNSS HAL
+#
+# PowerStats HAL
+#
 PRODUCT_PACKAGES += \
-    android.hardware.gnss@1.0-impl
+    android.hardware.power.stats-service.example
+
 
 # Software Gatekeeper HAL
 PRODUCT_PACKAGES += \
@@ -215,9 +232,6 @@ PRODUCT_COPY_FILES +=  \
         frameworks/native/data/etc/android.hardware.usb.host.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.host.xml \
         frameworks/native/data/etc/android.software.device_admin.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.device_admin.xml
 
-# Include BT modules
-$(call inherit-product, device/linaro/hikey/wpan/ti-wpan-products.mk)
-
 PRODUCT_COPY_FILES += \
         frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \
         frameworks/native/data/etc/android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml \
@@ -233,8 +247,8 @@ PRODUCT_COPY_FILES += \
     device/linaro/hikey/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
     device/linaro/hikey/audio/audio_policy_configuration_bluetooth_legacy_hal.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration_bluetooth_legacy_hal.xml \
     frameworks/av/services/audiopolicy/config/a2dp_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_audio_policy_configuration.xml \
-    frameworks/av/services/audiopolicy/config/a2dp_in_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_in_audio_policy_configuration.xml \
-    frameworks/av/services/audiopolicy/config/bluetooth_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/a2dp_in_audio_policy_configuration_7_0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_in_audio_policy_configuration_7_0.xml \
+    frameworks/av/services/audiopolicy/config/bluetooth_audio_policy_configuration_7_0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_audio_policy_configuration_7_0.xml \
     frameworks/av/services/audiopolicy/config/r_submix_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/r_submix_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/usb_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/usb_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
@@ -248,7 +262,12 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     device/linaro/hikey/init.common.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.common.rc \
 
+
 # Health
 PRODUCT_PACKAGES += \
-    android.hardware.health@2.0-service \
-    android.hardware.health@2.0-impl
+    android.hardware.health@2.1-impl-cuttlefish \
+    android.hardware.health@2.1-service
+
+# TODO: disable this service once we implement system suspend
+PRODUCT_PACKAGES += \
+    suspend_blocker

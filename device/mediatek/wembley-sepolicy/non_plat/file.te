@@ -59,7 +59,6 @@ type proc_mtk_jpeg, fs_type, proc_type;
 type proc_perfmgr, fs_type, proc_type;
 type proc_wmtdbg, fs_type, proc_type;
 type proc_zraminfo, fs_type, proc_type;
-type proc_cpu_alignment, fs_type, proc_type;
 type proc_gpulog, fs_type, proc_type;
 type proc_sched_debug, fs_type, proc_type;
 type proc_chip, fs_type, proc_type;

@@ -95,6 +95,9 @@ Only the three quirks included above are recognized at this point:
     <MediaCodec name="c2.goldfish.h264.decoder" type="video/avc" >
         <Limit name="concurrent-instances" max="4" />
     </MediaCodec>
+    <MediaCodec name="c2.goldfish.hevc.decoder" type="video/hevc" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
     <MediaCodec name="c2.goldfish.vp8.decoder" type="video/x-vnd.on2.vp8" >
         <Limit name="concurrent-instances" max="4" />
     </MediaCodec>

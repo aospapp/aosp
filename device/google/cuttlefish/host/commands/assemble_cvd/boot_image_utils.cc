@@ -71,32 +71,6 @@ bool DeleteTmpFileIfNotChanged(const std::string& tmp_file, const std::string& c
   return true;
 }
 
-bool UnpackBootImage(const std::string& boot_image_path,
-                     const std::string& unpack_dir) {
-  auto unpack_path = HostBinaryPath("unpack_bootimg");
-  Command unpack_cmd(unpack_path);
-  unpack_cmd.AddParameter("--boot_img");
-  unpack_cmd.AddParameter(boot_image_path);
-  unpack_cmd.AddParameter("--out");
-  unpack_cmd.AddParameter(unpack_dir);
-
-  auto output_file = SharedFD::Creat(unpack_dir + "/boot_params", 0666);
-  if (!output_file->IsOpen()) {
-    LOG(ERROR) << "Unable to create intermediate boot params file: "
-               << output_file->StrError();
-    return false;
-  }
-  unpack_cmd.RedirectStdIO(Subprocess::StdIOChannel::kStdOut, output_file);
-
-  int success = unpack_cmd.Start().Wait();
-  if (success != 0) {
-    LOG(ERROR) << "Unable to run unpack_bootimg. Exited with status "
-               << success;
-    return false;
-  }
-  return true;
-}
-
 void RepackVendorRamdisk(const std::string& kernel_modules_ramdisk_path,
                          const std::string& original_ramdisk_path,
                          const std::string& new_ramdisk_path,
@@ -139,6 +113,34 @@ void RepackVendorRamdisk(const std::string& kernel_modules_ramdisk_path,
   std::ifstream ramdisk_a(stripped_ramdisk_path, std::ios_base::binary);
   std::ifstream ramdisk_b(kernel_modules_ramdisk_path, std::ios_base::binary);
   final_rd << ramdisk_a.rdbuf() << ramdisk_b.rdbuf();
+}
+
+}  // namespace
+
+bool UnpackBootImage(const std::string& boot_image_path,
+                     const std::string& unpack_dir) {
+  auto unpack_path = HostBinaryPath("unpack_bootimg");
+  Command unpack_cmd(unpack_path);
+  unpack_cmd.AddParameter("--boot_img");
+  unpack_cmd.AddParameter(boot_image_path);
+  unpack_cmd.AddParameter("--out");
+  unpack_cmd.AddParameter(unpack_dir);
+
+  auto output_file = SharedFD::Creat(unpack_dir + "/boot_params", 0666);
+  if (!output_file->IsOpen()) {
+    LOG(ERROR) << "Unable to create intermediate boot params file: "
+               << output_file->StrError();
+    return false;
+  }
+  unpack_cmd.RedirectStdIO(Subprocess::StdIOChannel::kStdOut, output_file);
+
+  int success = unpack_cmd.Start().Wait();
+  if (success != 0) {
+    LOG(ERROR) << "Unable to run unpack_bootimg. Exited with status "
+               << success;
+    return false;
+  }
+  return true;
 }
 
 bool UnpackVendorBootImageIfNotUnpacked(
@@ -189,8 +191,6 @@ bool UnpackVendorBootImageIfNotUnpacked(
   return true;
 }
 
-}  // namespace
-
 bool RepackBootImage(const std::string& new_kernel_path,
                      const std::string& boot_image_path,
                      const std::string& new_boot_image_path,
@@ -222,11 +222,20 @@ bool RepackBootImage(const std::string& new_kernel_path,
     return false;
   }
 
-  auto fd = SharedFD::Open(tmp_boot_image_path, O_RDWR);
-  auto original_size = FileSize(boot_image_path);
-  CHECK(fd->Truncate(original_size) == 0)
-    << "`truncate --size=" << original_size << " " << tmp_boot_image_path << "` "
-    << "failed: " << fd->StrError();
+  auto avbtool_path = HostBinaryPath("avbtool");
+  Command avb_cmd(avbtool_path);
+  avb_cmd.AddParameter("add_hash_footer");
+  avb_cmd.AddParameter("--image");
+  avb_cmd.AddParameter(tmp_boot_image_path);
+  avb_cmd.AddParameter("--partition_size");
+  avb_cmd.AddParameter(FileSize(boot_image_path));
+  avb_cmd.AddParameter("--partition_name");
+  avb_cmd.AddParameter("boot");
+  success = avb_cmd.Start().Wait();
+  if (success != 0) {
+    LOG(ERROR) << "Unable to run avbtool. Exited with status " << success;
+    return false;
+  }
 
   return DeleteTmpFileIfNotChanged(tmp_boot_image_path, new_boot_image_path);
 }
@@ -235,8 +244,6 @@ bool RepackVendorBootImage(const std::string& new_ramdisk,
                            const std::string& vendor_boot_image_path,
                            const std::string& new_vendor_boot_image_path,
                            const std::string& unpack_dir,
-                           const std::string& repack_dir,
-                           const std::vector<std::string>& bootconfig_args,
                            bool bootconfig_supported) {
   if (UnpackVendorBootImageIfNotUnpacked(vendor_boot_image_path, unpack_dir) ==
       false) {
@@ -255,23 +262,15 @@ bool RepackVendorBootImage(const std::string& new_ramdisk,
     ramdisk_path = unpack_dir + "/" + CONCATENATED_VENDOR_RAMDISK;
   }
 
-  auto bootconfig_fd = SharedFD::Creat(repack_dir + "/bootconfig", 0666);
-  if (!bootconfig_fd->IsOpen()) {
-    LOG(ERROR) << "Unable to create intermediate bootconfig file: "
-               << bootconfig_fd->StrError();
-    return false;
-  }
   std::string bootconfig = ReadFile(unpack_dir + "/bootconfig");
-  bootconfig_fd->Write(bootconfig.c_str(), bootconfig.size());
   LOG(DEBUG) << "Bootconfig parameters from vendor boot image are "
-             << ReadFile(repack_dir + "/bootconfig");
+             << bootconfig;
   std::string vendor_boot_params = ReadFile(unpack_dir + "/vendor_boot_params");
   auto kernel_cmdline =
       ExtractValue(vendor_boot_params, "vendor command line args: ") +
       (bootconfig_supported
            ? ""
-           : " " + android::base::StringReplace(bootconfig, "\n", " ", true) +
-                 " " + android::base::Join(bootconfig_args, " "));
+           : " " + android::base::StringReplace(bootconfig, "\n", " ", true));
   if (!bootconfig_supported) {
     // TODO(b/182417593): Until we pass the module parameters through
     // modules.options, we pass them through bootconfig using
@@ -280,8 +279,7 @@ bool RepackVendorBootImage(const std::string& new_ramdisk,
     kernel_cmdline = android::base::StringReplace(
         kernel_cmdline, " kernel.", " ", true);
   }
-  LOG(DEBUG) << "Cmdline from vendor boot image and config is "
-             << kernel_cmdline;
+  LOG(DEBUG) << "Cmdline from vendor boot image is " << kernel_cmdline;
 
   auto tmp_vendor_boot_image_path = new_vendor_boot_image_path + TMP_EXTENSION;
   auto repack_path = HostBinaryPath("mkbootimg");
@@ -298,7 +296,7 @@ bool RepackVendorBootImage(const std::string& new_ramdisk,
   repack_cmd.AddParameter(unpack_dir + "/dtb");
   if (bootconfig_supported) {
     repack_cmd.AddParameter("--vendor_bootconfig");
-    repack_cmd.AddParameter(repack_dir + "/bootconfig");
+    repack_cmd.AddParameter(unpack_dir + "/bootconfig");
   }
 
   int success = repack_cmd.Start().Wait();
@@ -307,11 +305,20 @@ bool RepackVendorBootImage(const std::string& new_ramdisk,
     return false;
   }
 
-  auto fd = SharedFD::Open(tmp_vendor_boot_image_path, O_RDWR);
-  auto original_size = FileSize(vendor_boot_image_path);
-  CHECK(fd->Truncate(original_size) == 0)
-    << "`truncate --size=" << original_size << " " << tmp_vendor_boot_image_path << "` "
-    << "failed: " << fd->StrError();
+  auto avbtool_path = HostBinaryPath("avbtool");
+  Command avb_cmd(avbtool_path);
+  avb_cmd.AddParameter("add_hash_footer");
+  avb_cmd.AddParameter("--image");
+  avb_cmd.AddParameter(tmp_vendor_boot_image_path);
+  avb_cmd.AddParameter("--partition_size");
+  avb_cmd.AddParameter(FileSize(vendor_boot_image_path));
+  avb_cmd.AddParameter("--partition_name");
+  avb_cmd.AddParameter("vendor_boot");
+  success = avb_cmd.Start().Wait();
+  if (success != 0) {
+    LOG(ERROR) << "Unable to run avbtool. Exited with status " << success;
+    return false;
+  }
 
   return DeleteTmpFileIfNotChanged(tmp_vendor_boot_image_path, new_vendor_boot_image_path);
 }
@@ -319,14 +326,75 @@ bool RepackVendorBootImage(const std::string& new_ramdisk,
 bool RepackVendorBootImageWithEmptyRamdisk(
     const std::string& vendor_boot_image_path,
     const std::string& new_vendor_boot_image_path,
-    const std::string& unpack_dir, const std::string& repack_dir,
-    const std::vector<std::string>& bootconfig_args,
-    bool bootconfig_supported) {
+    const std::string& unpack_dir, bool bootconfig_supported) {
   auto empty_ramdisk_file =
       SharedFD::Creat(unpack_dir + "/empty_ramdisk", 0666);
   return RepackVendorBootImage(
       unpack_dir + "/empty_ramdisk", vendor_boot_image_path,
-      new_vendor_boot_image_path, unpack_dir, repack_dir, bootconfig_args,
-      bootconfig_supported);
+      new_vendor_boot_image_path, unpack_dir, bootconfig_supported);
+}
+
+void RepackGem5BootImage(const std::string& initrd_path,
+                         const std::string& bootconfig_path,
+                         const std::string& unpack_dir) {
+  // Simulate per-instance what the bootloader would usually do
+  // Since on other devices this runs every time, just do it here every time
+  std::ofstream final_rd(initrd_path,
+                         std::ios_base::binary | std::ios_base::trunc);
+
+  std::ifstream boot_ramdisk(unpack_dir + "/ramdisk",
+                             std::ios_base::binary);
+  std::ifstream vendor_boot_ramdisk(unpack_dir +
+                                    "/concatenated_vendor_ramdisk",
+                                    std::ios_base::binary);
+
+  std::ifstream vendor_boot_bootconfig(unpack_dir + "/bootconfig",
+                                       std::ios_base::binary |
+                                       std::ios_base::ate);
+
+  auto vb_size = vendor_boot_bootconfig.tellg();
+  vendor_boot_bootconfig.seekg(0);
+
+  std::ifstream persistent_bootconfig(bootconfig_path,
+                                      std::ios_base::binary |
+                                      std::ios_base::ate);
+
+  auto pb_size = persistent_bootconfig.tellg();
+  persistent_bootconfig.seekg(0);
+
+  // Build the bootconfig string, trim it, and write the length, checksum
+  // and trailer bytes
+
+  std::string bootconfig =
+    "androidboot.slot_suffix=_a\n"
+    "androidboot.force_normal_boot=1\n"
+    "androidboot.verifiedbootstate=orange\n";
+  auto bootconfig_size = bootconfig.size();
+  bootconfig.resize(bootconfig_size + (uint64_t)(vb_size + pb_size), '\0');
+  vendor_boot_bootconfig.read(&bootconfig[bootconfig_size], vb_size);
+  persistent_bootconfig.read(&bootconfig[bootconfig_size + vb_size], pb_size);
+  // Trim the block size padding from the persistent bootconfig
+  bootconfig.erase(bootconfig.find_last_not_of('\0'));
+
+  // Write out the ramdisks and bootconfig blocks
+  final_rd << boot_ramdisk.rdbuf() << vendor_boot_ramdisk.rdbuf()
+           << bootconfig;
+
+  // Append bootconfig length
+  bootconfig_size = bootconfig.size();
+  final_rd.write(reinterpret_cast<const char *>(&bootconfig_size),
+                 sizeof(uint32_t));
+
+  // Append bootconfig checksum
+  uint32_t bootconfig_csum = 0;
+  for (auto i = 0; i < bootconfig_size; i++) {
+    bootconfig_csum += bootconfig[i];
+  }
+  final_rd.write(reinterpret_cast<const char *>(&bootconfig_csum),
+                 sizeof(uint32_t));
+
+  // Append bootconfig trailer
+  final_rd << "#BOOTCONFIG\n";
+  final_rd.close();
 }
 } // namespace cuttlefish

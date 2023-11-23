@@ -226,5 +226,5 @@ void ring_buffer_consumer_wait_producer_idle(struct ring_buffer* r);
 void ring_buffer_consumer_hung_up(struct ring_buffer* r);
 
 // Convenient function to reschedule thread
-void ring_buffer_yield();
+void ring_buffer_yield(void);
 ANDROID_END_HEADER

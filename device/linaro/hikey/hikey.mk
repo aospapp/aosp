@@ -1,5 +1,7 @@
+include $(LOCAL_PATH)/vendor-package-ver.mk
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, device/linaro/hikey/hikey-common.mk)
+$(call inherit-product-if-exists, vendor/linaro/hikey960/$(EXPECTED_LINARO_VENDOR_VERSION)/hikey.mk)
 
 #setup dm-verity configs
 PRODUCT_SYSTEM_VERITY_PARTITION := /dev/block/platform/soc/f723d000.dwmmc0/by-name/system
@@ -54,3 +56,7 @@ ifneq ($(HIKEY_MODS),)
 
 endif
 endif
+
+PRODUCT_SOONG_NAMESPACES += \
+  vendor/linaro/hikey960/$(EXPECTED_LINARO_VENDOR_VERSION)/mali/utgard
+

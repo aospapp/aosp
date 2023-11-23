@@ -21,6 +21,7 @@
 
 #include "Common.h"
 #include "DisplayConfig.h"
+#include "DrmPresenter.h"
 
 namespace android {
 
@@ -31,7 +32,8 @@ struct DisplayMultiConfigs {
   std::vector<DisplayConfig> configs;
 };
 
-HWC2::Error findDisplays(std::vector<DisplayMultiConfigs>& displays);
+HWC2::Error findDisplays(DrmPresenter* drmPresenter,
+                         std::vector<DisplayMultiConfigs>& displays);
 
 }  // namespace android
 

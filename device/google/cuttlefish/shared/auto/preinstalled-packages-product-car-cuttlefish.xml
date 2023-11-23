@@ -26,6 +26,10 @@
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
+    <install-in-user-type package="com.android.localtransport">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
     <install-in-user-type package="com.android.car.hvac">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
@@ -95,6 +99,22 @@
 	<install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
+    <install-in-user-type package="com.android.apps.tag">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.imsserviceentitlement">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.cellbroadcastservice">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.cellbroadcastreceiver.module">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
 
 
 <!--
@@ -117,9 +137,6 @@
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.dynsystem">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.localtransport">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.mms.service">

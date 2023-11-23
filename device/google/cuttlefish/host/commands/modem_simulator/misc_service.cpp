@@ -15,9 +15,10 @@
 
 #include "host/commands/modem_simulator/misc_service.h"
 
-#include <ctime>
 #include <fstream>
 #include <iomanip>
+
+#include "host/commands/modem_simulator/device_config.h"
 
 namespace cuttlefish {
 
@@ -31,7 +32,7 @@ MiscService::MiscService(int32_t service_id, ChannelMonitor* channel_monitor,
 void MiscService::ParseTimeZone() {
 #if defined(__linux__)
   constexpr char TIMEZONE_FILENAME[] = "/etc/timezone";
-  std::ifstream ifs(TIMEZONE_FILENAME);
+  std::ifstream ifs = modem::DeviceConfig::open_ifstream_crossplat(TIMEZONE_FILENAME);
   if (ifs.is_open()) {
     std::string line;
     if (std::getline(ifs, line)) {
@@ -95,6 +96,10 @@ std::vector<CommandHandler> MiscService::InitializeCommandHandlers() {
                      [this](const Client& client, std::string& cmd) {
                        this->HandleGetIMEI(client, cmd);
                      }),
+      CommandHandler("+REMOTETIMEUPDATE",
+                     [this](const Client& client, std::string& cmd) {
+                       this->HandleTimeUpdate(client, cmd);
+                     }),
   };
   return (command_handlers);
 }
@@ -135,31 +140,43 @@ void MiscService::HandleGetIMEI(const Client& client, std::string& command) {
   client.SendCommandResponse(responses);
 }
 
+void MiscService::HandleTimeUpdate(const Client& client, std::string& command) {
+    (void)client;
+    (void)command;
+    TimeUpdate();
+}
+
+long MiscService::TimeZoneOffset(time_t* utctime)
+{
+    struct tm local = *std::localtime(utctime);
+    time_t local_time = std::mktime(&local);
+    struct tm gmt = *std::gmtime(utctime);
+    // mktime() converts struct tm according to local timezone.
+    time_t gmt_time = std::mktime(&gmt);
+    return (long)difftime(local_time, gmt_time);
+}
+
 void MiscService::TimeUpdate() {
   auto now = std::time(0);
 
   auto local_time = *std::localtime(&now);
   auto gm_time = *std::gmtime(&now);
 
-  auto t_local_time = std::mktime(&local_time);
-  auto t_gm_time = std::mktime(&gm_time);
-
   // Timezone offset is in number of quarter-hours
-  auto tzdiff = (int)std::difftime(t_local_time, t_gm_time) / (15 * 60);
+  auto tzdiff = TimeZoneOffset(&now) / (15 * 60);
 
   std::stringstream ss;
-  ss << "%CTZV: \"" << std::setfill('0') << std::setw(2)
-     << local_time.tm_year % 100 << "/" << std::setfill('0') << std::setw(2)
-     << local_time.tm_mon + 1 << "/" << std::setfill('0') << std::setw(2)
-     << local_time.tm_mday << "," << std::setfill('0') << std::setw(2)
-     << local_time.tm_hour << ":" << std::setfill('0') << std::setw(2)
-     << local_time.tm_min << ":" << std::setfill('0') << std::setw(2)
-     << local_time.tm_sec << (tzdiff >= 0 ? '+' : '-')
+  ss << "%CTZV: " << std::setfill('0') << std::setw(2)
+     << gm_time.tm_year % 100 << "/" << std::setfill('0') << std::setw(2)
+     << gm_time.tm_mon + 1 << "/" << std::setfill('0') << std::setw(2)
+     << gm_time.tm_mday << ":" << std::setfill('0') << std::setw(2)
+     << gm_time.tm_hour << ":" << std::setfill('0') << std::setw(2)
+     << gm_time.tm_min << ":" << std::setfill('0') << std::setw(2)
+     << gm_time.tm_sec << (tzdiff >= 0 ? '+' : '-')
      << (tzdiff >= 0 ? tzdiff : -tzdiff) << ":" << local_time.tm_isdst;
   if (!timezone_.empty()) {
     ss << ":" << timezone_;
   }
-  ss << "\"";
 
   SendUnsolicitedCommand(ss.str());
 }

@@ -1,0 +1,6 @@
+require board=bluejay
+require version-bootloader=bluejay-1.1-7933863
+
+
+
+require version-baseband=g5123b-91479-210917-B-7742460

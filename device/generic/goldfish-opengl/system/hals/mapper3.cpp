@@ -80,6 +80,12 @@ int waitHidlFence(const hidl_handle& hidlHandle, const char* logname) {
     return waitFenceFd(nativeHandle->data[0], logname);
 }
 
+constexpr uint64_t one64 = 1;
+
+constexpr uint64_t ones(int from, int to) {
+    return ((one64 << (to - from + 1)) - 1) << from;
+}
+
 class GoldfishMapper : public IMapper3 {
 public:
     GoldfishMapper() : m_hostConn(HostConnection::createUnique()) {
@@ -569,12 +575,26 @@ private:  // **** impl ****
         cb.lockedUsage = 0;
     }
 
+    /* BufferUsage bits that must be zero */
+    static constexpr uint64_t kReservedUsage =
+        (one64 << 10)
+        | (one64 << 13)
+        | (one64 << 19)
+        | (one64 << 21)
+        | ones(25, 27) /* bits 25-27 must be zero and are reserved for future versions */
+        | ones(32, 47); /* bits 32-47 must be zero and are reserved for future versions */
+
     bool isSupportedImpl(const IMapper::BufferDescriptorInfo& descriptor) const {
         if (!descriptor.width) { RETURN(false); }
         if (!descriptor.height) { RETURN(false); }
         if (descriptor.layerCount != 1) { RETURN(false); }
 
-        const uint32_t usage = descriptor.usage;
+        const uint64_t usage64 = descriptor.usage;
+        if (usage64 & kReservedUsage) {
+            RETURN(false);
+        }
+
+        const uint32_t usage = usage64;
         const bool usageSwWrite = usage & BufferUsage::CPU_WRITE_MASK;
         const bool usageSwRead = usage & BufferUsage::CPU_READ_MASK;
         const bool usageHwCamWrite = usage & BufferUsage::CAMERA_OUTPUT;
@@ -614,7 +634,7 @@ private:  // **** impl ****
 
         default:
             if (static_cast<int>(descriptor.format) == kOMX_COLOR_FormatYUV420Planar) {
-                return (usage & BufferUsage::GPU_DATA_BUFFER) != 0;
+                return (usage & BufferUsage::VIDEO_DECODER) != 0;
             }
 
             RETURN(false);

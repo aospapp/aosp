@@ -13,6 +13,9 @@
 #include <stdio.h>
 
 #include "android/base/Tracing.h"
+
+#include "EncoderDebug.h"
+
 namespace {
 
 void enc_unsupported()
@@ -22,6 +25,7 @@ void enc_unsupported()
 
 void glActiveTexture_enc(void *self , GLenum texture)
 {
+	ENCODER_DEBUG_LOG("glActiveTexture(texture:0x%08x)", texture);
 	AEMU_SCOPED_TRACE("glActiveTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -48,6 +52,7 @@ void glActiveTexture_enc(void *self , GLenum texture)
 
 void glAttachShader_enc(void *self , GLuint program, GLuint shader)
 {
+	ENCODER_DEBUG_LOG("glAttachShader(program:%u, shader:%u)", program, shader);
 	AEMU_SCOPED_TRACE("glAttachShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -75,6 +80,7 @@ void glAttachShader_enc(void *self , GLuint program, GLuint shader)
 
 void glBindAttribLocation_enc(void *self , GLuint program, GLuint index, const GLchar* name)
 {
+	ENCODER_DEBUG_LOG("glBindAttribLocation(program:%u, index:%u, name:0x%08x)", program, index, name);
 	AEMU_SCOPED_TRACE("glBindAttribLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -105,6 +111,7 @@ void glBindAttribLocation_enc(void *self , GLuint program, GLuint index, const G
 
 void glBindBuffer_enc(void *self , GLenum target, GLuint buffer)
 {
+	ENCODER_DEBUG_LOG("glBindBuffer(target:0x%08x, buffer:%u)", target, buffer);
 	AEMU_SCOPED_TRACE("glBindBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -132,6 +139,7 @@ void glBindBuffer_enc(void *self , GLenum target, GLuint buffer)
 
 void glBindFramebuffer_enc(void *self , GLenum target, GLuint framebuffer)
 {
+	ENCODER_DEBUG_LOG("glBindFramebuffer(target:0x%08x, framebuffer:%u)", target, framebuffer);
 	AEMU_SCOPED_TRACE("glBindFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -159,6 +167,7 @@ void glBindFramebuffer_enc(void *self , GLenum target, GLuint framebuffer)
 
 void glBindRenderbuffer_enc(void *self , GLenum target, GLuint renderbuffer)
 {
+	ENCODER_DEBUG_LOG("glBindRenderbuffer(target:0x%08x, renderbuffer:%u)", target, renderbuffer);
 	AEMU_SCOPED_TRACE("glBindRenderbuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -186,6 +195,7 @@ void glBindRenderbuffer_enc(void *self , GLenum target, GLuint renderbuffer)
 
 void glBindTexture_enc(void *self , GLenum target, GLuint texture)
 {
+	ENCODER_DEBUG_LOG("glBindTexture(target:0x%08x, texture:%u)", target, texture);
 	AEMU_SCOPED_TRACE("glBindTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -213,6 +223,7 @@ void glBindTexture_enc(void *self , GLenum target, GLuint texture)
 
 void glBlendColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
+	ENCODER_DEBUG_LOG("glBlendColor(red:%f, green:%f, blue:%f, alpha:%f)", red, green, blue, alpha);
 	AEMU_SCOPED_TRACE("glBlendColor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -242,6 +253,7 @@ void glBlendColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, 
 
 void glBlendEquation_enc(void *self , GLenum mode)
 {
+	ENCODER_DEBUG_LOG("glBlendEquation(mode:0x%08x)", mode);
 	AEMU_SCOPED_TRACE("glBlendEquation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -268,6 +280,7 @@ void glBlendEquation_enc(void *self , GLenum mode)
 
 void glBlendEquationSeparate_enc(void *self , GLenum modeRGB, GLenum modeAlpha)
 {
+	ENCODER_DEBUG_LOG("glBlendEquationSeparate(modeRGB:0x%08x, modeAlpha:0x%08x)", modeRGB, modeAlpha);
 	AEMU_SCOPED_TRACE("glBlendEquationSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -295,6 +308,7 @@ void glBlendEquationSeparate_enc(void *self , GLenum modeRGB, GLenum modeAlpha)
 
 void glBlendFunc_enc(void *self , GLenum sfactor, GLenum dfactor)
 {
+	ENCODER_DEBUG_LOG("glBlendFunc(sfactor:0x%08x, dfactor:0x%08x)", sfactor, dfactor);
 	AEMU_SCOPED_TRACE("glBlendFunc encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -322,6 +336,7 @@ void glBlendFunc_enc(void *self , GLenum sfactor, GLenum dfactor)
 
 void glBlendFuncSeparate_enc(void *self , GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
+	ENCODER_DEBUG_LOG("glBlendFuncSeparate(srcRGB:0x%08x, dstRGB:0x%08x, srcAlpha:0x%08x, dstAlpha:0x%08x)", srcRGB, dstRGB, srcAlpha, dstAlpha);
 	AEMU_SCOPED_TRACE("glBlendFuncSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -351,6 +366,7 @@ void glBlendFuncSeparate_enc(void *self , GLenum srcRGB, GLenum dstRGB, GLenum s
 
 void glBufferData_enc(void *self , GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage)
 {
+	ENCODER_DEBUG_LOG("glBufferData(target:0x%08x, size:0x%08lx, data:0x%08x, usage:0x%08x)", target, size, data, usage);
 	AEMU_SCOPED_TRACE("glBufferData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -392,6 +408,7 @@ void glBufferData_enc(void *self , GLenum target, GLsizeiptr size, const GLvoid*
 
 void glBufferSubData_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glBufferSubData(target:0x%08x, offset:0x%08lx, size:0x%08lx, data:0x%08x)", target, offset, size, data);
 	AEMU_SCOPED_TRACE("glBufferSubData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -429,6 +446,7 @@ void glBufferSubData_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr
 
 GLenum glCheckFramebufferStatus_enc(void *self , GLenum target)
 {
+	ENCODER_DEBUG_LOG("glCheckFramebufferStatus(target:0x%08x)", target);
 	AEMU_SCOPED_TRACE("glCheckFramebufferStatus encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -470,6 +488,7 @@ GLenum glCheckFramebufferStatus_enc(void *self , GLenum target)
 
 void glClear_enc(void *self , GLbitfield mask)
 {
+	ENCODER_DEBUG_LOG("glClear(mask:0x%08x)", mask);
 	AEMU_SCOPED_TRACE("glClear encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -496,6 +515,7 @@ void glClear_enc(void *self , GLbitfield mask)
 
 void glClearColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
+	ENCODER_DEBUG_LOG("glClearColor(red:%f, green:%f, blue:%f, alpha:%f)", red, green, blue, alpha);
 	AEMU_SCOPED_TRACE("glClearColor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -525,6 +545,7 @@ void glClearColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, 
 
 void glClearDepthf_enc(void *self , GLclampf depth)
 {
+	ENCODER_DEBUG_LOG("glClearDepthf(depth:%f)", depth);
 	AEMU_SCOPED_TRACE("glClearDepthf encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -551,6 +572,7 @@ void glClearDepthf_enc(void *self , GLclampf depth)
 
 void glClearStencil_enc(void *self , GLint s)
 {
+	ENCODER_DEBUG_LOG("glClearStencil(s:%d)", s);
 	AEMU_SCOPED_TRACE("glClearStencil encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -577,6 +599,7 @@ void glClearStencil_enc(void *self , GLint s)
 
 void glColorMask_enc(void *self , GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
 {
+	ENCODER_DEBUG_LOG("glColorMask(red:%d, green:%d, blue:%d, alpha:%d)", red, green, blue, alpha);
 	AEMU_SCOPED_TRACE("glColorMask encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -606,6 +629,7 @@ void glColorMask_enc(void *self , GLboolean red, GLboolean green, GLboolean blue
 
 void glCompileShader_enc(void *self , GLuint shader)
 {
+	ENCODER_DEBUG_LOG("glCompileShader(shader:%u)", shader);
 	AEMU_SCOPED_TRACE("glCompileShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -632,6 +656,7 @@ void glCompileShader_enc(void *self , GLuint shader)
 
 void glCompressedTexImage2D_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexImage2D(target:0x%08x, level:%d, internalformat:0x%08x, width:%d, height:%d, border:%d, imageSize:%d, data:0x%08x)", target, level, internalformat, width, height, border, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -673,6 +698,7 @@ void glCompressedTexImage2D_enc(void *self , GLenum target, GLint level, GLenum 
 
 void glCompressedTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexSubImage2D(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, width:%d, height:%d, format:0x%08x, imageSize:%d, data:0x%08x)", target, level, xoffset, yoffset, width, height, format, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexSubImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -715,6 +741,7 @@ void glCompressedTexSubImage2D_enc(void *self , GLenum target, GLint level, GLin
 
 void glCopyTexImage2D_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border)
 {
+	ENCODER_DEBUG_LOG("glCopyTexImage2D(target:0x%08x, level:%d, internalformat:0x%08x, x:%d, y:%d, width:%d, height:%d, border:%d)", target, level, internalformat, x, y, width, height, border);
 	AEMU_SCOPED_TRACE("glCopyTexImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -748,6 +775,7 @@ void glCopyTexImage2D_enc(void *self , GLenum target, GLint level, GLenum intern
 
 void glCopyTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glCopyTexSubImage2D(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, x:%d, y:%d, width:%d, height:%d)", target, level, xoffset, yoffset, x, y, width, height);
 	AEMU_SCOPED_TRACE("glCopyTexSubImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -781,6 +809,7 @@ void glCopyTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoff
 
 GLuint glCreateProgram_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glCreateProgram()");
 	AEMU_SCOPED_TRACE("glCreateProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -821,6 +850,7 @@ GLuint glCreateProgram_enc(void *self )
 
 GLuint glCreateShader_enc(void *self , GLenum type)
 {
+	ENCODER_DEBUG_LOG("glCreateShader(type:0x%08x)", type);
 	AEMU_SCOPED_TRACE("glCreateShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -862,6 +892,7 @@ GLuint glCreateShader_enc(void *self , GLenum type)
 
 void glCullFace_enc(void *self , GLenum mode)
 {
+	ENCODER_DEBUG_LOG("glCullFace(mode:0x%08x)", mode);
 	AEMU_SCOPED_TRACE("glCullFace encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -888,6 +919,7 @@ void glCullFace_enc(void *self , GLenum mode)
 
 void glDeleteBuffers_enc(void *self , GLsizei n, const GLuint* buffers)
 {
+	ENCODER_DEBUG_LOG("glDeleteBuffers(n:%d, buffers:0x%08x)", n, buffers);
 	AEMU_SCOPED_TRACE("glDeleteBuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -917,6 +949,7 @@ void glDeleteBuffers_enc(void *self , GLsizei n, const GLuint* buffers)
 
 void glDeleteFramebuffers_enc(void *self , GLsizei n, const GLuint* framebuffers)
 {
+	ENCODER_DEBUG_LOG("glDeleteFramebuffers(n:%d, framebuffers:0x%08x)", n, framebuffers);
 	AEMU_SCOPED_TRACE("glDeleteFramebuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -946,6 +979,7 @@ void glDeleteFramebuffers_enc(void *self , GLsizei n, const GLuint* framebuffers
 
 void glDeleteProgram_enc(void *self , GLuint program)
 {
+	ENCODER_DEBUG_LOG("glDeleteProgram(program:%u)", program);
 	AEMU_SCOPED_TRACE("glDeleteProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -972,6 +1006,7 @@ void glDeleteProgram_enc(void *self , GLuint program)
 
 void glDeleteRenderbuffers_enc(void *self , GLsizei n, const GLuint* renderbuffers)
 {
+	ENCODER_DEBUG_LOG("glDeleteRenderbuffers(n:%d, renderbuffers:0x%08x)", n, renderbuffers);
 	AEMU_SCOPED_TRACE("glDeleteRenderbuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1001,6 +1036,7 @@ void glDeleteRenderbuffers_enc(void *self , GLsizei n, const GLuint* renderbuffe
 
 void glDeleteShader_enc(void *self , GLuint shader)
 {
+	ENCODER_DEBUG_LOG("glDeleteShader(shader:%u)", shader);
 	AEMU_SCOPED_TRACE("glDeleteShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1027,6 +1063,7 @@ void glDeleteShader_enc(void *self , GLuint shader)
 
 void glDeleteTextures_enc(void *self , GLsizei n, const GLuint* textures)
 {
+	ENCODER_DEBUG_LOG("glDeleteTextures(n:%d, textures:0x%08x)", n, textures);
 	AEMU_SCOPED_TRACE("glDeleteTextures encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1056,6 +1093,7 @@ void glDeleteTextures_enc(void *self , GLsizei n, const GLuint* textures)
 
 void glDepthFunc_enc(void *self , GLenum func)
 {
+	ENCODER_DEBUG_LOG("glDepthFunc(func:0x%08x)", func);
 	AEMU_SCOPED_TRACE("glDepthFunc encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1082,6 +1120,7 @@ void glDepthFunc_enc(void *self , GLenum func)
 
 void glDepthMask_enc(void *self , GLboolean flag)
 {
+	ENCODER_DEBUG_LOG("glDepthMask(flag:%d)", flag);
 	AEMU_SCOPED_TRACE("glDepthMask encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1108,6 +1147,7 @@ void glDepthMask_enc(void *self , GLboolean flag)
 
 void glDepthRangef_enc(void *self , GLclampf zNear, GLclampf zFar)
 {
+	ENCODER_DEBUG_LOG("glDepthRangef(zNear:%f, zFar:%f)", zNear, zFar);
 	AEMU_SCOPED_TRACE("glDepthRangef encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1135,6 +1175,7 @@ void glDepthRangef_enc(void *self , GLclampf zNear, GLclampf zFar)
 
 void glDetachShader_enc(void *self , GLuint program, GLuint shader)
 {
+	ENCODER_DEBUG_LOG("glDetachShader(program:%u, shader:%u)", program, shader);
 	AEMU_SCOPED_TRACE("glDetachShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1162,6 +1203,7 @@ void glDetachShader_enc(void *self , GLuint program, GLuint shader)
 
 void glDisable_enc(void *self , GLenum cap)
 {
+	ENCODER_DEBUG_LOG("glDisable(cap:0x%08x)", cap);
 	AEMU_SCOPED_TRACE("glDisable encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1188,6 +1230,7 @@ void glDisable_enc(void *self , GLenum cap)
 
 void glDisableVertexAttribArray_enc(void *self , GLuint index)
 {
+	ENCODER_DEBUG_LOG("glDisableVertexAttribArray(index:%u)", index);
 	AEMU_SCOPED_TRACE("glDisableVertexAttribArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1214,6 +1257,7 @@ void glDisableVertexAttribArray_enc(void *self , GLuint index)
 
 void glDrawArrays_enc(void *self , GLenum mode, GLint first, GLsizei count)
 {
+	ENCODER_DEBUG_LOG("glDrawArrays(mode:0x%08x, first:%d, count:%d)", mode, first, count);
 	AEMU_SCOPED_TRACE("glDrawArrays encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1242,6 +1286,7 @@ void glDrawArrays_enc(void *self , GLenum mode, GLint first, GLsizei count)
 
 void glEnable_enc(void *self , GLenum cap)
 {
+	ENCODER_DEBUG_LOG("glEnable(cap:0x%08x)", cap);
 	AEMU_SCOPED_TRACE("glEnable encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1268,6 +1313,7 @@ void glEnable_enc(void *self , GLenum cap)
 
 void glEnableVertexAttribArray_enc(void *self , GLuint index)
 {
+	ENCODER_DEBUG_LOG("glEnableVertexAttribArray(index:%u)", index);
 	AEMU_SCOPED_TRACE("glEnableVertexAttribArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1294,6 +1340,7 @@ void glEnableVertexAttribArray_enc(void *self , GLuint index)
 
 void glFinish_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glFinish()");
 	AEMU_SCOPED_TRACE("glFinish encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1319,6 +1366,7 @@ void glFinish_enc(void *self )
 
 void glFlush_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glFlush()");
 	AEMU_SCOPED_TRACE("glFlush encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1344,6 +1392,7 @@ void glFlush_enc(void *self )
 
 void glFramebufferRenderbuffer_enc(void *self , GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
 {
+	ENCODER_DEBUG_LOG("glFramebufferRenderbuffer(target:0x%08x, attachment:0x%08x, renderbuffertarget:0x%08x, renderbuffer:%u)", target, attachment, renderbuffertarget, renderbuffer);
 	AEMU_SCOPED_TRACE("glFramebufferRenderbuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1373,6 +1422,7 @@ void glFramebufferRenderbuffer_enc(void *self , GLenum target, GLenum attachment
 
 void glFramebufferTexture2D_enc(void *self , GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
 {
+	ENCODER_DEBUG_LOG("glFramebufferTexture2D(target:0x%08x, attachment:0x%08x, textarget:0x%08x, texture:%u, level:%d)", target, attachment, textarget, texture, level);
 	AEMU_SCOPED_TRACE("glFramebufferTexture2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1403,6 +1453,7 @@ void glFramebufferTexture2D_enc(void *self , GLenum target, GLenum attachment, G
 
 void glFrontFace_enc(void *self , GLenum mode)
 {
+	ENCODER_DEBUG_LOG("glFrontFace(mode:0x%08x)", mode);
 	AEMU_SCOPED_TRACE("glFrontFace encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1429,6 +1480,7 @@ void glFrontFace_enc(void *self , GLenum mode)
 
 void glGenBuffers_enc(void *self , GLsizei n, GLuint* buffers)
 {
+	ENCODER_DEBUG_LOG("glGenBuffers(n:%d, buffers:0x%08x)", n, buffers);
 	AEMU_SCOPED_TRACE("glGenBuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1469,6 +1521,7 @@ void glGenBuffers_enc(void *self , GLsizei n, GLuint* buffers)
 
 void glGenerateMipmap_enc(void *self , GLenum target)
 {
+	ENCODER_DEBUG_LOG("glGenerateMipmap(target:0x%08x)", target);
 	AEMU_SCOPED_TRACE("glGenerateMipmap encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1495,6 +1548,7 @@ void glGenerateMipmap_enc(void *self , GLenum target)
 
 void glGenFramebuffers_enc(void *self , GLsizei n, GLuint* framebuffers)
 {
+	ENCODER_DEBUG_LOG("glGenFramebuffers(n:%d, framebuffers:0x%08x)", n, framebuffers);
 	AEMU_SCOPED_TRACE("glGenFramebuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1535,6 +1589,7 @@ void glGenFramebuffers_enc(void *self , GLsizei n, GLuint* framebuffers)
 
 void glGenRenderbuffers_enc(void *self , GLsizei n, GLuint* renderbuffers)
 {
+	ENCODER_DEBUG_LOG("glGenRenderbuffers(n:%d, renderbuffers:0x%08x)", n, renderbuffers);
 	AEMU_SCOPED_TRACE("glGenRenderbuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1575,6 +1630,7 @@ void glGenRenderbuffers_enc(void *self , GLsizei n, GLuint* renderbuffers)
 
 void glGenTextures_enc(void *self , GLsizei n, GLuint* textures)
 {
+	ENCODER_DEBUG_LOG("glGenTextures(n:%d, textures:0x%08x)", n, textures);
 	AEMU_SCOPED_TRACE("glGenTextures encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1615,6 +1671,7 @@ void glGenTextures_enc(void *self , GLsizei n, GLuint* textures)
 
 void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
 {
+	ENCODER_DEBUG_LOG("glGetActiveAttrib(program:%u, index:%u, bufsize:%d, length:0x%08x, size:0x%08x, type:0x%08x, name:0x%08x)", program, index, bufsize, length, size, type, name);
 	AEMU_SCOPED_TRACE("glGetActiveAttrib encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1677,6 +1734,7 @@ void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bu
 
 void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
 {
+	ENCODER_DEBUG_LOG("glGetActiveUniform(program:%u, index:%u, bufsize:%d, length:0x%08x, size:0x%08x, type:0x%08x, name:0x%08x)", program, index, bufsize, length, size, type, name);
 	AEMU_SCOPED_TRACE("glGetActiveUniform encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1739,6 +1797,7 @@ void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei b
 
 void glGetAttachedShaders_enc(void *self , GLuint program, GLsizei maxcount, GLsizei* count, GLuint* shaders)
 {
+	ENCODER_DEBUG_LOG("glGetAttachedShaders(program:%u, maxcount:%d, count:0x%08x, shaders:0x%08x)", program, maxcount, count, shaders);
 	AEMU_SCOPED_TRACE("glGetAttachedShaders encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1786,6 +1845,7 @@ void glGetAttachedShaders_enc(void *self , GLuint program, GLsizei maxcount, GLs
 
 int glGetAttribLocation_enc(void *self , GLuint program, const GLchar* name)
 {
+	ENCODER_DEBUG_LOG("glGetAttribLocation(program:%u, name:0x%08x)", program, name);
 	AEMU_SCOPED_TRACE("glGetAttribLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1830,6 +1890,7 @@ int glGetAttribLocation_enc(void *self , GLuint program, const GLchar* name)
 
 void glGetBooleanv_enc(void *self , GLenum pname, GLboolean* params)
 {
+	ENCODER_DEBUG_LOG("glGetBooleanv(pname:0x%08x, params:0x%08x)", pname, params);
 	AEMU_SCOPED_TRACE("glGetBooleanv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1870,6 +1931,7 @@ void glGetBooleanv_enc(void *self , GLenum pname, GLboolean* params)
 
 void glGetBufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetBufferParameteriv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glGetBufferParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1911,6 +1973,7 @@ void glGetBufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint*
 
 GLenum glGetError_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glGetError()");
 	AEMU_SCOPED_TRACE("glGetError encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1951,6 +2014,7 @@ GLenum glGetError_enc(void *self )
 
 void glGetFloatv_enc(void *self , GLenum pname, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetFloatv(pname:0x%08x, params:0x%08x)", pname, params);
 	AEMU_SCOPED_TRACE("glGetFloatv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -1991,6 +2055,7 @@ void glGetFloatv_enc(void *self , GLenum pname, GLfloat* params)
 
 void glGetFramebufferAttachmentParameteriv_enc(void *self , GLenum target, GLenum attachment, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetFramebufferAttachmentParameteriv(target:0x%08x, attachment:0x%08x, pname:0x%08x, params:0x%08x)", target, attachment, pname, params);
 	AEMU_SCOPED_TRACE("glGetFramebufferAttachmentParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2033,6 +2098,7 @@ void glGetFramebufferAttachmentParameteriv_enc(void *self , GLenum target, GLenu
 
 void glGetIntegerv_enc(void *self , GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetIntegerv(pname:0x%08x, params:0x%08x)", pname, params);
 	AEMU_SCOPED_TRACE("glGetIntegerv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2073,6 +2139,7 @@ void glGetIntegerv_enc(void *self , GLenum pname, GLint* params)
 
 void glGetProgramiv_enc(void *self , GLuint program, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetProgramiv(program:%u, pname:0x%08x, params:0x%08x)", program, pname, params);
 	AEMU_SCOPED_TRACE("glGetProgramiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2114,6 +2181,7 @@ void glGetProgramiv_enc(void *self , GLuint program, GLenum pname, GLint* params
 
 void glGetProgramInfoLog_enc(void *self , GLuint program, GLsizei bufsize, GLsizei* length, GLchar* infolog)
 {
+	ENCODER_DEBUG_LOG("glGetProgramInfoLog(program:%u, bufsize:%d, length:0x%08x, infolog:0x%08x)", program, bufsize, length, infolog);
 	AEMU_SCOPED_TRACE("glGetProgramInfoLog encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2161,6 +2229,7 @@ void glGetProgramInfoLog_enc(void *self , GLuint program, GLsizei bufsize, GLsiz
 
 void glGetRenderbufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetRenderbufferParameteriv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glGetRenderbufferParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2202,6 +2271,7 @@ void glGetRenderbufferParameteriv_enc(void *self , GLenum target, GLenum pname, 
 
 void glGetShaderiv_enc(void *self , GLuint shader, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetShaderiv(shader:%u, pname:0x%08x, params:0x%08x)", shader, pname, params);
 	AEMU_SCOPED_TRACE("glGetShaderiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2243,6 +2313,7 @@ void glGetShaderiv_enc(void *self , GLuint shader, GLenum pname, GLint* params)
 
 void glGetShaderInfoLog_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei* length, GLchar* infolog)
 {
+	ENCODER_DEBUG_LOG("glGetShaderInfoLog(shader:%u, bufsize:%d, length:0x%08x, infolog:0x%08x)", shader, bufsize, length, infolog);
 	AEMU_SCOPED_TRACE("glGetShaderInfoLog encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2290,6 +2361,7 @@ void glGetShaderInfoLog_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei
 
 void glGetShaderPrecisionFormat_enc(void *self , GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision)
 {
+	ENCODER_DEBUG_LOG("glGetShaderPrecisionFormat(shadertype:0x%08x, precisiontype:0x%08x, range:0x%08x, precision:0x%08x)", shadertype, precisiontype, range, precision);
 	AEMU_SCOPED_TRACE("glGetShaderPrecisionFormat encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2335,6 +2407,7 @@ void glGetShaderPrecisionFormat_enc(void *self , GLenum shadertype, GLenum preci
 
 void glGetShaderSource_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei* length, GLchar* source)
 {
+	ENCODER_DEBUG_LOG("glGetShaderSource(shader:%u, bufsize:%d, length:0x%08x, source:0x%08x)", shader, bufsize, length, source);
 	AEMU_SCOPED_TRACE("glGetShaderSource encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2382,6 +2455,7 @@ void glGetShaderSource_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei*
 
 void glGetTexParameterfv_enc(void *self , GLenum target, GLenum pname, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetTexParameterfv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glGetTexParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2423,6 +2497,7 @@ void glGetTexParameterfv_enc(void *self , GLenum target, GLenum pname, GLfloat* 
 
 void glGetTexParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetTexParameteriv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glGetTexParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2464,6 +2539,7 @@ void glGetTexParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* pa
 
 void glGetUniformfv_enc(void *self , GLuint program, GLint location, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetUniformfv(program:%u, location:%d, params:0x%08x)", program, location, params);
 	AEMU_SCOPED_TRACE("glGetUniformfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2505,6 +2581,7 @@ void glGetUniformfv_enc(void *self , GLuint program, GLint location, GLfloat* pa
 
 void glGetUniformiv_enc(void *self , GLuint program, GLint location, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetUniformiv(program:%u, location:%d, params:0x%08x)", program, location, params);
 	AEMU_SCOPED_TRACE("glGetUniformiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2546,6 +2623,7 @@ void glGetUniformiv_enc(void *self , GLuint program, GLint location, GLint* para
 
 int glGetUniformLocation_enc(void *self , GLuint program, const GLchar* name)
 {
+	ENCODER_DEBUG_LOG("glGetUniformLocation(program:%u, name:0x%08x)", program, name);
 	AEMU_SCOPED_TRACE("glGetUniformLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2590,6 +2668,7 @@ int glGetUniformLocation_enc(void *self , GLuint program, const GLchar* name)
 
 void glGetVertexAttribfv_enc(void *self , GLuint index, GLenum pname, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetVertexAttribfv(index:%u, pname:0x%08x, params:0x%08x)", index, pname, params);
 	AEMU_SCOPED_TRACE("glGetVertexAttribfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2631,6 +2710,7 @@ void glGetVertexAttribfv_enc(void *self , GLuint index, GLenum pname, GLfloat* p
 
 void glGetVertexAttribiv_enc(void *self , GLuint index, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetVertexAttribiv(index:%u, pname:0x%08x, params:0x%08x)", index, pname, params);
 	AEMU_SCOPED_TRACE("glGetVertexAttribiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2672,6 +2752,7 @@ void glGetVertexAttribiv_enc(void *self , GLuint index, GLenum pname, GLint* par
 
 void glHint_enc(void *self , GLenum target, GLenum mode)
 {
+	ENCODER_DEBUG_LOG("glHint(target:0x%08x, mode:0x%08x)", target, mode);
 	AEMU_SCOPED_TRACE("glHint encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2699,6 +2780,7 @@ void glHint_enc(void *self , GLenum target, GLenum mode)
 
 GLboolean glIsBuffer_enc(void *self , GLuint buffer)
 {
+	ENCODER_DEBUG_LOG("glIsBuffer(buffer:%u)", buffer);
 	AEMU_SCOPED_TRACE("glIsBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2740,6 +2822,7 @@ GLboolean glIsBuffer_enc(void *self , GLuint buffer)
 
 GLboolean glIsEnabled_enc(void *self , GLenum cap)
 {
+	ENCODER_DEBUG_LOG("glIsEnabled(cap:0x%08x)", cap);
 	AEMU_SCOPED_TRACE("glIsEnabled encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2781,6 +2864,7 @@ GLboolean glIsEnabled_enc(void *self , GLenum cap)
 
 GLboolean glIsFramebuffer_enc(void *self , GLuint framebuffer)
 {
+	ENCODER_DEBUG_LOG("glIsFramebuffer(framebuffer:%u)", framebuffer);
 	AEMU_SCOPED_TRACE("glIsFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2822,6 +2906,7 @@ GLboolean glIsFramebuffer_enc(void *self , GLuint framebuffer)
 
 GLboolean glIsProgram_enc(void *self , GLuint program)
 {
+	ENCODER_DEBUG_LOG("glIsProgram(program:%u)", program);
 	AEMU_SCOPED_TRACE("glIsProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2863,6 +2948,7 @@ GLboolean glIsProgram_enc(void *self , GLuint program)
 
 GLboolean glIsRenderbuffer_enc(void *self , GLuint renderbuffer)
 {
+	ENCODER_DEBUG_LOG("glIsRenderbuffer(renderbuffer:%u)", renderbuffer);
 	AEMU_SCOPED_TRACE("glIsRenderbuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2904,6 +2990,7 @@ GLboolean glIsRenderbuffer_enc(void *self , GLuint renderbuffer)
 
 GLboolean glIsShader_enc(void *self , GLuint shader)
 {
+	ENCODER_DEBUG_LOG("glIsShader(shader:%u)", shader);
 	AEMU_SCOPED_TRACE("glIsShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2945,6 +3032,7 @@ GLboolean glIsShader_enc(void *self , GLuint shader)
 
 GLboolean glIsTexture_enc(void *self , GLuint texture)
 {
+	ENCODER_DEBUG_LOG("glIsTexture(texture:%u)", texture);
 	AEMU_SCOPED_TRACE("glIsTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -2986,6 +3074,7 @@ GLboolean glIsTexture_enc(void *self , GLuint texture)
 
 void glLineWidth_enc(void *self , GLfloat width)
 {
+	ENCODER_DEBUG_LOG("glLineWidth(width:%f)", width);
 	AEMU_SCOPED_TRACE("glLineWidth encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3012,6 +3101,7 @@ void glLineWidth_enc(void *self , GLfloat width)
 
 void glLinkProgram_enc(void *self , GLuint program)
 {
+	ENCODER_DEBUG_LOG("glLinkProgram(program:%u)", program);
 	AEMU_SCOPED_TRACE("glLinkProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3038,6 +3128,7 @@ void glLinkProgram_enc(void *self , GLuint program)
 
 void glPixelStorei_enc(void *self , GLenum pname, GLint param)
 {
+	ENCODER_DEBUG_LOG("glPixelStorei(pname:0x%08x, param:%d)", pname, param);
 	AEMU_SCOPED_TRACE("glPixelStorei encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3065,6 +3156,7 @@ void glPixelStorei_enc(void *self , GLenum pname, GLint param)
 
 void glPolygonOffset_enc(void *self , GLfloat factor, GLfloat units)
 {
+	ENCODER_DEBUG_LOG("glPolygonOffset(factor:%f, units:%f)", factor, units);
 	AEMU_SCOPED_TRACE("glPolygonOffset encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3092,6 +3184,7 @@ void glPolygonOffset_enc(void *self , GLfloat factor, GLfloat units)
 
 void glReadPixels_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)
 {
+	ENCODER_DEBUG_LOG("glReadPixels(x:%d, y:%d, width:%d, height:%d, format:0x%08x, type:0x%08x, pixels:0x%08x)", x, y, width, height, format, type, pixels);
 	AEMU_SCOPED_TRACE("glReadPixels encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3137,6 +3230,7 @@ void glReadPixels_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei heig
 
 void glReleaseShaderCompiler_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glReleaseShaderCompiler()");
 	AEMU_SCOPED_TRACE("glReleaseShaderCompiler encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3162,6 +3256,7 @@ void glReleaseShaderCompiler_enc(void *self )
 
 void glRenderbufferStorage_enc(void *self , GLenum target, GLenum internalformat, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glRenderbufferStorage(target:0x%08x, internalformat:0x%08x, width:%d, height:%d)", target, internalformat, width, height);
 	AEMU_SCOPED_TRACE("glRenderbufferStorage encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3191,6 +3286,7 @@ void glRenderbufferStorage_enc(void *self , GLenum target, GLenum internalformat
 
 void glSampleCoverage_enc(void *self , GLclampf value, GLboolean invert)
 {
+	ENCODER_DEBUG_LOG("glSampleCoverage(value:%f, invert:%d)", value, invert);
 	AEMU_SCOPED_TRACE("glSampleCoverage encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3218,6 +3314,7 @@ void glSampleCoverage_enc(void *self , GLclampf value, GLboolean invert)
 
 void glScissor_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glScissor(x:%d, y:%d, width:%d, height:%d)", x, y, width, height);
 	AEMU_SCOPED_TRACE("glScissor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3247,6 +3344,7 @@ void glScissor_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height)
 
 void glStencilFunc_enc(void *self , GLenum func, GLint ref, GLuint mask)
 {
+	ENCODER_DEBUG_LOG("glStencilFunc(func:0x%08x, ref:%d, mask:%u)", func, ref, mask);
 	AEMU_SCOPED_TRACE("glStencilFunc encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3275,6 +3373,7 @@ void glStencilFunc_enc(void *self , GLenum func, GLint ref, GLuint mask)
 
 void glStencilFuncSeparate_enc(void *self , GLenum face, GLenum func, GLint ref, GLuint mask)
 {
+	ENCODER_DEBUG_LOG("glStencilFuncSeparate(face:0x%08x, func:0x%08x, ref:%d, mask:%u)", face, func, ref, mask);
 	AEMU_SCOPED_TRACE("glStencilFuncSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3304,6 +3403,7 @@ void glStencilFuncSeparate_enc(void *self , GLenum face, GLenum func, GLint ref,
 
 void glStencilMask_enc(void *self , GLuint mask)
 {
+	ENCODER_DEBUG_LOG("glStencilMask(mask:%u)", mask);
 	AEMU_SCOPED_TRACE("glStencilMask encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3330,6 +3430,7 @@ void glStencilMask_enc(void *self , GLuint mask)
 
 void glStencilMaskSeparate_enc(void *self , GLenum face, GLuint mask)
 {
+	ENCODER_DEBUG_LOG("glStencilMaskSeparate(face:0x%08x, mask:%u)", face, mask);
 	AEMU_SCOPED_TRACE("glStencilMaskSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3357,6 +3458,7 @@ void glStencilMaskSeparate_enc(void *self , GLenum face, GLuint mask)
 
 void glStencilOp_enc(void *self , GLenum fail, GLenum zfail, GLenum zpass)
 {
+	ENCODER_DEBUG_LOG("glStencilOp(fail:0x%08x, zfail:0x%08x, zpass:0x%08x)", fail, zfail, zpass);
 	AEMU_SCOPED_TRACE("glStencilOp encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3385,6 +3487,7 @@ void glStencilOp_enc(void *self , GLenum fail, GLenum zfail, GLenum zpass)
 
 void glStencilOpSeparate_enc(void *self , GLenum face, GLenum fail, GLenum zfail, GLenum zpass)
 {
+	ENCODER_DEBUG_LOG("glStencilOpSeparate(face:0x%08x, fail:0x%08x, zfail:0x%08x, zpass:0x%08x)", face, fail, zfail, zpass);
 	AEMU_SCOPED_TRACE("glStencilOpSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3414,6 +3517,7 @@ void glStencilOpSeparate_enc(void *self , GLenum face, GLenum fail, GLenum zfail
 
 void glTexImage2D_enc(void *self , GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	ENCODER_DEBUG_LOG("glTexImage2D(target:0x%08x, level:%d, internalformat:%d, width:%d, height:%d, border:%d, format:0x%08x, type:0x%08x, pixels:0x%08x)", target, level, internalformat, width, height, border, format, type, pixels);
 	AEMU_SCOPED_TRACE("glTexImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3456,6 +3560,7 @@ void glTexImage2D_enc(void *self , GLenum target, GLint level, GLint internalfor
 
 void glTexParameterf_enc(void *self , GLenum target, GLenum pname, GLfloat param)
 {
+	ENCODER_DEBUG_LOG("glTexParameterf(target:0x%08x, pname:0x%08x, param:%f)", target, pname, param);
 	AEMU_SCOPED_TRACE("glTexParameterf encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3484,6 +3589,7 @@ void glTexParameterf_enc(void *self , GLenum target, GLenum pname, GLfloat param
 
 void glTexParameterfv_enc(void *self , GLenum target, GLenum pname, const GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glTexParameterfv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glTexParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3514,6 +3620,7 @@ void glTexParameterfv_enc(void *self , GLenum target, GLenum pname, const GLfloa
 
 void glTexParameteri_enc(void *self , GLenum target, GLenum pname, GLint param)
 {
+	ENCODER_DEBUG_LOG("glTexParameteri(target:0x%08x, pname:0x%08x, param:%d)", target, pname, param);
 	AEMU_SCOPED_TRACE("glTexParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3542,6 +3649,7 @@ void glTexParameteri_enc(void *self , GLenum target, GLenum pname, GLint param)
 
 void glTexParameteriv_enc(void *self , GLenum target, GLenum pname, const GLint* params)
 {
+	ENCODER_DEBUG_LOG("glTexParameteriv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glTexParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3572,6 +3680,7 @@ void glTexParameteriv_enc(void *self , GLenum target, GLenum pname, const GLint*
 
 void glTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	ENCODER_DEBUG_LOG("glTexSubImage2D(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, width:%d, height:%d, format:0x%08x, type:0x%08x, pixels:0x%08x)", target, level, xoffset, yoffset, width, height, format, type, pixels);
 	AEMU_SCOPED_TRACE("glTexSubImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3614,6 +3723,7 @@ void glTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset,
 
 void glUniform1f_enc(void *self , GLint location, GLfloat x)
 {
+	ENCODER_DEBUG_LOG("glUniform1f(location:%d, x:%f)", location, x);
 	AEMU_SCOPED_TRACE("glUniform1f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3641,6 +3751,7 @@ void glUniform1f_enc(void *self , GLint location, GLfloat x)
 
 void glUniform1fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	ENCODER_DEBUG_LOG("glUniform1fv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform1fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3671,6 +3782,7 @@ void glUniform1fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform1i_enc(void *self , GLint location, GLint x)
 {
+	ENCODER_DEBUG_LOG("glUniform1i(location:%d, x:%d)", location, x);
 	AEMU_SCOPED_TRACE("glUniform1i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3698,6 +3810,7 @@ void glUniform1i_enc(void *self , GLint location, GLint x)
 
 void glUniform1iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	ENCODER_DEBUG_LOG("glUniform1iv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform1iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3728,6 +3841,7 @@ void glUniform1iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniform2f_enc(void *self , GLint location, GLfloat x, GLfloat y)
 {
+	ENCODER_DEBUG_LOG("glUniform2f(location:%d, x:%f, y:%f)", location, x, y);
 	AEMU_SCOPED_TRACE("glUniform2f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3756,6 +3870,7 @@ void glUniform2f_enc(void *self , GLint location, GLfloat x, GLfloat y)
 
 void glUniform2fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	ENCODER_DEBUG_LOG("glUniform2fv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3786,6 +3901,7 @@ void glUniform2fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform2i_enc(void *self , GLint location, GLint x, GLint y)
 {
+	ENCODER_DEBUG_LOG("glUniform2i(location:%d, x:%d, y:%d)", location, x, y);
 	AEMU_SCOPED_TRACE("glUniform2i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3814,6 +3930,7 @@ void glUniform2i_enc(void *self , GLint location, GLint x, GLint y)
 
 void glUniform2iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	ENCODER_DEBUG_LOG("glUniform2iv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform2iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3844,6 +3961,7 @@ void glUniform2iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniform3f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat z)
 {
+	ENCODER_DEBUG_LOG("glUniform3f(location:%d, x:%f, y:%f, z:%f)", location, x, y, z);
 	AEMU_SCOPED_TRACE("glUniform3f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3873,6 +3991,7 @@ void glUniform3f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat 
 
 void glUniform3fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	ENCODER_DEBUG_LOG("glUniform3fv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3903,6 +4022,7 @@ void glUniform3fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform3i_enc(void *self , GLint location, GLint x, GLint y, GLint z)
 {
+	ENCODER_DEBUG_LOG("glUniform3i(location:%d, x:%d, y:%d, z:%d)", location, x, y, z);
 	AEMU_SCOPED_TRACE("glUniform3i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3932,6 +4052,7 @@ void glUniform3i_enc(void *self , GLint location, GLint x, GLint y, GLint z)
 
 void glUniform3iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	ENCODER_DEBUG_LOG("glUniform3iv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform3iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3962,6 +4083,7 @@ void glUniform3iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniform4f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
+	ENCODER_DEBUG_LOG("glUniform4f(location:%d, x:%f, y:%f, z:%f, w:%f)", location, x, y, z, w);
 	AEMU_SCOPED_TRACE("glUniform4f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -3992,6 +4114,7 @@ void glUniform4f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat 
 
 void glUniform4fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	ENCODER_DEBUG_LOG("glUniform4fv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4022,6 +4145,7 @@ void glUniform4fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform4i_enc(void *self , GLint location, GLint x, GLint y, GLint z, GLint w)
 {
+	ENCODER_DEBUG_LOG("glUniform4i(location:%d, x:%d, y:%d, z:%d, w:%d)", location, x, y, z, w);
 	AEMU_SCOPED_TRACE("glUniform4i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4052,6 +4176,7 @@ void glUniform4i_enc(void *self , GLint location, GLint x, GLint y, GLint z, GLi
 
 void glUniform4iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	ENCODER_DEBUG_LOG("glUniform4iv(location:%d, count:%d, v:0x%08x)", location, count, v);
 	AEMU_SCOPED_TRACE("glUniform4iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4082,6 +4207,7 @@ void glUniform4iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniformMatrix2fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix2fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4113,6 +4239,7 @@ void glUniformMatrix2fv_enc(void *self , GLint location, GLsizei count, GLboolea
 
 void glUniformMatrix3fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix3fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4144,6 +4271,7 @@ void glUniformMatrix3fv_enc(void *self , GLint location, GLsizei count, GLboolea
 
 void glUniformMatrix4fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix4fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4175,6 +4303,7 @@ void glUniformMatrix4fv_enc(void *self , GLint location, GLsizei count, GLboolea
 
 void glUseProgram_enc(void *self , GLuint program)
 {
+	ENCODER_DEBUG_LOG("glUseProgram(program:%u)", program);
 	AEMU_SCOPED_TRACE("glUseProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4201,6 +4330,7 @@ void glUseProgram_enc(void *self , GLuint program)
 
 void glValidateProgram_enc(void *self , GLuint program)
 {
+	ENCODER_DEBUG_LOG("glValidateProgram(program:%u)", program);
 	AEMU_SCOPED_TRACE("glValidateProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4227,6 +4357,7 @@ void glValidateProgram_enc(void *self , GLuint program)
 
 void glVertexAttrib1f_enc(void *self , GLuint indx, GLfloat x)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib1f(indx:%u, x:%f)", indx, x);
 	AEMU_SCOPED_TRACE("glVertexAttrib1f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4254,6 +4385,7 @@ void glVertexAttrib1f_enc(void *self , GLuint indx, GLfloat x)
 
 void glVertexAttrib1fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib1fv(indx:%u, values:0x%08x)", indx, values);
 	AEMU_SCOPED_TRACE("glVertexAttrib1fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4283,6 +4415,7 @@ void glVertexAttrib1fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glVertexAttrib2f_enc(void *self , GLuint indx, GLfloat x, GLfloat y)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib2f(indx:%u, x:%f, y:%f)", indx, x, y);
 	AEMU_SCOPED_TRACE("glVertexAttrib2f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4311,6 +4444,7 @@ void glVertexAttrib2f_enc(void *self , GLuint indx, GLfloat x, GLfloat y)
 
 void glVertexAttrib2fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib2fv(indx:%u, values:0x%08x)", indx, values);
 	AEMU_SCOPED_TRACE("glVertexAttrib2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4340,6 +4474,7 @@ void glVertexAttrib2fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glVertexAttrib3f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloat z)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib3f(indx:%u, x:%f, y:%f, z:%f)", indx, x, y, z);
 	AEMU_SCOPED_TRACE("glVertexAttrib3f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4369,6 +4504,7 @@ void glVertexAttrib3f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloa
 
 void glVertexAttrib3fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib3fv(indx:%u, values:0x%08x)", indx, values);
 	AEMU_SCOPED_TRACE("glVertexAttrib3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4398,6 +4534,7 @@ void glVertexAttrib3fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glVertexAttrib4f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib4f(indx:%u, x:%f, y:%f, z:%f, w:%f)", indx, x, y, z, w);
 	AEMU_SCOPED_TRACE("glVertexAttrib4f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4428,6 +4565,7 @@ void glVertexAttrib4f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloa
 
 void glVertexAttrib4fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	ENCODER_DEBUG_LOG("glVertexAttrib4fv(indx:%u, values:0x%08x)", indx, values);
 	AEMU_SCOPED_TRACE("glVertexAttrib4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4457,6 +4595,7 @@ void glVertexAttrib4fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glViewport_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glViewport(x:%d, y:%d, width:%d, height:%d)", x, y, width, height);
 	AEMU_SCOPED_TRACE("glViewport encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4486,6 +4625,7 @@ void glViewport_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height
 
 void glEGLImageTargetTexture2DOES_enc(void *self , GLenum target, GLeglImageOES image)
 {
+	ENCODER_DEBUG_LOG("glEGLImageTargetTexture2DOES(target:0x%08x, image:%p)", target, image);
 	AEMU_SCOPED_TRACE("glEGLImageTargetTexture2DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4513,6 +4653,7 @@ void glEGLImageTargetTexture2DOES_enc(void *self , GLenum target, GLeglImageOES 
 
 void glEGLImageTargetRenderbufferStorageOES_enc(void *self , GLenum target, GLeglImageOES image)
 {
+	ENCODER_DEBUG_LOG("glEGLImageTargetRenderbufferStorageOES(target:0x%08x, image:%p)", target, image);
 	AEMU_SCOPED_TRACE("glEGLImageTargetRenderbufferStorageOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4540,6 +4681,7 @@ void glEGLImageTargetRenderbufferStorageOES_enc(void *self , GLenum target, GLeg
 
 GLboolean glUnmapBufferOES_enc(void *self , GLenum target)
 {
+	ENCODER_DEBUG_LOG("glUnmapBufferOES(target:0x%08x)", target);
 	AEMU_SCOPED_TRACE("glUnmapBufferOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4581,6 +4723,7 @@ GLboolean glUnmapBufferOES_enc(void *self , GLenum target)
 
 void glTexImage3DOES_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	ENCODER_DEBUG_LOG("glTexImage3DOES(target:0x%08x, level:%d, internalformat:0x%08x, width:%d, height:%d, depth:%d, border:%d, format:0x%08x, type:0x%08x, pixels:0x%08x)", target, level, internalformat, width, height, depth, border, format, type, pixels);
 	AEMU_SCOPED_TRACE("glTexImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4624,6 +4767,7 @@ void glTexImage3DOES_enc(void *self , GLenum target, GLint level, GLenum interna
 
 void glTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	ENCODER_DEBUG_LOG("glTexSubImage3DOES(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, width:%d, height:%d, depth:%d, format:0x%08x, type:0x%08x, pixels:0x%08x)", target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
 	AEMU_SCOPED_TRACE("glTexSubImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4668,6 +4812,7 @@ void glTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffs
 
 void glCopyTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glCopyTexSubImage3DOES(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, x:%d, y:%d, width:%d, height:%d)", target, level, xoffset, yoffset, zoffset, x, y, width, height);
 	AEMU_SCOPED_TRACE("glCopyTexSubImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4702,6 +4847,7 @@ void glCopyTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint x
 
 void glCompressedTexImage3DOES_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexImage3DOES(target:0x%08x, level:%d, internalformat:0x%08x, width:%d, height:%d, depth:%d, border:%d, imageSize:%d, data:0x%08x)", target, level, internalformat, width, height, depth, border, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4744,6 +4890,7 @@ void glCompressedTexImage3DOES_enc(void *self , GLenum target, GLint level, GLen
 
 void glCompressedTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexSubImage3DOES(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, width:%d, height:%d, depth:%d, format:0x%08x, imageSize:%d, data:0x%08x)", target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexSubImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4788,6 +4935,7 @@ void glCompressedTexSubImage3DOES_enc(void *self , GLenum target, GLint level, G
 
 void glFramebufferTexture3DOES_enc(void *self , GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLint zoffset)
 {
+	ENCODER_DEBUG_LOG("glFramebufferTexture3DOES(target:0x%08x, attachment:0x%08x, textarget:0x%08x, texture:%u, level:%d, zoffset:%d)", target, attachment, textarget, texture, level, zoffset);
 	AEMU_SCOPED_TRACE("glFramebufferTexture3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4819,6 +4967,7 @@ void glFramebufferTexture3DOES_enc(void *self , GLenum target, GLenum attachment
 
 void glBindVertexArrayOES_enc(void *self , GLuint array)
 {
+	ENCODER_DEBUG_LOG("glBindVertexArrayOES(array:%u)", array);
 	AEMU_SCOPED_TRACE("glBindVertexArrayOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4845,6 +4994,7 @@ void glBindVertexArrayOES_enc(void *self , GLuint array)
 
 void glDeleteVertexArraysOES_enc(void *self , GLsizei n, const GLuint* arrays)
 {
+	ENCODER_DEBUG_LOG("glDeleteVertexArraysOES(n:%d, arrays:0x%08x)", n, arrays);
 	AEMU_SCOPED_TRACE("glDeleteVertexArraysOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4874,6 +5024,7 @@ void glDeleteVertexArraysOES_enc(void *self , GLsizei n, const GLuint* arrays)
 
 void glGenVertexArraysOES_enc(void *self , GLsizei n, GLuint* arrays)
 {
+	ENCODER_DEBUG_LOG("glGenVertexArraysOES(n:%d, arrays:0x%08x)", n, arrays);
 	AEMU_SCOPED_TRACE("glGenVertexArraysOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4914,6 +5065,7 @@ void glGenVertexArraysOES_enc(void *self , GLsizei n, GLuint* arrays)
 
 GLboolean glIsVertexArrayOES_enc(void *self , GLuint array)
 {
+	ENCODER_DEBUG_LOG("glIsVertexArrayOES(array:%u)", array);
 	AEMU_SCOPED_TRACE("glIsVertexArrayOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4955,6 +5107,7 @@ GLboolean glIsVertexArrayOES_enc(void *self , GLuint array)
 
 void glDiscardFramebufferEXT_enc(void *self , GLenum target, GLsizei numAttachments, const GLenum* attachments)
 {
+	ENCODER_DEBUG_LOG("glDiscardFramebufferEXT(target:0x%08x, numAttachments:%d, attachments:0x%08x)", target, numAttachments, attachments);
 	AEMU_SCOPED_TRACE("glDiscardFramebufferEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -4985,6 +5138,7 @@ void glDiscardFramebufferEXT_enc(void *self , GLenum target, GLsizei numAttachme
 
 void glVertexAttribPointerData_enc(void *self , GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, void* data, GLuint datalen)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribPointerData(indx:%u, size:%d, type:0x%08x, normalized:%d, stride:%d, data:0x%08x, datalen:%u)", indx, size, type, normalized, stride, data, datalen);
 	AEMU_SCOPED_TRACE("glVertexAttribPointerData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5019,6 +5173,7 @@ void glVertexAttribPointerData_enc(void *self , GLuint indx, GLint size, GLenum 
 
 void glVertexAttribPointerOffset_enc(void *self , GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribPointerOffset(indx:%u, size:%d, type:0x%08x, normalized:%d, stride:%d, offset:%u)", indx, size, type, normalized, stride, offset);
 	AEMU_SCOPED_TRACE("glVertexAttribPointerOffset encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5050,6 +5205,7 @@ void glVertexAttribPointerOffset_enc(void *self , GLuint indx, GLint size, GLenu
 
 void glDrawElementsOffset_enc(void *self , GLenum mode, GLsizei count, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsOffset(mode:0x%08x, count:%d, type:0x%08x, offset:%u)", mode, count, type, offset);
 	AEMU_SCOPED_TRACE("glDrawElementsOffset encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5079,6 +5235,7 @@ void glDrawElementsOffset_enc(void *self , GLenum mode, GLsizei count, GLenum ty
 
 void glDrawElementsData_enc(void *self , GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsData(mode:0x%08x, count:%d, type:0x%08x, data:0x%08x, datalen:%u)", mode, count, type, data, datalen);
 	AEMU_SCOPED_TRACE("glDrawElementsData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5111,6 +5268,7 @@ void glDrawElementsData_enc(void *self , GLenum mode, GLsizei count, GLenum type
 
 void glGetCompressedTextureFormats_enc(void *self , int count, GLint* formats)
 {
+	ENCODER_DEBUG_LOG("glGetCompressedTextureFormats(count:%d, formats:0x%08x)", count, formats);
 	AEMU_SCOPED_TRACE("glGetCompressedTextureFormats encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5151,6 +5309,7 @@ void glGetCompressedTextureFormats_enc(void *self , int count, GLint* formats)
 
 void glShaderString_enc(void *self , GLuint shader, const GLchar* string, GLsizei len)
 {
+	ENCODER_DEBUG_LOG("glShaderString(shader:%u, string:0x%08x, len:%d)", shader, string, len);
 	AEMU_SCOPED_TRACE("glShaderString encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5181,6 +5340,7 @@ void glShaderString_enc(void *self , GLuint shader, const GLchar* string, GLsize
 
 int glFinishRoundTrip_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glFinishRoundTrip()");
 	AEMU_SCOPED_TRACE("glFinishRoundTrip encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5221,6 +5381,7 @@ int glFinishRoundTrip_enc(void *self )
 
 void glGenVertexArrays_enc(void *self , GLsizei n, GLuint* arrays)
 {
+	ENCODER_DEBUG_LOG("glGenVertexArrays(n:%d, arrays:0x%08x)", n, arrays);
 	AEMU_SCOPED_TRACE("glGenVertexArrays encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5261,6 +5422,7 @@ void glGenVertexArrays_enc(void *self , GLsizei n, GLuint* arrays)
 
 void glBindVertexArray_enc(void *self , GLuint array)
 {
+	ENCODER_DEBUG_LOG("glBindVertexArray(array:%u)", array);
 	AEMU_SCOPED_TRACE("glBindVertexArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5287,6 +5449,7 @@ void glBindVertexArray_enc(void *self , GLuint array)
 
 void glDeleteVertexArrays_enc(void *self , GLsizei n, const GLuint* arrays)
 {
+	ENCODER_DEBUG_LOG("glDeleteVertexArrays(n:%d, arrays:0x%08x)", n, arrays);
 	AEMU_SCOPED_TRACE("glDeleteVertexArrays encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5316,6 +5479,7 @@ void glDeleteVertexArrays_enc(void *self , GLsizei n, const GLuint* arrays)
 
 GLboolean glIsVertexArray_enc(void *self , GLuint array)
 {
+	ENCODER_DEBUG_LOG("glIsVertexArray(array:%u)", array);
 	AEMU_SCOPED_TRACE("glIsVertexArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5357,6 +5521,7 @@ GLboolean glIsVertexArray_enc(void *self , GLuint array)
 
 void glMapBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* mapped)
 {
+	ENCODER_DEBUG_LOG("glMapBufferRangeAEMU(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, mapped:0x%08x)", target, offset, length, access, mapped);
 	AEMU_SCOPED_TRACE("glMapBufferRangeAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5402,6 +5567,7 @@ void glMapBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsiz
 
 void glUnmapBufferAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res)
 {
+	ENCODER_DEBUG_LOG("glUnmapBufferAEMU(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, guest_buffer:0x%08x, out_res:0x%08x)", target, offset, length, access, guest_buffer, out_res);
 	AEMU_SCOPED_TRACE("glUnmapBufferAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5448,6 +5614,7 @@ void glUnmapBufferAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeip
 
 void glFlushMappedBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer)
 {
+	ENCODER_DEBUG_LOG("glFlushMappedBufferRangeAEMU(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, guest_buffer:0x%08x)", target, offset, length, access, guest_buffer);
 	AEMU_SCOPED_TRACE("glFlushMappedBufferRangeAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5480,6 +5647,7 @@ void glFlushMappedBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offse
 
 void glReadPixelsOffsetAEMU_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glReadPixelsOffsetAEMU(x:%d, y:%d, width:%d, height:%d, format:0x%08x, type:0x%08x, offset:%u)", x, y, width, height, format, type, offset);
 	AEMU_SCOPED_TRACE("glReadPixelsOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5512,6 +5680,7 @@ void glReadPixelsOffsetAEMU_enc(void *self , GLint x, GLint y, GLsizei width, GL
 
 void glCompressedTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexImage2DOffsetAEMU(target:0x%08x, level:%d, internalformat:0x%08x, width:%d, height:%d, border:%d, imageSize:%d, offset:%u)", target, level, internalformat, width, height, border, imageSize, offset);
 	AEMU_SCOPED_TRACE("glCompressedTexImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5545,6 +5714,7 @@ void glCompressedTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint leve
 
 void glCompressedTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexSubImage2DOffsetAEMU(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, width:%d, height:%d, format:0x%08x, imageSize:%d, offset:%u)", target, level, xoffset, yoffset, width, height, format, imageSize, offset);
 	AEMU_SCOPED_TRACE("glCompressedTexSubImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5579,6 +5749,7 @@ void glCompressedTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint l
 
 void glTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glTexImage2DOffsetAEMU(target:0x%08x, level:%d, internalformat:%d, width:%d, height:%d, border:%d, format:0x%08x, type:0x%08x, offset:%u)", target, level, internalformat, width, height, border, format, type, offset);
 	AEMU_SCOPED_TRACE("glTexImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5613,6 +5784,7 @@ void glTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint i
 
 void glTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glTexSubImage2DOffsetAEMU(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, width:%d, height:%d, format:0x%08x, type:0x%08x, offset:%u)", target, level, xoffset, yoffset, width, height, format, type, offset);
 	AEMU_SCOPED_TRACE("glTexSubImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5647,6 +5819,7 @@ void glTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLin
 
 void glBindBufferRange_enc(void *self , GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size)
 {
+	ENCODER_DEBUG_LOG("glBindBufferRange(target:0x%08x, index:%u, buffer:%u, offset:0x%08lx, size:0x%08lx)", target, index, buffer, offset, size);
 	AEMU_SCOPED_TRACE("glBindBufferRange encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5677,6 +5850,7 @@ void glBindBufferRange_enc(void *self , GLenum target, GLuint index, GLuint buff
 
 void glBindBufferBase_enc(void *self , GLenum target, GLuint index, GLuint buffer)
 {
+	ENCODER_DEBUG_LOG("glBindBufferBase(target:0x%08x, index:%u, buffer:%u)", target, index, buffer);
 	AEMU_SCOPED_TRACE("glBindBufferBase encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5705,6 +5879,7 @@ void glBindBufferBase_enc(void *self , GLenum target, GLuint index, GLuint buffe
 
 void glCopyBufferSubData_enc(void *self , GLenum readtarget, GLenum writetarget, GLintptr readoffset, GLintptr writeoffset, GLsizeiptr size)
 {
+	ENCODER_DEBUG_LOG("glCopyBufferSubData(readtarget:0x%08x, writetarget:0x%08x, readoffset:0x%08lx, writeoffset:0x%08lx, size:0x%08lx)", readtarget, writetarget, readoffset, writeoffset, size);
 	AEMU_SCOPED_TRACE("glCopyBufferSubData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5736,6 +5911,7 @@ void glCopyBufferSubData_enc(void *self , GLenum readtarget, GLenum writetarget,
 
 void glClearBufferiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLint* value)
 {
+	ENCODER_DEBUG_LOG("glClearBufferiv(buffer:0x%08x, drawBuffer:%d, value:0x%08x)", buffer, drawBuffer, value);
 	AEMU_SCOPED_TRACE("glClearBufferiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5766,6 +5942,7 @@ void glClearBufferiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLi
 
 void glClearBufferuiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glClearBufferuiv(buffer:0x%08x, drawBuffer:%d, value:0x%08x)", buffer, drawBuffer, value);
 	AEMU_SCOPED_TRACE("glClearBufferuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5796,6 +5973,7 @@ void glClearBufferuiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GL
 
 void glClearBufferfv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glClearBufferfv(buffer:0x%08x, drawBuffer:%d, value:0x%08x)", buffer, drawBuffer, value);
 	AEMU_SCOPED_TRACE("glClearBufferfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5826,6 +6004,7 @@ void glClearBufferfv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLf
 
 void glClearBufferfi_enc(void *self , GLenum buffer, GLint drawBuffer, GLfloat depth, GLint stencil)
 {
+	ENCODER_DEBUG_LOG("glClearBufferfi(buffer:0x%08x, drawBuffer:%d, depth:%f, stencil:%d)", buffer, drawBuffer, depth, stencil);
 	AEMU_SCOPED_TRACE("glClearBufferfi encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5855,6 +6034,7 @@ void glClearBufferfi_enc(void *self , GLenum buffer, GLint drawBuffer, GLfloat d
 
 void glUniformBlockBinding_enc(void *self , GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding)
 {
+	ENCODER_DEBUG_LOG("glUniformBlockBinding(program:%u, uniformBlockIndex:%u, uniformBlockBinding:%u)", program, uniformBlockIndex, uniformBlockBinding);
 	AEMU_SCOPED_TRACE("glUniformBlockBinding encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5883,6 +6063,7 @@ void glUniformBlockBinding_enc(void *self , GLuint program, GLuint uniformBlockI
 
 GLuint glGetUniformBlockIndex_enc(void *self , GLuint program, const GLchar* uniformBlockName)
 {
+	ENCODER_DEBUG_LOG("glGetUniformBlockIndex(program:%u, uniformBlockName:0x%08x)", program, uniformBlockName);
 	AEMU_SCOPED_TRACE("glGetUniformBlockIndex encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5927,6 +6108,7 @@ GLuint glGetUniformBlockIndex_enc(void *self , GLuint program, const GLchar* uni
 
 void glGetUniformIndicesAEMU_enc(void *self , GLuint program, GLsizei uniformCount, const GLchar* packedUniformNames, GLsizei packedLen, GLuint* uniformIndices)
 {
+	ENCODER_DEBUG_LOG("glGetUniformIndicesAEMU(program:%u, uniformCount:%d, packedUniformNames:0x%08x, packedLen:%d, uniformIndices:0x%08x)", program, uniformCount, packedUniformNames, packedLen, uniformIndices);
 	AEMU_SCOPED_TRACE("glGetUniformIndicesAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -5972,6 +6154,7 @@ void glGetUniformIndicesAEMU_enc(void *self , GLuint program, GLsizei uniformCou
 
 void glGetActiveUniformBlockiv_enc(void *self , GLuint program, GLuint uniformBlockIndex, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetActiveUniformBlockiv(program:%u, uniformBlockIndex:%u, pname:0x%08x, params:0x%08x)", program, uniformBlockIndex, pname, params);
 	AEMU_SCOPED_TRACE("glGetActiveUniformBlockiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6014,6 +6197,7 @@ void glGetActiveUniformBlockiv_enc(void *self , GLuint program, GLuint uniformBl
 
 void glGetActiveUniformBlockName_enc(void *self , GLuint program, GLuint uniformBlockIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformBlockName)
 {
+	ENCODER_DEBUG_LOG("glGetActiveUniformBlockName(program:%u, uniformBlockIndex:%u, bufSize:%d, length:0x%08x, uniformBlockName:0x%08x)", program, uniformBlockIndex, bufSize, length, uniformBlockName);
 	AEMU_SCOPED_TRACE("glGetActiveUniformBlockName encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6064,6 +6248,7 @@ void glGetActiveUniformBlockName_enc(void *self , GLuint program, GLuint uniform
 
 void glUniform1ui_enc(void *self , GLint location, GLuint v0)
 {
+	ENCODER_DEBUG_LOG("glUniform1ui(location:%d, v0:%u)", location, v0);
 	AEMU_SCOPED_TRACE("glUniform1ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6091,6 +6276,7 @@ void glUniform1ui_enc(void *self , GLint location, GLuint v0)
 
 void glUniform2ui_enc(void *self , GLint location, GLuint v0, GLuint v1)
 {
+	ENCODER_DEBUG_LOG("glUniform2ui(location:%d, v0:%u, v1:%u)", location, v0, v1);
 	AEMU_SCOPED_TRACE("glUniform2ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6119,6 +6305,7 @@ void glUniform2ui_enc(void *self , GLint location, GLuint v0, GLuint v1)
 
 void glUniform3ui_enc(void *self , GLint location, GLuint v0, GLuint v1, GLuint v2)
 {
+	ENCODER_DEBUG_LOG("glUniform3ui(location:%d, v0:%u, v1:%u, v2:%u)", location, v0, v1, v2);
 	AEMU_SCOPED_TRACE("glUniform3ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6148,6 +6335,7 @@ void glUniform3ui_enc(void *self , GLint location, GLuint v0, GLuint v1, GLuint 
 
 void glUniform4ui_enc(void *self , GLint location, GLint v0, GLuint v1, GLuint v2, GLuint v3)
 {
+	ENCODER_DEBUG_LOG("glUniform4ui(location:%d, v0:%d, v1:%u, v2:%u, v3:%u)", location, v0, v1, v2, v3);
 	AEMU_SCOPED_TRACE("glUniform4ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6178,6 +6366,7 @@ void glUniform4ui_enc(void *self , GLint location, GLint v0, GLuint v1, GLuint v
 
 void glUniform1uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glUniform1uiv(location:%d, count:%d, value:0x%08x)", location, count, value);
 	AEMU_SCOPED_TRACE("glUniform1uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6208,6 +6397,7 @@ void glUniform1uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniform2uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glUniform2uiv(location:%d, count:%d, value:0x%08x)", location, count, value);
 	AEMU_SCOPED_TRACE("glUniform2uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6238,6 +6428,7 @@ void glUniform2uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniform3uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glUniform3uiv(location:%d, count:%d, value:0x%08x)", location, count, value);
 	AEMU_SCOPED_TRACE("glUniform3uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6268,6 +6459,7 @@ void glUniform3uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniform4uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glUniform4uiv(location:%d, count:%d, value:0x%08x)", location, count, value);
 	AEMU_SCOPED_TRACE("glUniform4uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6298,6 +6490,7 @@ void glUniform4uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniformMatrix2x3fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix2x3fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix2x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6329,6 +6522,7 @@ void glUniformMatrix2x3fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix3x2fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix3x2fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix3x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6360,6 +6554,7 @@ void glUniformMatrix3x2fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix2x4fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix2x4fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix2x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6391,6 +6586,7 @@ void glUniformMatrix2x4fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix4x2fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix4x2fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix4x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6422,6 +6618,7 @@ void glUniformMatrix4x2fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix3x4fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix3x4fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix3x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6453,6 +6650,7 @@ void glUniformMatrix3x4fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix4x3fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glUniformMatrix4x3fv(location:%d, count:%d, transpose:%d, value:0x%08x)", location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glUniformMatrix4x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6484,6 +6682,7 @@ void glUniformMatrix4x3fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glGetUniformuiv_enc(void *self , GLuint program, GLint location, GLuint* params)
 {
+	ENCODER_DEBUG_LOG("glGetUniformuiv(program:%u, location:%d, params:0x%08x)", program, location, params);
 	AEMU_SCOPED_TRACE("glGetUniformuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6525,6 +6724,7 @@ void glGetUniformuiv_enc(void *self , GLuint program, GLint location, GLuint* pa
 
 void glGetActiveUniformsiv_enc(void *self , GLuint program, GLsizei uniformCount, const GLuint* uniformIndices, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetActiveUniformsiv(program:%u, uniformCount:%d, uniformIndices:0x%08x, pname:0x%08x, params:0x%08x)", program, uniformCount, uniformIndices, pname, params);
 	AEMU_SCOPED_TRACE("glGetActiveUniformsiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6570,6 +6770,7 @@ void glGetActiveUniformsiv_enc(void *self , GLuint program, GLsizei uniformCount
 
 void glVertexAttribI4i_enc(void *self , GLuint index, GLint v0, GLint v1, GLint v2, GLint v3)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribI4i(index:%u, v0:%d, v1:%d, v2:%d, v3:%d)", index, v0, v1, v2, v3);
 	AEMU_SCOPED_TRACE("glVertexAttribI4i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6600,6 +6801,7 @@ void glVertexAttribI4i_enc(void *self , GLuint index, GLint v0, GLint v1, GLint 
 
 void glVertexAttribI4ui_enc(void *self , GLuint index, GLuint v0, GLuint v1, GLuint v2, GLuint v3)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribI4ui(index:%u, v0:%u, v1:%u, v2:%u, v3:%u)", index, v0, v1, v2, v3);
 	AEMU_SCOPED_TRACE("glVertexAttribI4ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6630,6 +6832,7 @@ void glVertexAttribI4ui_enc(void *self , GLuint index, GLuint v0, GLuint v1, GLu
 
 void glVertexAttribI4iv_enc(void *self , GLuint index, const GLint* v)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribI4iv(index:%u, v:0x%08x)", index, v);
 	AEMU_SCOPED_TRACE("glVertexAttribI4iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6659,6 +6862,7 @@ void glVertexAttribI4iv_enc(void *self , GLuint index, const GLint* v)
 
 void glVertexAttribI4uiv_enc(void *self , GLuint index, const GLuint* v)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribI4uiv(index:%u, v:0x%08x)", index, v);
 	AEMU_SCOPED_TRACE("glVertexAttribI4uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6688,6 +6892,7 @@ void glVertexAttribI4uiv_enc(void *self , GLuint index, const GLuint* v)
 
 void glVertexAttribIPointerOffsetAEMU_enc(void *self , GLuint index, GLint size, GLenum type, GLsizei stride, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribIPointerOffsetAEMU(index:%u, size:%d, type:0x%08x, stride:%d, offset:%u)", index, size, type, stride, offset);
 	AEMU_SCOPED_TRACE("glVertexAttribIPointerOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6718,6 +6923,7 @@ void glVertexAttribIPointerOffsetAEMU_enc(void *self , GLuint index, GLint size,
 
 void glVertexAttribIPointerDataAEMU_enc(void *self , GLuint index, GLint size, GLenum type, GLsizei stride, void* data, GLuint datalen)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribIPointerDataAEMU(index:%u, size:%d, type:0x%08x, stride:%d, data:0x%08x, datalen:%u)", index, size, type, stride, data, datalen);
 	AEMU_SCOPED_TRACE("glVertexAttribIPointerDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6751,6 +6957,7 @@ void glVertexAttribIPointerDataAEMU_enc(void *self , GLuint index, GLint size, G
 
 void glGetVertexAttribIiv_enc(void *self , GLuint index, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetVertexAttribIiv(index:%u, pname:0x%08x, params:0x%08x)", index, pname, params);
 	AEMU_SCOPED_TRACE("glGetVertexAttribIiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6792,6 +6999,7 @@ void glGetVertexAttribIiv_enc(void *self , GLuint index, GLenum pname, GLint* pa
 
 void glGetVertexAttribIuiv_enc(void *self , GLuint index, GLenum pname, GLuint* params)
 {
+	ENCODER_DEBUG_LOG("glGetVertexAttribIuiv(index:%u, pname:0x%08x, params:0x%08x)", index, pname, params);
 	AEMU_SCOPED_TRACE("glGetVertexAttribIuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6833,6 +7041,7 @@ void glGetVertexAttribIuiv_enc(void *self , GLuint index, GLenum pname, GLuint* 
 
 void glVertexAttribDivisor_enc(void *self , GLuint index, GLuint divisor)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribDivisor(index:%u, divisor:%u)", index, divisor);
 	AEMU_SCOPED_TRACE("glVertexAttribDivisor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6860,6 +7069,7 @@ void glVertexAttribDivisor_enc(void *self , GLuint index, GLuint divisor)
 
 void glDrawArraysInstanced_enc(void *self , GLenum mode, GLint first, GLsizei count, GLsizei primcount)
 {
+	ENCODER_DEBUG_LOG("glDrawArraysInstanced(mode:0x%08x, first:%d, count:%d, primcount:%d)", mode, first, count, primcount);
 	AEMU_SCOPED_TRACE("glDrawArraysInstanced encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6889,6 +7099,7 @@ void glDrawArraysInstanced_enc(void *self , GLenum mode, GLint first, GLsizei co
 
 void glDrawElementsInstancedDataAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei primcount, GLsizei datalen)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsInstancedDataAEMU(mode:0x%08x, count:%d, type:0x%08x, indices:0x%08x, primcount:%d, datalen:%d)", mode, count, type, indices, primcount, datalen);
 	AEMU_SCOPED_TRACE("glDrawElementsInstancedDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6922,6 +7133,7 @@ void glDrawElementsInstancedDataAEMU_enc(void *self , GLenum mode, GLsizei count
 
 void glDrawElementsInstancedOffsetAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, GLuint offset, GLsizei primcount)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsInstancedOffsetAEMU(mode:0x%08x, count:%d, type:0x%08x, offset:%u, primcount:%d)", mode, count, type, offset, primcount);
 	AEMU_SCOPED_TRACE("glDrawElementsInstancedOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6952,6 +7164,7 @@ void glDrawElementsInstancedOffsetAEMU_enc(void *self , GLenum mode, GLsizei cou
 
 void glDrawRangeElementsDataAEMU_enc(void *self , GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid* indices, GLsizei datalen)
 {
+	ENCODER_DEBUG_LOG("glDrawRangeElementsDataAEMU(mode:0x%08x, start:%u, end:%u, count:%d, type:0x%08x, indices:0x%08x, datalen:%d)", mode, start, end, count, type, indices, datalen);
 	AEMU_SCOPED_TRACE("glDrawRangeElementsDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -6986,6 +7199,7 @@ void glDrawRangeElementsDataAEMU_enc(void *self , GLenum mode, GLuint start, GLu
 
 void glDrawRangeElementsOffsetAEMU_enc(void *self , GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glDrawRangeElementsOffsetAEMU(mode:0x%08x, start:%u, end:%u, count:%d, type:0x%08x, offset:%u)", mode, start, end, count, type, offset);
 	AEMU_SCOPED_TRACE("glDrawRangeElementsOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7017,6 +7231,7 @@ void glDrawRangeElementsOffsetAEMU_enc(void *self , GLenum mode, GLuint start, G
 
 uint64_t glFenceSyncAEMU_enc(void *self , GLenum condition, GLbitfield flags)
 {
+	ENCODER_DEBUG_LOG("glFenceSyncAEMU(condition:0x%08x, flags:0x%08x)", condition, flags);
 	AEMU_SCOPED_TRACE("glFenceSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7059,6 +7274,7 @@ uint64_t glFenceSyncAEMU_enc(void *self , GLenum condition, GLbitfield flags)
 
 GLenum glClientWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags, GLuint64 timeout)
 {
+	ENCODER_DEBUG_LOG("glClientWaitSyncAEMU(wait_on:0x%016lx, flags:0x%08x, timeout:0x%016lx)", wait_on, flags, timeout);
 	AEMU_SCOPED_TRACE("glClientWaitSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7102,6 +7318,7 @@ GLenum glClientWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags,
 
 void glWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags, GLuint64 timeout)
 {
+	ENCODER_DEBUG_LOG("glWaitSyncAEMU(wait_on:0x%016lx, flags:0x%08x, timeout:0x%016lx)", wait_on, flags, timeout);
 	AEMU_SCOPED_TRACE("glWaitSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7130,6 +7347,7 @@ void glWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags, GLuint6
 
 void glDeleteSyncAEMU_enc(void *self , uint64_t to_delete)
 {
+	ENCODER_DEBUG_LOG("glDeleteSyncAEMU(to_delete:0x%016lx)", to_delete);
 	AEMU_SCOPED_TRACE("glDeleteSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7156,6 +7374,7 @@ void glDeleteSyncAEMU_enc(void *self , uint64_t to_delete)
 
 GLboolean glIsSyncAEMU_enc(void *self , uint64_t sync)
 {
+	ENCODER_DEBUG_LOG("glIsSyncAEMU(sync:0x%016lx)", sync);
 	AEMU_SCOPED_TRACE("glIsSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7197,6 +7416,7 @@ GLboolean glIsSyncAEMU_enc(void *self , uint64_t sync)
 
 void glGetSyncivAEMU_enc(void *self , uint64_t sync, GLenum pname, GLsizei bufSize, GLsizei* length, GLint* values)
 {
+	ENCODER_DEBUG_LOG("glGetSyncivAEMU(sync:0x%016lx, pname:0x%08x, bufSize:%d, length:0x%08x, values:0x%08x)", sync, pname, bufSize, length, values);
 	AEMU_SCOPED_TRACE("glGetSyncivAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7245,6 +7465,7 @@ void glGetSyncivAEMU_enc(void *self , uint64_t sync, GLenum pname, GLsizei bufSi
 
 void glDrawBuffers_enc(void *self , GLsizei n, const GLenum* bufs)
 {
+	ENCODER_DEBUG_LOG("glDrawBuffers(n:%d, bufs:0x%08x)", n, bufs);
 	AEMU_SCOPED_TRACE("glDrawBuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7274,6 +7495,7 @@ void glDrawBuffers_enc(void *self , GLsizei n, const GLenum* bufs)
 
 void glReadBuffer_enc(void *self , GLenum src)
 {
+	ENCODER_DEBUG_LOG("glReadBuffer(src:0x%08x)", src);
 	AEMU_SCOPED_TRACE("glReadBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7300,6 +7522,7 @@ void glReadBuffer_enc(void *self , GLenum src)
 
 void glBlitFramebuffer_enc(void *self , GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
 {
+	ENCODER_DEBUG_LOG("glBlitFramebuffer(srcX0:%d, srcY0:%d, srcX1:%d, srcY1:%d, dstX0:%d, dstY0:%d, dstX1:%d, dstY1:%d, mask:0x%08x, filter:0x%08x)", srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
 	AEMU_SCOPED_TRACE("glBlitFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7335,6 +7558,7 @@ void glBlitFramebuffer_enc(void *self , GLint srcX0, GLint srcY0, GLint srcX1, G
 
 void glInvalidateFramebuffer_enc(void *self , GLenum target, GLsizei numAttachments, const GLenum* attachments)
 {
+	ENCODER_DEBUG_LOG("glInvalidateFramebuffer(target:0x%08x, numAttachments:%d, attachments:0x%08x)", target, numAttachments, attachments);
 	AEMU_SCOPED_TRACE("glInvalidateFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7365,6 +7589,7 @@ void glInvalidateFramebuffer_enc(void *self , GLenum target, GLsizei numAttachme
 
 void glInvalidateSubFramebuffer_enc(void *self , GLenum target, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glInvalidateSubFramebuffer(target:0x%08x, numAttachments:%d, attachments:0x%08x, x:%d, y:%d, width:%d, height:%d)", target, numAttachments, attachments, x, y, width, height);
 	AEMU_SCOPED_TRACE("glInvalidateSubFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7399,6 +7624,7 @@ void glInvalidateSubFramebuffer_enc(void *self , GLenum target, GLsizei numAttac
 
 void glFramebufferTextureLayer_enc(void *self , GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer)
 {
+	ENCODER_DEBUG_LOG("glFramebufferTextureLayer(target:0x%08x, attachment:0x%08x, texture:%u, level:%d, layer:%d)", target, attachment, texture, level, layer);
 	AEMU_SCOPED_TRACE("glFramebufferTextureLayer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7429,6 +7655,7 @@ void glFramebufferTextureLayer_enc(void *self , GLenum target, GLenum attachment
 
 void glRenderbufferStorageMultisample_enc(void *self , GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glRenderbufferStorageMultisample(target:0x%08x, samples:%d, internalformat:0x%08x, width:%d, height:%d)", target, samples, internalformat, width, height);
 	AEMU_SCOPED_TRACE("glRenderbufferStorageMultisample encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7459,6 +7686,7 @@ void glRenderbufferStorageMultisample_enc(void *self , GLenum target, GLsizei sa
 
 void glTexStorage2D_enc(void *self , GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glTexStorage2D(target:0x%08x, levels:%d, internalformat:0x%08x, width:%d, height:%d)", target, levels, internalformat, width, height);
 	AEMU_SCOPED_TRACE("glTexStorage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7489,6 +7717,7 @@ void glTexStorage2D_enc(void *self , GLenum target, GLsizei levels, GLenum inter
 
 void glGetInternalformativ_enc(void *self , GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetInternalformativ(target:0x%08x, internalformat:0x%08x, pname:0x%08x, bufSize:%d, params:0x%08x)", target, internalformat, pname, bufSize, params);
 	AEMU_SCOPED_TRACE("glGetInternalformativ encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7532,6 +7761,7 @@ void glGetInternalformativ_enc(void *self , GLenum target, GLenum internalformat
 
 void glBeginTransformFeedback_enc(void *self , GLenum primitiveMode)
 {
+	ENCODER_DEBUG_LOG("glBeginTransformFeedback(primitiveMode:0x%08x)", primitiveMode);
 	AEMU_SCOPED_TRACE("glBeginTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7558,6 +7788,7 @@ void glBeginTransformFeedback_enc(void *self , GLenum primitiveMode)
 
 void glEndTransformFeedback_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glEndTransformFeedback()");
 	AEMU_SCOPED_TRACE("glEndTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7583,6 +7814,7 @@ void glEndTransformFeedback_enc(void *self )
 
 void glGenTransformFeedbacks_enc(void *self , GLsizei n, GLuint* ids)
 {
+	ENCODER_DEBUG_LOG("glGenTransformFeedbacks(n:%d, ids:0x%08x)", n, ids);
 	AEMU_SCOPED_TRACE("glGenTransformFeedbacks encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7623,6 +7855,7 @@ void glGenTransformFeedbacks_enc(void *self , GLsizei n, GLuint* ids)
 
 void glDeleteTransformFeedbacks_enc(void *self , GLsizei n, const GLuint* ids)
 {
+	ENCODER_DEBUG_LOG("glDeleteTransformFeedbacks(n:%d, ids:0x%08x)", n, ids);
 	AEMU_SCOPED_TRACE("glDeleteTransformFeedbacks encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7652,6 +7885,7 @@ void glDeleteTransformFeedbacks_enc(void *self , GLsizei n, const GLuint* ids)
 
 void glBindTransformFeedback_enc(void *self , GLenum target, GLuint id)
 {
+	ENCODER_DEBUG_LOG("glBindTransformFeedback(target:0x%08x, id:%u)", target, id);
 	AEMU_SCOPED_TRACE("glBindTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7679,6 +7913,7 @@ void glBindTransformFeedback_enc(void *self , GLenum target, GLuint id)
 
 void glPauseTransformFeedback_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glPauseTransformFeedback()");
 	AEMU_SCOPED_TRACE("glPauseTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7704,6 +7939,7 @@ void glPauseTransformFeedback_enc(void *self )
 
 void glResumeTransformFeedback_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glResumeTransformFeedback()");
 	AEMU_SCOPED_TRACE("glResumeTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7729,6 +7965,7 @@ void glResumeTransformFeedback_enc(void *self )
 
 GLboolean glIsTransformFeedback_enc(void *self , GLuint id)
 {
+	ENCODER_DEBUG_LOG("glIsTransformFeedback(id:%u)", id);
 	AEMU_SCOPED_TRACE("glIsTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7770,6 +8007,7 @@ GLboolean glIsTransformFeedback_enc(void *self , GLuint id)
 
 void glTransformFeedbackVaryingsAEMU_enc(void *self , GLuint program, GLsizei count, const char* packedVaryings, GLuint packedVaryingsLen, GLenum bufferMode)
 {
+	ENCODER_DEBUG_LOG("glTransformFeedbackVaryingsAEMU(program:%u, count:%d, packedVaryings:0x%08x, packedVaryingsLen:%u, bufferMode:0x%08x)", program, count, packedVaryings, packedVaryingsLen, bufferMode);
 	AEMU_SCOPED_TRACE("glTransformFeedbackVaryingsAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7802,6 +8040,7 @@ void glTransformFeedbackVaryingsAEMU_enc(void *self , GLuint program, GLsizei co
 
 void glGetTransformFeedbackVarying_enc(void *self , GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLsizei* size, GLenum* type, char* name)
 {
+	ENCODER_DEBUG_LOG("glGetTransformFeedbackVarying(program:%u, index:%u, bufSize:%d, length:0x%08x, size:0x%08x, type:0x%08x, name:0x%08x)", program, index, bufSize, length, size, type, name);
 	AEMU_SCOPED_TRACE("glGetTransformFeedbackVarying encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7862,6 +8101,7 @@ void glGetTransformFeedbackVarying_enc(void *self , GLuint program, GLuint index
 
 void glGenSamplers_enc(void *self , GLsizei n, GLuint* samplers)
 {
+	ENCODER_DEBUG_LOG("glGenSamplers(n:%d, samplers:0x%08x)", n, samplers);
 	AEMU_SCOPED_TRACE("glGenSamplers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7902,6 +8142,7 @@ void glGenSamplers_enc(void *self , GLsizei n, GLuint* samplers)
 
 void glDeleteSamplers_enc(void *self , GLsizei n, const GLuint* samplers)
 {
+	ENCODER_DEBUG_LOG("glDeleteSamplers(n:%d, samplers:0x%08x)", n, samplers);
 	AEMU_SCOPED_TRACE("glDeleteSamplers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7931,6 +8172,7 @@ void glDeleteSamplers_enc(void *self , GLsizei n, const GLuint* samplers)
 
 void glBindSampler_enc(void *self , GLuint unit, GLuint sampler)
 {
+	ENCODER_DEBUG_LOG("glBindSampler(unit:%u, sampler:%u)", unit, sampler);
 	AEMU_SCOPED_TRACE("glBindSampler encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7958,6 +8200,7 @@ void glBindSampler_enc(void *self , GLuint unit, GLuint sampler)
 
 void glSamplerParameterf_enc(void *self , GLuint sampler, GLenum pname, GLfloat param)
 {
+	ENCODER_DEBUG_LOG("glSamplerParameterf(sampler:%u, pname:0x%08x, param:%f)", sampler, pname, param);
 	AEMU_SCOPED_TRACE("glSamplerParameterf encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -7986,6 +8229,7 @@ void glSamplerParameterf_enc(void *self , GLuint sampler, GLenum pname, GLfloat 
 
 void glSamplerParameteri_enc(void *self , GLuint sampler, GLenum pname, GLint param)
 {
+	ENCODER_DEBUG_LOG("glSamplerParameteri(sampler:%u, pname:0x%08x, param:%d)", sampler, pname, param);
 	AEMU_SCOPED_TRACE("glSamplerParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8014,6 +8258,7 @@ void glSamplerParameteri_enc(void *self , GLuint sampler, GLenum pname, GLint pa
 
 void glSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, const GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glSamplerParameterfv(sampler:%u, pname:0x%08x, params:0x%08x)", sampler, pname, params);
 	AEMU_SCOPED_TRACE("glSamplerParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8044,6 +8289,7 @@ void glSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, const G
 
 void glSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, const GLint* params)
 {
+	ENCODER_DEBUG_LOG("glSamplerParameteriv(sampler:%u, pname:0x%08x, params:0x%08x)", sampler, pname, params);
 	AEMU_SCOPED_TRACE("glSamplerParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8074,6 +8320,7 @@ void glSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, const G
 
 void glGetSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetSamplerParameterfv(sampler:%u, pname:0x%08x, params:0x%08x)", sampler, pname, params);
 	AEMU_SCOPED_TRACE("glGetSamplerParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8115,6 +8362,7 @@ void glGetSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, GLfl
 
 void glGetSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetSamplerParameteriv(sampler:%u, pname:0x%08x, params:0x%08x)", sampler, pname, params);
 	AEMU_SCOPED_TRACE("glGetSamplerParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8156,6 +8404,7 @@ void glGetSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, GLin
 
 GLboolean glIsSampler_enc(void *self , GLuint sampler)
 {
+	ENCODER_DEBUG_LOG("glIsSampler(sampler:%u)", sampler);
 	AEMU_SCOPED_TRACE("glIsSampler encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8197,6 +8446,7 @@ GLboolean glIsSampler_enc(void *self , GLuint sampler)
 
 void glGenQueries_enc(void *self , GLsizei n, GLuint* queries)
 {
+	ENCODER_DEBUG_LOG("glGenQueries(n:%d, queries:0x%08x)", n, queries);
 	AEMU_SCOPED_TRACE("glGenQueries encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8237,6 +8487,7 @@ void glGenQueries_enc(void *self , GLsizei n, GLuint* queries)
 
 void glDeleteQueries_enc(void *self , GLsizei n, const GLuint* queries)
 {
+	ENCODER_DEBUG_LOG("glDeleteQueries(n:%d, queries:0x%08x)", n, queries);
 	AEMU_SCOPED_TRACE("glDeleteQueries encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8266,6 +8517,7 @@ void glDeleteQueries_enc(void *self , GLsizei n, const GLuint* queries)
 
 void glBeginQuery_enc(void *self , GLenum target, GLuint query)
 {
+	ENCODER_DEBUG_LOG("glBeginQuery(target:0x%08x, query:%u)", target, query);
 	AEMU_SCOPED_TRACE("glBeginQuery encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8293,6 +8545,7 @@ void glBeginQuery_enc(void *self , GLenum target, GLuint query)
 
 void glEndQuery_enc(void *self , GLenum target)
 {
+	ENCODER_DEBUG_LOG("glEndQuery(target:0x%08x)", target);
 	AEMU_SCOPED_TRACE("glEndQuery encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8319,6 +8572,7 @@ void glEndQuery_enc(void *self , GLenum target)
 
 void glGetQueryiv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetQueryiv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glGetQueryiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8360,6 +8614,7 @@ void glGetQueryiv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 
 void glGetQueryObjectuiv_enc(void *self , GLuint query, GLenum pname, GLuint* params)
 {
+	ENCODER_DEBUG_LOG("glGetQueryObjectuiv(query:%u, pname:0x%08x, params:0x%08x)", query, pname, params);
 	AEMU_SCOPED_TRACE("glGetQueryObjectuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8401,6 +8656,7 @@ void glGetQueryObjectuiv_enc(void *self , GLuint query, GLenum pname, GLuint* pa
 
 GLboolean glIsQuery_enc(void *self , GLuint query)
 {
+	ENCODER_DEBUG_LOG("glIsQuery(query:%u)", query);
 	AEMU_SCOPED_TRACE("glIsQuery encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8442,6 +8698,7 @@ GLboolean glIsQuery_enc(void *self , GLuint query)
 
 void glProgramParameteri_enc(void *self , GLuint program, GLenum pname, GLint value)
 {
+	ENCODER_DEBUG_LOG("glProgramParameteri(program:%u, pname:0x%08x, value:%d)", program, pname, value);
 	AEMU_SCOPED_TRACE("glProgramParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8470,6 +8727,7 @@ void glProgramParameteri_enc(void *self , GLuint program, GLenum pname, GLint va
 
 void glProgramBinary_enc(void *self , GLuint program, GLenum binaryFormat, const void* binary, GLsizei length)
 {
+	ENCODER_DEBUG_LOG("glProgramBinary(program:%u, binaryFormat:0x%08x, binary:0x%08x, length:%d)", program, binaryFormat, binary, length);
 	AEMU_SCOPED_TRACE("glProgramBinary encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8501,6 +8759,7 @@ void glProgramBinary_enc(void *self , GLuint program, GLenum binaryFormat, const
 
 void glGetProgramBinary_enc(void *self , GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary)
 {
+	ENCODER_DEBUG_LOG("glGetProgramBinary(program:%u, bufSize:%d, length:0x%08x, binaryFormat:0x%08x, binary:0x%08x)", program, bufSize, length, binaryFormat, binary);
 	AEMU_SCOPED_TRACE("glGetProgramBinary encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8552,6 +8811,7 @@ void glGetProgramBinary_enc(void *self , GLuint program, GLsizei bufSize, GLsize
 
 GLint glGetFragDataLocation_enc(void *self , GLuint program, const char* name)
 {
+	ENCODER_DEBUG_LOG("glGetFragDataLocation(program:%u, name:0x%08x)", program, name);
 	AEMU_SCOPED_TRACE("glGetFragDataLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8596,6 +8856,7 @@ GLint glGetFragDataLocation_enc(void *self , GLuint program, const char* name)
 
 void glGetInteger64v_enc(void *self , GLenum pname, GLint64* data)
 {
+	ENCODER_DEBUG_LOG("glGetInteger64v(pname:0x%08x, data:%p)", pname, data);
 	AEMU_SCOPED_TRACE("glGetInteger64v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8636,6 +8897,7 @@ void glGetInteger64v_enc(void *self , GLenum pname, GLint64* data)
 
 void glGetIntegeri_v_enc(void *self , GLenum target, GLuint index, GLint* data)
 {
+	ENCODER_DEBUG_LOG("glGetIntegeri_v(target:0x%08x, index:%u, data:0x%08x)", target, index, data);
 	AEMU_SCOPED_TRACE("glGetIntegeri_v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8677,6 +8939,7 @@ void glGetIntegeri_v_enc(void *self , GLenum target, GLuint index, GLint* data)
 
 void glGetInteger64i_v_enc(void *self , GLenum target, GLuint index, GLint64* data)
 {
+	ENCODER_DEBUG_LOG("glGetInteger64i_v(target:0x%08x, index:%u, data:%p)", target, index, data);
 	AEMU_SCOPED_TRACE("glGetInteger64i_v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8718,6 +8981,7 @@ void glGetInteger64i_v_enc(void *self , GLenum target, GLuint index, GLint64* da
 
 void glTexImage3D_enc(void *self , GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glTexImage3D(target:0x%08x, level:%d, internalFormat:%d, width:%d, height:%d, depth:%d, border:%d, format:0x%08x, type:0x%08x, data:0x%08x)", target, level, internalFormat, width, height, depth, border, format, type, data);
 	AEMU_SCOPED_TRACE("glTexImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8761,6 +9025,7 @@ void glTexImage3D_enc(void *self , GLenum target, GLint level, GLint internalFor
 
 void glTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glTexImage3DOffsetAEMU(target:0x%08x, level:%d, internalFormat:%d, width:%d, height:%d, depth:%d, border:%d, format:0x%08x, type:0x%08x, offset:%u)", target, level, internalFormat, width, height, depth, border, format, type, offset);
 	AEMU_SCOPED_TRACE("glTexImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8796,6 +9061,7 @@ void glTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint i
 
 void glTexStorage3D_enc(void *self , GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
 {
+	ENCODER_DEBUG_LOG("glTexStorage3D(target:0x%08x, levels:%d, internalformat:0x%08x, width:%d, height:%d, depth:%d)", target, levels, internalformat, width, height, depth);
 	AEMU_SCOPED_TRACE("glTexStorage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8827,6 +9093,7 @@ void glTexStorage3D_enc(void *self , GLenum target, GLsizei levels, GLenum inter
 
 void glTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glTexSubImage3D(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, width:%d, height:%d, depth:%d, format:0x%08x, type:0x%08x, data:0x%08x)", target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
 	AEMU_SCOPED_TRACE("glTexSubImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8871,6 +9138,7 @@ void glTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset,
 
 void glTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glTexSubImage3DOffsetAEMU(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, width:%d, height:%d, depth:%d, format:0x%08x, type:0x%08x, offset:%u)", target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, offset);
 	AEMU_SCOPED_TRACE("glTexSubImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8907,6 +9175,7 @@ void glTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLin
 
 void glCompressedTexImage3D_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexImage3D(target:0x%08x, level:%d, internalformat:0x%08x, width:%d, height:%d, depth:%d, border:%d, imageSize:%d, data:0x%08x)", target, level, internalformat, width, height, depth, border, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8949,6 +9218,7 @@ void glCompressedTexImage3D_enc(void *self , GLenum target, GLint level, GLenum 
 
 void glCompressedTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexImage3DOffsetAEMU(target:0x%08x, level:%d, internalformat:0x%08x, width:%d, height:%d, depth:%d, border:%d, imageSize:%d, offset:%u)", target, level, internalformat, width, height, depth, border, imageSize, offset);
 	AEMU_SCOPED_TRACE("glCompressedTexImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -8983,6 +9253,7 @@ void glCompressedTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint leve
 
 void glCompressedTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexSubImage3D(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, width:%d, height:%d, depth:%d, format:0x%08x, imageSize:%d, data:0x%08x)", target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexSubImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9027,6 +9298,7 @@ void glCompressedTexSubImage3D_enc(void *self , GLenum target, GLint level, GLin
 
 void glCompressedTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, GLuint data)
 {
+	ENCODER_DEBUG_LOG("glCompressedTexSubImage3DOffsetAEMU(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, width:%d, height:%d, depth:%d, format:0x%08x, imageSize:%d, data:%u)", target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 	AEMU_SCOPED_TRACE("glCompressedTexSubImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9063,6 +9335,7 @@ void glCompressedTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint l
 
 void glCopyTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	ENCODER_DEBUG_LOG("glCopyTexSubImage3D(target:0x%08x, level:%d, xoffset:%d, yoffset:%d, zoffset:%d, x:%d, y:%d, width:%d, height:%d)", target, level, xoffset, yoffset, zoffset, x, y, width, height);
 	AEMU_SCOPED_TRACE("glCopyTexSubImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9097,6 +9370,7 @@ void glCopyTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoff
 
 void glGetBooleani_v_enc(void *self , GLenum target, GLuint index, GLboolean* data)
 {
+	ENCODER_DEBUG_LOG("glGetBooleani_v(target:0x%08x, index:%u, data:0x%08x)", target, index, data);
 	AEMU_SCOPED_TRACE("glGetBooleani_v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9138,6 +9412,7 @@ void glGetBooleani_v_enc(void *self , GLenum target, GLuint index, GLboolean* da
 
 void glMemoryBarrier_enc(void *self , GLbitfield barriers)
 {
+	ENCODER_DEBUG_LOG("glMemoryBarrier(barriers:0x%08x)", barriers);
 	AEMU_SCOPED_TRACE("glMemoryBarrier encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9164,6 +9439,7 @@ void glMemoryBarrier_enc(void *self , GLbitfield barriers)
 
 void glMemoryBarrierByRegion_enc(void *self , GLbitfield barriers)
 {
+	ENCODER_DEBUG_LOG("glMemoryBarrierByRegion(barriers:0x%08x)", barriers);
 	AEMU_SCOPED_TRACE("glMemoryBarrierByRegion encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9190,6 +9466,7 @@ void glMemoryBarrierByRegion_enc(void *self , GLbitfield barriers)
 
 void glGenProgramPipelines_enc(void *self , GLsizei n, GLuint* pipelines)
 {
+	ENCODER_DEBUG_LOG("glGenProgramPipelines(n:%d, pipelines:0x%08x)", n, pipelines);
 	AEMU_SCOPED_TRACE("glGenProgramPipelines encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9230,6 +9507,7 @@ void glGenProgramPipelines_enc(void *self , GLsizei n, GLuint* pipelines)
 
 void glDeleteProgramPipelines_enc(void *self , GLsizei n, const GLuint* pipelines)
 {
+	ENCODER_DEBUG_LOG("glDeleteProgramPipelines(n:%d, pipelines:0x%08x)", n, pipelines);
 	AEMU_SCOPED_TRACE("glDeleteProgramPipelines encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9259,6 +9537,7 @@ void glDeleteProgramPipelines_enc(void *self , GLsizei n, const GLuint* pipeline
 
 void glBindProgramPipeline_enc(void *self , GLuint pipeline)
 {
+	ENCODER_DEBUG_LOG("glBindProgramPipeline(pipeline:%u)", pipeline);
 	AEMU_SCOPED_TRACE("glBindProgramPipeline encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9285,6 +9564,7 @@ void glBindProgramPipeline_enc(void *self , GLuint pipeline)
 
 void glGetProgramPipelineiv_enc(void *self , GLuint pipeline, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetProgramPipelineiv(pipeline:%u, pname:0x%08x, params:0x%08x)", pipeline, pname, params);
 	AEMU_SCOPED_TRACE("glGetProgramPipelineiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9326,6 +9606,7 @@ void glGetProgramPipelineiv_enc(void *self , GLuint pipeline, GLenum pname, GLin
 
 void glGetProgramPipelineInfoLog_enc(void *self , GLuint pipeline, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
 {
+	ENCODER_DEBUG_LOG("glGetProgramPipelineInfoLog(pipeline:%u, bufSize:%d, length:0x%08x, infoLog:0x%08x)", pipeline, bufSize, length, infoLog);
 	AEMU_SCOPED_TRACE("glGetProgramPipelineInfoLog encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9373,6 +9654,7 @@ void glGetProgramPipelineInfoLog_enc(void *self , GLuint pipeline, GLsizei bufSi
 
 void glValidateProgramPipeline_enc(void *self , GLuint pipeline)
 {
+	ENCODER_DEBUG_LOG("glValidateProgramPipeline(pipeline:%u)", pipeline);
 	AEMU_SCOPED_TRACE("glValidateProgramPipeline encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9399,6 +9681,7 @@ void glValidateProgramPipeline_enc(void *self , GLuint pipeline)
 
 GLboolean glIsProgramPipeline_enc(void *self , GLuint pipeline)
 {
+	ENCODER_DEBUG_LOG("glIsProgramPipeline(pipeline:%u)", pipeline);
 	AEMU_SCOPED_TRACE("glIsProgramPipeline encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9440,6 +9723,7 @@ GLboolean glIsProgramPipeline_enc(void *self , GLuint pipeline)
 
 void glUseProgramStages_enc(void *self , GLuint pipeline, GLbitfield stages, GLuint program)
 {
+	ENCODER_DEBUG_LOG("glUseProgramStages(pipeline:%u, stages:0x%08x, program:%u)", pipeline, stages, program);
 	AEMU_SCOPED_TRACE("glUseProgramStages encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9468,6 +9752,7 @@ void glUseProgramStages_enc(void *self , GLuint pipeline, GLbitfield stages, GLu
 
 void glActiveShaderProgram_enc(void *self , GLuint pipeline, GLuint program)
 {
+	ENCODER_DEBUG_LOG("glActiveShaderProgram(pipeline:%u, program:%u)", pipeline, program);
 	AEMU_SCOPED_TRACE("glActiveShaderProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9495,6 +9780,7 @@ void glActiveShaderProgram_enc(void *self , GLuint pipeline, GLuint program)
 
 GLuint glCreateShaderProgramvAEMU_enc(void *self , GLenum type, GLsizei count, const char* packedStrings, GLuint packedLen)
 {
+	ENCODER_DEBUG_LOG("glCreateShaderProgramvAEMU(type:0x%08x, count:%d, packedStrings:0x%08x, packedLen:%u)", type, count, packedStrings, packedLen);
 	AEMU_SCOPED_TRACE("glCreateShaderProgramvAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9541,6 +9827,7 @@ GLuint glCreateShaderProgramvAEMU_enc(void *self , GLenum type, GLsizei count, c
 
 void glProgramUniform1f_enc(void *self , GLuint program, GLint location, GLfloat v0)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform1f(program:%u, location:%d, v0:%f)", program, location, v0);
 	AEMU_SCOPED_TRACE("glProgramUniform1f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9569,6 +9856,7 @@ void glProgramUniform1f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform2f_enc(void *self , GLuint program, GLint location, GLfloat v0, GLfloat v1)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform2f(program:%u, location:%d, v0:%f, v1:%f)", program, location, v0, v1);
 	AEMU_SCOPED_TRACE("glProgramUniform2f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9598,6 +9886,7 @@ void glProgramUniform2f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform3f_enc(void *self , GLuint program, GLint location, GLfloat v0, GLfloat v1, GLfloat v2)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform3f(program:%u, location:%d, v0:%f, v1:%f, v2:%f)", program, location, v0, v1, v2);
 	AEMU_SCOPED_TRACE("glProgramUniform3f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9628,6 +9917,7 @@ void glProgramUniform3f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform4f_enc(void *self , GLuint program, GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform4f(program:%u, location:%d, v0:%f, v1:%f, v2:%f, v3:%f)", program, location, v0, v1, v2, v3);
 	AEMU_SCOPED_TRACE("glProgramUniform4f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9659,6 +9949,7 @@ void glProgramUniform4f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform1i_enc(void *self , GLuint program, GLint location, GLint v0)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform1i(program:%u, location:%d, v0:%d)", program, location, v0);
 	AEMU_SCOPED_TRACE("glProgramUniform1i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9687,6 +9978,7 @@ void glProgramUniform1i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform2i_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform2i(program:%u, location:%d, v0:%d, v1:%d)", program, location, v0, v1);
 	AEMU_SCOPED_TRACE("glProgramUniform2i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9716,6 +10008,7 @@ void glProgramUniform2i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform3i_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLint v2)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform3i(program:%u, location:%d, v0:%d, v1:%d, v2:%d)", program, location, v0, v1, v2);
 	AEMU_SCOPED_TRACE("glProgramUniform3i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9746,6 +10039,7 @@ void glProgramUniform3i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform4i_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLint v2, GLint v3)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform4i(program:%u, location:%d, v0:%d, v1:%d, v2:%d, v3:%d)", program, location, v0, v1, v2, v3);
 	AEMU_SCOPED_TRACE("glProgramUniform4i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9777,6 +10071,7 @@ void glProgramUniform4i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform1ui_enc(void *self , GLuint program, GLint location, GLuint v0)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform1ui(program:%u, location:%d, v0:%u)", program, location, v0);
 	AEMU_SCOPED_TRACE("glProgramUniform1ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9805,6 +10100,7 @@ void glProgramUniform1ui_enc(void *self , GLuint program, GLint location, GLuint
 
 void glProgramUniform2ui_enc(void *self , GLuint program, GLint location, GLint v0, GLuint v1)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform2ui(program:%u, location:%d, v0:%d, v1:%u)", program, location, v0, v1);
 	AEMU_SCOPED_TRACE("glProgramUniform2ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9834,6 +10130,7 @@ void glProgramUniform2ui_enc(void *self , GLuint program, GLint location, GLint 
 
 void glProgramUniform3ui_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLuint v2)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform3ui(program:%u, location:%d, v0:%d, v1:%d, v2:%u)", program, location, v0, v1, v2);
 	AEMU_SCOPED_TRACE("glProgramUniform3ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9864,6 +10161,7 @@ void glProgramUniform3ui_enc(void *self , GLuint program, GLint location, GLint 
 
 void glProgramUniform4ui_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLint v2, GLuint v3)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform4ui(program:%u, location:%d, v0:%d, v1:%d, v2:%d, v3:%u)", program, location, v0, v1, v2, v3);
 	AEMU_SCOPED_TRACE("glProgramUniform4ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9895,6 +10193,7 @@ void glProgramUniform4ui_enc(void *self , GLuint program, GLint location, GLint 
 
 void glProgramUniform1fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform1fv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform1fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9926,6 +10225,7 @@ void glProgramUniform1fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform2fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform2fv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9957,6 +10257,7 @@ void glProgramUniform2fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform3fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform3fv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -9988,6 +10289,7 @@ void glProgramUniform3fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform4fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform4fv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10019,6 +10321,7 @@ void glProgramUniform4fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform1iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform1iv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform1iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10050,6 +10353,7 @@ void glProgramUniform1iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform2iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform2iv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform2iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10081,6 +10385,7 @@ void glProgramUniform2iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform3iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform3iv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform3iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10112,6 +10417,7 @@ void glProgramUniform3iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform4iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform4iv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform4iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10143,6 +10449,7 @@ void glProgramUniform4iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform1uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform1uiv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform1uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10174,6 +10481,7 @@ void glProgramUniform1uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniform2uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform2uiv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform2uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10205,6 +10513,7 @@ void glProgramUniform2uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniform3uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform3uiv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform3uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10236,6 +10545,7 @@ void glProgramUniform3uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniform4uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniform4uiv(program:%u, location:%d, count:%d, value:0x%08x)", program, location, count, value);
 	AEMU_SCOPED_TRACE("glProgramUniform4uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10267,6 +10577,7 @@ void glProgramUniform4uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniformMatrix2fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix2fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10299,6 +10610,7 @@ void glProgramUniformMatrix2fv_enc(void *self , GLuint program, GLint location, 
 
 void glProgramUniformMatrix3fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix3fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10331,6 +10643,7 @@ void glProgramUniformMatrix3fv_enc(void *self , GLuint program, GLint location, 
 
 void glProgramUniformMatrix4fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix4fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10363,6 +10676,7 @@ void glProgramUniformMatrix4fv_enc(void *self , GLuint program, GLint location, 
 
 void glProgramUniformMatrix2x3fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix2x3fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix2x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10395,6 +10709,7 @@ void glProgramUniformMatrix2x3fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix3x2fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix3x2fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix3x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10427,6 +10742,7 @@ void glProgramUniformMatrix3x2fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix2x4fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix2x4fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix2x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10459,6 +10775,7 @@ void glProgramUniformMatrix2x4fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix4x2fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix4x2fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix4x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10491,6 +10808,7 @@ void glProgramUniformMatrix4x2fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix3x4fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix3x4fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix3x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10523,6 +10841,7 @@ void glProgramUniformMatrix3x4fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix4x3fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	ENCODER_DEBUG_LOG("glProgramUniformMatrix4x3fv(program:%u, location:%d, count:%d, transpose:%d, value:0x%08x)", program, location, count, transpose, value);
 	AEMU_SCOPED_TRACE("glProgramUniformMatrix4x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10555,6 +10874,7 @@ void glProgramUniformMatrix4x3fv_enc(void *self , GLuint program, GLint location
 
 void glGetProgramInterfaceiv_enc(void *self , GLuint program, GLenum programInterface, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetProgramInterfaceiv(program:%u, programInterface:0x%08x, pname:0x%08x, params:0x%08x)", program, programInterface, pname, params);
 	AEMU_SCOPED_TRACE("glGetProgramInterfaceiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10597,6 +10917,7 @@ void glGetProgramInterfaceiv_enc(void *self , GLuint program, GLenum programInte
 
 void glGetProgramResourceiv_enc(void *self , GLuint program, GLenum programInterface, GLuint index, GLsizei propCount, const GLenum* props, GLsizei bufSize, GLsizei* length, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetProgramResourceiv(program:%u, programInterface:0x%08x, index:%u, propCount:%d, props:0x%08x, bufSize:%d, length:0x%08x, params:0x%08x)", program, programInterface, index, propCount, props, bufSize, length, params);
 	AEMU_SCOPED_TRACE("glGetProgramResourceiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10650,6 +10971,7 @@ void glGetProgramResourceiv_enc(void *self , GLuint program, GLenum programInter
 
 GLuint glGetProgramResourceIndex_enc(void *self , GLuint program, GLenum programInterface, const char* name)
 {
+	ENCODER_DEBUG_LOG("glGetProgramResourceIndex(program:%u, programInterface:0x%08x, name:0x%08x)", program, programInterface, name);
 	AEMU_SCOPED_TRACE("glGetProgramResourceIndex encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10695,6 +11017,7 @@ GLuint glGetProgramResourceIndex_enc(void *self , GLuint program, GLenum program
 
 GLint glGetProgramResourceLocation_enc(void *self , GLuint program, GLenum programInterface, const char* name)
 {
+	ENCODER_DEBUG_LOG("glGetProgramResourceLocation(program:%u, programInterface:0x%08x, name:0x%08x)", program, programInterface, name);
 	AEMU_SCOPED_TRACE("glGetProgramResourceLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10740,6 +11063,7 @@ GLint glGetProgramResourceLocation_enc(void *self , GLuint program, GLenum progr
 
 void glGetProgramResourceName_enc(void *self , GLuint program, GLenum programInterface, GLuint index, GLsizei bufSize, GLsizei* length, char* name)
 {
+	ENCODER_DEBUG_LOG("glGetProgramResourceName(program:%u, programInterface:0x%08x, index:%u, bufSize:%d, length:0x%08x, name:0x%08x)", program, programInterface, index, bufSize, length, name);
 	AEMU_SCOPED_TRACE("glGetProgramResourceName encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10789,6 +11113,7 @@ void glGetProgramResourceName_enc(void *self , GLuint program, GLenum programInt
 
 void glBindImageTexture_enc(void *self , GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
 {
+	ENCODER_DEBUG_LOG("glBindImageTexture(unit:%u, texture:%u, level:%d, layered:%d, layer:%d, access:0x%08x, format:0x%08x)", unit, texture, level, layered, layer, access, format);
 	AEMU_SCOPED_TRACE("glBindImageTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10821,6 +11146,7 @@ void glBindImageTexture_enc(void *self , GLuint unit, GLuint texture, GLint leve
 
 void glDispatchCompute_enc(void *self , GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)
 {
+	ENCODER_DEBUG_LOG("glDispatchCompute(num_groups_x:%u, num_groups_y:%u, num_groups_z:%u)", num_groups_x, num_groups_y, num_groups_z);
 	AEMU_SCOPED_TRACE("glDispatchCompute encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10849,6 +11175,7 @@ void glDispatchCompute_enc(void *self , GLuint num_groups_x, GLuint num_groups_y
 
 void glDispatchComputeIndirect_enc(void *self , GLintptr indirect)
 {
+	ENCODER_DEBUG_LOG("glDispatchComputeIndirect(indirect:0x%08lx)", indirect);
 	AEMU_SCOPED_TRACE("glDispatchComputeIndirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10875,6 +11202,7 @@ void glDispatchComputeIndirect_enc(void *self , GLintptr indirect)
 
 void glBindVertexBuffer_enc(void *self , GLuint bindingindex, GLuint buffer, GLintptr offset, GLintptr stride)
 {
+	ENCODER_DEBUG_LOG("glBindVertexBuffer(bindingindex:%u, buffer:%u, offset:0x%08lx, stride:0x%08lx)", bindingindex, buffer, offset, stride);
 	AEMU_SCOPED_TRACE("glBindVertexBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10904,6 +11232,7 @@ void glBindVertexBuffer_enc(void *self , GLuint bindingindex, GLuint buffer, GLi
 
 void glVertexAttribBinding_enc(void *self , GLuint attribindex, GLuint bindingindex)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribBinding(attribindex:%u, bindingindex:%u)", attribindex, bindingindex);
 	AEMU_SCOPED_TRACE("glVertexAttribBinding encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10931,6 +11260,7 @@ void glVertexAttribBinding_enc(void *self , GLuint attribindex, GLuint bindingin
 
 void glVertexAttribFormat_enc(void *self , GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribFormat(attribindex:%u, size:%d, type:0x%08x, normalized:%d, relativeoffset:%u)", attribindex, size, type, normalized, relativeoffset);
 	AEMU_SCOPED_TRACE("glVertexAttribFormat encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10961,6 +11291,7 @@ void glVertexAttribFormat_enc(void *self , GLuint attribindex, GLint size, GLenu
 
 void glVertexAttribIFormat_enc(void *self , GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 {
+	ENCODER_DEBUG_LOG("glVertexAttribIFormat(attribindex:%u, size:%d, type:0x%08x, relativeoffset:%u)", attribindex, size, type, relativeoffset);
 	AEMU_SCOPED_TRACE("glVertexAttribIFormat encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -10990,6 +11321,7 @@ void glVertexAttribIFormat_enc(void *self , GLuint attribindex, GLint size, GLen
 
 void glVertexBindingDivisor_enc(void *self , GLuint bindingindex, GLuint divisor)
 {
+	ENCODER_DEBUG_LOG("glVertexBindingDivisor(bindingindex:%u, divisor:%u)", bindingindex, divisor);
 	AEMU_SCOPED_TRACE("glVertexBindingDivisor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11017,6 +11349,7 @@ void glVertexBindingDivisor_enc(void *self , GLuint bindingindex, GLuint divisor
 
 void glDrawArraysIndirectDataAEMU_enc(void *self , GLenum mode, const void* indirect, GLuint datalen)
 {
+	ENCODER_DEBUG_LOG("glDrawArraysIndirectDataAEMU(mode:0x%08x, indirect:0x%08x, datalen:%u)", mode, indirect, datalen);
 	AEMU_SCOPED_TRACE("glDrawArraysIndirectDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11047,6 +11380,7 @@ void glDrawArraysIndirectDataAEMU_enc(void *self , GLenum mode, const void* indi
 
 void glDrawArraysIndirectOffsetAEMU_enc(void *self , GLenum mode, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glDrawArraysIndirectOffsetAEMU(mode:0x%08x, offset:%u)", mode, offset);
 	AEMU_SCOPED_TRACE("glDrawArraysIndirectOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11074,6 +11408,7 @@ void glDrawArraysIndirectOffsetAEMU_enc(void *self , GLenum mode, GLuint offset)
 
 void glDrawElementsIndirectDataAEMU_enc(void *self , GLenum mode, GLenum type, const void* indirect, GLuint datalen)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsIndirectDataAEMU(mode:0x%08x, type:0x%08x, indirect:0x%08x, datalen:%u)", mode, type, indirect, datalen);
 	AEMU_SCOPED_TRACE("glDrawElementsIndirectDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11105,6 +11440,7 @@ void glDrawElementsIndirectDataAEMU_enc(void *self , GLenum mode, GLenum type, c
 
 void glDrawElementsIndirectOffsetAEMU_enc(void *self , GLenum mode, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsIndirectOffsetAEMU(mode:0x%08x, type:0x%08x, offset:%u)", mode, type, offset);
 	AEMU_SCOPED_TRACE("glDrawElementsIndirectOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11133,6 +11469,7 @@ void glDrawElementsIndirectOffsetAEMU_enc(void *self , GLenum mode, GLenum type,
 
 void glTexStorage2DMultisample_enc(void *self , GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 {
+	ENCODER_DEBUG_LOG("glTexStorage2DMultisample(target:0x%08x, samples:%d, internalformat:0x%08x, width:%d, height:%d, fixedsamplelocations:%d)", target, samples, internalformat, width, height, fixedsamplelocations);
 	AEMU_SCOPED_TRACE("glTexStorage2DMultisample encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11164,6 +11501,7 @@ void glTexStorage2DMultisample_enc(void *self , GLenum target, GLsizei samples, 
 
 void glSampleMaski_enc(void *self , GLuint maskNumber, GLbitfield mask)
 {
+	ENCODER_DEBUG_LOG("glSampleMaski(maskNumber:%u, mask:0x%08x)", maskNumber, mask);
 	AEMU_SCOPED_TRACE("glSampleMaski encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11191,6 +11529,7 @@ void glSampleMaski_enc(void *self , GLuint maskNumber, GLbitfield mask)
 
 void glGetMultisamplefv_enc(void *self , GLenum pname, GLuint index, GLfloat* val)
 {
+	ENCODER_DEBUG_LOG("glGetMultisamplefv(pname:0x%08x, index:%u, val:0x%08x)", pname, index, val);
 	AEMU_SCOPED_TRACE("glGetMultisamplefv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11232,6 +11571,7 @@ void glGetMultisamplefv_enc(void *self , GLenum pname, GLuint index, GLfloat* va
 
 void glFramebufferParameteri_enc(void *self , GLenum target, GLenum pname, GLint param)
 {
+	ENCODER_DEBUG_LOG("glFramebufferParameteri(target:0x%08x, pname:0x%08x, param:%d)", target, pname, param);
 	AEMU_SCOPED_TRACE("glFramebufferParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11260,6 +11600,7 @@ void glFramebufferParameteri_enc(void *self , GLenum target, GLenum pname, GLint
 
 void glGetFramebufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetFramebufferParameteriv(target:0x%08x, pname:0x%08x, params:0x%08x)", target, pname, params);
 	AEMU_SCOPED_TRACE("glGetFramebufferParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11301,6 +11642,7 @@ void glGetFramebufferParameteriv_enc(void *self , GLenum target, GLenum pname, G
 
 void glGetTexLevelParameterfv_enc(void *self , GLenum target, GLint level, GLenum pname, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetTexLevelParameterfv(target:0x%08x, level:%d, pname:0x%08x, params:0x%08x)", target, level, pname, params);
 	AEMU_SCOPED_TRACE("glGetTexLevelParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11343,6 +11685,7 @@ void glGetTexLevelParameterfv_enc(void *self , GLenum target, GLint level, GLenu
 
 void glGetTexLevelParameteriv_enc(void *self , GLenum target, GLint level, GLenum pname, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetTexLevelParameteriv(target:0x%08x, level:%d, pname:0x%08x, params:0x%08x)", target, level, pname, params);
 	AEMU_SCOPED_TRACE("glGetTexLevelParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11385,6 +11728,7 @@ void glGetTexLevelParameteriv_enc(void *self , GLenum target, GLint level, GLenu
 
 void glMapBufferRangeDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr)
 {
+	ENCODER_DEBUG_LOG("glMapBufferRangeDMA(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, paddr:0x%016lx)", target, offset, length, access, paddr);
 	AEMU_SCOPED_TRACE("glMapBufferRangeDMA encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11415,6 +11759,7 @@ void glMapBufferRangeDMA_enc(void *self , GLenum target, GLintptr offset, GLsize
 
 void glUnmapBufferDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, GLboolean* out_res)
 {
+	ENCODER_DEBUG_LOG("glUnmapBufferDMA(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, paddr:0x%016lx, out_res:0x%08x)", target, offset, length, access, paddr, out_res);
 	AEMU_SCOPED_TRACE("glUnmapBufferDMA encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11459,6 +11804,7 @@ void glUnmapBufferDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeipt
 
 uint64_t glMapBufferRangeDirect_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr)
 {
+	ENCODER_DEBUG_LOG("glMapBufferRangeDirect(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, paddr:0x%016lx)", target, offset, length, access, paddr);
 	AEMU_SCOPED_TRACE("glMapBufferRangeDirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11504,6 +11850,7 @@ uint64_t glMapBufferRangeDirect_enc(void *self , GLenum target, GLintptr offset,
 
 void glUnmapBufferDirect_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, uint64_t guest_ptr, GLboolean* out_res)
 {
+	ENCODER_DEBUG_LOG("glUnmapBufferDirect(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, paddr:0x%016lx, guest_ptr:0x%016lx, out_res:0x%08x)", target, offset, length, access, paddr, guest_ptr, out_res);
 	AEMU_SCOPED_TRACE("glUnmapBufferDirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11549,6 +11896,7 @@ void glUnmapBufferDirect_enc(void *self , GLenum target, GLintptr offset, GLsize
 
 void glFlushMappedBufferRangeDirect_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
+	ENCODER_DEBUG_LOG("glFlushMappedBufferRangeDirect(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x)", target, offset, length, access);
 	AEMU_SCOPED_TRACE("glFlushMappedBufferRangeDirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11578,6 +11926,7 @@ void glFlushMappedBufferRangeDirect_enc(void *self , GLenum target, GLintptr off
 
 GLenum glGetGraphicsResetStatusEXT_enc(void *self )
 {
+	ENCODER_DEBUG_LOG("glGetGraphicsResetStatusEXT()");
 	AEMU_SCOPED_TRACE("glGetGraphicsResetStatusEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11618,6 +11967,7 @@ GLenum glGetGraphicsResetStatusEXT_enc(void *self )
 
 void glReadnPixelsEXT_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, GLvoid* data)
 {
+	ENCODER_DEBUG_LOG("glReadnPixelsEXT(x:%d, y:%d, width:%d, height:%d, format:0x%08x, type:0x%08x, bufSize:%d, data:0x%08x)", x, y, width, height, format, type, bufSize, data);
 	AEMU_SCOPED_TRACE("glReadnPixelsEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11664,6 +12014,7 @@ void glReadnPixelsEXT_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei 
 
 void glGetnUniformfvEXT_enc(void *self , GLuint program, GLint location, GLsizei bufSize, GLfloat* params)
 {
+	ENCODER_DEBUG_LOG("glGetnUniformfvEXT(program:%u, location:%d, bufSize:%d, params:0x%08x)", program, location, bufSize, params);
 	AEMU_SCOPED_TRACE("glGetnUniformfvEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11706,6 +12057,7 @@ void glGetnUniformfvEXT_enc(void *self , GLuint program, GLint location, GLsizei
 
 void glGetnUniformivEXT_enc(void *self , GLuint program, GLint location, GLsizei bufSize, GLint* params)
 {
+	ENCODER_DEBUG_LOG("glGetnUniformivEXT(program:%u, location:%d, bufSize:%d, params:0x%08x)", program, location, bufSize, params);
 	AEMU_SCOPED_TRACE("glGetnUniformivEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11748,6 +12100,7 @@ void glGetnUniformivEXT_enc(void *self , GLuint program, GLint location, GLsizei
 
 void glDrawArraysNullAEMU_enc(void *self , GLenum mode, GLint first, GLsizei count)
 {
+	ENCODER_DEBUG_LOG("glDrawArraysNullAEMU(mode:0x%08x, first:%d, count:%d)", mode, first, count);
 	AEMU_SCOPED_TRACE("glDrawArraysNullAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11776,6 +12129,7 @@ void glDrawArraysNullAEMU_enc(void *self , GLenum mode, GLint first, GLsizei cou
 
 void glDrawElementsOffsetNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, GLuint offset)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsOffsetNullAEMU(mode:0x%08x, count:%d, type:0x%08x, offset:%u)", mode, count, type, offset);
 	AEMU_SCOPED_TRACE("glDrawElementsOffsetNullAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11805,6 +12159,7 @@ void glDrawElementsOffsetNullAEMU_enc(void *self , GLenum mode, GLsizei count, G
 
 void glDrawElementsDataNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen)
 {
+	ENCODER_DEBUG_LOG("glDrawElementsDataNullAEMU(mode:0x%08x, count:%d, type:0x%08x, data:0x%08x, datalen:%u)", mode, count, type, data, datalen);
 	AEMU_SCOPED_TRACE("glDrawElementsDataNullAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11837,6 +12192,7 @@ void glDrawElementsDataNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLe
 
 void glUnmapBufferAsyncAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res)
 {
+	ENCODER_DEBUG_LOG("glUnmapBufferAsyncAEMU(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, guest_buffer:0x%08x, out_res:0x%08x)", target, offset, length, access, guest_buffer, out_res);
 	AEMU_SCOPED_TRACE("glUnmapBufferAsyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11882,6 +12238,7 @@ void glUnmapBufferAsyncAEMU_enc(void *self , GLenum target, GLintptr offset, GLs
 
 void glFlushMappedBufferRangeAEMU2_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer)
 {
+	ENCODER_DEBUG_LOG("glFlushMappedBufferRangeAEMU2(target:0x%08x, offset:0x%08lx, length:0x%08lx, access:0x%08x, guest_buffer:0x%08x)", target, offset, length, access, guest_buffer);
 	AEMU_SCOPED_TRACE("glFlushMappedBufferRangeAEMU2 encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
@@ -11920,6 +12277,7 @@ void glFlushMappedBufferRangeAEMU2_enc(void *self , GLenum target, GLintptr offs
 
 GLboolean glBufferDataSyncAEMU_enc(void *self , GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage)
 {
+	ENCODER_DEBUG_LOG("glBufferDataSyncAEMU(target:0x%08x, size:0x%08lx, data:0x%08x, usage:0x%08x)", target, size, data, usage);
 	AEMU_SCOPED_TRACE("glBufferDataSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;

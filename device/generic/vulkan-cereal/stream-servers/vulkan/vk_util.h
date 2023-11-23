@@ -30,9 +30,17 @@
 #include <vulkan/vulkan.h>
 
 #include <functional>
+#include <memory>
 #include <optional>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
+#include "base/Lock.h"
 #include "common/vk_struct_id.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "vk_fn_info.h"
 
 struct vk_struct_common {
     VkStructureType sType;
@@ -248,17 +256,56 @@ void vk_append_struct(vk_struct_chain_iterator *i, T *vk_struct) {
     *i = vk_make_chain_iterator(vk_struct);
 }
 
-#define VK_CHECK(x)                                                      \
-    do {                                                                 \
-        VkResult err = x;                                                \
-        if (err != VK_SUCCESS) {                                         \
-            ::fprintf(stderr, "%s(%u) %s: %s failed, error code = %d\n", \
-                      __FILE__, __LINE__, __FUNCTION__, #x, err);        \
-            ::abort();                                                   \
-        }                                                                \
+template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struct)
+{
+    if (!unwanted) return;
+
+    vk_foreach_struct(current, vk_struct) {
+        if ((void*)unwanted == current->pNext) {
+            const vk_struct_common* unwanted_as_common =
+                reinterpret_cast<const vk_struct_common*>(unwanted);
+            current->pNext = unwanted_as_common->pNext;
+        }
+    }
+}
+
+#define VK_CHECK(x)                                                     \
+    do {                                                                \
+        VkResult err = x;                                               \
+        if (err != VK_SUCCESS) {                                        \
+            if (err == VK_ERROR_DEVICE_LOST) {                          \
+                ::vk_util::getVkCheckCallbacks().callIfExists(          \
+                    &::vk_util::VkCheckCallbacks::onVkErrorDeviceLost); \
+            }                                                           \
+            GFXSTREAM_ABORT(::emugl::FatalError(err));                  \
+        }                                                               \
     } while (0)
 
 namespace vk_util {
+
+typedef struct {
+    std::function<void()> onVkErrorDeviceLost;
+} VkCheckCallbacks;
+
+template <class T>
+class CallbacksWrapper {
+   public:
+    CallbacksWrapper(std::unique_ptr<T> callbacks) : mCallbacks(std::move(callbacks)) {}
+    // function should be a member function pointer to T.
+    template <class U, class... Args>
+    void callIfExists(U function, Args &&...args) const {
+        if (mCallbacks && (*mCallbacks.*function)) {
+            (*mCallbacks.*function)(std::forward(args)...);
+        }
+    }
+
+   private:
+    std::unique_ptr<T> mCallbacks;
+};
+
+void setVkCheckCallbacks(std::unique_ptr<VkCheckCallbacks>);
+const CallbacksWrapper<VkCheckCallbacks> &getVkCheckCallbacks();
+
 class CRTPBase {};
 
 template <class T, class U = CRTPBase>
@@ -286,7 +333,7 @@ template <class T, class U = CRTPBase>
 class RunSingleTimeCommand : public U {
    protected:
     void runSingleTimeCommands(
-        VkQueue queue,
+        VkQueue queue, std::shared_ptr<android::base::Lock> queueLock,
         std::function<void(const VkCommandBuffer &commandBuffer)> f) const {
         const T &self = static_cast<const T &>(*this);
         VkCommandBuffer cmdBuff;
@@ -306,9 +353,15 @@ class RunSingleTimeCommand : public U {
         VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                                    .commandBufferCount = 1,
                                    .pCommandBuffers = &cmdBuff};
-        VK_CHECK(
-            self.m_vk.vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
-        VK_CHECK(self.m_vk.vkQueueWaitIdle(queue));
+        {
+            std::unique_ptr<android::base::AutoLock> lock = nullptr;
+            if (queueLock) {
+                lock = std::make_unique<android::base::AutoLock>(*queueLock);
+            }
+            VK_CHECK(
+                self.m_vk.vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+            VK_CHECK(self.m_vk.vkQueueWaitIdle(queue));
+        }
         self.m_vk.vkFreeCommandBuffers(self.m_vkDevice, self.m_vkCommandPool, 1,
                                        &cmdBuff);
     }
@@ -323,14 +376,16 @@ class RecordImageLayoutTransformCommands : public U {
         const T &self = static_cast<const T &>(*this);
         VkImageMemoryBarrier imageBarrier = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            .srcAccessMask =
+                VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask =
+                VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .oldLayout = oldLayout,
             .newLayout = newLayout,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image,
-            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                               .baseMipLevel = 0,
                               .levelCount = 1,
                               .baseArrayLayer = 0,
@@ -341,6 +396,34 @@ class RecordImageLayoutTransformCommands : public U {
                                        nullptr, 0, nullptr, 1, &imageBarrier);
     }
 };
+
+template <class T>
+typename vk_fn_info::GetVkFnInfo<T>::type getVkInstanceProcAddrWithFallback(
+    const std::vector<std::function<std::remove_pointer_t<PFN_vkGetInstanceProcAddr>>>
+        &vkGetInstanceProcAddrs,
+    VkInstance instance) {
+    for (const auto &vkGetInstanceProcAddr : vkGetInstanceProcAddrs) {
+        if (!vkGetInstanceProcAddr) {
+            continue;
+        }
+        PFN_vkVoidFunction resWithCurrentVkGetInstanceProcAddr = std::apply(
+            [&vkGetInstanceProcAddr, instance](auto &&...names) -> PFN_vkVoidFunction {
+                for (const char *name : {names...}) {
+                    if (PFN_vkVoidFunction resWithCurrentName =
+                            vkGetInstanceProcAddr(instance, name)) {
+                        return resWithCurrentName;
+                    }
+                }
+                return nullptr;
+            },
+            vk_fn_info::GetVkFnInfo<T>::names);
+        if (resWithCurrentVkGetInstanceProcAddr) {
+            return reinterpret_cast<typename vk_fn_info::GetVkFnInfo<T>::type>(
+                resWithCurrentVkGetInstanceProcAddr);
+        }
+    }
+    return nullptr;
+}
 }  // namespace vk_util
 
 #endif /* VK_UTIL_H */

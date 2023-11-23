@@ -23,13 +23,15 @@
 #include "GLcommon/GLEScontext.h"
 #include "GLcommon/GLutils.h"
 #include "GLcommon/TextureData.h"
+#include "GLcommon/TextureUtils.h"
 #include "GLcommon/TranslatorIfaces.h"
-#include "apigen-codec-common/ErrorLog.h"
 #include "ThreadInfo.h"
 #include "base/Lock.h"
 #include "base/Stream.h"
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/logging.h"
 
 #include "EglWindowSurface.h"
 #include "EglPbufferSurface.h"
@@ -51,6 +53,9 @@
 
 #define MAJOR          1
 #define MINOR          4
+
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 //declarations
 
@@ -100,7 +105,7 @@ static const EGLiface s_eglIface = {
 static void initGLESx(GLESVersion version) {
     const GLESiface* iface = g_eglInfo->getIface(version);
     if (!iface) {
-        DBG("EGL failed to initialize GLESv%d; incompatible interface\n", version);
+        ERR("EGL failed to initialize GLESv%d; incompatible interface", version);
         return;
     }
     iface->initGLESx(EglGlobalInfo::isEgl2Egl());
@@ -140,9 +145,17 @@ EGLAPI EGLBoolean EGLAPIENTRY eglLoadAllImages(EGLDisplay display,
                                                EGLStream stream,
                                                const void* textureLoader);
 EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStream stream);
-EGLAPI void EGLAPIENTRY eglUseOsEglApi(EGLBoolean enable);
+EGLAPI void EGLAPIENTRY eglUseOsEglApi(EGLBoolean enable, EGLBoolean nullEgl);
 EGLAPI void EGLAPIENTRY eglSetMaxGLESVersion(EGLint version);
 EGLAPI void EGLAPIENTRY eglFillUsages(void* usages);
+
+EGLAPI EGLDisplay EGLAPIENTRY eglGetNativeDisplayANDROID(EGLDisplay);
+EGLAPI EGLContext EGLAPIENTRY eglGetNativeContextANDROID(EGLDisplay, EGLContext);
+EGLAPI EGLImage EGLAPIENTRY eglGetNativeImageANDROID(EGLDisplay, EGLImage);
+EGLAPI EGLBoolean EGLAPIENTRY eglSetImageInfoANDROID(EGLDisplay, EGLImage, EGLint, EGLint, EGLint);
+EGLAPI EGLImage EGLAPIENTRY eglImportImageANDROID(EGLDisplay, EGLImage);
+
+EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib * attrib_list);
 
 } // namespace translator
 } // namespace egl
@@ -391,7 +404,6 @@ EGLAPI EGLBoolean EGLAPIENTRY eglTerminate(EGLDisplay display) {
 
 EGLAPI const char * EGLAPIENTRY eglQueryString(EGLDisplay display, EGLint name) {
     VALIDATE_DISPLAY(display);
-    static const char* vendor     = "Google";
     static const char* version    = "1.4";
     static const char* extensions = "EGL_KHR_image EGL_KHR_image_base "
                                     "EGL_KHR_gl_texture_2D_image "
@@ -401,7 +413,7 @@ EGLAPI const char * EGLAPIENTRY eglQueryString(EGLDisplay display, EGLint name) 
     }
     switch(name) {
     case EGL_VENDOR:
-        return vendor;
+        return dpy->getVendorString();
     case EGL_VERSION:
         return version;
     case EGL_EXTENSIONS:
@@ -1071,9 +1083,8 @@ static void sGetPbufferSurfaceGLProperties(
     } else if (r == 5 && g == 5 && b == 5 && a == 1) {
         *colorFormat = GL_RGB5_A1;
     } else {
-        fprintf(stderr, "%s:%d: invalid color format R%dG%dB%dA%d\n", __func__,
-                __LINE__, r, g, b, a);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "invalid color format R" << r << "G" << g << "B" << b << "A" << a;
     }
 
     // Blanket provide 24/8 depth/stencil format for now.
@@ -1360,6 +1371,11 @@ ImagePtr getEGLImage(unsigned int imageId)
         const GLESiface* iface = g_eglInfo->getIface(GLES_2_0);
         return dpy->getImage(reinterpret_cast<EGLImageKHR>(imageId),
                 iface->restoreTexture);
+    } else {
+        // Maybe this is a native image, so we don't need a current gl context.
+        const GLESiface* iface = g_eglInfo->getIface(GLES_2_0);
+        return dpy->getImage(reinterpret_cast<EGLImageKHR>(imageId),
+                iface->restoreTexture);
     }
     return nullptr;
 }
@@ -1367,12 +1383,40 @@ ImagePtr getEGLImage(unsigned int imageId)
 EGLAPI EGLImageKHR EGLAPIENTRY eglCreateImageKHR(EGLDisplay display, EGLContext context, EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
 {
     VALIDATE_DISPLAY(display);
-    VALIDATE_CONTEXT(context);
 
-    // We only support EGL_GL_TEXTURE_2D images
-    if (target != EGL_GL_TEXTURE_2D_KHR) {
-        RETURN_ERROR(EGL_NO_IMAGE_KHR,EGL_BAD_PARAMETER);
-    }
+	if (target != EGL_GL_TEXTURE_2D_KHR) {
+		// Create image from underlying and add to registry
+		EGLImage image = dpy->createNativeImage(dpy->getHostDriverDisplay(), 0, target, buffer, attrib_list);
+
+		if (image == EGL_NO_IMAGE_KHR) {
+			return EGL_NO_IMAGE_KHR;
+		}
+
+		ImagePtr img( new EglImage() );
+		img->isNative = true;
+		img->nativeImage = image;
+		img->width = 0;
+		img->height = 0;
+		if (attrib_list) {
+			const EGLint* current = attrib_list;
+			while (EGL_NONE != *current) {
+				switch (*current) {
+					case EGL_WIDTH:
+						img->width = current[1];
+						break;
+					case EGL_HEIGHT:
+						img->height = current[1];
+						break;
+					case EGL_LINUX_DRM_FOURCC_EXT:
+					    // TODO: Translate drm fourcc to internal format
+						// img->fourcc = current[1];
+						break;
+				}
+				current += 2;
+			}
+		}
+		return dpy->addImageKHR(img);
+	}
 
     ThreadInfo* thread  = getThreadInfo();
     ShareGroupPtr sg = thread->shareGroup;
@@ -1413,11 +1457,20 @@ EGLAPI EGLBoolean EGLAPIENTRY eglDestroyImageKHR(EGLDisplay display, EGLImageKHR
     VALIDATE_DISPLAY(display);
     unsigned int imagehndl = SafeUIntFromPointer(image);
     ImagePtr img = getEGLImage(imagehndl);
+
+    if (!img) return EGL_FALSE;
+
     const GLESiface* iface = g_eglInfo->getIface(GLES_2_0);
-    if(img && img->sync) {
+
+    if (img->sync) {
         iface->deleteSync((GLsync)img->sync);
         img->sync = nullptr;
     }
+
+    if (img->isNative && !img->isImported) {
+        dpy->destroyNativeImage(dpy->getHostDriverDisplay(), img->nativeImage);
+    }
+
     return dpy->destroyImageKHR(image) ? EGL_TRUE:EGL_FALSE;
 }
 
@@ -1689,9 +1742,9 @@ EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStream
     return true;
 }
 
-EGLAPI void EGLAPIENTRY eglUseOsEglApi(EGLBoolean enable) {
+EGLAPI void EGLAPIENTRY eglUseOsEglApi(EGLBoolean enable, EGLBoolean nullEgl) {
     MEM_TRACE("EMUGL");
-    EglGlobalInfo::setEgl2Egl(enable);
+    EglGlobalInfo::setEgl2Egl(enable, nullEgl == EGL_TRUE);
     bool safeToUse = android::base::getEnvironmentVariable("ANDROID_GFXSTREAM_EGL") == "1";
     EglGlobalInfo::setEgl2EglSyncSafeToUse(
         safeToUse ? EGL_TRUE : EGL_FALSE);
@@ -1715,12 +1768,6 @@ EGLAPI void EGLAPIENTRY eglSetMaxGLESVersion(EGLint version) {
         break;
     }
 
-    // If egl2egl, set internal gles version to 3 as
-    // that is what we use (EglOsApi_egl.cpp)
-    if (EglGlobalInfo::isEgl2Egl()) {
-        glesVersion = GLES_3_0;
-    }
-
     if (g_eglInfo->getIface(GLES_1_1)) {
         g_eglInfo->getIface(GLES_1_1)->setMaxGlesVersion(glesVersion);
     }
@@ -1741,6 +1788,56 @@ EGLAPI void EGLAPIENTRY eglFillUsages(void* usages) {
     //     g_eglInfo->getIface(GLES_2_0)->fillGLESUsages(
     //         (android_studio::EmulatorGLESUsages*)usages);
     // }
+}
+
+EGLAPI EGLDisplay EGLAPIENTRY eglGetNativeDisplayANDROID(EGLDisplay display) {
+    VALIDATE_DISPLAY_RETURN(display, (EGLDisplay)0);
+    return dpy->getHostDriverDisplay();
+}
+
+EGLAPI EGLContext EGLAPIENTRY eglGetNativeContextANDROID(EGLDisplay display, EGLContext context) {
+    VALIDATE_DISPLAY_RETURN(display, (EGLContext)0);
+    VALIDATE_CONTEXT_RETURN(context, (EGLContext)0);
+    return dpy->getNativeContext(context);
+}
+
+EGLAPI EGLImage EGLAPIENTRY eglGetNativeImageANDROID(EGLDisplay display, EGLImage image) {
+    VALIDATE_DISPLAY_RETURN(display, (EGLImage)0);
+    unsigned int imagehndl = SafeUIntFromPointer(image);
+    ImagePtr img = getEGLImage(imagehndl);
+    if (!img || !img->isNative) return (EGLImage)0;
+    return img->nativeImage;
+}
+
+EGLAPI EGLBoolean EGLAPIENTRY eglSetImageInfoANDROID(EGLDisplay display, EGLImage image, EGLint width, EGLint height, EGLint internalFormat) {
+    VALIDATE_DISPLAY_RETURN(display, EGL_FALSE);
+    unsigned int imagehndl = SafeUIntFromPointer(image);
+    ImagePtr img = getEGLImage(imagehndl);
+    if (!img) {
+        fprintf(stderr, "%s: error: Could not find image %p\n", __func__, image);
+        return EGL_FALSE;
+    }
+
+    img->width = width;
+    img->height = height;
+    img->internalFormat = internalFormat;
+    img->format = getFormatFromInternalFormat(internalFormat);
+    img->type = getTypeFromInternalFormat(internalFormat);
+
+    return EGL_TRUE;
+}
+
+EGLImage eglImportImageANDROID(EGLDisplay display, EGLImage nativeImage) {
+    VALIDATE_DISPLAY_RETURN(display, (EGLImage)0);
+	ImagePtr img( new EglImage() );
+	img->isNative = true;
+	img->isImported = true;
+	img->nativeImage = nativeImage;
+    return dpy->addImageKHR(img);
+}
+
+EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib* attribs) {
+    return EglGlobalInfo::getInstance()->getOsEngine()->eglDebugMessageControlKHR(callback, attribs);
 }
 
 static const GLint kAuxiliaryContextAttribsCompat[] = {

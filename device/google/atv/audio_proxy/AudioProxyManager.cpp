@@ -12,125 +12,126 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define LOG_TAG "audio_proxy_client"
-
 #include "AudioProxyManager.h"
+
+#include <aidl/device/google/atv/audio_proxy/IAudioProxy.h>
+#include <android-base/logging.h>
+#include <android-base/thread_annotations.h>
+#include <android/binder_manager.h>
 
 #include <mutex>
 
-// clang-format off
-#include PATH(device/google/atv/audio_proxy/AUDIO_PROXY_FILE_VERSION/IAudioProxyDevicesManager.h)
-// clang-format on
-
-#include <hidl/HidlTransportSupport.h>
-#include <utils/Log.h>
-
 #include "AudioProxyDevice.h"
-#include "BusDeviceImpl.h"
+#include "StreamProviderImpl.h"
 
-#define QUOTE(s) #s
-#define TO_STR(s) QUOTE(s)
-
-using ::android::sp;
-using ::android::status_t;
-using ::android::hardware::hidl_death_recipient;
-using ::android::hardware::Return;
-using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::
-    IAudioProxyDevicesManager;
+using aidl::device::google::atv::audio_proxy::IAudioProxy;
+using android::sp;
+using android::status_t;
 
 namespace audio_proxy {
-namespace AUDIO_PROXY_CPP_VERSION {
 namespace {
 
 bool checkDevice(audio_proxy_device_t* device) {
   return device && device->get_address && device->open_output_stream &&
-         device->close_output_stream;
+         device->close_output_stream &&
+         // Check v2 extension. Currently only MediaShell uses this library and
+         // we'll make sure the MediaShell will update to use the new API.
+         device->v2 && device->v2->get_service_name &&
+         device->v2->open_output_stream;
 }
 
-class DeathRecipient;
+std::shared_ptr<IAudioProxy> getAudioProxyService(
+    const std::string& serviceName) {
+  std::string instanceName =
+      std::string(IAudioProxy::descriptor) + "/" + serviceName;
+  return IAudioProxy::fromBinder(
+      ndk::SpAIBinder(AServiceManager_getService(instanceName.c_str())));
+}
 
 class AudioProxyManagerImpl : public AudioProxyManager {
  public:
-  explicit AudioProxyManagerImpl(const sp<IAudioProxyDevicesManager>& manager);
+  AudioProxyManagerImpl();
   ~AudioProxyManagerImpl() override = default;
 
   bool registerDevice(audio_proxy_device_t* device) override;
 
-  void reconnectService();
 
  private:
+  static void onServiceDied(void* cookie);
+  bool reconnectService();
+  bool reconnectService_Locked() REQUIRES(mLock);
+
+  ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
+
   std::mutex mLock;
-  sp<IAudioProxyDevicesManager> mService;
-  std::unique_ptr<AudioProxyDevice> mDevice;
-
-  sp<DeathRecipient> mDeathRecipient;
+  std::shared_ptr<IAudioProxy> mService GUARDED_BY(mLock);
+  std::unique_ptr<AudioProxyDevice> mDevice GUARDED_BY(mLock);
 };
 
-class DeathRecipient : public hidl_death_recipient {
- public:
-  explicit DeathRecipient(AudioProxyManagerImpl& manager) : mManager(manager) {}
-  ~DeathRecipient() override = default;
-
-  void serviceDied(
-      uint64_t cookie,
-      const android::wp<::android::hidl::base::V1_0::IBase>& who) override {
-    mManager.reconnectService();
-  }
-
- private:
-  AudioProxyManagerImpl& mManager;
-};
-
-AudioProxyManagerImpl::AudioProxyManagerImpl(
-    const sp<IAudioProxyDevicesManager>& manager)
-    : mService(manager), mDeathRecipient(new DeathRecipient(*this)) {
-  mService->linkToDeath(mDeathRecipient, 1234);
-}
+AudioProxyManagerImpl::AudioProxyManagerImpl()
+    : mDeathRecipient(
+          AIBinder_DeathRecipient_new(AudioProxyManagerImpl::onServiceDied)) {}
 
 bool AudioProxyManagerImpl::registerDevice(audio_proxy_device_t* device) {
   if (!checkDevice(device)) {
-    ALOGE("Invalid device.");
+    LOG(ERROR) << "Invalid device.";
     return false;
   }
 
-  std::lock_guard<std::mutex> guard(mLock);
+  std::scoped_lock<std::mutex> lock(mLock);
   if (mDevice) {
-    ALOGE("Device already registered!");
+    DCHECK(mService);
+    LOG(ERROR) << "Device already registered!";
     return false;
   }
-
   mDevice = std::make_unique<AudioProxyDevice>(device);
 
-  const char* address = mDevice->getAddress();
-  return mService->registerDevice(address, new BusDeviceImpl(mDevice.get()));
+  DCHECK(!mService);
+  return reconnectService_Locked();
 }
 
-void AudioProxyManagerImpl::reconnectService() {
-  std::lock_guard<std::mutex> guard(mLock);
-  mService = IAudioProxyDevicesManager::getService();
-  if (!mService) {
-    ALOGE("Failed to reconnect service");
-    return;
+bool AudioProxyManagerImpl::reconnectService() {
+  std::scoped_lock<std::mutex> lock(mLock);
+  return reconnectService_Locked();
+}
+
+bool AudioProxyManagerImpl::reconnectService_Locked() {
+  DCHECK(mDevice);
+
+  auto service = getAudioProxyService(mDevice->getServiceName());
+  if (!service) {
+    LOG(ERROR) << "Failed to reconnect service";
+    return false;
   }
 
-  if (mDevice) {
-    bool success = mService->registerDevice(mDevice->getAddress(),
-                                            new BusDeviceImpl(mDevice.get()));
-    ALOGE_IF(!success, "fail to register device after reconnect.");
+  binder_status_t binder_status = AIBinder_linkToDeath(
+      service->asBinder().get(), mDeathRecipient.get(), this);
+  if (binder_status != STATUS_OK) {
+    LOG(ERROR) << "Failed to linkToDeath " << static_cast<int>(binder_status);
+    return false;
   }
+
+  ndk::ScopedAStatus status = service->start(
+      ndk::SharedRefBase::make<StreamProviderImpl>(mDevice.get()));
+  if (!status.isOk()) {
+    LOG(ERROR) << "Failed to start service.";
+    return false;
+  }
+
+  mService = std::move(service);
+  return true;
+}
+
+// static
+void AudioProxyManagerImpl::onServiceDied(void* cookie) {
+  auto* manager = static_cast<AudioProxyManagerImpl*>(cookie);
+  manager->reconnectService();
 }
 
 }  // namespace
 
 std::unique_ptr<AudioProxyManager> createAudioProxyManager() {
-  auto service = IAudioProxyDevicesManager::getService();
-  if (!service) {
-    return nullptr;
-  }
-
-  ALOGI("Connect to audio proxy service %s", TO_STR(AUDIO_PROXY_FILE_VERSION));
-  return std::make_unique<AudioProxyManagerImpl>(service);
+  return std::make_unique<AudioProxyManagerImpl>();
 }
 
-}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

@@ -5,7 +5,7 @@ ECHO_PREFIX="=== "
 
 # for cases that don't run "lunch hikey960-userdebug"
 if [ -z "${ANDROID_BUILD_TOP}" ]; then
-    ANDROID_BUILD_TOP=${INSTALLER_DIR}/../../../../../
+    ANDROID_BUILD_TOP=$(cd ${INSTALLER_DIR}/../../../../../; pwd)
     ANDROID_PRODUCT_OUT="${ANDROID_BUILD_TOP}/out/target/product/hikey960"
 fi
 
@@ -15,6 +15,22 @@ if [ ! -d "${ANDROID_PRODUCT_OUT}" ]; then
 fi
 
 echo ${ECHO_PREFIX}"android out dir:${ANDROID_PRODUCT_OUT}"
+
+. "${ANDROID_BUILD_TOP}/device/linaro/hikey/vendor-package-ver.sh"
+
+VENDOR_DIR=$ANDROID_BUILD_TOP/vendor/linaro/hikey960/${EXPECTED_LINARO_VENDOR_VERSION}/
+
+# TODO: Pull one-time recovery/qdl path out of standard install
+# Flash bootloader firmware files
+if [ ! -d "${VENDOR_DIR}/" ]; then
+    echo "FLASH-ALL-AOSP: Missing vendor firmware package?"
+    echo "                Make sure the vendor binaries have been downloaded from"
+    echo "                ${VND_PKG_URL}"
+    echo "                and extracted to $ANDROID_BUILD_TOP."
+    exit
+fi
+
+pushd $VENDOR_DIR/bootloader/
 
 function check_partition_table_version () {
 	fastboot erase reserved
@@ -27,32 +43,32 @@ function check_partition_table_version () {
 }
 
 function flashing_atf_uefi () {
-	fastboot flash ptable "${INSTALLER_DIR}"/prm_ptable.img
-	fastboot flash xloader "${INSTALLER_DIR}"/hisi-sec_xloader.img
+	fastboot flash ptable prm_ptable.img
+	fastboot flash xloader hisi-sec_xloader.img
 	fastboot reboot-bootloader
 
-	fastboot flash fastboot "${INSTALLER_DIR}"/l-loader.bin
-	fastboot flash fip "${INSTALLER_DIR}"/fip.bin
-	fastboot flash nvme "${INSTALLER_DIR}"/hisi-nvme.img
-	fastboot flash fw_lpm3   "${INSTALLER_DIR}"/hisi-lpm3.img
-	fastboot flash trustfirmware   "${INSTALLER_DIR}"/hisi-bl31.bin
+	fastboot flash fastboot l-loader.bin
+	fastboot flash fip fip.bin
+	fastboot flash nvme hisi-nvme.img
+	fastboot flash fw_lpm3 hisi-lpm3.img
+	fastboot flash trustfirmware hisi-bl31.bin
 	fastboot reboot-bootloader
 
-	fastboot flash ptable "${INSTALLER_DIR}"/prm_ptable.img
-	fastboot flash xloader "${INSTALLER_DIR}"/hisi-sec_xloader.img
-	fastboot flash fastboot "${INSTALLER_DIR}"/l-loader.bin
-	fastboot flash fip "${INSTALLER_DIR}"/fip.bin
+	fastboot flash ptable prm_ptable.img
+	fastboot flash xloader hisi-sec_xloader.img
+	fastboot flash fastboot l-loader.bin
+	fastboot flash fip fip.bin
 
 	fastboot flash boot "${ANDROID_PRODUCT_OUT}"/boot.img
 	fastboot flash super "${ANDROID_PRODUCT_OUT}"/super.img
-#	fastboot flash userdata "${ANDROID_PRODUCT_OUT}"/userdata.img
+	fastboot flash userdata "${ANDROID_PRODUCT_OUT}"/userdata.img
 	fastboot format cache
 }
 
 function upgrading_ptable_1mb_aligned () {
-	fastboot flash xloader "${INSTALLER_DIR}"/hisi-sec_xloader.img
-	fastboot flash ptable "${INSTALLER_DIR}"/hisi-ptable.img
-	fastboot flash fastboot "${INSTALLER_DIR}"/hisi-fastboot.img
+	fastboot flash xloader hisi-sec_xloader.img
+	fastboot flash ptable hisi-ptable.img
+	fastboot flash fastboot hisi-fastboot.img
 	fastboot reboot-bootloader
 }
 
@@ -73,3 +89,4 @@ else
 fi
 
 fastboot reboot
+popd

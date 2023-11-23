@@ -50,7 +50,7 @@
 
     <!-- Enable Night display, which requires HWC 2.0. -->
     <bool name="config_nightDisplayAvailable">true</bool>
-  
+
     <!-- Default color temperature, in Kelvin, to tint the screen when night display is
          activated. -->
     <integer name="config_nightDisplayColorTemperatureDefault">3339</integer>
@@ -117,9 +117,6 @@
     <!--  Maximum number of supported users -->
     <integer name="config_multiuserMaximumUsers">4</integer>
 
-    <!-- Whether Hearing Aid profile is supported -->
-    <bool name="config_hearing_aid_profile_supported">true</bool>
-
     <!-- List of regexpressions describing the interface (if any) that represent tetherable
          USB interfaces.  If the device doesn't want to support tething over USB this should
          be empty.  An example would be "usb.*" -->
@@ -148,9 +145,6 @@
     <string-array translatable="false" name="config_tether_bluetooth_regexs">
            <item>"bt-pan"</item>
     </string-array>
-
-    <!-- Boolean indicating if current platform supports HFP inband ringing -->
-    <bool name="config_bluetooth_hfp_inband_ringing_support">true</bool>
 
     <bool translatable="false" name="config_tether_upstream_automatic">true</bool>
 
@@ -292,7 +286,6 @@
         <item>"/system/framework/services.jar"</item>
         <item>"/apex/com.android.art/javalib/core-oj.jar"</item>
         <item>"/apex/com.android.art/javalib/core-libart.jar"</item>
-        <item>"/apex/com.android.media/javalib/updatable-media.jar"</item>
         <item>"/system/bin/surfaceflinger"</item>
         <item>"/system_ext/priv-app/SystemUIGoogle/SystemUIGoogle.apk"</item>
     </string-array>
@@ -364,10 +357,6 @@
         <item>1</item>
         <item>255</item>
     </integer-array>
-
-    <!-- Delay that allows some content to arrive at the display before switching
-         from DOZE to ON, in millis. -->
-    <integer name="config_wakeUpDelayDoze">32</integer>
 
     <!-- An array of floats describing the screen brightness in nits corresponding to the backlight
          values in the config_screenBrightnessBacklight array.  On OLED displays these  values

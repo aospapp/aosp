@@ -32,6 +32,7 @@
     <key keyCode="KEYCODE_GUIDE" component="com.google.android.tv/.receiver.GlobalKeyReceiver" />
     <key keyCode="KEYCODE_TV" component="com.google.android.tv/.receiver.GlobalKeyReceiver" />
     <key keyCode="KEYCODE_TV_INPUT" component="com.google.android.tv/.receiver.GlobalKeyReceiver" />
+    <key keyCode="KEYCODE_PAIRING" component="com.android.tv.settings/.GlobalKeyReceiver" dispatchWhenNonInteractive="true" />
 
     <!-- OEMs might want to add more custom global key handlings for TV specific key codes. -->
 </global_keys>

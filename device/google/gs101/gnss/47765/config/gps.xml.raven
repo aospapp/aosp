@@ -21,6 +21,7 @@
        SuplSslMethod="SSLv23_NO_TLSv1_2"
        SuplEnable="true"
        SuplUseApn="true"
+       SuplUseFwCellInfo="false"
        SuplTlsCertDirPath="/etc/security/cacerts"
        SuplTlsCertPath="/vendor/etc/gnss/gps.cer"
        SuplUT1Seconds="20"
@@ -54,6 +55,8 @@
        AssertEnabled="true"
        CpLppeCancelDbhOnAgnssProvideLoc="true"
        CpLppeUseAgnssLocForEmptyDbh="true"
+       ReAidingOnHotStart="false"
+       ReAidingIntervalSec="1200"
   />
 
   <gll
@@ -79,6 +82,7 @@
 
        EnableOnChipStopNotification="2"
        PowerMode="3"
+       MinGpsWeekNumber="2216"
   />
 
   <gll_features

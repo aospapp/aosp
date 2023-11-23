@@ -63,6 +63,10 @@ int mali_gralloc_get_consumer_usage_internal(buffer_handle_t buffer, uint64_t *o
 int mali_gralloc_get_dimensions_internal(buffer_handle_t buffer, uint32_t *outWidth, uint32_t *outHeight);
 int mali_gralloc_get_format_internal(buffer_handle_t buffer, int32_t *outFormat);
 int mali_gralloc_get_producer_usage_internal(buffer_handle_t buffer, uint64_t *outUsage);
+#if PLATFORM_SDK_VERSION >= 26
+int mali_gralloc_set_layer_count_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t layerCount);
+int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outLayerCount);
+#endif
 #endif
 int mali_gralloc_query_getstride(buffer_handle_t handle, int *pixelStride);
 

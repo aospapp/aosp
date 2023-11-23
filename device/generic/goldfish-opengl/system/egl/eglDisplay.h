@@ -32,8 +32,6 @@
 
 #include <map>
 
-#include <ui/PixelFormat.h>
-
 #define ATTRIBUTE_NONE (-1)
 //FIXME: are we in this namespace?
 using namespace android;
@@ -65,7 +63,7 @@ public:
     EGLBoolean  getConfigAttrib(EGLConfig config, EGLint attrib, EGLint * value);
     EGLBoolean  setConfigAttrib(EGLConfig config, EGLint attrib, EGLint value);
     EGLBoolean getConfigGLPixelFormat(EGLConfig config, GLenum * format);
-    EGLBoolean getConfigNativePixelFormat(EGLConfig config, PixelFormat * format);
+    EGLBoolean getConfigNativePixelFormat(EGLConfig config, uint32_t * format);
 
     void     dumpConfig(EGLConfig config);
 

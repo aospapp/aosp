@@ -9,8 +9,8 @@ Download the toolchain : gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf
 Download U-Boot Source Code From :
         https://gitlab.com/baylibre/amlogic/atv/u-boot.git
 
-actual tag :  u-boot/v2021.01/integ-20210202
-dev branch :  u-boot/v2021.01/integ
+actual tag :  u-boot/v2021.07/integ-20210712
+dev branch :  u-boot/v2021.07/integ
 
 link to U-Boot aosp release wiki page :
 https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa-Release
@@ -21,7 +21,7 @@ Compile:
         export CROSS_COMPILE=aarch64-elf-
         git clone https://gitlab.com/baylibre/amlogic/atv/u-boot.git
         cd u-boot
-        git checkout u-boot/v2021.01/integ-20210202
+        git checkout u-boot/v2021.07/integ-20210712
         make [sei510|sei610|sei610_ab|khadas-vim3_android|khadas-vim3_android_ab|khadas-vim3l_android|khadas-vim3l_android_ab]_defconfig
         make
 

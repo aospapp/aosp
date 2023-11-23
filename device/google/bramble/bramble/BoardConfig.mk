@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-ifdef PHONE_CAR_BOARD_CONFIG
-    include $(PHONE_CAR_BOARD_CONFIG)
+ifdef PHONE_CAR_BOARD_PRODUCT
+    include device/google_car/$(PHONE_CAR_BOARD_PRODUCT)/BoardConfig.mk
 else
     TARGET_BOOTLOADER_BOARD_NAME := bramble
     TARGET_SCREEN_DENSITY := 420
@@ -26,5 +26,5 @@ else
     # Testing related defines
     #BOARD_PERFSETUP_SCRIPT := platform_testing/scripts/perf-setup/b5-setup.sh
 
-    -include vendor/google_devices/$(TARGET_BOOTLOADER_BOARD_NAME)/proprietary/BoardConfigVendor.mk
+    -include vendor/google_devices/bramble/proprietary/BoardConfigVendor.mk
 endif

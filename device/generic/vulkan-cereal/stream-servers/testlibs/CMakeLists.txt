@@ -25,3 +25,11 @@ target_include_directories(
     .
     PRIVATE
     ${GFXSTREAM_REPO_ROOT}/include)
+
+if (LINUX)
+    target_link_libraries(
+        OSWindow
+        PRIVATE
+        X11
+        )
+endif()

@@ -1,0 +1,6 @@
+# Bluetooth
+/(vendor|system/vendor)/bin/hw/android\.hardware\.bluetooth@1\.1-service\.bcmbtlinux    u:object_r:hal_bluetooth_btlinux_exec:s0
+
+/dev/wbrc                           u:object_r:wb_coexistence_dev:s0
+/dev/ttySAC16                       u:object_r:hci_attach_dev:s0
+

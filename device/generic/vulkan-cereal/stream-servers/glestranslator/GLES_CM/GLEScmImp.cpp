@@ -25,7 +25,6 @@
 #include "GLEScmValidate.h"
 #include "GLEScmUtils.h"
 #include <GLcommon/TextureUtils.h>
-#include "apigen-codec-common/ErrorLog.h"
 
 #include <GLcommon/GLDispatch.h>
 #include <GLcommon/GLconversion_macros.h>
@@ -34,6 +33,7 @@
 #include <GLcommon/FramebufferData.h>
 
 #include "host-common/crash_reporter.h"
+#include "host-common/logging.h"
 
 #include <cmath>
 #include <unordered_map>
@@ -1729,7 +1729,7 @@ GL_API void GL_APIENTRY  glOrthof( GLfloat left, GLfloat right, GLfloat bottom, 
 GL_API void GL_APIENTRY  glOrthox( GLfixed left, GLfixed right, GLfixed bottom, GLfixed top, GLfixed zNear, GLfixed zFar) {
     GET_CTX_CM()
     GLES_CM_TRACE()
-    ctx->orthof(left,right,bottom,top,zNear,zFar);
+    ctx->orthof(X2F(left),X2F(right),X2F(bottom),X2F(top),X2F(zNear),X2F(zFar));
 }
 
 GL_API void GL_APIENTRY  glPixelStorei( GLenum pname, GLint param) {
@@ -1814,20 +1814,6 @@ GL_API void GL_APIENTRY  glPushMatrix(void) {
     GLES_CM_TRACE()
     ctx->pushMatrix();
     CORE_ERR_FORWARD()
-}
-
-GL_API void GL_APIENTRY  glReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels) {
-    GET_CTX()
-    GLES_CM_TRACE()
-
-    SET_ERROR_IF(!(GLEScmValidate::pixelFrmt(ctx,format) && GLEScmValidate::pixelType(ctx,type)),GL_INVALID_ENUM);
-    SET_ERROR_IF(!(GLEScmValidate::pixelOp(format,type)),GL_INVALID_OPERATION);
-
-    // Just stop allowing glReadPixels on multisampled default FBO for now.
-    SET_ERROR_IF(ctx->isDefaultFBOBound(GL_FRAMEBUFFER_EXT) &&
-                 ctx->getDefaultFBOMultisamples(), GL_INVALID_OPERATION);
-
-    ctx->dispatcher().glReadPixels(x,y,width,height,format,type,pixels);
 }
 
 GL_API void GL_APIENTRY  glRotatef( GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
@@ -2728,6 +2714,63 @@ GL_API void GLAPIENTRY glGetFramebufferAttachmentParameterivOES(GLenum target, G
 
     if (ctx->isDefaultFBOBound(target) && *params == GL_RENDERBUFFER) {
         *params = GL_FRAMEBUFFER_DEFAULT;
+    }
+}
+
+GL_API void GL_APIENTRY  glReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels) {
+    GET_CTX()
+    GLES_CM_TRACE()
+    SET_ERROR_IF(!(GLEScmValidate::pixelFrmt(ctx,format) && GLEScmValidate::pixelType(ctx,type)),GL_INVALID_ENUM);
+    SET_ERROR_IF(!(GLEScmValidate::pixelOp(format,type)),GL_INVALID_OPERATION);
+
+    // Just stop allowing glReadPixels on multisampled default FBO for now.
+    if (ctx->isDefaultFBOBound(GL_READ_FRAMEBUFFER) &&
+        ctx->getDefaultFBOMultisamples()) {
+        SET_ERROR_IF(!isGles2Gles(), GL_INVALID_OPERATION);
+
+        GLint prev_bound_rbo;
+        GLint prev_bound_draw_fbo;
+
+        glGetIntegerv(GL_RENDERBUFFER_BINDING, &prev_bound_rbo);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_bound_draw_fbo);
+
+        GLuint resolve_fbo = 0;
+        GLuint resolve_rbo = 0;
+        glGenFramebuffersOES(1, &resolve_fbo);
+        glGenRenderbuffersOES(1, &resolve_rbo);
+
+        int fboFormat = ctx->getDefaultFBOColorFormat();
+        int fboWidth = ctx->getDefaultFBOWidth();
+        int fboHeight = ctx->getDefaultFBOHeight();
+
+        glBindRenderbufferOES(GL_RENDERBUFFER, resolve_rbo);
+        glRenderbufferStorageOES(GL_RENDERBUFFER, fboFormat, fboWidth, fboHeight);
+        glBindFramebufferOES(GL_FRAMEBUFFER, resolve_fbo);
+        glFramebufferRenderbufferOES(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, resolve_rbo);
+
+        glBindFramebufferOES(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebufferOES(GL_DRAW_FRAMEBUFFER, resolve_fbo);
+
+        bool scissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+
+        if (scissorEnabled) glDisable(GL_SCISSOR_TEST);
+        ctx->dispatcher().glBlitFramebuffer(0, 0, fboWidth, fboHeight, 0, 0, fboWidth, fboHeight,
+                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        if (scissorEnabled) glEnable(GL_SCISSOR_TEST);
+
+        glBindFramebufferOES(GL_READ_FRAMEBUFFER, resolve_fbo);
+
+        ctx->dispatcher().glReadPixels(x,y,width,height,format,type,pixels);
+
+        glDeleteRenderbuffersOES(1, &resolve_rbo);
+        glDeleteFramebuffersOES(1, &resolve_fbo);
+
+        glBindRenderbufferOES(GL_RENDERBUFFER, prev_bound_rbo);
+
+        glBindFramebufferOES(GL_DRAW_FRAMEBUFFER, prev_bound_draw_fbo);
+        glBindFramebufferOES(GL_READ_FRAMEBUFFER, 0);
+    } else {
+        ctx->dispatcher().glReadPixels(x,y,width,height,format,type,pixels);
     }
 }
 

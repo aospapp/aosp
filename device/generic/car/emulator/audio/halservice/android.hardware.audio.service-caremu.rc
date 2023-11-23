@@ -7,4 +7,3 @@ service vendor.audio-hal /vendor/bin/hw/android.hardware.audio.service-caremu
     capabilities BLOCK_SUSPEND
     ioprio rt 4
     task_profiles ProcessCapacityHigh HighPerformance
-    onrestart restart audioserver

@@ -1,5 +1,7 @@
 userdebug_or_eng(`
   set_prop(mediacodec, vendor_codec2_debug_prop)
+  allow mediacodec vendor_media_data_file:dir rw_dir_perms;
+  allow mediacodec vendor_media_data_file:file create_file_perms;
 ')
 
 add_service(mediacodec, eco_service)
@@ -7,4 +9,3 @@ allow mediacodec hal_camera_default:binder call;
 allow mediacodec sysfs_video:file r_file_perms;
 allow mediacodec sysfs_video:dir r_dir_perms;
 allow mediacodec dmabuf_system_secure_heap_device:chr_file r_file_perms;
-hal_client_domain(mediacodec, hal_power);

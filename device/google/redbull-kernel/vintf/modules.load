@@ -309,6 +309,7 @@ kernel/techpack/audio/asoc/codecs/bolero/va_macro_dlkm.ko
 kernel/techpack/audio/asoc/codecs/bolero/tx_macro_dlkm.ko
 kernel/techpack/audio/asoc/codecs/bolero/rx_macro_dlkm.ko
 kernel/techpack/audio/asoc/codecs/wsa883x/wsa883x_dlkm.ko
+kernel/techpack/audio/asoc/codecs/tas256x/tas256x_dlkm.ko
 kernel/techpack/audio/asoc/codecs/wcd_core_dlkm.ko
 kernel/techpack/audio/asoc/codecs/wcd9xxx_dlkm.ko
 kernel/techpack/audio/asoc/codecs/wsa881x_dlkm.ko

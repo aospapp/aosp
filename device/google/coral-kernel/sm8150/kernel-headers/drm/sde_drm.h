@@ -178,6 +178,14 @@ struct sde_drm_roi_v1 {
   uint32_t num_rects;
   struct drm_clip_rect roi[SDE_MAX_ROI_V1];
 };
+#define SDE_DRM_ROI_MISR_V1
+struct sde_drm_roi_misr_v1 {
+  int64_t * fence_fd_ptr;
+  uint32_t roi_rect_num;
+  uint32_t * roi_ids;
+  struct drm_clip_rect * roi_rects;
+  uint32_t * roi_golden_value;
+};
 #define SDE_MODE_DPMS_ON 0
 #define SDE_MODE_DPMS_LP1 1
 #define SDE_MODE_DPMS_LP2 2

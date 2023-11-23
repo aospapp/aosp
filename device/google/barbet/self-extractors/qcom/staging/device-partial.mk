@@ -28,7 +28,6 @@ PRODUCT_PACKAGES += \
     lib-imsvideocodec \
     liblistensoundmodel2.qti \
     libmmosal \
-    libqct_resampler \
     libvr_amb_engine \
     libvr_object_engine \
 

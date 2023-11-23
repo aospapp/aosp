@@ -1,0 +1,884 @@
+{
+    "best_target_priority": 1,
+    "bid": "8167848",
+    "branch": "aosp_kernel-common-android13-5.15",
+    "branch_priority": 1,
+    "build_configs": {},
+    "build_dependencies": [],
+    "build_type": "submitted",
+    "dependency_targets": [],
+    "device_dir": "/buildbot/src/android/common-android13-5.15",
+    "docker_image": null,
+    "enable_docker": false,
+    "git-pull": null,
+    "git-server": "https://android.googlesource.com",
+    "hostname": "abfarm-01535",
+    "inc-build": false,
+    "java-version": null,
+    "last_logfile": null,
+    "out_dir": "/buildbot/src/android/common-android13-5.15/out",
+    "parsed_manifest": {
+        "parsedDefault": {
+            "remote": "aosp",
+            "revision": "master",
+            "syncJ": "4"
+        },
+        "projects": [
+            {
+                "linkFiles": [
+                    {
+                        "dest": "tools/bazel",
+                        "src": "kleaf/bazel.sh"
+                    },
+                    {
+                        "dest": "WORKSPACE",
+                        "src": "kleaf/bazel.WORKSPACE"
+                    },
+                    {
+                        "dest": "build/build.sh",
+                        "src": "build.sh"
+                    },
+                    {
+                        "dest": "build/build_abi.sh",
+                        "src": "build_abi.sh"
+                    },
+                    {
+                        "dest": "build/build_test.sh",
+                        "src": "build_test.sh"
+                    },
+                    {
+                        "dest": "build/build_utils.sh",
+                        "src": "build_utils.sh"
+                    },
+                    {
+                        "dest": "build/BUILD.bazel",
+                        "src": "BUILD.bazel"
+                    },
+                    {
+                        "dest": "build/build-tools/path",
+                        "src": "build-tools/path"
+                    },
+                    {
+                        "dest": "build/config.sh",
+                        "src": "config.sh"
+                    },
+                    {
+                        "dest": "build/envsetup.sh",
+                        "src": "envsetup.sh"
+                    },
+                    {
+                        "dest": "build/_setup_env.sh",
+                        "src": "_setup_env.sh"
+                    },
+                    {
+                        "dest": "build/multi-switcher.sh",
+                        "src": "multi-switcher.sh"
+                    },
+                    {
+                        "dest": "build/abi",
+                        "src": "abi"
+                    },
+                    {
+                        "dest": "build/static_analysis",
+                        "src": "static_analysis"
+                    }
+                ],
+                "name": "kernel/build",
+                "path": "build/kernel",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "ef74c7213fb3c3b69ce4297ea16fd220ae830d6d"
+            },
+            {
+                "linkFiles": [
+                    {
+                        "dest": ".source_date_epoch_dir",
+                        "src": "."
+                    }
+                ],
+                "name": "kernel/common",
+                "path": "common",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "71f632baf22dcfef562fd82624b099bf987de0db"
+            },
+            {
+                "name": "kernel/tests",
+                "path": "kernel/tests",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "a8cd1e6b0763566da9c77453d77cdf1bd4cb4273"
+            },
+            {
+                "name": "kernel/configs",
+                "path": "kernel/configs",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "4ca2ff98bfe8a65bc88590c6b372f59d2025be93"
+            },
+            {
+                "name": "kernel/common-modules/virtual-device",
+                "path": "common-modules/virtual-device",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "cb62796b1dae612f0502eba6560e57f56224ec38"
+            },
+            {
+                "cloneDepth": "1",
+                "name": "platform/prebuilts/clang/host/linux-x86",
+                "path": "prebuilts/clang/host/linux-x86",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "9d512ac4cf90e5ae0d3d6a3d884c49871c8ed28f"
+            },
+            {
+                "cloneDepth": "1",
+                "name": "platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+                "path": "prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "d38e3ac65e3c32bfdd55d5caad5e13d084e9f30e"
+            },
+            {
+                "name": "platform/prebuilts/boot-artifacts",
+                "path": "prebuilts/boot-artifacts",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "45d30d07ad284018481ebb419b5d01b5de72ed02"
+            },
+            {
+                "cloneDepth": "1",
+                "linkFiles": [
+                    {
+                        "dest": "build/prebuilts/build-tools",
+                        "src": "."
+                    }
+                ],
+                "name": "platform/prebuilts/build-tools",
+                "path": "prebuilts/build-tools",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "bbc516223436a544c27b4bd8d04e58e19379528d"
+            },
+            {
+                "cloneDepth": "1",
+                "linkFiles": [
+                    {
+                        "dest": "build/prebuilts/kernel-build-tools",
+                        "src": "."
+                    }
+                ],
+                "name": "kernel/prebuilts/build-tools",
+                "path": "prebuilts/kernel-build-tools",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "864b938107f2556a3de903ca0f2541c65e78fecb"
+            },
+            {
+                "name": "platform/system/tools/mkbootimg",
+                "path": "tools/mkbootimg",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "302cb50dc2dc18933d58046950410a95ba4b6ca2"
+            },
+            {
+                "cloneDepth": "1",
+                "name": "platform/prebuilts/bazel/linux-x86_64",
+                "path": "prebuilts/bazel/linux-x86_64",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "68f17219fa96898161a0ed3bb5e3a138841149a1"
+            },
+            {
+                "cloneDepth": "1",
+                "name": "platform/prebuilts/jdk/jdk11",
+                "path": "prebuilts/jdk/jdk11",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "023f88db78eafbfc4b25fa5053531b36b89d3357"
+            },
+            {
+                "name": "platform/external/bazel-skylib",
+                "path": "external/bazel-skylib",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "027b0186f25fa21ebabb2bab33775c06f6a9e779"
+            },
+            {
+                "name": "platform/build/bazel_common_rules",
+                "path": "build/bazel_common_rules",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "65c2e9e92bbf70cce29c9bbd5e02b182164e887e"
+            },
+            {
+                "name": "platform/external/stardoc",
+                "path": "external/stardoc",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "bc19078e9c5b96410b454a7b621052b053c19b36"
+            },
+            {
+                "name": "kernel/manifest",
+                "path": "kernel/manifest",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/"
+                },
+                "revision": "2395898ba69824c1ec99eface4c44b1192712f1d"
+            }
+        ],
+        "remotes": [
+            {
+                "fetch": "https://android.googlesource.com/",
+                "name": "aosp",
+                "review": "https://android.googlesource.com/"
+            }
+        ],
+        "superproject": {
+            "name": "kernel/superproject",
+            "remote": {
+                "fetch": "https://android.googlesource.com/",
+                "name": "aosp",
+                "review": "https://android.googlesource.com/"
+            },
+            "revision": "72ebf1e4322d943fbdd6292852ac3c558aa97774"
+        }
+    },
+    "parsed_manifests": [
+        {
+            "parsedDefault": {
+                "remote": "aosp",
+                "revision": "master",
+                "syncJ": "4"
+            },
+            "projects": [
+                {
+                    "linkFiles": [
+                        {
+                            "dest": "tools/bazel",
+                            "src": "kleaf/bazel.sh"
+                        },
+                        {
+                            "dest": "WORKSPACE",
+                            "src": "kleaf/bazel.WORKSPACE"
+                        },
+                        {
+                            "dest": "build/build.sh",
+                            "src": "build.sh"
+                        },
+                        {
+                            "dest": "build/build_abi.sh",
+                            "src": "build_abi.sh"
+                        },
+                        {
+                            "dest": "build/build_test.sh",
+                            "src": "build_test.sh"
+                        },
+                        {
+                            "dest": "build/build_utils.sh",
+                            "src": "build_utils.sh"
+                        },
+                        {
+                            "dest": "build/BUILD.bazel",
+                            "src": "BUILD.bazel"
+                        },
+                        {
+                            "dest": "build/build-tools/path",
+                            "src": "build-tools/path"
+                        },
+                        {
+                            "dest": "build/config.sh",
+                            "src": "config.sh"
+                        },
+                        {
+                            "dest": "build/envsetup.sh",
+                            "src": "envsetup.sh"
+                        },
+                        {
+                            "dest": "build/_setup_env.sh",
+                            "src": "_setup_env.sh"
+                        },
+                        {
+                            "dest": "build/multi-switcher.sh",
+                            "src": "multi-switcher.sh"
+                        },
+                        {
+                            "dest": "build/abi",
+                            "src": "abi"
+                        },
+                        {
+                            "dest": "build/static_analysis",
+                            "src": "static_analysis"
+                        }
+                    ],
+                    "name": "kernel/build",
+                    "path": "build/kernel",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "ef74c7213fb3c3b69ce4297ea16fd220ae830d6d"
+                },
+                {
+                    "linkFiles": [
+                        {
+                            "dest": ".source_date_epoch_dir",
+                            "src": "."
+                        }
+                    ],
+                    "name": "kernel/common",
+                    "path": "common",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "71f632baf22dcfef562fd82624b099bf987de0db"
+                },
+                {
+                    "name": "kernel/tests",
+                    "path": "kernel/tests",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "a8cd1e6b0763566da9c77453d77cdf1bd4cb4273"
+                },
+                {
+                    "name": "kernel/configs",
+                    "path": "kernel/configs",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "4ca2ff98bfe8a65bc88590c6b372f59d2025be93"
+                },
+                {
+                    "name": "kernel/common-modules/virtual-device",
+                    "path": "common-modules/virtual-device",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "cb62796b1dae612f0502eba6560e57f56224ec38"
+                },
+                {
+                    "cloneDepth": "1",
+                    "name": "platform/prebuilts/clang/host/linux-x86",
+                    "path": "prebuilts/clang/host/linux-x86",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "9d512ac4cf90e5ae0d3d6a3d884c49871c8ed28f"
+                },
+                {
+                    "cloneDepth": "1",
+                    "name": "platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+                    "path": "prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "d38e3ac65e3c32bfdd55d5caad5e13d084e9f30e"
+                },
+                {
+                    "name": "platform/prebuilts/boot-artifacts",
+                    "path": "prebuilts/boot-artifacts",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "45d30d07ad284018481ebb419b5d01b5de72ed02"
+                },
+                {
+                    "cloneDepth": "1",
+                    "linkFiles": [
+                        {
+                            "dest": "build/prebuilts/build-tools",
+                            "src": "."
+                        }
+                    ],
+                    "name": "platform/prebuilts/build-tools",
+                    "path": "prebuilts/build-tools",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "bbc516223436a544c27b4bd8d04e58e19379528d"
+                },
+                {
+                    "cloneDepth": "1",
+                    "linkFiles": [
+                        {
+                            "dest": "build/prebuilts/kernel-build-tools",
+                            "src": "."
+                        }
+                    ],
+                    "name": "kernel/prebuilts/build-tools",
+                    "path": "prebuilts/kernel-build-tools",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "864b938107f2556a3de903ca0f2541c65e78fecb"
+                },
+                {
+                    "name": "platform/system/tools/mkbootimg",
+                    "path": "tools/mkbootimg",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "302cb50dc2dc18933d58046950410a95ba4b6ca2"
+                },
+                {
+                    "cloneDepth": "1",
+                    "name": "platform/prebuilts/bazel/linux-x86_64",
+                    "path": "prebuilts/bazel/linux-x86_64",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "68f17219fa96898161a0ed3bb5e3a138841149a1"
+                },
+                {
+                    "cloneDepth": "1",
+                    "name": "platform/prebuilts/jdk/jdk11",
+                    "path": "prebuilts/jdk/jdk11",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "023f88db78eafbfc4b25fa5053531b36b89d3357"
+                },
+                {
+                    "name": "platform/external/bazel-skylib",
+                    "path": "external/bazel-skylib",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "027b0186f25fa21ebabb2bab33775c06f6a9e779"
+                },
+                {
+                    "name": "platform/build/bazel_common_rules",
+                    "path": "build/bazel_common_rules",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "65c2e9e92bbf70cce29c9bbd5e02b182164e887e"
+                },
+                {
+                    "name": "platform/external/stardoc",
+                    "path": "external/stardoc",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/",
+                        "name": "aosp",
+                        "review": "https://android.googlesource.com/"
+                    },
+                    "revision": "bc19078e9c5b96410b454a7b621052b053c19b36"
+                },
+                {
+                    "name": "kernel/manifest",
+                    "path": "kernel/manifest",
+                    "remote": {
+                        "fetch": "https://android.googlesource.com/"
+                    },
+                    "revision": "2395898ba69824c1ec99eface4c44b1192712f1d"
+                }
+            ],
+            "remotes": [
+                {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                }
+            ],
+            "superproject": {
+                "name": "kernel/superproject",
+                "remote": {
+                    "fetch": "https://android.googlesource.com/",
+                    "name": "aosp",
+                    "review": "https://android.googlesource.com/"
+                },
+                "revision": "72ebf1e4322d943fbdd6292852ac3c558aa97774"
+            }
+        }
+    ],
+    "platform": "linux",
+    "presubmit_incremental_build": false,
+    "proof_build": false,
+    "repo-dict": {
+        "kernel/build": "ef74c7213fb3c3b69ce4297ea16fd220ae830d6d",
+        "kernel/common": "71f632baf22dcfef562fd82624b099bf987de0db",
+        "kernel/common-modules/virtual-device": "cb62796b1dae612f0502eba6560e57f56224ec38",
+        "kernel/configs": "4ca2ff98bfe8a65bc88590c6b372f59d2025be93",
+        "kernel/manifest": "2395898ba69824c1ec99eface4c44b1192712f1d",
+        "kernel/prebuilts/build-tools": "864b938107f2556a3de903ca0f2541c65e78fecb",
+        "kernel/tests": "a8cd1e6b0763566da9c77453d77cdf1bd4cb4273",
+        "platform/build/bazel_common_rules": "65c2e9e92bbf70cce29c9bbd5e02b182164e887e",
+        "platform/external/bazel-skylib": "027b0186f25fa21ebabb2bab33775c06f6a9e779",
+        "platform/external/stardoc": "bc19078e9c5b96410b454a7b621052b053c19b36",
+        "platform/prebuilts/bazel/linux-x86_64": "68f17219fa96898161a0ed3bb5e3a138841149a1",
+        "platform/prebuilts/boot-artifacts": "45d30d07ad284018481ebb419b5d01b5de72ed02",
+        "platform/prebuilts/build-tools": "bbc516223436a544c27b4bd8d04e58e19379528d",
+        "platform/prebuilts/clang/host/linux-x86": "9d512ac4cf90e5ae0d3d6a3d884c49871c8ed28f",
+        "platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8": "d38e3ac65e3c32bfdd55d5caad5e13d084e9f30e",
+        "platform/prebuilts/jdk/jdk11": "023f88db78eafbfc4b25fa5053531b36b89d3357",
+        "platform/system/tools/mkbootimg": "302cb50dc2dc18933d58046950410a95ba4b6ca2"
+    },
+    "repo-init-branch": "common-android13-5.15",
+    "repo-manifest": "kernel/manifest",
+    "repo_manifest_file": "default.xml",
+    "reset_image_build": false,
+    "rollout": [],
+    "src_ctrl": "repo",
+    "sync_finish_time": 1644474755.108455,
+    "sync_start_time": 1644474639.4244103,
+    "sync_succeed": 1,
+    "target": {
+        "apiary_target": "kernel_db845c",
+        "dir_list": [
+            "qcom_q6v5_pas.ko",
+            "arm_smmu.ko",
+            "led-class-multicolor.ko",
+            "qcom_q6v5.ko",
+            "qcom_glink_rpm.ko",
+            "ohci-pci.ko",
+            "modules.builtin",
+            "gpio-wcd934x.ko",
+            "phy-qcom-snps-femto-v2.ko",
+            "snd-soc-rl6231.ko",
+            "pinctrl-spmi-mpp.ko",
+            "pinctrl-sm8250.ko",
+            "qcom_rpmh.ko",
+            "ath11k.ko",
+            "snd-soc-wcd9335.ko",
+            "regmap-slimbus.ko",
+            "dispcc-sm8250.ko",
+            "qcom_glink.ko",
+            "mdt_loader.ko",
+            "regmap-sdw.ko",
+            "q6dsp-common.ko",
+            "pm8916_wdt.ko",
+            "qcom-apcs-ipc-mailbox.ko",
+            "abi.prop",
+            "qcom-cpufreq-hw.ko",
+            "qcom_glink_smem.ko",
+            "phy-qcom-qusb2.ko",
+            "qcom-spmi-pmic.ko",
+            "phy-qcom-qmp.ko",
+            "gpucc-sm8250.ko",
+            "q6asm.ko",
+            "i2c-mux-pca954x.ko",
+            "apr.ko",
+            "vendor_boot.modules.load",
+            "repo.prop",
+            "i2c-designware-core.ko",
+            "ufs_qcom.ko",
+            "snd-soc-lpass-va-macro.ko",
+            "rpmsg_ns.ko",
+            "snd-soc-wsa881x.ko",
+            "qcom-spmi-temp-alarm.ko",
+            "icc-osm-l3.ko",
+            "qcom_usb_vbus-regulator.ko",
+            "vmlinux.symvers",
+            "sdhci-msm.ko",
+            "i2c-qcom-geni.ko",
+            "rtc-pm8xxx.ko",
+            "i2c-qup.ko",
+            "qcom_sysmon.ko",
+            "ohci-platform.ko",
+            "display-connector.ko",
+            "mcp251xfd.ko",
+            "pinctrl-lpass-lpi.ko",
+            "qcom-pdc.ko",
+            "q6afe-clocks.ko",
+            "smp2p.ko",
+            "qcom_q6v5_wcss.ko",
+            "snd-soc-wcd-mbhc.ko",
+            "pinctrl-sdm845.ko",
+            "videocc-sdm845.ko",
+            "qnoc-sdm845.ko",
+            "slim-qcom-ngd-ctrl.ko",
+            "qcom_tsens.ko",
+            "clk-rpmh.ko",
+            "sdm845-db845c.dtb",
+            "qcom-scm.ko",
+            "ath10k_core.ko",
+            "cqhci.ko",
+            "qrtr-tun.ko",
+            "ath10k_pci.ko",
+            "snd-soc-qcom-common.ko",
+            "qcom-pmic-typec.ko",
+            "snd-soc-sdm845.ko",
+            "q6asm-dai.ko",
+            "lontium-lt9611.ko",
+            "rmtfs_mem.ko",
+            "q6routing.ko",
+            "pm8941-pwrkey.ko",
+            "spi-qcom-qspi.ko",
+            "q6core.ko",
+            "manifest_8167848.xml",
+            "qcom_q6v5_adsp.ko",
+            "reset-qcom-pdc.ko",
+            "modules.builtin.modinfo",
+            "reboot-mode.ko",
+            "syscon-reboot-mode.ko",
+            "snd-soc-wcd934x.ko",
+            "qcom-wdt.ko",
+            "vmlinux",
+            "pinctrl-msm.ko",
+            "ath11k_ahb.ko",
+            "qrtr-mhi.ko",
+            "soundwire-bus.ko",
+            "system_heap.ko",
+            "regmap-spmi.ko",
+            "lontium-lt9611uxc.ko",
+            "snd-soc-rt5663.ko",
+            "wcd934x.ko",
+            "i2c-mux.ko",
+            "abi_symbollist.report",
+            "cmd-db.ko",
+            "qcom-spmi-adc-tm5.ko",
+            "spmi-pmic-arb.ko",
+            "System.map",
+            "kernel-uapi-headers.tar.gz",
+            "qcom_hwspinlock.ko",
+            "smsm.ko",
+            "q6adm.ko",
+            "Image.gz",
+            "qcom-vadc-common.ko",
+            "ath.ko",
+            "qcom-rpmh-regulator.ko",
+            "gcc-sdm845.ko",
+            "kernel-headers.tar.gz",
+            "qrb5165-rb5.dtb",
+            "msm.ko",
+            "michael_mic.ko",
+            "reset-qcom-aoss.ko",
+            "modules.load",
+            "fastrpc.ko",
+            "abi_symbollist",
+            "qcom_pil_info.ko",
+            "clk-qcom.ko",
+            "test_mappings.zip",
+            "snd-soc-dmic.ko",
+            "spi-qup.ko",
+            "i2c-dev.ko",
+            "qcom-ipcc.ko",
+            "multiple.intoto.jsonl",
+            "ax88179_178a.ko",
+            "qrtr-smd.ko",
+            "initramfs.img",
+            "lpass-gfm-sm8250.ko",
+            "socinfo.ko",
+            "bam_dma.ko",
+            "gcc-sm8250.ko",
+            "clk-spmi-pmic-div.ko",
+            "rpmhpd.ko",
+            "gpucc-sdm845.ko",
+            "i2c-designware-platform.ko",
+            "qcom_aoss.ko",
+            "slimbus.ko",
+            "qcom_spmi-regulator.ko",
+            "gki_aarch64_modules",
+            "spi-pl022.ko",
+            "qcom_common.ko",
+            "ns.ko",
+            "qcom-pon.ko",
+            "snd-soc-sm8250.ko",
+            "qnoc-sm8250.ko",
+            "gpio-regulator.ko",
+            "ulpi.ko",
+            "q6afe.ko",
+            "gpu-sched.ko",
+            "spi-geni-qcom.ko",
+            "soundwire-qcom.ko",
+            "pdr_interface.ko",
+            "applied.prop",
+            "smem.ko",
+            "icc-rpmh.ko",
+            "i2c-rk3x.ko",
+            "mhi.ko",
+            "ohci-hcd.ko",
+            "q6afe-dai.ko",
+            "qcom_smd.ko",
+            "lmh.ko",
+            "Image",
+            "llcc-qcom.ko",
+            "snd-soc-max98927.ko",
+            "snd-soc-hdmi-codec.ko",
+            "phy-qcom-usb-hs.ko",
+            "qmi_helpers.ko",
+            "pinctrl-spmi-gpio.ko",
+            "icc-bcm-voter.ko",
+            "extcon-usb-gpio.ko",
+            "qcom_q6v5_mss.ko",
+            "ath10k_snoc.ko",
+            "qcom-spmi-adc5.ko",
+            "ath11k_pci.ko",
+            "qrtr.ko",
+            "dispcc-sdm845.ko",
+            "snd-soc-lpass-wsa-macro.ko",
+            "msm_serial.ko",
+            "nvmem_qfprom.ko",
+            "videocc-sm8250.ko",
+            "logs/git.log",
+            "logs/execute_build_result.textproto",
+            "logs/git_thread.log",
+            "logs/build_tee_error.log",
+            "logs/buildbot_trace.trace",
+            "logs/execute_build_config.textproto",
+            "logs/SUCCEEDED",
+            "logs/STARTED",
+            "logs/build.log",
+            "BUILD_INFO"
+        ],
+        "dist-dir": "/buildbot/dist_dirs/aosp_kernel-common-android13-5.15-linux-kernel_db845c/8167848",
+        "name": "kernel_db845c",
+        "rules": [
+            [
+                "DIST_DIR=/buildbot/dist_dirs/aosp_kernel-common-android13-5.15-linux-kernel_db845c/8167848 BUILD_CONFIG=common/build.config.db845c build/build.sh -j80",
+                "build.log",
+                true,
+                false
+            ]
+        ],
+        "storage_path": "/bigstore/android-build/builds/aosp_kernel-common-android13-5.15-linux-kernel_db845c/8167848/ecfceb4b5f03ba1dd46568d8234e8eec972da1a763e1e3a114d9b96c46e1fafc",
+        "system_img_limit": "0",
+        "system_img_reserve": "0",
+        "system_img_size": "0",
+        "target_finish_time": 1644476740.1019223,
+        "target_start_time": 1644474756.101808,
+        "target_status": 1
+    },
+    "trident_usage": {
+        "external_disk_no_space": false,
+        "trident_used": false
+    },
+    "use_goma": false,
+    "worknode": {
+        "containerId": "L29800000953003086",
+        "creationTimeMillis": "1644462576551",
+        "currentAttempt": {
+            "attemptId": "dn2i98THVoX4L+r+0t6Eiw==",
+            "progressMessages": [
+                {
+                    "displayMessage": "Build 8167848 for node L29800000953003086:N06500001235373785 has been inserted",
+                    "messageString": "Build 8167848 for node L29800000953003086:N06500001235373785 has been inserted",
+                    "timeMillis": "1644462588286"
+                }
+            ],
+            "startTimeMillis": "1644462584945"
+        },
+        "heartbeatTimeMillis": "86400000",
+        "id": "L29800000953003086:N06500001235373785",
+        "inputEdges": [
+            {
+                "neighborId": "L29800000953003086:N08900001235373779"
+            }
+        ],
+        "isFinal": false,
+        "lastUpdatedMillis": "1644462588325",
+        "nodeClass": "postsubmit",
+        "retryStatus": {
+            "maximumRetries": 4,
+            "retryCount": 0
+        },
+        "revision": "HvjLs8Omks1+gAEuuopBnA==",
+        "status": "scheduled",
+        "workExecutorType": "submittedBuild",
+        "workParameters": {
+            "submittedBuild": {
+                "branch": "aosp_kernel-common-android13-5.15",
+                "branchConfig": {
+                    "sloTier": "bestEffort"
+                },
+                "buildId": "8167848",
+                "gerritPollerTimestamp": "1644462486694",
+                "manuallyTriggered": false,
+                "syncTimeoutSecond": 2700,
+                "target": {
+                    "buildCommands": [
+                        "DIST_DIR=%dist_dir% BUILD_CONFIG=common/build.config.db845c build/build.sh -j%cpu%"
+                    ],
+                    "buildPlatform": "linux",
+                    "disabled": false,
+                    "incrementalBuild": false,
+                    "launchcontrolName": "kernel_db845c",
+                    "name": "kernel_db845c",
+                    "platformVersion": "trusty",
+                    "priority": "low",
+                    "product": "kernel_db845c",
+                    "target": "kernel_db845c"
+                }
+            }
+        },
+        "workerId": "buildassembler_buildnotifier_workers"
+    }
+}
