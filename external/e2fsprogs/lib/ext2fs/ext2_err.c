@@ -8,7 +8,7 @@
 #define N_(a) a
 
 static const char * const text[] = {
-	N_(	"EXT2FS Library version v1.45.4-867-g4bc58792"),
+	N_(	"EXT2FS Library version v1.46.2-1113-gb00aa279"),
 	N_(	"Wrong magic number for ext2_filsys structure"),
 	N_(	"Wrong magic number for badblocks_list structure"),
 	N_(	"Wrong magic number for badblocks_iterate structure"),
@@ -187,6 +187,8 @@ static const char * const text[] = {
 	N_(	"The journal superblock is corrupt"),
 	N_(	"Inode is corrupted"),
 	N_(	"Inode containing extended attribute value is corrupted"),
+	N_(	"Group descriptors not loaded"),
+	N_(	"The internal ext2_filsys data structure appears to be corrupted"),
     0
 };
 
@@ -201,7 +203,7 @@ struct et_list {
 };
 extern struct et_list *_et_list;
 
-const struct error_table et_ext2_error_table = { text, 2133571328L, 179 };
+const struct error_table et_ext2_error_table = { text, 2133571328L, 181 };
 
 static struct et_list link = { 0, 0 };
 

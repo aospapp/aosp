@@ -46,8 +46,6 @@ int OCSP_REQUEST_get_ext_count(OCSP_REQUEST *);
 X509_EXTENSION *OCSP_REQUEST_get_ext(OCSP_REQUEST *, int);
 int OCSP_request_onereq_count(OCSP_REQUEST *);
 OCSP_ONEREQ *OCSP_request_onereq_get0(OCSP_REQUEST *, int);
-int OCSP_ONEREQ_get_ext_count(OCSP_ONEREQ *);
-X509_EXTENSION *OCSP_ONEREQ_get_ext(OCSP_ONEREQ *, int);
 OCSP_CERTID *OCSP_onereq_get0_id(OCSP_ONEREQ *);
 OCSP_ONEREQ *OCSP_request_add0_id(OCSP_REQUEST *, OCSP_CERTID *);
 OCSP_CERTID *OCSP_cert_to_id(const EVP_MD *, const X509 *, const X509 *);
@@ -59,7 +57,6 @@ void OCSP_BASICRESP_free(OCSP_BASICRESP *);
 OCSP_SINGLERESP *OCSP_basic_add1_status(OCSP_BASICRESP *, OCSP_CERTID *, int,
                                         int, ASN1_TIME *, ASN1_TIME *,
                                         ASN1_TIME *);
-int OCSP_basic_add1_nonce(OCSP_BASICRESP *, unsigned char *, int);
 int OCSP_basic_add1_cert(OCSP_BASICRESP *, X509 *);
 int OCSP_BASICRESP_add_ext(OCSP_BASICRESP *, X509_EXTENSION *, int);
 int OCSP_basic_sign(OCSP_BASICRESP *, X509 *, EVP_PKEY *, const EVP_MD *,
@@ -69,7 +66,6 @@ void OCSP_RESPONSE_free(OCSP_RESPONSE *);
 
 OCSP_REQUEST *OCSP_REQUEST_new(void);
 void OCSP_REQUEST_free(OCSP_REQUEST *);
-int OCSP_request_add1_nonce(OCSP_REQUEST *, unsigned char *, int);
 int OCSP_REQUEST_add_ext(OCSP_REQUEST *, X509_EXTENSION *, int);
 int OCSP_id_get0_info(ASN1_OCTET_STRING **, ASN1_OBJECT **,
                       ASN1_OCTET_STRING **, ASN1_INTEGER **, OCSP_CERTID *);
@@ -82,7 +78,7 @@ int i2d_OCSP_RESPDATA(OCSP_RESPDATA *, unsigned char **);
 
 CUSTOMIZATIONS = """
 #if ( \
-    CRYPTOGRAPHY_OPENSSL_110_OR_GREATER && \
+    !CRYPTOGRAPHY_IS_LIBRESSL && \
     CRYPTOGRAPHY_OPENSSL_LESS_THAN_110J \
     )
 /* These structs come from ocsp_lcl.h and are needed to de-opaque the struct
@@ -109,7 +105,7 @@ struct ocsp_basic_response_st {
 };
 #endif
 
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+#if CRYPTOGRAPHY_IS_LIBRESSL
 /* These functions are all taken from ocsp_cl.c in OpenSSL 1.1.0 */
 const OCSP_CERTID *OCSP_SINGLERESP_get0_id(const OCSP_SINGLERESP *single)
 {
@@ -151,7 +147,7 @@ const ASN1_OCTET_STRING *OCSP_resp_get0_signature(const OCSP_BASICRESP *bs)
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110J
 const X509_ALGOR *OCSP_resp_get0_tbs_sigalg(const OCSP_BASICRESP *bs)
 {
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+#if CRYPTOGRAPHY_IS_LIBRESSL
     return bs->signatureAlgorithm;
 #else
     return &bs->signatureAlgorithm;
@@ -160,7 +156,7 @@ const X509_ALGOR *OCSP_resp_get0_tbs_sigalg(const OCSP_BASICRESP *bs)
 
 const OCSP_RESPDATA *OCSP_resp_get0_respdata(const OCSP_BASICRESP *bs)
 {
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+#if CRYPTOGRAPHY_IS_LIBRESSL
     return bs->tbsResponseData;
 #else
     return &bs->tbsResponseData;

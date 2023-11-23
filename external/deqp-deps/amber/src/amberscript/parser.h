@@ -64,7 +64,9 @@ class Parser : public amber::Parser {
   Result ParsePipelineShaderOptimizations(Pipeline*);
   Result ParsePipelineShaderCompileOptions(Pipeline*);
   Result ParsePipelineSubgroup(Pipeline* pipeline);
+  Result ParsePipelinePatchControlPoints(Pipeline* pipeline);
   Result ParsePipelineFramebufferSize(Pipeline*);
+  Result ParsePipelineViewport(Pipeline*);
   Result ParsePipelineBind(Pipeline*);
   Result ParsePipelineVertexData(Pipeline*);
   Result ParsePipelineIndexData(Pipeline*);
@@ -72,6 +74,7 @@ class Parser : public amber::Parser {
   Result ParsePipelinePolygonMode(Pipeline*);
   Result ParsePipelineDepth(Pipeline* pipeline);
   Result ParsePipelineStencil(Pipeline* pipeline);
+  Result ParsePipelineBlend(Pipeline* pipeline);
   Result ParseRun();
   Result ParseDebug();
   Result ParseDebugThread(debug::Events*, Pipeline* pipeline);

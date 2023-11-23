@@ -30,7 +30,7 @@ void
 lws_context_init_extensions(const struct lws_context_creation_info *info,
 			    struct lws_context *context)
 {
-	lwsl_info(" LWS_MAX_EXTENSIONS_ACTIVE: %u\n", LWS_MAX_EXTENSIONS_ACTIVE);
+	lwsl_cx_info(context, " LWS_MAX_EXTENSIONS_ACTIVE: %u", LWS_MAX_EXTENSIONS_ACTIVE);
 }
 
 enum lws_ext_option_parser_states {
@@ -56,7 +56,7 @@ lws_ext_parse_options(const struct lws_extension *ext, struct lws *wsi,
 	while (opts[count_options].name)
 		count_options++;
 	while (len) {
-		lwsl_ext("'%c' %d", *in, leap);
+		lwsl_wsi_ext(wsi, "'%c' %d", *in, leap);
 		switch (leap) {
 		case LEAPS_SEEK_NAME:
 			if (*in == ' ')
@@ -65,7 +65,7 @@ lws_ext_parse_options(const struct lws_extension *ext, struct lws *wsi,
 				len = 1;
 				break;
 			}
-			match_map = (1 << count_options) - 1;
+			match_map = (unsigned int)(1 << count_options) - 1;
 			leap = LEAPS_EAT_NAME;
 			w = 0;
 
@@ -83,12 +83,12 @@ lws_ext_parse_options(const struct lws_extension *ext, struct lws *wsi,
 					n++;
 					continue;
 				}
-				lwsl_ext("    m=%d, n=%d, w=%d\n", m, n, w);
+				lwsl_wsi_ext(wsi, "    m=%d, n=%d, w=%d", m, n, w);
 
 				if (*in == opts[n].name[w]) {
 					if (!opts[n].name[w + 1]) {
-						oa.option_index = n;
-						lwsl_ext("hit %d\n",
+						oa.option_index = (int)n;
+						lwsl_wsi_ext(wsi, "hit %d",
 							 oa.option_index);
 						leap = LEAPS_SEEK_VAL;
 						if (len == 1)
@@ -96,9 +96,9 @@ lws_ext_parse_options(const struct lws_extension *ext, struct lws *wsi,
 						break;
 					}
 				} else {
-					match_map &= ~(1 << n);
+					match_map &= (unsigned int)~(1 << n);
 					if (!match_map) {
-						lwsl_ext("empty match map\n");
+						lwsl_wsi_ext(wsi, "empty match map");
 						return -1;
 					}
 				}
@@ -198,9 +198,9 @@ int lws_ext_cb_active(struct lws *wsi, int reason, void *arg, int len)
 	for (n = 0; n < wsi->ws->count_act_ext; n++) {
 		m = wsi->ws->active_extensions[n]->callback(
 			lws_get_context(wsi), wsi->ws->active_extensions[n],
-			wsi, reason, wsi->ws->act_ext_user[n], arg, len);
+			wsi, (enum lws_extension_callback_reasons)reason, wsi->ws->act_ext_user[n], arg, (size_t)len);
 		if (m < 0) {
-			lwsl_ext("Ext '%s' failed to handle callback %d!\n",
+			lwsl_wsi_ext(wsi, "Ext '%s' failed to handle callback %d!",
 				 wsi->ws->active_extensions[n]->name, reason);
 			return -1;
 		}
@@ -220,16 +220,16 @@ int lws_ext_cb_all_exts(struct lws_context *context, struct lws *wsi,
 	int n = 0, m, handled = 0;
 	const struct lws_extension *ext;
 
-	if (!wsi || !wsi->vhost || !wsi->ws)
+	if (!wsi || !wsi->a.vhost || !wsi->ws)
 		return 0;
 
-	ext = wsi->vhost->ws.extensions;
+	ext = wsi->a.vhost->ws.extensions;
 
 	while (ext && ext->callback && !handled) {
-		m = ext->callback(context, ext, wsi, reason,
-				  (void *)(lws_intptr_t)n, arg, len);
+		m = ext->callback(context, ext, wsi, (enum lws_extension_callback_reasons)reason,
+				  (void *)(lws_intptr_t)n, arg, (size_t)len);
 		if (m < 0) {
-			lwsl_ext("Ext '%s' failed to handle callback %d!\n",
+			lwsl_wsi_ext(wsi, "Ext '%s' failed to handle callback %d!",
 				 wsi->ws->active_extensions[n]->name, reason);
 			return -1;
 		}
@@ -282,18 +282,17 @@ lws_issue_raw_ext_access(struct lws *wsi, unsigned char *buf, size_t len)
 		/* assuming they left us something to send, send it */
 
 		if (ebuf.len) {
-			n = lws_issue_raw(wsi, ebuf.token, ebuf.len);
+			n = lws_issue_raw(wsi, ebuf.token, (size_t)ebuf.len);
 			if (n < 0) {
-				lwsl_info("closing from ext access\n");
+				lwsl_wsi_info(wsi, "closing from ext access");
 				return -1;
 			}
 
 			/* always either sent it all or privately buffered */
 			if (wsi->ws->clean_buffer)
-				len = n;
+				len = (size_t)n;
 
-			lwsl_ext("%s: written %d bytes to client\n",
-				 __func__, n);
+			lwsl_wsi_ext(wsi, "written %d bytes to client", n);
 		}
 
 		/* no extension has more to spill?  Then we can go */
@@ -315,7 +314,7 @@ lws_issue_raw_ext_access(struct lws *wsi, unsigned char *buf, size_t len)
 			/* no we could add more, lets's do that */
 			continue;
 
-		lwsl_debug("choked\n");
+		lwsl_wsi_debug(wsi, "choked");
 
 		/*
 		 * Yes, he's choked.  Don't spill the rest now get a callback
@@ -333,7 +332,7 @@ int
 lws_any_extension_handled(struct lws *wsi, enum lws_extension_callback_reasons r,
 			  void *v, size_t len)
 {
-	struct lws_context *context = wsi->context;
+	struct lws_context *context = wsi->a.context;
 	int n, handled = 0;
 
 	if (!wsi->ws)
@@ -376,7 +375,7 @@ lws_set_extension_option(struct lws *wsi, const char *ext_name,
 	oa.start = opt_val;
 	oa.len = 0;
 
-	return wsi->ws->active_extensions[idx]->callback(wsi->context,
+	return wsi->ws->active_extensions[idx]->callback(wsi->a.context,
 			wsi->ws->active_extensions[idx], wsi,
 			LWS_EXT_CB_NAMED_OPTION_SET, wsi->ws->act_ext_user[idx],
 			&oa, 0);

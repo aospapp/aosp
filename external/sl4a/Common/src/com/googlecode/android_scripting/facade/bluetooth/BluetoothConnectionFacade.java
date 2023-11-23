@@ -20,6 +20,7 @@ import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapter.OobDataCallback;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -32,6 +33,7 @@ import android.bluetooth.BluetoothPan;
 import android.bluetooth.BluetoothPbapClient;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
+import android.bluetooth.OobData;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -67,6 +69,29 @@ public class BluetoothConnectionFacade extends RpcReceiver {
     private final BluetoothPairingHelper mPairingHelper;
     private final Map<String, BroadcastReceiver> listeningDevices;
     private final EventFacade mEventFacade;
+    private final OobDataCallback mGenerateOobDataCallback = new OobDataCallback() {
+            @Override
+            public void onError(int error) {
+                Log.d("onError: " + error);
+                Bundle results = new Bundle();
+                results.putInt("Error", error);
+                mEventFacade.postEvent("ErrorOobData", results.clone());
+            }
+
+            @Override
+            public void onOobData(int transport, OobData data) {
+                Log.d("Transport: " + transport);
+                Log.d("OobData: " + data);
+                Bundle results = new Bundle();
+                results.putInt("transport", transport);
+                // Just what we need create a bond
+                results.putString("address_with_type",
+                        toHexString(data.getDeviceAddressWithType()));
+                results.putString("confirmation", toHexString(data.getConfirmationHash()));
+                results.putString("randomizer", toHexString(data.getRandomizerHash()));
+                mEventFacade.postEvent("GeneratedOobData", results.clone());
+            }
+        };
 
     private final IntentFilter mDiscoverConnectFilter;
     private final IntentFilter mPairingFilter;
@@ -554,6 +579,11 @@ public class BluetoothConnectionFacade extends RpcReceiver {
         return mBluetoothAdapter.getRemoteDevice(macAddress).createBond();
     }
 
+    @Rpc(description = "Bluetooth init LE Bond by Mac Address")
+    public boolean bluetoothLeBond(@RpcParameter(name = "macAddress") String macAddress) {
+        return mBluetoothAdapter.getRemoteDevice(macAddress).createBond(BluetoothDevice.TRANSPORT_LE);
+    }
+
     @Rpc(description = "Return true if a bluetooth device is connected.")
     public Boolean bluetoothIsDeviceConnected(String deviceID) {
         for (BluetoothDevice bd : mBluetoothAdapter.getBondedDevices()) {
@@ -562,6 +592,94 @@ public class BluetoothConnectionFacade extends RpcReceiver {
             }
         }
         return false;
+    }
+
+    /**
+     * Generates the local Out of Band data for the given transport.
+     */
+    @Rpc(description = "Generate Out of Band data for OOB Pairing.")
+    public void bluetoothGenerateLocalOobData(@RpcParameter(name = "transport") String transport) {
+        Log.d("bluetoothGenerateLocalOobData(" + transport + ")");
+        mBluetoothAdapter.generateLocalOobData(Integer.parseInt(transport),
+                mContext.getMainExecutor(), mGenerateOobDataCallback);
+
+    }
+
+    private static byte[] hexStringToByteArray(String s) {
+        if (s == null) {
+            throw new IllegalArgumentException("Hex String must not be null!");
+        }
+        int len = s.length();
+        if ((len % 2) != 0 || len < 1) { // Multiple of 2 or empty
+            throw new IllegalArgumentException("Hex String must be an even number > 0");
+        }
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((byte) (Character.digit(s.charAt(i), 16) << 4)
+                    + (byte) Character.digit(s.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    private static String toHexString(byte[] a) {
+        if (a == null) return null;
+        StringBuilder builder = new StringBuilder(a.length * 2);
+        for (byte b : a) {
+            builder.append(String.format("%02x", b));
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Bond to a device using Out of Band Data.
+     *
+     * @param address String representation of address like "00:11:22:33:44:55"
+     * @param transport String "1", "2", "3" to match TRANSPORT_*
+     * @param c Hex String of the 16 octet confirmation
+     * @param r Hex String of the 16 octet randomizer
+     */
+    @Rpc(description = "Creates and Out of Band bond.")
+    public void bluetoothCreateBondOutOfBand(@RpcParameter(name = "address") String address,
+            @RpcParameter(name = "transport") String transport,
+            @RpcParameter(name = "c") String c, @RpcParameter(name = "r") String r) {
+        Log.d("bluetoothCreateBondOutOfBand(" + address + ", " + transport + "," + c + ", "
+                + r + ")");
+        BluetoothDevice remoteDevice = mBluetoothAdapter.getRemoteDevice(address);
+        byte[] addressBytes = new byte[7];
+        int i = 0;
+        for (String s : address.split(":")) {
+            addressBytes[i] = hexStringToByteArray(s)[0];
+            i++;
+        }
+        addressBytes[i] = 0x01;
+        OobData p192 = null;
+        OobData p256 = new OobData.LeBuilder(hexStringToByteArray(c),
+                addressBytes, OobData.LE_DEVICE_ROLE_BOTH_PREFER_CENTRAL)
+                .setRandomizerHash(hexStringToByteArray(r))
+                .build();
+        mContext.registerReceiver(new BondBroadcastReceiver(),
+                new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
+        remoteDevice.createBondOutOfBand(Integer.parseInt(transport), p192, p256);
+    }
+
+    private class BondBroadcastReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d("BondBroadcastReceiver onReceive(" + context + ", " + intent + ")");
+            int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,
+                    BluetoothDevice.BOND_NONE);
+            if (state == BluetoothDevice.BOND_BONDED) {
+                Bundle event = new Bundle();
+                event.putBoolean("bonded_state", state == BluetoothDevice.BOND_BONDED);
+                mEventFacade.postEvent("Bonded", event);
+                mContext.unregisterReceiver(this);
+            } else if (state == BluetoothDevice.BOND_NONE) {
+                Bundle event = new Bundle();
+                event.putBoolean("bonded_state", state == BluetoothDevice.BOND_BONDED);
+                mEventFacade.postEvent("Unbonded", event);
+                mContext.unregisterReceiver(this);
+            }
+        }
     }
 
     @Rpc(description = "Return list of connected bluetooth devices over a profile",
@@ -580,6 +698,8 @@ public class BluetoothConnectionFacade extends RpcReceiver {
                 return mPbapClientProfile.bluetoothPbapClientGetConnectedDevices();
             case BluetoothProfile.MAP_CLIENT:
                 return mMapClientProfile.bluetoothMapClientGetConnectedDevices();
+            case BluetoothProfile.HID_HOST:
+                return mHidProfile.bluetoothHidGetConnectedDevices();
             default:
                 Log.w("Profile id " + profileId + " is not yet supported.");
                 return new ArrayList<BluetoothDevice>();
@@ -637,6 +757,8 @@ public class BluetoothConnectionFacade extends RpcReceiver {
                     String deviceID) throws Exception {
         BluetoothDevice mDevice = BluetoothFacade.getDevice(mBluetoothAdapter.getBondedDevices(),
                 deviceID);
+        mContext.registerReceiver(new BondBroadcastReceiver(),
+                new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
         return mDevice.removeBond();
     }
 

@@ -40,14 +40,15 @@ license {
 
 rust_library {
     name: "libunicode_bidi",
-    // has rustc warnings
     host_supported: true,
     crate_name: "unicode_bidi",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.7",
     srcs: ["src/lib.rs"],
-    edition: "2015",
-    features: ["default"],
-    rustlibs: [
-        "libmatches",
+    edition: "2018",
+    features: [
+        "default",
+        "std",
     ],
     apex_available: [
         "//apex_available:platform",
@@ -56,35 +57,24 @@ rust_library {
     min_sdk_version: "29",
 }
 
-rust_defaults {
-    name: "unicode-bidi_defaults",
+rust_test {
+    name: "unicode-bidi_test_src_lib",
+    host_supported: true,
     crate_name: "unicode_bidi",
-    // has rustc warnings
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.7",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2015",
-    features: ["default"],
-    rustlibs: [
-        "libmatches",
-        "libserde_test",
-    ],
-}
-
-rust_test_host {
-    name: "unicode-bidi_host_test_src_lib",
-    defaults: ["unicode-bidi_defaults"],
     test_options: {
         unit_test: true,
     },
+    edition: "2018",
+    features: [
+        "default",
+        "std",
+    ],
+    rustlibs: [
+        "libserde_test",
+    ],
 }
-
-rust_test {
-    name: "unicode-bidi_device_test_src_lib",
-    defaults: ["unicode-bidi_defaults"],
-}
-
-// dependent_library ["feature_list"]
-//   matches-0.1.8
-//   serde-1.0.125 "default,std"
-//   serde_test-1.0.125

@@ -742,6 +742,9 @@ ar_XB{
             lg{"؜‮Yekaterinburg‬؜ ؜‮Time‬؜"}
             ls{"؜‮Yekaterinburg‬؜ ؜‮Standard‬؜ ؜‮Time‬؜"}
         }
+        "meta:Yukon"{
+            ls{"؜‮Yukon‬؜ ؜‮Time‬؜"}
+        }
         gmtFormat{"؜‮GMT‬؜{0}"}
         hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"{0} ؜‮Time‬؜"}

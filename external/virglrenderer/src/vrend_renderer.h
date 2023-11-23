@@ -74,6 +74,10 @@ struct vrend_resource {
    GLuint tbo_tex_id;/* tbos have two ids to track */
    bool y_0_top;
 
+   /* used for keeping track of multisampled renderbuffer for
+    * GL_EXT_multisampled_render_to_texture. */
+   GLuint rbo_id;
+
    /* Pointer to system memory storage for this resource. Only valid for
     * VREND_RESOURCE_STORAGE_GUEST_ELSE_SYSTEM buffer storage.
     */
@@ -118,8 +122,9 @@ struct vrend_if_cbs {
    int (*make_current)(virgl_gl_context ctx);
 };
 
-#define VREND_USE_THREAD_SYNC 1
-#define VREND_USE_EXTERNAL_BLOB 2
+#define VREND_USE_THREAD_SYNC (1 << 0)
+#define VREND_USE_EXTERNAL_BLOB (1 << 1)
+#define VREND_USE_ASYNC_FENCE_CB (1 << 2)
 
 const struct virgl_resource_pipe_callbacks *
 vrend_renderer_get_pipe_callbacks(void);
@@ -132,7 +137,6 @@ bool vrend_check_framebuffer_mixed_color_attachements(void);
 void vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry,
                                  uint32_t bindings, uint8_t swizzle[4], uint32_t flags);
 const struct vrend_format_table *vrend_get_format_table_entry(enum virgl_formats format);
-const struct vrend_format_table *vrend_get_format_table_entry_with_emulation(uint32_t bind, enum virgl_formats format);
 
 int vrend_create_shader(struct vrend_context *ctx,
                         uint32_t handle,
@@ -204,7 +208,8 @@ vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args 
 int vrend_create_surface(struct vrend_context *ctx,
                          uint32_t handle,
                          uint32_t res_handle, uint32_t format,
-                         uint32_t val0, uint32_t val1);
+                         uint32_t val0, uint32_t val1,
+                         uint32_t nr_samples);
 int vrend_create_sampler_view(struct vrend_context *ctx,
                               uint32_t handle,
                               uint32_t res_handle, uint32_t format,
@@ -347,9 +352,8 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx, uint32_t shader,
                               uint32_t res_handle);
 
 void vrend_fb_bind_texture_id(struct vrend_resource *res,
-                              int id,
-                              int idx,
-                              uint32_t level, uint32_t layer);
+                              int id, int idx, uint32_t level,
+                              uint32_t layer, uint32_t samples);
 
 void vrend_set_tess_state(struct vrend_context *ctx, const float tess_factors[6]);
 
@@ -464,8 +468,12 @@ void vrend_fb_bind_texture(struct vrend_resource *res,
                            int idx,
                            uint32_t level, uint32_t layer);
 bool vrend_format_is_emulated_alpha(enum virgl_formats format);
+bool vrend_format_is_bgra(enum virgl_formats format);
+
+#define VREND_COPY_COMPAT_FLAG_ALLOW_COMPRESSED (1u << 0)
+#define VREND_COPY_COMPAT_FLAG_ONE_IS_EGL_IMAGE (1u << 1)
 boolean format_is_copy_compatible(enum virgl_formats src, enum virgl_formats dst,
-                                  boolean allow_compressed);
+                                  unsigned int flags);
 
 /* blitter interface */
 void vrend_renderer_blit_gl(struct vrend_context *ctx,
@@ -475,7 +483,7 @@ void vrend_renderer_blit_gl(struct vrend_context *ctx,
                             const struct pipe_blit_info *info,
                             bool has_texture_srgb_decode,
                             bool has_srgb_write_control,
-                            bool skip_dest_swizzle);
+                            uint8_t swizzle[static 4]);
 void vrend_blitter_fini(void);
 
 void vrend_renderer_prepare_reset(void);
@@ -521,4 +529,6 @@ int vrend_renderer_resource_map(struct pipe_resource *pres, void **map, uint64_t
 int vrend_renderer_resource_unmap(struct pipe_resource *pres);
 
 void vrend_renderer_get_meminfo(struct vrend_context *ctx, uint32_t res_handle);
+
+void vrend_context_emit_string_marker(struct vrend_context *ctx, GLsizei length, const char * message);
 #endif

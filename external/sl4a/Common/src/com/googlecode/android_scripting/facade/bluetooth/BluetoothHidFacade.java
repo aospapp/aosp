@@ -44,7 +44,10 @@ import java.util.List;
  * Class Bluetooth HidFacade
  */
 public class BluetoothHidFacade extends RpcReceiver {
-    public static final ParcelUuid[] UUIDS = { BluetoothUuid.HID };
+    public static final ParcelUuid[] UUIDS = {
+        BluetoothUuid.HID,
+        BluetoothUuid.HOGP
+    };
 
     private final Service mService;
     private final BluetoothAdapter mBluetoothAdapter;

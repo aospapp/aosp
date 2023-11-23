@@ -22,6 +22,7 @@ import org.junit.runners.Suite.SuiteClasses;
 import vogar.target.caliper.AllCaliperTests;
 import vogar.target.junit.AllJUnitTests;
 import vogar.target.main.AllMainTests;
+import vogar.target.testng.AllTestNgTests;
 
 /**
  * Run the tests in this package.
@@ -32,6 +33,7 @@ import vogar.target.main.AllMainTests;
         AllCaliperTests.class,
         AllJUnitTests.class,
         AllMainTests.class,
+        AllTestNgTests.class,
 })
 @RunWith(Suite.class)
 public class AllTargetTests {

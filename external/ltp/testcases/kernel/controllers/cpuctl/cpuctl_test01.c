@@ -79,8 +79,6 @@ extern void cleanup(void)
 	tst_exit();		/* Report exit status */
 }
 
-volatile int timer_expired = 0;
-
 int main(int argc, char *argv[])
 {
 
@@ -119,7 +117,7 @@ int main(int argc, char *argv[])
 	    || ((scriptpid = atoi(argv[3])) <= 0)
 	    || ((num_cpus = atoi(argv[4])) <= 0)
 	    || (test_num = atoi(argv[5])) <= 0) {
-		tst_brkm(TBROK, cleanup, "Invalid input parameters\n");
+		tst_brkm(TBROK, cleanup, "Invalid input parameters");
 	}
 
 	if (test_num == 1)	/* Test 01 & Test 02 */
@@ -128,7 +126,7 @@ int main(int argc, char *argv[])
 		myshares = baseshares;
 	else {
 		tst_brkm(TBROK, cleanup,
-			 "Wrong Test number passed. Exiting Test...\n");
+			 "Wrong Test number passed. Exiting Test...");
 	}
 
 	sprintf(mygroup, "%s", argv[2]);

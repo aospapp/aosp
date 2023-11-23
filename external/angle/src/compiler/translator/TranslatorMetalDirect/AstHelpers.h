@@ -54,6 +54,14 @@ const TFunction &CloneFunctionAndPrependParam(TSymbolTable &symbolTable,
                                               const TFunction &oldFunc,
                                               const TVariable &newParam);
 
+// Clones a function and prepends the provided two parameters.
+// If `idGen` is null, the original function must be discarded from the AST.
+const TFunction &CloneFunctionAndPrependTwoParams(TSymbolTable &symbolTable,
+                                                  IdGen *idGen,
+                                                  const TFunction &oldFunc,
+                                                  const TVariable &newParam1,
+                                                  const TVariable &newParam2);
+
 // Clones a function and appends the provided extra parameters.
 // If `idGen` is null, the original function must be discarded from the AST.
 const TFunction &CloneFunctionAndAppendParams(TSymbolTable &symbolTable,
@@ -143,12 +151,14 @@ bool HasArrayField(const TStructure &structure);
 // Coerces `fromNode` to `toType` by a constructor call of `toType` if their types differ.
 // Vector and matrix dimensions are retained.
 // Array types are not allowed.
-TIntermTyped &CoerceSimple(TBasicType toType, TIntermTyped &fromNode);
+TIntermTyped &CoerceSimple(TBasicType toBasicType,
+                           TIntermTyped &fromNode,
+                           bool needsExplicitBoolCast);
 
 // Coerces `fromNode` to `toType` by a constructor call of `toType` if their types differ.
 // Vector and matrix dimensions must coincide between to and from.
 // Array types are not allowed.
-TIntermTyped &CoerceSimple(const TType &toType, TIntermTyped &fromNode);
+TIntermTyped &CoerceSimple(const TType &toType, TIntermTyped &fromNode, bool needsExplicitBoolCast);
 
 TIntermTyped &AsType(SymbolEnv &symbolEnv, const TType &toType, TIntermTyped &fromNode);
 

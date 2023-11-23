@@ -1,5 +1,5 @@
 # GENERATED SOURCE. DO NOT MODIFY.
-# Run external/icu/tools/icu4c_srcgen/generate_libandroidicu.py to regenerate
+# Run external/icu/tools/icu4c_srcgen/generate_ndk.py to regenerate
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -203,6 +203,7 @@ LIBICU_31 { # introduced=31
     uldn_scriptCodeDisplayName;
     uldn_scriptDisplayName;
     uldn_variantDisplayName;
+    ulocdata_getCLDRVersion;
     uloc_acceptLanguage;
     uloc_addLikelySubtags;
     uloc_canonicalize;
@@ -239,7 +240,6 @@ LIBICU_31 { # introduced=31
     uloc_toLegacyType;
     uloc_toUnicodeLocaleKey;
     uloc_toUnicodeLocaleType;
-    ulocdata_getCLDRVersion;
     unorm2_append;
     unorm2_close;
     unorm2_composePair;
@@ -286,6 +286,45 @@ LIBICU_31 { # introduced=31
     utext_previous32;
     utext_previous32From;
     utext_setNativeIndex;
-  local:
-    *;
 };
+
+
+LIBICU_T { # introduced=Tiramisu
+  global:
+    ucol_clone;
+    ucol_close;
+    ucol_countAvailable;
+    ucol_getAttribute;
+    ucol_getAvailable;
+    ucol_getDisplayName;
+    ucol_getEquivalentReorderCodes;
+    ucol_getFunctionalEquivalent;
+    ucol_getKeywords;
+    ucol_getKeywordValues;
+    ucol_getKeywordValuesForLocale;
+    ucol_getMaxVariable;
+    ucol_getReorderCodes;
+    ucol_getSortKey;
+    ucol_getStrength;
+    ucol_open;
+    ucol_openRules;
+    ucol_openAvailableLocales;
+    ucol_mergeSortkeys;
+    ucol_setStrength;
+    ucol_setReorderCodes;
+    ucol_setAttribute;
+    ucol_setMaxVariable;
+    ucol_strcoll;
+    ucol_strcollUTF8;
+    utrans_clone;
+    utrans_close;
+    utrans_openIDs;
+    utrans_openInverse;
+    utrans_openU;
+    utrans_setFilter;
+    utrans_toRules;
+    utrans_trans;
+    utrans_transIncremental;
+    utrans_transIncrementalUChars;
+    utrans_transUChars;
+} LIBICU_31;

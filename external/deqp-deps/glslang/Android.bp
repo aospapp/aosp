@@ -1,5 +1,9 @@
+
 // This file is derived (manually) from the CMake targets.
-// deqp depends on:
+// We only consider the targets that dEQP depends on (including transitive
+// dependencies). Search for "GLSLANG_LIBRARIES" in dEQP.
+//
+// dEQP depends on:
 // - glslang
 //   - OGLCompiler
 //   - OSDependent
@@ -7,7 +11,7 @@
 //     - OGLCompiler
 //     - OSDependent
 //     - GenericCodeGen
-// - SPIRV
+// - SPIRV (does not depend on SPIRV-Tools-opt because ENABLE_OPT=0)
 //   - MachineIndependent
 //     - ...
 // - SPVRemapper
@@ -65,11 +69,14 @@ cc_defaults {
     name: "deqp_glslang_defaults",
     defaults: ["deqp_and_deps_defaults"],
     cppflags: [
+        "-Wno-enum-enum-conversion",
         "-Wno-implicit-fallthrough",
         "-Wno-missing-field-initializers",
         "-Wno-unused-variable",
         "-Wno-implicit-int-conversion",
         "-Wno-sign-conversion",
+        "-Wno-unused-parameter",
+        "-Wno-unused-but-set-variable",
     ],
     export_include_dirs: [
         ".",
@@ -131,6 +138,7 @@ cc_library_static {
         "glslang/MachineIndependent/RemoveTree.cpp",
         "glslang/MachineIndependent/Scan.cpp",
         "glslang/MachineIndependent/ShaderLang.cpp",
+        "glslang/MachineIndependent/SpirvIntrinsics.cpp",
         "glslang/MachineIndependent/SymbolTable.cpp",
         "glslang/MachineIndependent/Versions.cpp",
         "glslang/MachineIndependent/intermOut.cpp",

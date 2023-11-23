@@ -16,7 +16,6 @@
 
 #include "config.h"
 #include "tst_test.h"
-#include "lapi/bpf.h"
 #include "bpf_common.h"
 
 #define VAL_SZ 1024
@@ -83,7 +82,7 @@ void run(unsigned int n)
 			if (i < VAL_SZ)
 				tst_res(TPASS, "Preallocated array map lookup");
 		} else {
-			tst_res(TFAIL | TERRNO, "Prellocated array map lookup");
+			tst_res(TFAIL | TTERRNO, "Prellocated array map lookup");
 		}
 	break;
 	}

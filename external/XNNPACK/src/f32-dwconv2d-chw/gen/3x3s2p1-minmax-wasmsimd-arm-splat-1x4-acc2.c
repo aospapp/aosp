@@ -24,7 +24,7 @@ void xnn_f32_dwconv2d_chw_ukernel_3x3s2p1__wasmsimd_arm_splat_1x4_acc2(
     const float* zero,
     float* output,
     uint32_t padding_top,
-    const union xnn_f32_chw_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f32_chw_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(input_height != 0);
   assert(input_width != 0);
@@ -34,14 +34,12 @@ void xnn_f32_dwconv2d_chw_ukernel_3x3s2p1__wasmsimd_arm_splat_1x4_acc2(
 
   const v128_t vmask_even = wasm_v128_load(params->scalar.mask_even);
   const v128_t vmask_odd  = wasm_v128_load(params->scalar.mask_odd);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
 
   const v128_t vw0123 = wasm_v128_load(weights);
   const v128_t vw4567 = wasm_v128_load(weights + 4);
-  const v128_t vw89 = wasm_v64x2_load_splat(weights + 8);
-
-  const v128_t vzero = wasm_f32x4_splat(0.0f);
+  const v128_t vw89 = wasm_v128_load64_splat(weights + 8);
 
   const size_t input_decrement = round_down_po2(input_width, 4 /* SIMD output width */ * 2 /* subsampling */ * sizeof(float));
 
@@ -61,9 +59,9 @@ void xnn_f32_dwconv2d_chw_ukernel_3x3s2p1__wasmsimd_arm_splat_1x4_acc2(
       i2 = zero;
     }
 
-    v128_t vi0x1357 = vzero;
-    v128_t vi1x1357 = vzero;
-    v128_t vi2x1357 = vzero;
+    v128_t vi0x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi1x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi2x1357 = wasm_f32x4_const_splat(0.0f);
 
     size_t w = input_width;
     for (; w >= 8 * sizeof(float); w -= 8 * sizeof(float)) {

@@ -50,6 +50,7 @@ cc_defaults {
         "ruy/context_get_ctx.cc",
         "ruy/cpuinfo.cc",
         "ruy/ctx.cc",
+        "ruy/denormal.cc",
         "ruy/frontend.cc",
         "ruy/have_built_path_for_avx.cc",
         "ruy/have_built_path_for_avx2_fma.cc",

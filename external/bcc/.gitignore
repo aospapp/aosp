@@ -9,4 +9,10 @@
 /build/
 cmake-build-debug
 debian/**/*.log
+*critical.log
 obj-x86_64-linux-gnu
+examples/cgroupid/cgroupid
+
+# Output from docker builds
+scripts/docker/output/
+/output/

@@ -64,16 +64,17 @@ class SuiteRunnerTest(unittest.TestCase):
 
   def __init__(self, *args, **kwargs):
     super(SuiteRunnerTest, self).__init__(*args, **kwargs)
-    self.skylab_run_args = []
+    self.crosfleet_run_args = []
     self.test_that_args = []
     self.tast_args = []
-    self.call_skylab_run = False
+    self.call_crosfleet_run = False
     self.call_test_that_run = False
     self.call_tast_run = False
 
   def setUp(self):
-    self.runner = suite_runner.SuiteRunner(
-        {}, self.mock_logger, 'verbose', self.mock_cmd_exec, self.mock_cmd_term)
+    self.runner = suite_runner.SuiteRunner({}, self.mock_logger, 'verbose',
+                                           self.mock_cmd_exec,
+                                           self.mock_cmd_term)
 
   def test_get_profiler_args(self):
     input_str = ("--profiler=custom_perf --profiler_args='perf_options"
@@ -98,16 +99,18 @@ class SuiteRunnerTest(unittest.TestCase):
 
     def reset():
       self.test_that_args = []
-      self.skylab_run_args = []
+      self.crosfleet_run_args = []
       self.tast_args = []
       self.call_test_that_run = False
-      self.call_skylab_run = False
+      self.call_crosfleet_run = False
       self.call_tast_run = False
 
-    def FakeSkylabRun(test_label, benchmark, test_args, profiler_args):
-      self.skylab_run_args = [test_label, benchmark, test_args, profiler_args]
-      self.call_skylab_run = True
-      return 'Ran FakeSkylabRun'
+    def FakeCrosfleetRun(test_label, benchmark, test_args, profiler_args):
+      self.crosfleet_run_args = [
+          test_label, benchmark, test_args, profiler_args
+      ]
+      self.call_crosfleet_run = True
+      return 'Ran FakeCrosfleetRun'
 
     def FakeTestThatRun(machine, test_label, benchmark, test_args,
                         profiler_args):
@@ -122,7 +125,7 @@ class SuiteRunnerTest(unittest.TestCase):
       self.call_tast_run = True
       return 'Ran FakeTastRun'
 
-    self.runner.Skylab_Run = FakeSkylabRun
+    self.runner.Crosfleet_Run = FakeCrosfleetRun
     self.runner.Test_That_Run = FakeTestThatRun
     self.runner.Tast_Run = FakeTastRun
 
@@ -137,31 +140,31 @@ class SuiteRunnerTest(unittest.TestCase):
     test_args = ''
     profiler_args = ''
 
-    # Test skylab run for telemetry_Crosperf and crosperf_Wrapper benchmarks.
-    self.mock_label.skylab = True
+    # Test crosfleet run for telemetry_Crosperf and crosperf_Wrapper benchmarks.
+    self.mock_label.crosfleet = True
     reset()
     self.runner.Run(cros_machine, self.mock_label, self.crosperf_wrapper_bench,
                     test_args, profiler_args)
-    self.assertTrue(self.call_skylab_run)
+    self.assertTrue(self.call_crosfleet_run)
     self.assertFalse(self.call_test_that_run)
-    self.assertEqual(self.skylab_run_args,
+    self.assertEqual(self.crosfleet_run_args,
                      [self.mock_label, self.crosperf_wrapper_bench, '', ''])
 
     reset()
     self.runner.Run(cros_machine, self.mock_label,
                     self.telemetry_crosperf_bench, test_args, profiler_args)
-    self.assertTrue(self.call_skylab_run)
+    self.assertTrue(self.call_crosfleet_run)
     self.assertFalse(self.call_test_that_run)
-    self.assertEqual(self.skylab_run_args,
+    self.assertEqual(self.crosfleet_run_args,
                      [self.mock_label, self.telemetry_crosperf_bench, '', ''])
 
     # Test test_that run for telemetry_Crosperf and crosperf_Wrapper benchmarks.
-    self.mock_label.skylab = False
+    self.mock_label.crosfleet = False
     reset()
     self.runner.Run(cros_machine, self.mock_label, self.crosperf_wrapper_bench,
                     test_args, profiler_args)
     self.assertTrue(self.call_test_that_run)
-    self.assertFalse(self.call_skylab_run)
+    self.assertFalse(self.call_crosfleet_run)
     self.assertEqual(
         self.test_that_args,
         ['fake_machine', self.mock_label, self.crosperf_wrapper_bench, '', ''])
@@ -170,7 +173,7 @@ class SuiteRunnerTest(unittest.TestCase):
     self.runner.Run(cros_machine, self.mock_label,
                     self.telemetry_crosperf_bench, test_args, profiler_args)
     self.assertTrue(self.call_test_that_run)
-    self.assertFalse(self.call_skylab_run)
+    self.assertFalse(self.call_crosfleet_run)
     self.assertEqual(self.test_that_args, [
         'fake_machine', self.mock_label, self.telemetry_crosperf_bench, '', ''
     ])
@@ -180,7 +183,7 @@ class SuiteRunnerTest(unittest.TestCase):
     self.runner.Run(cros_machine, self.mock_label, self.tast_bench, '', '')
     self.assertTrue(self.call_tast_run)
     self.assertFalse(self.call_test_that_run)
-    self.assertFalse(self.call_skylab_run)
+    self.assertFalse(self.call_crosfleet_run)
     self.assertEqual(self.tast_args,
                      ['fake_machine', self.mock_label, self.tast_bench])
 
@@ -257,7 +260,7 @@ class SuiteRunnerTest(unittest.TestCase):
 
   @mock.patch.object(command_executer.CommandExecuter, 'RunCommandWOutput')
   @mock.patch.object(json, 'loads')
-  def test_skylab_run_client(self, mock_json_loads, mock_runcmd):
+  def test_crosfleet_run_client(self, mock_json_loads, mock_runcmd):
 
     def FakeDownloadResult(l, task_id):
       if l and task_id:
@@ -279,10 +282,10 @@ class SuiteRunnerTest(unittest.TestCase):
     }
     self.mock_json.loads = mock_json_loads
 
-    self.mock_label.skylab = True
+    self.mock_label.crosfleet = True
     self.runner.DownloadResult = FakeDownloadResult
-    res = self.runner.Skylab_Run(self.mock_label, self.crosperf_wrapper_bench,
-                                 '', '')
+    res = self.runner.Crosfleet_Run(self.mock_label,
+                                    self.crosperf_wrapper_bench, '', '')
     ret_tup = (0, '\nResults placed in tmp/swarming-12345\n', '')
     self.assertEqual(res, ret_tup)
     self.assertEqual(mock_runcmd.call_count, 2)
@@ -293,7 +296,7 @@ class SuiteRunnerTest(unittest.TestCase):
     self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
 
     args_list = mock_runcmd.call_args_list[1][0]
-    self.assertEqual(args_list[0], ('skylab wait-task 12345'))
+    self.assertEqual(args_list[0], ('crosfleet wait-task 12345'))
     self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
 
 

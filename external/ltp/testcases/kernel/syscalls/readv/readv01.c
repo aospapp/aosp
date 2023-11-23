@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) International Business Machines  Corp., 2001
  *   07/2001 Ported by Wayne Boyer
- *
  * Copyright (c) 2013 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;  without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- * the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program;  if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -31,94 +17,109 @@
 #include <sys/uio.h>
 #include <fcntl.h>
 #include <memory.h>
-#include <errno.h>
 
-#include "test.h"
-#include "safe_macros.h"
+#include "tst_test.h"
 
+/* Note: multi_iovec test assumes CHUNK is divisible by 4 */
 #define	CHUNK		64
 
-char *TCID = "readv01";
-int TST_TOTAL = 1;
-
 static char buf[CHUNK];
-
-static struct iovec rd_iovec[] = {
-	{buf, CHUNK},
-	{NULL, 0},
-	{NULL, 0},
-};
-
+static struct iovec *rd_iovec, *big_iovec, *multi_iovec, *lockup_iovec;
 static int fd;
 
-static void setup(void);
-static void cleanup(void);
+static struct testcase {
+	struct iovec **iov;
+	int iov_count, exp_ret;
+	const char *name;
+} testcase_list[] = {
+	{&rd_iovec, 0, 0, "readv() with 0 I/O vectors"},
+	{&rd_iovec, 3, CHUNK, "readv() with NULL I/O vectors"},
+	{&big_iovec, 2, CHUNK, "readv() with too big I/O vectors"},
+	{&multi_iovec, 2, 3*CHUNK/4, "readv() with multiple I/O vectors"},
+	{&lockup_iovec, 2, CHUNK, "readv() with zero-len buffer"},
+};
 
-int main(int ac, char **av)
+static void test_readv(unsigned int n)
 {
-	int lc, i, fail;
-	char *vec;
+	int i, fpos, fail = 0;
+	size_t j;
+	char *ptr;
+	const struct testcase *tc = testcase_list + n;
+	struct iovec *vec;
 
-	tst_parse_opts(ac, av, NULL, NULL);
+	SAFE_LSEEK(fd, 0, SEEK_SET);
+	vec = *tc->iov;
 
-	setup();
+	for (i = 0; i < tc->iov_count; i++) {
+		if (vec[i].iov_base && vec[i].iov_len)
+			memset(vec[i].iov_base, 0, vec[i].iov_len);
+	}
 
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-		tst_count = 0;
+	TEST(readv(fd, vec, tc->iov_count));
 
-		SAFE_LSEEK(cleanup, fd, 0, SEEK_SET);
+	if (TST_RET == -1)
+		tst_res(TFAIL | TTERRNO, "readv() failed unexpectedly");
+	else if (TST_RET < 0)
+		tst_res(TFAIL | TTERRNO, "readv() returned invalid value");
+	else if (TST_RET != tc->exp_ret)
+		tst_res(TFAIL, "readv() returned unexpected value %ld",
+			TST_RET);
 
-		if (readv(fd, rd_iovec, 0) == -1)
-			tst_resm(TFAIL | TERRNO, "readv failed unexpectedly");
-		else
-			tst_resm(TPASS, "readv read 0 io vectors");
+	if (TST_RET != tc->exp_ret)
+		return;
 
-		memset(rd_iovec[0].iov_base, 0x00, CHUNK);
+	tst_res(TPASS, "%s", tc->name);
 
-		if (readv(fd, rd_iovec, 3) != CHUNK) {
-			tst_resm(TFAIL, "readv failed reading %d bytes, "
-				 "followed by two NULL vectors", CHUNK);
-		} else {
-			fail = 0;
-			vec = rd_iovec[0].iov_base;
+	for (i = 0, fpos = 0; i < tc->iov_count; i++) {
+		ptr = vec[i].iov_base;
 
-			for (i = 0; i < CHUNK; i++) {
-				if (vec[i] != 0x42)
-					fail++;
-			}
-
-			if (fail)
-				tst_resm(TFAIL, "Wrong buffer content");
-			else
-				tst_resm(TPASS, "readv passed reading %d bytes "
-				         "followed by two NULL vectors", CHUNK);
+		for (j = 0; j < vec[i].iov_len; j++, fpos++) {
+			if (ptr[j] != (fpos < tc->exp_ret ? 0x42 : 0))
+				fail++;
 		}
 	}
 
-	cleanup();
-	tst_exit();
+	if (fail)
+		tst_res(TFAIL, "Wrong buffer content");
+	else
+		tst_res(TPASS, "readv() correctly read %d bytes ", tc->exp_ret);
 }
 
 static void setup(void)
 {
-	tst_sig(NOFORK, DEF_HANDLER, cleanup);
-
-	TEST_PAUSE;
-
-	tst_tmpdir();
+	/* replace the default NULL pointer with invalid address */
+	lockup_iovec[0].iov_base = tst_get_bad_addr(NULL);
 
 	memset(buf, 0x42, sizeof(buf));
 
-	fd = SAFE_OPEN(cleanup, "data_file", O_WRONLY | O_CREAT, 0666);
-	SAFE_WRITE(cleanup, 1, fd, buf, sizeof(buf));
-	SAFE_CLOSE(cleanup, fd);
-	fd = SAFE_OPEN(cleanup, "data_file", O_RDONLY);
+	fd = SAFE_OPEN("data_file", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	SAFE_WRITE(1, fd, buf, sizeof(buf));
+	SAFE_CLOSE(fd);
+	fd = SAFE_OPEN("data_file", O_RDONLY);
 }
 
 static void cleanup(void)
 {
-	if (fd > 0)
-		close(fd);
-
-	tst_rmdir();
+	if (fd >= 0)
+		SAFE_CLOSE(fd);
 }
+
+static struct tst_test test = {
+	.setup = setup,
+	.cleanup = cleanup,
+	.test = test_readv,
+	.tcnt = ARRAY_SIZE(testcase_list),
+	.needs_tmpdir = 1,
+	.timeout = 15,
+	.tags = (const struct tst_tag[]) {
+		{"linux-git", "19f18459330f"},
+		{}
+	},
+	.bufs = (struct tst_buffers[]) {
+		{&rd_iovec, .iov_sizes = (int[]){CHUNK, 0, 0, -1}},
+		{&big_iovec, .iov_sizes = (int[]){2*CHUNK, CHUNK, -1}},
+		{&multi_iovec, .iov_sizes = (int[]){CHUNK/4, CHUNK/2, -1}},
+		{&lockup_iovec, .iov_sizes = (int[]){0, CHUNK, -1}},
+		{}
+	}
+};

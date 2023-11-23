@@ -100,7 +100,7 @@ impl Method {
         Method { name, args }
     }
 
-    fn from_lit_or_env(ident: Ident, lit: Option<LitStr>, env_var: &str) -> Option<Self> {
+    fn from_lit_or_env(ident: Ident, lit: Option<LitStr>, env_var: &str) -> Self {
         let mut lit = match lit {
             Some(lit) => lit,
 
@@ -121,7 +121,7 @@ impl Method {
             lit = LitStr::new(&edited, lit.span());
         }
 
-        Some(Method::new(ident, quote!(#lit)))
+        Method::new(ident, quote!(#lit))
     }
 }
 
@@ -335,11 +335,15 @@ impl Attrs {
                 }
 
                 About(ident, about) => {
-                    self.about = Method::from_lit_or_env(ident, about, "CARGO_PKG_DESCRIPTION");
+                    self.about = Some(Method::from_lit_or_env(
+                        ident,
+                        about,
+                        "CARGO_PKG_DESCRIPTION",
+                    ));
                 }
 
                 Author(ident, author) => {
-                    self.author = Method::from_lit_or_env(ident, author, "CARGO_PKG_AUTHORS");
+                    self.author = Some(Method::from_lit_or_env(ident, author, "CARGO_PKG_AUTHORS"));
                 }
 
                 Version(ident, version) => {
@@ -401,6 +405,7 @@ impl Attrs {
         parent_attrs: Option<&Attrs>,
         argument_casing: Sp<CasingStyle>,
         env_casing: Sp<CasingStyle>,
+        allow_skip: bool,
     ) -> Self {
         let mut res = Self::new(span, name, parent_attrs, None, argument_casing, env_casing);
         res.push_attrs(attrs);
@@ -414,8 +419,10 @@ impl Attrs {
         }
         match &*res.kind {
             Kind::Subcommand(_) => abort!(res.kind.span(), "subcommand is only allowed on fields"),
-            Kind::Skip(_) => abort!(res.kind.span(), "skip is only allowed on fields"),
-            Kind::Arg(_) | Kind::ExternalSubcommand | Kind::Flatten => res,
+            Kind::Skip(_) if !allow_skip => {
+                abort!(res.kind.span(), "skip is only allowed on fields")
+            }
+            Kind::Arg(_) | Kind::ExternalSubcommand | Kind::Flatten | Kind::Skip(_) => res,
         }
     }
 

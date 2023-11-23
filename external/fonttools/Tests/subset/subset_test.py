@@ -1,12 +1,13 @@
 import io
-from fontTools.misc.py23 import tobytes, tostr
 from fontTools.misc.testTools import getXML
+from fontTools.misc.textTools import tobytes, tostr
 from fontTools import subset
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import otTables as ot
 from fontTools.misc.loggingTools import CapturingLogHandler
+from fontTools.subset.svg import etree
 import difflib
 import logging
 import os
@@ -50,12 +51,11 @@ class SubsetTest(unittest.TestCase):
         lines = []
         with open(path, "r", encoding="utf-8") as ttx:
             for line in ttx.readlines():
-                # Elide ttFont attributes because ttLibVersion may change,
-                # and use os-native line separators so we can run difflib.
+                # Elide ttFont attributes because ttLibVersion may change.
                 if line.startswith("<ttFont "):
-                    lines.append("<ttFont>" + os.linesep)
+                    lines.append("<ttFont>\n")
                 else:
-                    lines.append(line.rstrip() + os.linesep)
+                    lines.append(line.rstrip() + "\n")
         return lines
 
     def expect_ttx(self, font, expected_ttx, tables=None):
@@ -793,6 +793,19 @@ class SubsetTest(unittest.TestCase):
                 subsetfont = TTFont(subsetpath)
                 self.expect_ttx(subsetfont, expected_ttx, ["GPOS"])
 
+    def test_GPOS_SinglePos_prune_post_subset_no_value(self):
+        _, fontpath = self.compile_font(
+            self.getpath("GPOS_SinglePos_no_value_issue_2312.ttx"), ".ttf"
+        )
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "*", "--glyph-names", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(
+            subsetfont,
+            self.getpath("GPOS_SinglePos_no_value_issue_2312.subset.ttx"),
+            ["GlyphOrder", "GPOS"],
+        )
+
 
 @pytest.fixture
 def featureVarsTestFont():
@@ -1000,7 +1013,7 @@ def colrv1_path(tmp_path):
                     },
                     {
                         "Format": ot.PaintFormat.PaintGlyph,
-                        "Paint": (ot.PaintFormat.PaintSolid, (2, 0.3)),
+                        "Paint": (ot.PaintFormat.PaintSolid, 2, 0.3),
                         "Glyph": "glyph00011",
                     },
                 ],
@@ -1031,7 +1044,7 @@ def colrv1_path(tmp_path):
                     },
                     {
                         "Format": ot.PaintFormat.PaintGlyph,
-                        "Paint": (ot.PaintFormat.PaintSolid, (1, 0.5)),
+                        "Paint": (ot.PaintFormat.PaintSolid, 1, 0.5),
                         "Glyph": "glyph00013",
                     },
                 ],
@@ -1065,7 +1078,7 @@ def colrv1_path(tmp_path):
                 ],
             ),
             "uniE003": {
-                "Format": ot.PaintFormat.PaintRotate,
+                "Format": ot.PaintFormat.PaintRotateAroundCenter,
                 "Paint": {
                     "Format": ot.PaintFormat.PaintColrGlyph,
                     "Glyph": "uniE001",
@@ -1076,8 +1089,15 @@ def colrv1_path(tmp_path):
             },
             "uniE004": [
                 ("glyph00016", 1),
-                ("glyph00017", 2),
+                ("glyph00017", 0xFFFF),  # special palette index for foreground text
+                ("glyph00018", 2),
             ],
+        },
+        clipBoxes={
+            "uniE000": (0, 0, 200, 300),
+            "uniE001": (0, 0, 500, 500),
+            "uniE002": (100, 100, 400, 400),
+            "uniE003": (-50, -50, 350, 350),
         },
     )
     fb.setupCPAL(
@@ -1130,31 +1150,36 @@ def test_subset_COLRv1_and_CPAL(colrv1_path):
     assert "uniE004" in glyph_set
     assert "glyph00016" in glyph_set
     assert "glyph00017" in glyph_set
+    assert "glyph00018" in glyph_set
 
     assert "COLR" in subset_font
     colr = subset_font["COLR"].table
     assert colr.Version == 1
     assert len(colr.BaseGlyphRecordArray.BaseGlyphRecord) == 1
-    assert len(colr.BaseGlyphV1List.BaseGlyphV1Record) == 3  # was 4
+    assert len(colr.BaseGlyphList.BaseGlyphPaintRecord) == 3  # was 4
 
-    base = colr.BaseGlyphV1List.BaseGlyphV1Record[0]
+    base = colr.BaseGlyphList.BaseGlyphPaintRecord[0]
     assert base.BaseGlyph == "uniE001"
-    layers = colr.LayerV1List.Paint[
+    layers = colr.LayerList.Paint[
         base.Paint.FirstLayerIndex: base.Paint.FirstLayerIndex + base.Paint.NumLayers
     ]
     assert len(layers) == 2
     # check v1 palette indices were remapped
-    assert layers[0].Paint.Paint.ColorLine.ColorStop[0].Color.PaletteIndex == 0
-    assert layers[0].Paint.Paint.ColorLine.ColorStop[1].Color.PaletteIndex == 1
-    assert layers[1].Paint.Color.PaletteIndex == 0
+    assert layers[0].Paint.Paint.ColorLine.ColorStop[0].PaletteIndex == 0
+    assert layers[0].Paint.Paint.ColorLine.ColorStop[1].PaletteIndex == 1
+    assert layers[1].Paint.PaletteIndex == 0
 
     baseRecV0 = colr.BaseGlyphRecordArray.BaseGlyphRecord[0]
     assert baseRecV0.BaseGlyph == "uniE004"
     layersV0 = colr.LayerRecordArray.LayerRecord
-    assert len(layersV0) == 2
-    # check v0 palette indices were remapped
+    assert len(layersV0) == 3
+    # check v0 palette indices were remapped (except for 0xFFFF)
     assert layersV0[0].PaletteIndex == 0
-    assert layersV0[1].PaletteIndex == 1
+    assert layersV0[1].PaletteIndex == 0xFFFF
+    assert layersV0[2].PaletteIndex == 1
+
+    clipBoxes = colr.ClipList.clips
+    assert {"uniE001", "uniE002", "uniE003"} == set(clipBoxes)
 
     assert "CPAL" in subset_font
     cpal = subset_font["CPAL"]
@@ -1208,10 +1233,172 @@ def test_subset_COLRv1_downgrade_version(colrv1_path):
         "uniE004",
         "glyph00016",
         "glyph00017",
+        "glyph00018",
     }
 
     assert "COLR" in subset_font
     assert subset_font["COLR"].version == 0
+
+
+def test_subset_COLRv1_drop_all_v0_glyphs(colrv1_path):
+    subset_path = colrv1_path.parent / (colrv1_path.name + ".subset")
+
+    subset.main(
+        [
+            str(colrv1_path),
+            "--glyph-names",
+            f"--output-file={subset_path}",
+            "--unicodes=E003",
+        ]
+    )
+    subset_font = TTFont(subset_path)
+
+    assert set(subset_font.getGlyphOrder()) == {
+        ".notdef",
+        "uniE001",
+        "uniE003",
+        "glyph00012",
+        "glyph00013",
+    }
+
+    assert "COLR" in subset_font
+    colr = subset_font["COLR"]
+    assert colr.version == 1
+    assert colr.table.BaseGlyphRecordCount == 0
+    assert colr.table.BaseGlyphRecordArray is None
+    assert colr.table.LayerRecordArray is None
+    assert colr.table.LayerRecordCount is 0
+
+
+def test_subset_COLRv1_no_ClipList(colrv1_path):
+    font = TTFont(colrv1_path)
+    font["COLR"].table.ClipList = None  # empty ClipList
+    font.save(colrv1_path)
+
+    subset_path = colrv1_path.parent / (colrv1_path.name + ".subset")
+    subset.main(
+        [
+            str(colrv1_path),
+            f"--output-file={subset_path}",
+            "--unicodes=*",
+        ]
+    )
+    subset_font = TTFont(subset_path)
+    assert subset_font["COLR"].table.ClipList is None
+
+
+def test_subset_keep_size_drop_empty_stylistic_set():
+    fb = FontBuilder(unitsPerEm=1000, isTTF=True)
+    glyph_order = [".notdef", "a", "b", "b.ss01"]
+    fb.setupGlyphOrder(glyph_order)
+    fb.setupGlyf({g: TTGlyphPen(None).glyph() for g in glyph_order})
+    fb.setupCharacterMap({ord("a"): "a", ord("b"): "b"})
+    fb.setupHorizontalMetrics({g: (500, 0) for g in glyph_order})
+    fb.setupHorizontalHeader()
+    fb.setupOS2()
+    fb.setupPost()
+    fb.setupNameTable({"familyName": "TestKeepSizeFeature", "styleName": "Regular"})
+    fb.addOpenTypeFeatures("""
+        feature size {
+          parameters 10.0 0;
+        } size;
+        feature ss01 {
+          featureNames {
+            name "Alternate b";
+          };
+          sub b by b.ss01;
+        } ss01;
+    """)
+
+    buf = io.BytesIO()
+    fb.save(buf)
+    buf.seek(0)
+
+    font = TTFont(buf)
+
+    gpos_features = font["GPOS"].table.FeatureList.FeatureRecord
+    assert gpos_features[0].FeatureTag == "size"
+    assert isinstance(gpos_features[0].Feature.FeatureParams, ot.FeatureParamsSize)
+    assert gpos_features[0].Feature.LookupCount == 0
+    gsub_features = font["GSUB"].table.FeatureList.FeatureRecord
+    assert gsub_features[0].FeatureTag == "ss01"
+    assert isinstance(
+        gsub_features[0].Feature.FeatureParams, ot.FeatureParamsStylisticSet
+    )
+
+    options = subset.Options(layout_features=["*"])
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("a")])
+    subsetter.subset(font)
+
+    # empty size feature was kept
+    gpos_features = font["GPOS"].table.FeatureList.FeatureRecord
+    assert gpos_features[0].FeatureTag == "size"
+    assert isinstance(gpos_features[0].Feature.FeatureParams, ot.FeatureParamsSize)
+    assert gpos_features[0].Feature.LookupCount == 0
+    # empty ss01 feature was dropped
+    assert font["GSUB"].table.FeatureList.FeatureCount == 0
+
+
+@pytest.mark.skipif(etree is not None, reason="lxml is installed")
+def test_subset_svg_missing_lxml(ttf_path):
+    # add dummy SVG table and confirm we raise ImportError upon trying to subset it
+    font = TTFont(ttf_path)
+    font["SVG "] = newTable("SVG ")
+    font["SVG "].docList = [('<svg><g id="glyph1"/></svg>', 1, 1)]
+    font.save(ttf_path)
+
+    with pytest.raises(ModuleNotFoundError):
+        subset.main([str(ttf_path), "--gids=0,1"])
+
+
+def test_subset_COLR_glyph_closure(tmp_path):
+    # https://github.com/fonttools/fonttools/issues/2461
+    font = TTFont()
+    ttx = pathlib.Path(__file__).parent / "data" / "BungeeColor-Regular.ttx"
+    font.importXML(ttx)
+
+    color_layers = font["COLR"].ColorLayers
+    assert ".notdef" in color_layers
+    assert "Agrave" in color_layers
+    assert "grave" in color_layers
+
+    font_path = tmp_path / "BungeeColor-Regular.ttf"
+    subset_path = font_path.with_suffix(".subset.ttf)")
+    font.save(font_path)
+
+    subset.main(
+        [
+            str(font_path),
+            "--glyph-names",
+            f"--output-file={subset_path}",
+            "--glyphs=Agrave",
+        ]
+    )
+    subset_font = TTFont(subset_path)
+
+    glyph_order = subset_font.getGlyphOrder()
+
+    assert glyph_order == [
+        ".notdef",  # '.notdef' is always included automatically
+        "A",
+        "grave",
+        "Agrave",
+        ".notdef.alt001",
+        ".notdef.alt002",
+        "A.alt002",
+        "Agrave.alt001",
+        "Agrave.alt002",
+        "grave.alt002",
+    ]
+
+    color_layers = subset_font["COLR"].ColorLayers
+    assert ".notdef" in color_layers
+    assert "Agrave" in color_layers
+    # Agrave 'glyf' uses grave. It should be retained in 'glyf' but NOT in
+    # COLR when we subset down to Agrave.
+    assert "grave" not in color_layers
+
 
 
 if __name__ == "__main__":

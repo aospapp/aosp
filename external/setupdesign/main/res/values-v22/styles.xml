@@ -22,4 +22,10 @@
     </style>
 
     <style name="SudAlertDialogTheme.Light" parent="android:Theme.DeviceDefault.Light.Dialog.Alert" />
+    <style name="SudMaterialYouAlertDialogTheme" parent="SudAlertDialogTheme">
+        <item name="android:windowTitleStyle">@style/SudMaterialYouAlertDialogTitleStyle</item>
+    </style>
+    <style name="SudMaterialYouAlertDialogTheme.Light" parent="SudAlertDialogTheme.Light">
+        <item name="android:windowTitleStyle">@style/SudMaterialYouAlertDialogTitleStyle</item>
+    </style>
 </resources>

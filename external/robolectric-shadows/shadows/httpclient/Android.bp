@@ -27,6 +27,10 @@ java_library_host {
     plugins: ["Robolectric_processor"],
     javacflags: ["-Aorg.robolectric.annotation.processing.shadowPackage=org.robolectric.shadows.httpclient"],
     srcs: ["src/main/java/**/*.java"],
+
+    errorprone: {
+        javacflags: ["-Xep:EqualsNull:WARN"],
+    },
 }
 
 //#############################################
@@ -51,14 +55,14 @@ java_test_host {
         "bouncycastle-unbundled",
         "hamcrest",
         "robolectric-httpclient-4.0.3",
-        "asm-commons-6.0",
+        "asm-commons-9.2",
         "robolectric-httpcore-4.0.1",
         "guava",
-        "asm-tree-6.0",
+        "asm-tree-9.2",
         "junit",
         "truth-prebuilt",
         "robolectric-ant-1.8.0",
-        "asm-6.0",
+        "asm-9.2",
         "jsr305",
         "robolectric-host-android_all",
         "robolectric-host-org_apache_http_legacy",

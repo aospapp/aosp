@@ -20,7 +20,7 @@ void xnn_f32_vaddc_minmax_ukernel__wasmsimd_arm_x16(
     const float* a,
     const float* b,
     float* y,
-    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(n != 0);
   assert(n % sizeof(float) == 0);
@@ -28,9 +28,9 @@ void xnn_f32_vaddc_minmax_ukernel__wasmsimd_arm_x16(
   assert(b != NULL);
   assert(y != NULL);
 
-  const v128_t vy_min = wasm_v32x4_load_splat(&params->scalar.min);
-  const v128_t vy_max = wasm_v32x4_load_splat(&params->scalar.max);
-  const v128_t vb = wasm_v32x4_load_splat(b);
+  const v128_t vy_min = wasm_v128_load64_splat(params->wasmsimd.min);
+  const v128_t vy_max = wasm_v128_load64_splat(params->wasmsimd.max);
+  const v128_t vb = wasm_v128_load32_splat(b);
   for (; n >= 16 * sizeof(float); n -= 16 * sizeof(float)) {
     const v128_t va0123 = wasm_v128_load(a);
     const v128_t va4567 = wasm_v128_load(a + 4);

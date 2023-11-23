@@ -86,7 +86,7 @@ type waylandCodegenProperties struct {
 	Suffix *string
 
 	// The list of protocol files to process.
-	Srcs []string
+	Srcs []string `android:"path"`
 
 	// The names of any built host executables to use for code generation. Can
 	// be left empty if a local script is used instead (specified in
@@ -156,9 +156,8 @@ func (g *waylandGenModule) Srcs() android.Paths {
 // DepsMutator implements the android.Module DepsMutator method to apply a
 // mutator context to the build graph.
 func (g *waylandGenModule) DepsMutator(ctx android.BottomUpMutatorContext) {
-	// This implementatoin duplicates the one from genrule.go, where gensrcs is
+	// This implementation duplicates the one from genrule.go, where gensrcs is
 	// defined.
-	android.ExtractSourcesDeps(ctx, g.properties.Srcs)
 	if g, ok := ctx.Module().(*waylandGenModule); ok {
 		if len(g.properties.Tools) > 0 {
 			ctx.AddFarVariationDependencies(ctx.Config().BuildOSTarget.Variations(),
@@ -192,7 +191,7 @@ func (g *waylandGenModule) GenerateAndroidBuildActions(ctx android.ModuleContext
 
 	generatedFilenamePrefix := proptools.String(g.properties.Prefix)
 	generatedFilenameSuffix := proptools.String(g.properties.Suffix)
-	for _, src := range ctx.ExpandSources(g.properties.Srcs, nil) {
+	for _, src := range android.PathsForModuleSrc(ctx, g.properties.Srcs) {
 		out := g.generateOutputPath(ctx, src, generatedFilenamePrefix, generatedFilenameSuffix)
 		if out == nil {
 			continue
@@ -254,9 +253,12 @@ func (g *waylandGenModule) prepareTools(ctx android.ModuleContext) (tools map[st
 	// information about it.
 	if len(g.properties.Tools) > 0 {
 		ctx.VisitDirectDepsBlueprint(func(module blueprint.Module) {
-			switch ctx.OtherModuleDependencyTag(module) {
-			case android.SourceDepTag:
+			tag := ctx.OtherModuleDependencyTag(module)
+			if android.IsSourceDepTagWithOutputTag(tag, "") {
 				// Nothing to do
+				return
+			}
+			switch tag {
 			case hostToolDepTag:
 				tool := ctx.OtherModuleName(module)
 				var path android.OptionalPath

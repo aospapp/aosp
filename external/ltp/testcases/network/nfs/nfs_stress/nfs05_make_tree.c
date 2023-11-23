@@ -82,7 +82,7 @@ static void run_targets(const char *dirname, char *cfile, pid_t tid)
 			snprintf(cfile, PATH_MAX, "%s%s/%d.%d.%d",
 				 dirname, subdir, tid, i, k);
 
-			tst_run_cmd(cmd_run, output_file, NULL, 0);
+			tst_cmd(cmd_run, output_file, NULL, 0);
 
 			fd = SAFE_OPEN(output_file, O_RDONLY);
 			SAFE_READ(1, fd, buf, 11);
@@ -104,7 +104,7 @@ static void *thread_fn(LTP_ATTRIBUTE_UNUSED void *args)
 				"\treturn 0;\n}\n";
 
 	const char make_buf_n[] = "CFLAGS := -O -w -g\n"
-				  "SRCS=$(wildcard *.c)\n"
+				  "SRCS=$(sort $(wildcard *.c))\n"
 				  "TARGETS=$(SRCS:.c=)\n"
 				  "all: $(TARGETS)\n"
 				  "$(TARGETS): %: %.c\n"
@@ -114,7 +114,7 @@ static void *thread_fn(LTP_ATTRIBUTE_UNUSED void *args)
 
 	const char make_buf[] = "CFLAGS := -O -w -g\n"
 				"SUBDIR = dir\n"
-				"SRCS=$(wildcard *.c)\n"
+				"SRCS=$(sort $(wildcard *.c))\n"
 				"TARGETS=$(SRCS:.c=)\n"
 				"all: $(SUBDIR) $(TARGETS)\n"
 				"$(TARGETS): %: %.c\n"
@@ -179,11 +179,11 @@ static void *thread_fn(LTP_ATTRIBUTE_UNUSED void *args)
 	const char *const cmd_make_clean[] = {
 		"make", "-C", dirname, "-s", "clean", NULL};
 
-	tst_run_cmd(cmd_make, NULL, NULL, 0);
+	tst_cmd(cmd_make, NULL, NULL, 0);
 
 	run_targets(dirname, cfile, tid);
 
-	tst_run_cmd(cmd_make_clean, NULL, NULL, 0);
+	tst_cmd(cmd_make_clean, NULL, NULL, 0);
 
 	free(dirname);
 

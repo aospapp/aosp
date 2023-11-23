@@ -28,6 +28,8 @@ use std::ffi;
 use std::ptr;
 use std::slice;
 
+use std::io::Write;
+
 use libc::c_char;
 use libc::c_int;
 use libc::c_long;
@@ -38,6 +40,7 @@ use crate::Error;
 use crate::Result;
 
 use crate::Connection;
+use crate::ConnectionError;
 
 use crate::crypto;
 use crate::octets;
@@ -64,6 +67,10 @@ struct SSL_CIPHER(c_void);
 
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
+struct SSL_SESSION(c_void);
+
+#[allow(non_camel_case_types)]
+#[repr(transparent)]
 struct X509_VERIFY_PARAM(c_void);
 
 #[allow(non_camel_case_types)]
@@ -73,7 +80,16 @@ struct X509_STORE(c_void);
 
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
+#[cfg(windows)]
 struct X509(c_void);
+
+#[allow(non_camel_case_types)]
+#[repr(transparent)]
+struct STACK_OF(c_void);
+
+#[allow(non_camel_case_types)]
+#[repr(transparent)]
+struct CRYPTO_BUFFER(c_void);
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -129,6 +145,8 @@ impl Context {
             let ctx_raw = SSL_CTX_new(TLS_method());
 
             let mut ctx = Context(ctx_raw);
+
+            ctx.set_session_callback();
 
             ctx.load_ca_certs()?;
 
@@ -235,6 +253,19 @@ impl Context {
         Ok(())
     }
 
+    fn set_session_callback(&mut self) {
+        unsafe {
+            // This is needed to enable the session callback on the client. On
+            // the server it doesn't do anything.
+            SSL_CTX_set_session_cache_mode(
+                self.as_ptr(),
+                0x0001, // SSL_SESS_CACHE_CLIENT
+            );
+
+            SSL_CTX_sess_set_new_cb(self.as_ptr(), new_session);
+        };
+    }
+
     pub fn set_verify(&mut self, verify: bool) {
         let mode = if verify {
             0x01 // SSL_VERIFY_PEER
@@ -276,6 +307,12 @@ impl Context {
         })
     }
 
+    pub fn set_ticket_key(&mut self, key: &[u8]) -> Result<()> {
+        map_result(unsafe {
+            SSL_CTX_set_tlsext_ticket_keys(self.as_ptr(), key.as_ptr(), key.len())
+        })
+    }
+
     pub fn set_early_data_enabled(&mut self, enabled: bool) {
         let enabled = if enabled { 1 } else { 0 };
 
@@ -300,6 +337,7 @@ impl Drop for Context {
 pub struct Handshake(*mut SSL);
 
 impl Handshake {
+    #[cfg(feature = "ffi")]
     pub unsafe fn from_ptr(ssl: *mut c_void) -> Handshake {
         let ssl = ssl as *mut SSL;
         Handshake(ssl)
@@ -326,6 +364,12 @@ impl Handshake {
         self.set_quiet_shutdown(true);
 
         Ok(())
+    }
+
+    pub fn use_legacy_codepoint(&self, use_legacy: bool) {
+        unsafe {
+            SSL_set_quic_use_legacy_codepoint(self.as_ptr(), use_legacy as c_int);
+        }
     }
 
     pub fn set_state(&self, is_server: bool) {
@@ -392,6 +436,13 @@ impl Handshake {
         })
     }
 
+    #[cfg(test)]
+    pub fn set_options(&mut self, opts: u32) {
+        unsafe {
+            SSL_set_options(self.as_ptr(), opts);
+        }
+    }
+
     pub fn quic_transport_params(&self) -> &[u8] {
         let mut ptr: *const u8 = ptr::null();
         let mut len: usize = 0;
@@ -422,6 +473,28 @@ impl Handshake {
         unsafe { slice::from_raw_parts(ptr, len as usize) }
     }
 
+    pub fn set_session(&self, session: &[u8]) -> Result<()> {
+        unsafe {
+            let ctx = SSL_get_SSL_CTX(self.as_ptr());
+
+            if ctx.is_null() {
+                return Err(Error::TlsFail);
+            }
+
+            let session =
+                SSL_SESSION_from_bytes(session.as_ptr(), session.len(), ctx);
+
+            if session.is_null() {
+                return Err(Error::TlsFail);
+            }
+
+            let rc = SSL_set_session(self.as_ptr(), session);
+            SSL_SESSION_free(session);
+
+            map_result(rc)
+        }
+    }
+
     pub fn provide_data(&self, level: crypto::Level, buf: &[u8]) -> Result<()> {
         map_result_ssl(self, unsafe {
             SSL_provide_quic_data(self.as_ptr(), level, buf.as_ptr(), buf.len())
@@ -430,6 +503,16 @@ impl Handshake {
 
     pub fn do_handshake(&self) -> Result<()> {
         map_result_ssl(self, unsafe { SSL_do_handshake(self.as_ptr()) })
+    }
+
+    pub fn process_post_handshake(&self) -> Result<()> {
+        map_result_ssl(self, unsafe {
+            SSL_process_quic_post_handshake(self.as_ptr())
+        })
+    }
+
+    pub fn reset_early_data_reject(&self) {
+        unsafe { SSL_reset_early_data_reject(self.as_ptr()) };
     }
 
     pub fn write_level(&self) -> crypto::Level {
@@ -481,24 +564,23 @@ impl Handshake {
 
     pub fn peer_cert(&self) -> Option<Vec<u8>> {
         let peer_cert = unsafe {
-            let mut out: *mut libc::c_uchar = ptr::null_mut();
-
-            let x509 = SSL_get_peer_certificate(self.as_ptr());
-            if x509.is_null() {
+            let chain =
+                map_result_ptr(SSL_get0_peer_certificates(self.as_ptr())).ok()?;
+            if sk_num(chain) <= 0 {
                 return None;
             }
 
-            let out_len = i2d_X509(x509, &mut out);
-            if out_len <= 0 {
+            let buffer =
+                map_result_ptr(sk_value(chain, 0) as *const CRYPTO_BUFFER)
+                    .ok()?;
+            let out_len = CRYPTO_BUFFER_len(buffer);
+            if out_len == 0 {
                 return None;
             }
 
+            let out = CRYPTO_BUFFER_data(buffer);
             let der = slice::from_raw_parts(out, out_len as usize);
-            let der = der.to_vec();
-
-            OPENSSL_free(out as *mut c_void);
-
-            der
+            der.to_vec()
         };
 
         Some(peer_cert)
@@ -676,7 +758,7 @@ extern fn add_handshake_data(
             &mut conn.pkt_num_spaces[packet::EPOCH_APPLICATION],
     };
 
-    if space.crypto_stream.send.push_slice(buf, false).is_err() {
+    if space.crypto_stream.send.write(buf, false).is_err() {
         return 0;
     }
 
@@ -706,7 +788,11 @@ extern fn send_alert(ssl: *mut SSL, level: crypto::Level, alert: u8) -> c_int {
     );
 
     let error: u64 = TLS_ALERT_ERROR + u64::from(alert);
-    conn.error = Some(error);
+    conn.local_error = Some(ConnectionError {
+        is_app: false,
+        error_code: error,
+        reason: Vec::new(),
+    });
 
     1
 }
@@ -779,6 +865,68 @@ extern fn select_alpn(
     3 // SSL_TLSEXT_ERR_NOACK
 }
 
+#[no_mangle]
+extern fn new_session(ssl: *mut SSL, session: *mut SSL_SESSION) -> c_int {
+    let conn =
+        match get_ex_data_from_ptr::<Connection>(ssl, *QUICHE_EX_DATA_INDEX) {
+            Some(v) => v,
+
+            None => return 0,
+        };
+
+    let handshake = Handshake(ssl);
+    let peer_params = handshake.quic_transport_params();
+
+    // Serialize session object into buffer.
+    let session_bytes = unsafe {
+        let mut out: *mut u8 = std::ptr::null_mut();
+        let mut out_len: usize = 0;
+
+        if SSL_SESSION_to_bytes(session, &mut out, &mut out_len) == 0 {
+            return 0;
+        }
+
+        let session_bytes = std::slice::from_raw_parts(out, out_len).to_vec();
+        OPENSSL_free(out as *mut c_void);
+
+        session_bytes
+    };
+
+    let mut buffer =
+        Vec::with_capacity(8 + peer_params.len() + 8 + session_bytes.len());
+
+    let session_bytes_len = session_bytes.len() as u64;
+
+    if buffer.write(&session_bytes_len.to_be_bytes()).is_err() {
+        std::mem::forget(handshake);
+        return 0;
+    }
+
+    if buffer.write(&session_bytes).is_err() {
+        std::mem::forget(handshake);
+        return 0;
+    }
+
+    let peer_params_len = peer_params.len() as u64;
+
+    if buffer.write(&peer_params_len.to_be_bytes()).is_err() {
+        std::mem::forget(handshake);
+        return 0;
+    }
+
+    if buffer.write(&peer_params).is_err() {
+        std::mem::forget(handshake);
+        return 0;
+    }
+
+    conn.session = Some(buffer);
+
+    // Prevent handshake from being freed, as we still need it.
+    std::mem::forget(handshake);
+
+    0
+}
+
 fn map_result(bssl_result: c_int) -> Result<()> {
     match bssl_result {
         1 => Ok(()),
@@ -826,6 +974,9 @@ fn map_result_ssl(ssl: &Handshake, bssl_result: c_int) -> Result<()> {
                 // SSL_ERROR_SYSCALL
                 5 => Err(Error::TlsFail),
 
+                // SSL_ERROR_PENDING_SESSION
+                11 => Err(Error::Done),
+
                 // SSL_ERROR_PENDING_CERTIFICATE
                 12 => Err(Error::Done),
 
@@ -834,6 +985,15 @@ fn map_result_ssl(ssl: &Handshake, bssl_result: c_int) -> Result<()> {
 
                 // SSL_ERROR_PENDING_TICKET
                 14 => Err(Error::Done),
+
+                // SSL_ERROR_EARLY_DATA_REJECTED
+                15 => {
+                    ssl.reset_early_data_reject();
+                    Err(Error::Done)
+                },
+
+                // SSL_ERROR_WANT_CERTIFICATE_VERIFY
+                16 => Err(Error::Done),
 
                 _ => Err(Error::TlsFail),
             }
@@ -884,6 +1044,10 @@ extern {
         ctx: *mut SSL_CTX, cb: extern fn(ssl: *mut SSL, line: *const c_char),
     );
 
+    fn SSL_CTX_set_tlsext_ticket_keys(
+        ctx: *mut SSL_CTX, key: *const u8, key_len: usize,
+    ) -> c_int;
+
     fn SSL_CTX_set_alpn_protos(
         ctx: *mut SSL_CTX, protos: *const u8, protos_len: usize,
     ) -> c_int;
@@ -902,6 +1066,13 @@ extern {
     );
 
     fn SSL_CTX_set_early_data_enabled(ctx: *mut SSL_CTX, enabled: i32);
+
+    fn SSL_CTX_set_session_cache_mode(ctx: *mut SSL_CTX, mode: c_int) -> c_int;
+
+    fn SSL_CTX_sess_set_new_cb(
+        ctx: *mut SSL_CTX,
+        cb: extern fn(ssl: *mut SSL, session: *mut SSL_SESSION) -> c_int,
+    );
 
     // SSL
     fn SSL_get_ex_new_index(
@@ -931,7 +1102,11 @@ extern {
         sigalg: u16, include_curve: i32,
     ) -> *const c_char;
 
-    fn SSL_get_peer_certificate(ssl: *mut SSL) -> *const X509;
+    fn SSL_set_session(ssl: *mut SSL, session: *mut SSL_SESSION) -> c_int;
+
+    fn SSL_get_SSL_CTX(ssl: *mut SSL) -> *mut SSL_CTX;
+
+    fn SSL_get0_peer_certificates(ssl: *mut SSL) -> *const STACK_OF;
 
     fn SSL_set_min_proto_version(ssl: *mut SSL, version: u16);
     fn SSL_set_max_proto_version(ssl: *mut SSL, version: u16);
@@ -944,9 +1119,14 @@ extern {
         ssl: *mut SSL, params: *const u8, params_len: usize,
     ) -> c_int;
 
+    #[cfg(test)]
+    fn SSL_set_options(ssl: *mut SSL, opts: u32) -> u32;
+
     fn SSL_set_quic_method(
         ssl: *mut SSL, quic_method: *const SSL_QUIC_METHOD,
     ) -> c_int;
+
+    fn SSL_set_quic_use_legacy_codepoint(ssl: *mut SSL, use_legacy: c_int);
 
     fn SSL_set_quic_early_data_context(
         ssl: *mut SSL, context: *const u8, context_len: usize,
@@ -963,6 +1143,10 @@ extern {
     fn SSL_provide_quic_data(
         ssl: *mut SSL, level: crypto::Level, data: *const u8, len: usize,
     ) -> c_int;
+
+    fn SSL_process_quic_post_handshake(ssl: *mut SSL) -> c_int;
+
+    fn SSL_reset_early_data_reject(ssl: *mut SSL);
 
     fn SSL_do_handshake(ssl: *mut SSL) -> c_int;
 
@@ -981,6 +1165,17 @@ extern {
     // SSL_CIPHER
     fn SSL_CIPHER_get_id(cipher: *const SSL_CIPHER) -> c_uint;
 
+    // SSL_SESSION
+    fn SSL_SESSION_to_bytes(
+        session: *const SSL_SESSION, out: *mut *mut u8, out_len: *mut usize,
+    ) -> c_int;
+
+    fn SSL_SESSION_from_bytes(
+        input: *const u8, input_len: usize, ctx: *const SSL_CTX,
+    ) -> *mut SSL_SESSION;
+
+    fn SSL_SESSION_free(session: *mut SSL_SESSION);
+
     // X509_VERIFY_PARAM
     fn X509_VERIFY_PARAM_set1_host(
         param: *mut X509_VERIFY_PARAM, name: *const c_char, namelen: usize,
@@ -996,7 +1191,13 @@ extern {
     #[cfg(windows)]
     fn d2i_X509(px: *mut X509, input: *const *const u8, len: c_int) -> *mut X509;
 
-    fn i2d_X509(px: *const X509, out: *mut *mut u8) -> c_int;
+    // STACK_OF
+    fn sk_num(stack: *const STACK_OF) -> c_int;
+    fn sk_value(stack: *const STACK_OF, idx: c_int) -> *mut c_void;
+
+    // CRYPTO_BUFFER
+    fn CRYPTO_BUFFER_len(buffer: *const CRYPTO_BUFFER) -> usize;
+    fn CRYPTO_BUFFER_data(buffer: *const CRYPTO_BUFFER) -> *const u8;
 
     // ERR
     fn ERR_peek_error() -> c_uint;

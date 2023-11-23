@@ -39,7 +39,7 @@ import android.icu.util.UResourceBundle;
  *
  * <p>
  * <strong>IMPORTANT:</strong> New users are strongly encouraged to see if
- * {@code NumberFormatter} fits their use case.  Although not deprecated, this
+ * {@link NumberFormatter} fits their use case.  Although not deprecated, this
  * class, NumberFormat, is only provided for java.text.NumberFormat compatibility.
  * <hr>
  *
@@ -551,6 +551,9 @@ public abstract class NumberFormat extends UFormat {
     //============== Locale Stuff =====================
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns the default number format for the current default <code>FORMAT</code> locale.
      * The default format is one of the styles provided by the other
      * factory methods: getNumberInstance, getIntegerInstance,
@@ -564,6 +567,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns the default number format for the specified locale.
      * The default format is one of the styles provided by the other
      * factory methods: getNumberInstance, getCurrencyInstance or getPercentInstance.
@@ -574,6 +580,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns the default number format for the specified locale.
      * The default format is one of the styles provided by the other
      * factory methods: getNumberInstance, getCurrencyInstance or getPercentInstance.
@@ -584,6 +593,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a specific style number format for default <code>FORMAT</code> locale.
      * @param style  number format style
      * @see Category#FORMAT
@@ -593,6 +605,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a specific style number format for a specific locale.
      * @param inLocale  the specific locale.
      * @param style     number format style
@@ -603,6 +618,9 @@ public abstract class NumberFormat extends UFormat {
 
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a general-purpose number format for the current default <code>FORMAT</code> locale.
      * @see Category#FORMAT
      */
@@ -611,6 +629,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a general-purpose number format for the specified locale.
      */
     public static NumberFormat getNumberInstance(Locale inLocale) {
@@ -618,6 +639,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a general-purpose number format for the specified locale.
      */
     public static NumberFormat getNumberInstance(ULocale inLocale) {
@@ -625,6 +649,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns an integer number format for the current default <code>FORMAT</code> locale. The
      * returned number format is configured to round floating point numbers
      * to the nearest integer using IEEE half-even rounding (see {@link
@@ -641,6 +668,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns an integer number format for the specified locale. The
      * returned number format is configured to round floating point numbers
      * to the nearest integer using IEEE half-even rounding (see {@link
@@ -657,6 +687,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns an integer number format for the specified locale. The
      * returned number format is configured to round floating point numbers
      * to the nearest integer using IEEE half-even rounding (see {@link
@@ -672,6 +705,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a currency format for the current default <code>FORMAT</code> locale.
      * @return a number format for currency
      * @see Category#FORMAT
@@ -681,6 +717,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a currency format for the specified locale.
      * @return a number format for currency
      */
@@ -689,6 +728,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a currency format for the specified locale.
      * @return a number format for currency
      */
@@ -697,6 +739,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a percentage format for the current default <code>FORMAT</code> locale.
      * @return a number format for percents
      * @see Category#FORMAT
@@ -706,6 +751,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a percentage format for the specified locale.
      * @return a number format for percents
      */
@@ -714,6 +762,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a percentage format for the specified locale.
      * @return a number format for percents
      */
@@ -722,6 +773,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a scientific format for the current default <code>FORMAT</code> locale.
      * @return a scientific number format
      * @see Category#FORMAT
@@ -731,6 +785,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a scientific format for the specified locale.
      * @return a scientific number format
      */
@@ -739,6 +796,9 @@ public abstract class NumberFormat extends UFormat {
     }
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * <strong>[icu]</strong> Returns a scientific format for the specified locale.
      * @return a scientific number format
      */
@@ -1259,6 +1319,9 @@ public abstract class NumberFormat extends UFormat {
 
 
     /**
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
+     * <hr>
      * Returns a specific style number format for a specific locale.
      * @param desiredLocale  the specific locale.
      * @param choice         number format style
@@ -1288,7 +1351,7 @@ public abstract class NumberFormat extends UFormat {
     static NumberFormat createInstance(ULocale desiredLocale, int choice) {
         // If the choice is PLURALCURRENCYSTYLE, the pattern is not a single
         // pattern, it is a pattern set, so we do not need to get them here.
-        // If the choice is ISOCURRENCYSTYLE, the pattern is the currrency
+        // If the choice is ISOCURRENCYSTYLE, the pattern is the currency
         // pattern in the locale but by replacing the single currency sign
         // with double currency sign.
         String pattern = getPattern(desiredLocale, choice);

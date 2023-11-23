@@ -102,85 +102,31 @@ cc_defaults {
 cc_binary {
     name: "mdnsd",
     defaults: ["mdnsresponder_default_cflags"],
-    host_supported: true,
     srcs: [
-        "mDNSCore/mDNS.c",
-        "mDNSCore/DNSDigest.c",
-        "mDNSCore/uDNS.c",
         "mDNSCore/DNSCommon.c",
-        "mDNSShared/uds_daemon.c",
-        "mDNSShared/mDNSDebug.c",
+        "mDNSCore/DNSDigest.c",
+        "mDNSCore/mDNS.c",
+        "mDNSCore/uDNS.c",
+        "mDNSPosix/mDNSPosix.c",
+        "mDNSPosix/mDNSUNP.c",
+        "mDNSPosix/PosixDaemon.c",
         "mDNSShared/dnssd_ipc.c",
         "mDNSShared/GenLinkedList.c",
+        "mDNSShared/mDNSDebug.c",
+        "mDNSShared/PlatformCommon.c",
+        "mDNSShared/uds_daemon.c",
     ],
 
     local_include_dirs: [
         "mDNSCore",
+        "mDNSPosix",
         "mDNSShared",
     ],
     init_rc: ["mdnsd.rc"],
 
     cflags: ["-DMDNS_VERSIONSTR_NODTS=1"],
 
-    target: {
-        android: {
-            static_executable: true,
-            local_include_dirs: ["mDNSPosix"],
-            srcs: [
-                "mDNSShared/PlatformCommon.c",
-                "mDNSPosix/PosixDaemon.c",
-                "mDNSPosix/mDNSPosix.c",
-                "mDNSPosix/mDNSUNP.c",
-            ],
-        },
-        not_windows: {
-            local_include_dirs: ["mDNSPosix"],
-            srcs: [
-                "mDNSShared/PlatformCommon.c",
-                "mDNSPosix/PosixDaemon.c",
-                "mDNSPosix/mDNSPosix.c",
-                "mDNSPosix/mDNSUNP.c",
-            ],
-        },
-        windows: {
-            cflags: [
-                "-DTARGET_OS_WIN32",
-                "-D_CONSOLE",
-                "-DPLATFORM_NO_STRSEP",
-                "-DPLATFORM_NO_EPIPE",
-                "-DPLATFORM_NO_RLIMIT",
-                "-DPID_FILE=\"\"",
-                "-DUNICODE",
-                "-D_UNICODE",
-                "-D_LEGACY_NAT_TRAVERSAL",
-                "-Wno-empty-body",
-            ],
-
-            ldflags: ["-municode"],
-            host_ldlibs: [
-                "-lws2_32",
-                "-liphlpapi",
-                "-lpowrprof",
-                "-lnetapi32",
-            ],
-
-            srcs: [
-                "mDNSWindows/SystemService/main.c",
-                "mDNSWindows/SystemService/Service.c",
-                "mDNSWindows/SystemService/EventLog.mc",
-                "mDNSWindows/Secret.c",
-                "mDNSWindows/mDNSWin32.c",
-                "mDNSShared/DebugServices.c",
-                "android/windows_firewall_dummy.c",
-            ],
-
-            local_include_dirs: [
-                "mDNSWindows/SystemService",
-            ],
-        },
-    },
-
-    static_libs: [
+    shared_libs: [
         "libcutils",
         "liblog",
     ],

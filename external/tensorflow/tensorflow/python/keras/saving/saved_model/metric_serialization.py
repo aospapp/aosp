@@ -14,10 +14,6 @@
 # ==============================================================================
 """Classes and functions implementing Metrics SavedModel serialization."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from tensorflow.python.keras.saving.saved_model import constants
 from tensorflow.python.keras.saving.saved_model import layer_serialization
 from tensorflow.python.keras.utils import generic_utils
@@ -42,6 +38,6 @@ class MetricSavedModelSaver(layer_serialization.LayerSavedModelSaver):
     return metadata
 
   def _get_serialized_attributes_internal(self, unused_serialization_cache):
-    return (dict(variables=data_structures.ListWrapper(self.obj.variables)),
+    return (dict(variables=data_structures.wrap_or_unwrap(self.obj.variables)),
             dict())  # TODO(b/135550038): save functions to enable saving
                      # custom metrics.

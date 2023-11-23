@@ -32,6 +32,7 @@
 #include "src/trace_processor/importers/common/track_tracker.h"
 #include "src/trace_processor/importers/proto/metadata_tracker.h"
 #include "src/trace_processor/importers/proto/track_event_tracker.h"
+#include "src/trace_processor/storage/trace_storage.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 
 #include "test/gtest_and_gmock.h"
@@ -230,8 +231,8 @@ TEST_F(ExportJsonTest, StorageWithThreadName) {
 }
 
 TEST_F(ExportJsonTest, SystemEventsIgnored) {
-  TrackId track = context_.track_tracker->CreateAndroidAsyncTrack(
-      /*name=*/kNullStringId, /*upid=*/0);
+  TrackId track = context_.track_tracker->CreateProcessAsyncTrack(
+      /*name=*/kNullStringId, /*upid=*/0, /*source=*/kNullStringId);
   context_.args_tracker->Flush();  // Flush track args.
 
   // System events have no category.
@@ -827,7 +828,8 @@ TEST_F(ExportJsonTest, InstantEventOnThread) {
 
 TEST_F(ExportJsonTest, DuplicatePidAndTid) {
   UniqueTid upid1 = context_.process_tracker->StartNewProcess(
-      base::nullopt, base::nullopt, 1, kNullStringId);
+      base::nullopt, base::nullopt, 1, kNullStringId,
+      ThreadNamePriority::kTrackDescriptor);
   UniqueTid utid1a = context_.process_tracker->UpdateThread(1, 1);
   UniqueTid utid1b = context_.process_tracker->UpdateThread(2, 1);
   UniqueTid utid1c = context_.process_tracker->StartNewThread(base::nullopt, 2);
@@ -835,7 +837,8 @@ TEST_F(ExportJsonTest, DuplicatePidAndTid) {
   ASSERT_EQ(utid1c, context_.process_tracker->UpdateThread(2, 1));
 
   UniqueTid upid2 = context_.process_tracker->StartNewProcess(
-      base::nullopt, base::nullopt, 1, kNullStringId);
+      base::nullopt, base::nullopt, 1, kNullStringId,
+      ThreadNamePriority::kTrackDescriptor);
   UniqueTid utid2a = context_.process_tracker->UpdateThread(1, 1);
   UniqueTid utid2b = context_.process_tracker->UpdateThread(2, 1);
 

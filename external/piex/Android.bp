@@ -81,8 +81,9 @@ cc_library {
         enabled: true,
     },
     srcs: [
-        "src/tiff_parser.cc",
         "src/piex.cc",
+        "src/piex_cr3.cc",
+        "src/tiff_parser.cc",
     ],
     export_include_dirs: ["."],
     static_libs: [

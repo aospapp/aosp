@@ -5,11 +5,11 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2008 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2008 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at https://curl.haxx.se/docs/copyright.html.
+# are also available at https://curl.se/docs/copyright.html.
 #
 # You may opt to use, copy, modify, merge, publish, distribute and/or sell
 # copies of the Software, and permit persons to whom the Software is
@@ -95,6 +95,7 @@ man_MANS = \
  curl_url_dup.3 \
  curl_url_get.3 \
  curl_url_set.3 \
+ curl_url_strerror.3 \
  curl_version.3 \
  curl_version_info.3 \
  libcurl-easy.3 \

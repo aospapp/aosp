@@ -1,3 +1,41 @@
+## 2020d
+
+### Zone Changes
+
+* Update some Canadian zones as follows ([#90](https://github.com/evansiroky/timezone-boundary-builder/issues/90))
+  * Use OSM timezone relations in entirety for the following zones: `America/Blanc_Sablon`, `America/Glace_Bay`, `America/Halifax`, `America/Swift_Current`, `America/Toronto`
+* Add disputed area along Northwest Bhutan-China border.
+* Manually add back the Jungholz Village to `Europe/Vienna` ([#93](https://github.com/evansiroky/timezone-boundary-builder/issues/93)).
+* Update to latest OSM data
+
+### Other Changes
+
+* Switch command line flag processing to use the yargs library. Existing flags have changed: ``--no-validation` and ``--filtered-zones` have been renamed to ``--skip_validation` and `--included_zones` respectively. `--included_zones` now takes a list without quotes or commas.
+* Addition of new flags: `--excluded_zones`, `--dist_dir`, `--downloads_dir`, `--skip_analyze_diffs`, `--skip_shapefile`, `--skip_zip`. See `--help` and README.md for details.
+* Remove unneeded downloaded files from downloads directory before creating input data zipfile ([#82](https://github.com/evansiroky/timezone-boundary-builder/issues/82)).
+* Junk directory names when zipping data for releases
+* Add ability to generate a difference of the zone boundaries between the current config and the latest release. ([#83](https://github.com/evansiroky/timezone-boundary-builder/issues/83)).
+
+## 2020a
+
+### Zone Changes
+
+* Allow timezones `Asia/Tbilisi` and `Europe/Moscow` to overlap
+* Rename `America/Godthab` to `America/Nuuk` ([#77](https://github.com/evansiroky/timezone-boundary-builder/issues/77))
+* Update some Canadian zones as follows ([#76](https://github.com/evansiroky/timezone-boundary-builder/issues/76))
+  * Make Listuguj part of `America/Halifax` instead of `America/Moncton`
+  * Make `America/Nipigon` comprise of most of mid-Ontario. _Credit to OSM user [Arctic gnome](https://www.openstreetmap.org/user/Arctic%20gnome) for OSM edits._
+  * Make `America/Rainy_River` comprise of the Westernmost parts of Ontario bordering Manitoba. _Credit to OSM user [Arctic gnome](https://www.openstreetmap.org/user/Arctic%20gnome) for OSM edits._
+  * Split Northwest Territories timezones (`America/Inuvik` and `America/Yellowknife`) in two using 120th meridian
+  * Make `America/Swift_Current` comprise of all areas in southwest Saskatchewan between the `America/Regina` and `America/Edmonton` timezones.
+  * Split Yukon timezones (`America/Dawson` and `America/Whitehorse`) in two using 138th meridian
+* Update to latest OSM data
+
+### Other Changes
+
+* Update packages to latest versions
+* Include input data in release files ([#78](https://github.com/evansiroky/timezone-boundary-builder/issues/78))
+
 ## 2019b
 
 ### Zone Changes

@@ -59,6 +59,7 @@ cc_library_headers {
         "test_com.android.neuralnetworks",
         "//apex_available:platform",
     ],
+    sdk_version: "current",
 }
 
 subdirs = ["eight_bit_int_gemm"]

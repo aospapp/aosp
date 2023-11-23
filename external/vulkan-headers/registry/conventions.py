@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2020 The Khronos Group Inc.
+# Copyright 2013-2021 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -139,9 +139,9 @@ class ConventionsBase:
         Optionally adds a quantifier (like 'any') before a list of 2 or more,
         if specified by fmt.
 
-        Don't edit these defaults, override self.makeProseList().
+        Do not edit these defaults, override self.makeProseList().
         """
-        assert(serial_comma)  # didn't implement what we didn't need
+        assert(serial_comma)  # did not implement what we did not need
         if isinstance(fmt, str):
             fmt = ProseListFormats.from_string(fmt)
 

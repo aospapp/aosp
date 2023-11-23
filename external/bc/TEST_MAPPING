@@ -3,5 +3,10 @@
     {
       "name": "bc-tests"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "bc-tests"
+    }
   ]
 }

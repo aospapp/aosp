@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "absl/strings/ascii.h"
+#include "absl/types/optional.h"
 #include "cast/streaming/message_fields.h"
 #include "json/reader.h"
 #include "json/writer.h"
@@ -23,13 +24,24 @@ namespace {
 
 EnumNameTable<ReceiverMessage::Type, 5> kMessageTypeNames{
     {{kMessageTypeAnswer, ReceiverMessage::Type::kAnswer},
-     {"STATUS_RESPONSE", ReceiverMessage::Type::kStatusResponse},
      {"CAPABILITIES_RESPONSE", ReceiverMessage::Type::kCapabilitiesResponse},
      {"RPC", ReceiverMessage::Type::kRpc}}};
 
+EnumNameTable<MediaCapability, 10> kMediaCapabilityNames{
+    {{"audio", MediaCapability::kAudio},
+     {"aac", MediaCapability::kAac},
+     {"opus", MediaCapability::kOpus},
+     {"video", MediaCapability::kVideo},
+     {"4k", MediaCapability::k4k},
+     {"h264", MediaCapability::kH264},
+     {"vp8", MediaCapability::kVp8},
+     {"vp9", MediaCapability::kVp9},
+     {"hevc", MediaCapability::kHevc},
+     {"av1", MediaCapability::kAv1}}};
+
 ReceiverMessage::Type GetMessageType(const Json::Value& root) {
   std::string type;
-  if (!json::ParseAndValidateString(root[kMessageType], &type)) {
+  if (!json::TryParseString(root[kMessageType], &type)) {
     return ReceiverMessage::Type::kUnknown;
   }
 
@@ -37,6 +49,21 @@ ReceiverMessage::Type GetMessageType(const Json::Value& root) {
   ErrorOr<ReceiverMessage::Type> parsed = GetEnum(kMessageTypeNames, type);
 
   return parsed.value(ReceiverMessage::Type::kUnknown);
+}
+
+bool TryParseCapability(const Json::Value& value, MediaCapability* out) {
+  std::string c;
+  if (!json::TryParseString(value, &c)) {
+    return false;
+  }
+
+  const ErrorOr<MediaCapability> capability = GetEnum(kMediaCapabilityNames, c);
+  if (capability.is_error()) {
+    return false;
+  }
+
+  *out = capability.value();
+  return true;
 }
 
 }  // namespace
@@ -50,8 +77,8 @@ ErrorOr<ReceiverError> ReceiverError::Parse(const Json::Value& value) {
 
   int code;
   std::string description;
-  if (!json::ParseAndValidateInt(value[kErrorCode], &code) ||
-      !json::ParseAndValidateString(value[kErrorDescription], &description)) {
+  if (!json::TryParseInt(value[kErrorCode], &code) ||
+      !json::TryParseString(value[kErrorDescription], &description)) {
     return Error::Code::kJsonParseError;
   }
   return ReceiverError{code, description};
@@ -73,18 +100,18 @@ ErrorOr<ReceiverCapability> ReceiverCapability::Parse(
   }
 
   int remoting_version;
-  if (!json::ParseAndValidateInt(value["remoting"], &remoting_version)) {
+  if (!json::TryParseInt(value["remoting"], &remoting_version)) {
     remoting_version = ReceiverCapability::kRemotingVersionUnknown;
   }
 
-  std::vector<std::string> media_capabilities;
-  if (!json::ParseAndValidateStringArray(value["mediaCaps"],
-                                         &media_capabilities)) {
+  std::vector<MediaCapability> capabilities;
+  if (!json::TryParseArray<MediaCapability>(
+          value["mediaCaps"], TryParseCapability, &capabilities)) {
     return Error(Error::Code::kJsonParseError,
                  "Failed to parse media capabilities");
   }
 
-  return ReceiverCapability{remoting_version, std::move(media_capabilities)};
+  return ReceiverCapability{remoting_version, std::move(capabilities)};
 }
 
 Json::Value ReceiverCapability::ToJson() const {
@@ -92,51 +119,21 @@ Json::Value ReceiverCapability::ToJson() const {
   root["remoting"] = remoting_version;
   Json::Value capabilities(Json::ValueType::arrayValue);
   for (const auto& capability : media_capabilities) {
-    capabilities.append(capability);
+    capabilities.append(GetEnumName(kMediaCapabilityNames, capability).value());
   }
   root["mediaCaps"] = std::move(capabilities);
   return root;
 }
 
 // static
-ErrorOr<ReceiverWifiStatus> ReceiverWifiStatus::Parse(
-    const Json::Value& value) {
-  if (!value) {
-    return Error(Error::Code::kParameterInvalid,
-                 "Empty JSON in status parsing");
-  }
-
-  double wifi_snr;
-  std::vector<int32_t> wifi_speed;
-  if (!json::ParseAndValidateDouble(value["wifiSnr"], &wifi_snr, true) ||
-      !json::ParseAndValidateIntArray(value["wifiSpeed"], &wifi_speed)) {
-    return Error::Code::kJsonParseError;
-  }
-  return ReceiverWifiStatus{wifi_snr, std::move(wifi_speed)};
-}
-
-Json::Value ReceiverWifiStatus::ToJson() const {
-  Json::Value root;
-  root["wifiSnr"] = wifi_snr;
-  Json::Value speeds(Json::ValueType::arrayValue);
-  for (const auto& speed : wifi_speed) {
-    speeds.append(speed);
-  }
-  root["wifiSpeed"] = std::move(speeds);
-  return root;
-}
-
-// static
 ErrorOr<ReceiverMessage> ReceiverMessage::Parse(const Json::Value& value) {
   ReceiverMessage message;
-  if (!value || !json::ParseAndValidateInt(value[kSequenceNumber],
-                                           &(message.sequence_number))) {
-    return Error(Error::Code::kJsonParseError,
-                 "Failed to parse sequence number");
+  if (!value) {
+    return Error(Error::Code::kJsonParseError, "Invalid message body");
   }
 
   std::string result;
-  if (!json::ParseAndValidateString(value[kResult], &result)) {
+  if (!json::TryParseString(value[kResult], &result)) {
     result = kResultError;
   }
 
@@ -155,18 +152,9 @@ ErrorOr<ReceiverMessage> ReceiverMessage::Parse(const Json::Value& value) {
   switch (message.type) {
     case Type::kAnswer: {
       Answer answer;
-      if (openscreen::cast::Answer::ParseAndValidate(value[kAnswerMessageBody],
-                                                     &answer)) {
+      if (openscreen::cast::Answer::TryParse(value[kAnswerMessageBody],
+                                             &answer)) {
         message.body = std::move(answer);
-        message.valid = true;
-      }
-    } break;
-
-    case Type::kStatusResponse: {
-      ErrorOr<ReceiverWifiStatus> status =
-          ReceiverWifiStatus::Parse(value[kStatusMessageBody]);
-      if (status.is_value()) {
-        message.body = std::move(status.value());
         message.valid = true;
       }
     } break;
@@ -181,18 +169,23 @@ ErrorOr<ReceiverMessage> ReceiverMessage::Parse(const Json::Value& value) {
     } break;
 
     case Type::kRpc: {
-      std::string rpc;
-      if (json::ParseAndValidateString(value[kRpcMessageBody], &rpc) &&
-          base64::Decode(rpc, &rpc)) {
+      std::string encoded_rpc;
+      std::vector<uint8_t> rpc;
+      if (json::TryParseString(value[kRpcMessageBody], &encoded_rpc) &&
+          base64::Decode(encoded_rpc, &rpc)) {
         message.body = std::move(rpc);
         message.valid = true;
       }
     } break;
 
-    case Type::kUnknown:
     default:
-      message.valid = false;
       break;
+  }
+
+  if (message.type != ReceiverMessage::Type::kRpc &&
+      !json::TryParseInt(value[kSequenceNumber], &(message.sequence_number))) {
+    message.sequence_number = -1;
+    message.valid = false;
   }
 
   return message;
@@ -219,20 +212,21 @@ ErrorOr<Json::Value> ReceiverMessage::ToJson() const {
       }
       break;
 
-    case (ReceiverMessage::Type::kStatusResponse):
-      root[kResult] = kResultOk;
-      root[kStatusMessageBody] = absl::get<ReceiverWifiStatus>(body).ToJson();
-      break;
-
     case ReceiverMessage::Type::kCapabilitiesResponse:
-      root[kResult] = kResultOk;
-      root[kCapabilitiesMessageBody] =
-          absl::get<ReceiverCapability>(body).ToJson();
+      if (valid) {
+        root[kResult] = kResultOk;
+        root[kCapabilitiesMessageBody] =
+            absl::get<ReceiverCapability>(body).ToJson();
+      } else {
+        root[kResult] = kResultError;
+        root[kErrorMessageBody] = absl::get<ReceiverError>(body).ToJson();
+      }
       break;
 
     // NOTE: RPC messages do NOT have a result field.
     case ReceiverMessage::Type::kRpc:
-      root[kRpcMessageBody] = base64::Encode(absl::get<std::string>(body));
+      root[kRpcMessageBody] =
+          base64::Encode(absl::get<std::vector<uint8_t>>(body));
       break;
 
     default:

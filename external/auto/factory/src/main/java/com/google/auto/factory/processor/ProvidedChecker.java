@@ -26,6 +26,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementKindVisitor6;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 final class ProvidedChecker {
   private final Messager messager;
@@ -35,41 +36,54 @@ final class ProvidedChecker {
   }
 
   void checkProvidedParameter(Element element) {
-    checkArgument(isAnnotationPresent(element, Provided.class), "%s not annoated with @Provided",
-        element);
-    element.accept(new ElementKindVisitor6<Void, Void>() {
-      @Override
-      protected Void defaultAction(Element e, Void p) {
-        throw new AssertionError("Provided can only be applied to parameters");
-      }
-
-      @Override
-      public Void visitVariableAsParameter(final VariableElement providedParameter, Void p) {
-        providedParameter.getEnclosingElement().accept(new ElementKindVisitor6<Void, Void>() {
+    checkArgument(
+        isAnnotationPresent(element, Provided.class), "%s not annoated with @Provided", element);
+    element.accept(
+        new ElementKindVisitor6<@Nullable Void, @Nullable Void>() {
           @Override
-          protected Void defaultAction(Element e, Void p) {
-            raiseError(providedParameter, "@%s may only be applied to constructor parameters");
-            return null;
+          protected @Nullable Void defaultAction(Element e, @Nullable Void p) {
+            throw new AssertionError("Provided can only be applied to parameters");
           }
 
           @Override
-          public Void visitExecutableAsConstructor(ExecutableElement constructor, Void p) {
-            if (!(annotatedWithAutoFactory(constructor)
-                || annotatedWithAutoFactory(constructor.getEnclosingElement()))) {
-              raiseError(providedParameter,
-                  "@%s may only be applied to constructors requesting an auto-factory");
-            }
+          public @Nullable Void visitVariableAsParameter(
+              VariableElement providedParameter, @Nullable Void p) {
+            providedParameter
+                .getEnclosingElement()
+                .accept(
+                    new ElementKindVisitor6<@Nullable Void, @Nullable Void>() {
+                      @Override
+                      protected @Nullable Void defaultAction(Element e, @Nullable Void p) {
+                        raiseError(
+                            providedParameter, "@%s may only be applied to constructor parameters");
+                        return null;
+                      }
+
+                      @Override
+                      public @Nullable Void visitExecutableAsConstructor(
+                          ExecutableElement constructor, @Nullable Void p) {
+                        if (!(annotatedWithAutoFactory(constructor)
+                            || annotatedWithAutoFactory(constructor.getEnclosingElement()))) {
+                          raiseError(
+                              providedParameter,
+                              "@%s may only be applied to constructors requesting an auto-factory");
+                        }
+                        return null;
+                      }
+                    },
+                    p);
             return null;
           }
-        }, p);
-        return null;
-      }
-    }, null);
+        },
+        null);
   }
 
   private void raiseError(VariableElement providedParameter, String messageFormat) {
-    messager.printMessage(ERROR, String.format(messageFormat, Provided.class.getSimpleName()),
-        providedParameter, Mirrors.getAnnotationMirror(providedParameter, Provided.class).get());
+    messager.printMessage(
+        ERROR,
+        String.format(messageFormat, Provided.class.getSimpleName()),
+        providedParameter,
+        Mirrors.getAnnotationMirror(providedParameter, Provided.class).get());
   }
 
   private static boolean annotatedWithAutoFactory(Element e) {

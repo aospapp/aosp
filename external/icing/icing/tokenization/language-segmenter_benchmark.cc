@@ -14,8 +14,8 @@
 
 #include "testing/base/public/benchmark.h"
 #include "gmock/gmock.h"
-#include "icing/helpers/icu/icu-data-file-helper.h"
 #include "icing/testing/common-matchers.h"
+#include "icing/testing/icu-data-file-helper.h"
 #include "icing/testing/test-data.h"
 #include "icing/tokenization/language-segmenter-factory.h"
 #include "icing/tokenization/language-segmenter.h"

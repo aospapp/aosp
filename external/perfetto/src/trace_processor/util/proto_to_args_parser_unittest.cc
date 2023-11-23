@@ -18,12 +18,13 @@
 
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/protozero/scattered_heap_buffer.h"
+#include "perfetto/trace_processor/trace_blob.h"
+#include "perfetto/trace_processor/trace_blob_view.h"
 #include "protos/perfetto/common/descriptor.pbzero.h"
 #include "protos/perfetto/trace/track_event/source_location.pbzero.h"
 #include "src/protozero/test/example_proto/test_messages.pbzero.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
-#include "src/trace_processor/importers/proto/packet_sequence_state.h"
 #include "src/trace_processor/test_messages.descriptor.h"
+#include "src/trace_processor/util/interned_message_view.h"
 #include "test/gtest_and_gmock.h"
 
 #include <sstream>
@@ -35,10 +36,9 @@ namespace {
 
 constexpr size_t kChunkSize = 42;
 
-using ::testing::_;
-using ::testing::Eq;
-using ::testing::Invoke;
-using ::testing::NiceMock;
+protozero::ConstChars ToChars(const char* str) {
+  return protozero::ConstChars{str, strlen(str)};
+}
 
 class ProtoToArgsParserTest : public ::testing::Test,
                               public ProtoToArgsParser::Delegate {
@@ -92,12 +92,23 @@ class ProtoToArgsParserTest : public ::testing::Test,
     args_.push_back(ss.str());
   }
 
-  void AddJson(const Key& key, const protozero::ConstChars& value) override {
+  bool AddJson(const Key& key, const protozero::ConstChars& value) override {
     std::stringstream ss;
     ss << key.flat_key << " " << key.key << " " << std::hex
        << value.ToStdString() << std::dec;
     args_.push_back(ss.str());
+    return true;
   }
+
+  void AddNull(const Key& key) override {
+    std::stringstream ss;
+    ss << key.flat_key << " " << key.key << " [NULL]";
+    args_.push_back(ss.str());
+  }
+
+  size_t GetArrayEntryIndex(const std::string&) final { return 0; }
+
+  size_t IncrementArrayEntryIndex(const std::string&) final { return 0; }
 
   InternedMessageView* GetInternedMessageView(uint32_t field_id,
                                               uint64_t iid) override {
@@ -249,7 +260,7 @@ TEST_F(ProtoToArgsParserTest, NestedProtoParsingOverrideHandled) {
   ASSERT_TRUE(status.ok()) << "Failed to parse kTestMessagesDescriptor: "
                            << status.message();
 
-  parser.AddParsingOverride(
+  parser.AddParsingOverrideForField(
       "super_nested.value_c",
       [](const protozero::Field& field, ProtoToArgsParser::Delegate& writer) {
         EXPECT_EQ(field.type(), protozero::proto_utils::ProtoWireType::kVarInt);
@@ -285,7 +296,7 @@ TEST_F(ProtoToArgsParserTest, NestedProtoParsingOverrideSkipped) {
   ASSERT_TRUE(status.ok()) << "Failed to parse kTestMessagesDescriptor: "
                            << status.message();
 
-  parser.AddParsingOverride(
+  parser.AddParsingOverrideForField(
       "super_nested.value_c",
       [](const protozero::Field& field, ProtoToArgsParser::Delegate&) {
         static int val = 0;
@@ -324,8 +335,9 @@ TEST_F(ProtoToArgsParserTest, LookingUpInternedStateParsingOverride) {
   for (size_t i = 0; i < binary_data.size(); ++i) {
     buffer.get()[i] = binary_data[i];
   }
-  TraceBlobView blob(std::move(buffer), 0, binary_data.size());
-  AddInternedSourceLocation(kIid, std::move(blob));
+  TraceBlob blob =
+      TraceBlob::TakeOwnership(std::move(buffer), binary_data.size());
+  AddInternedSourceLocation(kIid, TraceBlobView(std::move(blob)));
 
   DescriptorPool pool;
   auto status = pool.AddFromFileDescriptorSet(kTestMessagesDescriptor.data(),
@@ -336,7 +348,7 @@ TEST_F(ProtoToArgsParserTest, LookingUpInternedStateParsingOverride) {
   ProtoToArgsParser parser(pool);
   // Now we override the behaviour of |value_c| so we can expand the iid into
   // multiple args rows.
-  parser.AddParsingOverride(
+  parser.AddParsingOverrideForField(
       "super_nested.value_c",
       [](const protozero::Field& field, ProtoToArgsParser::Delegate& delegate)
           -> base::Optional<base::Status> {
@@ -360,6 +372,152 @@ TEST_F(ProtoToArgsParserTest, LookingUpInternedStateParsingOverride) {
       << status.message();
   EXPECT_THAT(args(), testing::ElementsAre("file_name file_name file",
                                            "line_number line_number 2"));
+}
+
+TEST_F(ProtoToArgsParserTest, OverrideForType) {
+  using namespace protozero::test::protos::pbzero;
+  protozero::HeapBuffered<NestedA> msg{kChunkSize, kChunkSize};
+  msg->set_super_nested()->set_value_c(3);
+
+  auto binary_proto = msg.SerializeAsArray();
+
+  DescriptorPool pool;
+  auto status = pool.AddFromFileDescriptorSet(kTestMessagesDescriptor.data(),
+                                              kTestMessagesDescriptor.size());
+  ASSERT_TRUE(status.ok()) << "Failed to parse kTestMessagesDescriptor: "
+                           << status.message();
+
+  ProtoToArgsParser parser(pool);
+
+  parser.AddParsingOverrideForType(
+      ".protozero.test.protos.NestedA.NestedB.NestedC",
+      [](ProtoToArgsParser::ScopedNestedKeyContext&,
+         const protozero::ConstBytes&, Delegate& delegate) {
+        delegate.AddInteger(ProtoToArgsParser::Key("arg"), 42);
+        return base::OkStatus();
+      });
+
+  status = parser.ParseMessage(
+      protozero::ConstBytes{binary_proto.data(), binary_proto.size()},
+      ".protozero.test.protos.NestedA", nullptr, *this);
+  EXPECT_TRUE(status.ok())
+      << "InternProtoFieldsIntoArgsTable failed with error: "
+      << status.message();
+  EXPECT_THAT(args(), testing::ElementsAre("arg arg 42"));
+}
+
+TEST_F(ProtoToArgsParserTest, FieldOverrideTakesPrecedence) {
+  using namespace protozero::test::protos::pbzero;
+  protozero::HeapBuffered<NestedA> msg{kChunkSize, kChunkSize};
+  msg->set_super_nested()->set_value_c(3);
+
+  auto binary_proto = msg.SerializeAsArray();
+
+  DescriptorPool pool;
+  auto status = pool.AddFromFileDescriptorSet(kTestMessagesDescriptor.data(),
+                                              kTestMessagesDescriptor.size());
+  ASSERT_TRUE(status.ok()) << "Failed to parse kTestMessagesDescriptor: "
+                           << status.message();
+
+  ProtoToArgsParser parser(pool);
+
+  parser.AddParsingOverrideForField(
+      "super_nested",
+      [](const protozero::Field&, ProtoToArgsParser::Delegate& writer) {
+        writer.AddString(ProtoToArgsParser::Key("arg"),
+                         ToChars("override-for-field"));
+        return base::OkStatus();
+      });
+
+  parser.AddParsingOverrideForType(
+      ".protozero.test.protos.NestedA.NestedB.NestedC",
+      [](ProtoToArgsParser::ScopedNestedKeyContext&,
+         const protozero::ConstBytes&, Delegate& delegate) {
+        delegate.AddString(ProtoToArgsParser::Key("arg"),
+                           ToChars("override-for-type"));
+        return base::OkStatus();
+      });
+
+  status = parser.ParseMessage(
+      protozero::ConstBytes{binary_proto.data(), binary_proto.size()},
+      ".protozero.test.protos.NestedA", nullptr, *this);
+  EXPECT_TRUE(status.ok())
+      << "InternProtoFieldsIntoArgsTable failed with error: "
+      << status.message();
+  EXPECT_THAT(args(), testing::ElementsAre("arg arg override-for-field"));
+}
+
+TEST_F(ProtoToArgsParserTest, EmptyMessage) {
+  using namespace protozero::test::protos::pbzero;
+  protozero::HeapBuffered<NestedA> msg{kChunkSize, kChunkSize};
+  msg->set_super_nested();
+
+  auto binary_proto = msg.SerializeAsArray();
+
+  DescriptorPool pool;
+  auto status = pool.AddFromFileDescriptorSet(kTestMessagesDescriptor.data(),
+                                              kTestMessagesDescriptor.size());
+  ASSERT_TRUE(status.ok()) << "Failed to parse kTestMessagesDescriptor: "
+                           << status.message();
+
+  ProtoToArgsParser parser(pool);
+  status = parser.ParseMessage(
+      protozero::ConstBytes{binary_proto.data(), binary_proto.size()},
+      ".protozero.test.protos.NestedA", nullptr, *this);
+  EXPECT_TRUE(status.ok())
+      << "InternProtoFieldsIntoArgsTable failed with error: "
+      << status.message();
+  EXPECT_THAT(args(), testing::ElementsAre("super_nested super_nested [NULL]"));
+}
+
+TEST_F(ProtoToArgsParserTest, WidthAndSignednessOfScalars) {
+  using namespace protozero::test::protos::pbzero;
+  protozero::HeapBuffered<EveryField> msg{kChunkSize, kChunkSize};
+
+  // Set fields to values with the top bit set, and check that the parser
+  // retains the full value with the correct sign.
+  msg->set_field_int32(-0x80000000ll);
+  msg->set_field_sint32(-0x80000000ll);
+  msg->set_field_sfixed32(-0x80000000ll);
+
+  msg->set_field_uint32(0x80000000ull);
+  msg->set_field_fixed32(0x80000000ull);
+
+  msg->set_field_int64(-0x7FFFFFFFFFFFFFFFll - 1);
+  msg->set_field_sint64(-0x7FFFFFFFFFFFFFFFll - 1);
+  msg->set_field_sfixed64(-0x7FFFFFFFFFFFFFFFll - 1);
+
+  msg->set_field_uint64(0x8000000000000000ull);
+  msg->set_field_fixed64(0x8000000000000000ull);
+
+  auto binary_proto = msg.SerializeAsArray();
+
+  DescriptorPool pool;
+  auto status = pool.AddFromFileDescriptorSet(kTestMessagesDescriptor.data(),
+                                              kTestMessagesDescriptor.size());
+  ProtoToArgsParser parser(pool);
+  ASSERT_TRUE(status.ok()) << "Failed to parse kTestMessagesDescriptor: "
+                           << status.message();
+
+  status = parser.ParseMessage(
+      protozero::ConstBytes{binary_proto.data(), binary_proto.size()},
+      ".protozero.test.protos.EveryField", nullptr, *this);
+
+  EXPECT_TRUE(status.ok())
+      << "InternProtoFieldsIntoArgsTable failed with error: "
+      << status.message();
+
+  EXPECT_THAT(args(), testing::ElementsAre(
+                          "field_int32 field_int32 -2147483648",
+                          "field_sint32 field_sint32 -2147483648",
+                          "field_sfixed32 field_sfixed32 -2147483648",
+                          "field_uint32 field_uint32 2147483648",
+                          "field_fixed32 field_fixed32 2147483648",
+                          "field_int64 field_int64 -9223372036854775808",
+                          "field_sint64 field_sint64 -9223372036854775808",
+                          "field_sfixed64 field_sfixed64 -9223372036854775808",
+                          "field_uint64 field_uint64 9223372036854775808",
+                          "field_fixed64 field_fixed64 9223372036854775808"));
 }
 
 }  // namespace

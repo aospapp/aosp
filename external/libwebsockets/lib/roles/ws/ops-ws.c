@@ -50,9 +50,6 @@ lws_ws_rx_sm(struct lws *wsi, char already_processed, unsigned char c)
 	pmdrx.eb_out.token = NULL;
 	pmdrx.eb_out.len = 0;
 
-	if (wsi->socket_is_permanently_unusable)
-		return -1;
-
 	switch (wsi->lws_rx_parse_state) {
 	case LWS_RXPS_NEW:
 #if !defined(LWS_WITHOUT_EXTENSIONS)
@@ -156,7 +153,7 @@ handle_first:
 		switch (wsi->ws->opcode) {
 		case LWSWSOPC_TEXT_FRAME:
 			wsi->ws->check_utf8 = lws_check_opt(
-				wsi->context->options,
+				wsi->a.context->options,
 				LWS_SERVER_OPTION_VALIDATE_UTF8);
 			/* fallthru */
 		case LWSWSOPC_BINARY_FRAME:
@@ -278,7 +275,7 @@ handle_first:
 		break;
 
 	case LWS_RXPS_04_FRAME_HDR_LEN16_2:
-		wsi->ws->rx_packet_length = c << 8;
+		wsi->ws->rx_packet_length = (size_t)(c << 8);
 		wsi->lws_rx_parse_state = LWS_RXPS_04_FRAME_HDR_LEN16_1;
 		break;
 
@@ -422,12 +419,12 @@ handle_first:
 		 * if there's no protocol max frame size given, we are
 		 * supposed to default to context->pt_serv_buf_size
 		 */
-		if (!wsi->protocol->rx_buffer_size &&
-		    wsi->ws->rx_ubuf_head != wsi->context->pt_serv_buf_size)
+		if (!wsi->a.protocol->rx_buffer_size &&
+		    wsi->ws->rx_ubuf_head != wsi->a.context->pt_serv_buf_size)
 			break;
 
-		if (wsi->protocol->rx_buffer_size &&
-		    wsi->ws->rx_ubuf_head != wsi->protocol->rx_buffer_size)
+		if (wsi->a.protocol->rx_buffer_size &&
+		    wsi->ws->rx_ubuf_head != wsi->a.protocol->rx_buffer_size)
 			break;
 
 		/* spill because we filled our rx buffer */
@@ -437,7 +434,7 @@ spill:
 		 * layer?  If so service it and hide it from the user callback
 		 */
 
-		lwsl_parser("spill on %s\n", wsi->protocol->name);
+		lwsl_parser("spill on %s\n", wsi->a.protocol->name);
 
 		switch (wsi->ws->opcode) {
 		case LWSWSOPC_CLOSE:
@@ -448,7 +445,7 @@ spill:
 			wsi->ws->peer_has_sent_close = 1;
 
 			pp = &wsi->ws->rx_ubuf[LWS_PRE];
-			if (lws_check_opt(wsi->context->options,
+			if (lws_check_opt(wsi->a.context->options,
 					  LWS_SERVER_OPTION_VALIDATE_UTF8) &&
 			    wsi->ws->rx_ubuf_head > 2 &&
 			    lws_check_utf8(&wsi->ws->utf8, pp + 2,
@@ -481,7 +478,7 @@ spill:
 			}
 
 			if (wsi->ws->rx_ubuf_head >= 2) {
-				close_code = (pp[0] << 8) | pp[1];
+				close_code = (unsigned short)((pp[0] << 8) | pp[1]);
 				if (close_code < 1000 ||
 				    close_code == 1004 ||
 				    close_code == 1005 ||
@@ -498,7 +495,7 @@ spill:
 			}
 
 			if (user_callback_handle_rxflow(
-					wsi->protocol->callback, wsi,
+					wsi->a.protocol->callback, wsi,
 					LWS_CALLBACK_WS_PEER_INITIATED_CLOSE,
 					wsi->user_space,
 					&wsi->ws->rx_ubuf[LWS_PRE],
@@ -515,9 +512,9 @@ spill:
 			lwsl_info("received %d byte ping, sending pong\n",
 						 (int)wsi->ws->rx_ubuf_head);
 
-			if (wsi->ws->ping_pending_flag) {
+			if (wsi->ws->pong_pending_flag) {
 				/*
-				 * there is already a pending ping payload
+				 * there is already a pending pong payload
 				 * we should just log and drop
 				 */
 				lwsl_parser("DROP PING since one pending\n");
@@ -531,12 +528,12 @@ process_as_ping:
 			}
 
 			/* stash the pong payload */
-			memcpy(wsi->ws->ping_payload_buf + LWS_PRE,
+			memcpy(wsi->ws->pong_payload_buf + LWS_PRE,
 			       &wsi->ws->rx_ubuf[LWS_PRE],
 				wsi->ws->rx_ubuf_head);
 
-			wsi->ws->ping_payload_len = wsi->ws->rx_ubuf_head;
-			wsi->ws->ping_pending_flag = 1;
+			wsi->ws->pong_payload_len = (uint8_t)wsi->ws->rx_ubuf_head;
+			wsi->ws->pong_pending_flag = 1;
 
 			/* get it sent as soon as possible */
 			lws_callback_on_writable(wsi);
@@ -582,7 +579,7 @@ ping_drop:
 		 */
 
 		pmdrx.eb_in.token = &wsi->ws->rx_ubuf[LWS_PRE];
-		pmdrx.eb_in.len = wsi->ws->rx_ubuf_head;
+		pmdrx.eb_in.len = (int)wsi->ws->rx_ubuf_head;
 
 		/* for the non-pm-deflate case */
 
@@ -616,7 +613,7 @@ drain_extension:
 			lwsl_debug("%s: ext says %d / ebuf.len %d\n", __func__,
 				   n, pmdrx.eb_out.len);
 			if (wsi->ws->rx_draining_ext)
-				already_processed &= ~ALREADY_PROCESSED_NO_CB;
+				already_processed &= (char)~ALREADY_PROCESSED_NO_CB;
 #endif
 
 			/*
@@ -633,6 +630,7 @@ drain_extension:
 				return -1;
 			}
 			if (n == PMDR_DID_NOTHING)
+				/* ie, not PMDR_NOTHING_WE_SHOULD_DO */
 				break;
 #endif
 			lwsl_debug("%s: post ext ret %d, ebuf in %d / out %d\n",
@@ -661,7 +659,7 @@ drain_extension:
 			    wsi->ws->check_utf8 && !wsi->ws->defeat_check_utf8) {
 				if (lws_check_utf8(&wsi->ws->utf8,
 						   pmdrx.eb_out.token,
-						   pmdrx.eb_out.len)) {
+						   (size_t)pmdrx.eb_out.len)) {
 					lws_close_reason(wsi,
 						LWS_CLOSE_STATUS_INVALID_PAYLOAD,
 						(uint8_t *)"bad utf8", 8);
@@ -683,7 +681,7 @@ drain_extension:
 utf8_fail:
 					lwsl_notice("utf8 error\n");
 					lwsl_hexdump_notice(pmdrx.eb_out.token,
-							    pmdrx.eb_out.len);
+							    (size_t)pmdrx.eb_out.len);
 
 					return -1;
 				}
@@ -693,7 +691,8 @@ utf8_fail:
 
 			if (n == PMDR_DID_NOTHING
 #if !defined(LWS_WITHOUT_EXTENSIONS)
-				       	||
+					||
+			    n == PMDR_NOTHING_WE_SHOULD_DO ||
 			    n == PMDR_UNKNOWN
 #endif
 			    )
@@ -706,19 +705,19 @@ utf8_fail:
 				if (pmdrx.eb_out.len)
 					pmdrx.eb_out.token[pmdrx.eb_out.len] = '\0';
 
-				if (wsi->protocol->callback &&
+				if (wsi->a.protocol->callback &&
 				    !(already_processed & ALREADY_PROCESSED_NO_CB)) {
 					if (callback_action ==
 						      LWS_CALLBACK_RECEIVE_PONG)
 						lwsl_info("Doing pong callback\n");
 
 					ret = user_callback_handle_rxflow(
-						wsi->protocol->callback, wsi,
+						wsi->a.protocol->callback, wsi,
 						(enum lws_callback_reasons)
 							     callback_action,
 						wsi->user_space,
 						pmdrx.eb_out.token,
-						pmdrx.eb_out.len);
+						(size_t)pmdrx.eb_out.len);
 				}
 				wsi->ws->first_fragment = 0;
 			}
@@ -764,7 +763,7 @@ void
 lws_add_wsi_to_draining_ext_list(struct lws *wsi)
 {
 #if !defined(LWS_WITHOUT_EXTENSIONS)
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 
 	if (wsi->ws->rx_draining_ext)
 		return;
@@ -781,7 +780,7 @@ void
 lws_remove_wsi_from_draining_ext_list(struct lws *wsi)
 {
 #if !defined(LWS_WITHOUT_EXTENSIONS)
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 	struct lws **w = &pt->ws.rx_draining_ext_list;
 
 	if (!wsi->ws->rx_draining_ext)
@@ -836,21 +835,21 @@ lws_server_init_wsi_for_ws(struct lws *wsi)
 	 * a big default for compatibility
 	 */
 
-	n = (int)wsi->protocol->rx_buffer_size;
+	n = (int)wsi->a.protocol->rx_buffer_size;
 	if (!n)
-		n = wsi->context->pt_serv_buf_size;
+		n = (int)wsi->a.context->pt_serv_buf_size;
 	n += LWS_PRE;
-	wsi->ws->rx_ubuf = lws_malloc(n + 4 /* 0x0000ffff zlib */, "rx_ubuf");
+	wsi->ws->rx_ubuf = lws_malloc((unsigned int)n + 4 /* 0x0000ffff zlib */, "rx_ubuf");
 	if (!wsi->ws->rx_ubuf) {
 		lwsl_err("Out of Mem allocating rx buffer %d\n", n);
 		return 1;
 	}
-	wsi->ws->rx_ubuf_alloc = n;
+	wsi->ws->rx_ubuf_alloc = (uint32_t)n;
 
 	/* notify user code that we're ready to roll */
 
-	if (wsi->protocol->callback)
-		if (wsi->protocol->callback(wsi, LWS_CALLBACK_ESTABLISHED,
+	if (wsi->a.protocol->callback)
+		if (wsi->a.protocol->callback(wsi, LWS_CALLBACK_ESTABLISHED,
 					    wsi->user_space,
 #ifdef LWS_WITH_TLS
 					    wsi->tls.ssl,
@@ -917,14 +916,14 @@ lws_close_reason(struct lws *wsi, enum lws_close_status status,
 
 	start = p = &wsi->ws->ping_payload_buf[LWS_PRE];
 
-	*p++ = (((int)status) >> 8) & 0xff;
-	*p++ = ((int)status) & 0xff;
+	*p++ = (uint8_t)((((int)status) >> 8) & 0xff);
+	*p++ = (uint8_t)(((int)status) & 0xff);
 
 	if (buf)
 		while (len-- && p < start + budget)
 			*p++ = *buf++;
 
-	wsi->ws->close_in_ping_buffer_len = lws_ptr_diff(p, start);
+	wsi->ws->close_in_ping_buffer_len = (uint8_t)lws_ptr_diff(p, start);
 }
 
 static int
@@ -944,7 +943,7 @@ rops_handle_POLLIN_ws(struct lws_context_per_thread *pt, struct lws *wsi,
 	unsigned int pending = 0;
 	struct lws_tokens ebuf;
 	char buffered = 0;
-	int n = 0, m;
+	int n = 0, m, sanity = 10;
 #if defined(LWS_WITH_HTTP2)
 	struct lws *wsi1;
 #endif
@@ -954,7 +953,7 @@ rops_handle_POLLIN_ws(struct lws_context_per_thread *pt, struct lws *wsi,
 		return LWS_HPI_RET_PLEASE_CLOSE_ME;
 	}
 
-	// lwsl_notice("%s: %s\n", __func__, wsi->protocol->name);
+	// lwsl_notice("%s: %s\n", __func__, wsi->a.protocol->name);
 
 	//lwsl_info("%s: wsistate 0x%x, pollout %d\n", __func__,
 	//	   wsi->wsistate, pollfd->revents & LWS_POLLOUT);
@@ -979,7 +978,7 @@ rops_handle_POLLIN_ws(struct lws_context_per_thread *pt, struct lws *wsi,
 			return LWS_HPI_RET_PLEASE_CLOSE_ME;
 		}
 
-		n = lws_client_socket_service(wsi, pollfd);
+		n = lws_http_client_socket_service(wsi, pollfd);
 		if (n)
 			return LWS_HPI_RET_WSI_ALREADY_DIED;
 #endif
@@ -1121,19 +1120,19 @@ read:
 		buffered = 0;
 		ebuf.token = pt->serv_buf;
 		if (lwsi_role_ws(wsi))
-			ebuf.len = wsi->ws->rx_ubuf_alloc;
+			ebuf.len = (int)wsi->ws->rx_ubuf_alloc;
 		else
-			ebuf.len = wsi->context->pt_serv_buf_size;
+			ebuf.len = (int)wsi->a.context->pt_serv_buf_size;
 
-		if ((unsigned int)ebuf.len > wsi->context->pt_serv_buf_size)
-			ebuf.len = wsi->context->pt_serv_buf_size;
+		if ((unsigned int)ebuf.len > wsi->a.context->pt_serv_buf_size)
+			ebuf.len = (int)wsi->a.context->pt_serv_buf_size;
 
 		if ((int)pending > ebuf.len)
-			pending = ebuf.len;
+			pending = (unsigned int)ebuf.len;
 
 		ebuf.len = lws_ssl_capable_read(wsi, ebuf.token,
-						pending ? (int)pending :
-						ebuf.len);
+						(size_t)(pending ? pending :
+						(unsigned int)ebuf.len));
 		switch (ebuf.len) {
 		case 0:
 			lwsl_info("%s: zero length read\n",
@@ -1173,16 +1172,16 @@ drain:
 
 		/* service incoming data */
 		//lws_buflist_describe(&wsi->buflist, wsi, __func__);
-		if (ebuf.len) {
+		if (ebuf.len > 0) {
 #if defined(LWS_ROLE_H2)
 			if (lwsi_role_h2(wsi) && lwsi_state(wsi) != LRS_BODY &&
 			    lwsi_state(wsi) != LRS_DISCARD_BODY)
 				n = lws_read_h2(wsi, ebuf.token,
-					     ebuf.len);
+					     (unsigned int)ebuf.len);
 			else
 #endif
 				n = lws_read_h1(wsi, ebuf.token,
-					     ebuf.len);
+					     (unsigned int)ebuf.len);
 
 			if (n < 0) {
 				/* we closed wsi */
@@ -1190,7 +1189,8 @@ drain:
 			}
 			//lws_buflist_describe(&wsi->buflist, wsi, __func__);
 			//lwsl_notice("%s: consuming %d / %d\n", __func__, n, ebuf.len);
-			if (lws_buflist_aware_finished_consuming(wsi, &ebuf, n,
+			if (ebuf.len < 0 ||
+			    lws_buflist_aware_finished_consuming(wsi, &ebuf, n,
 							buffered, __func__))
 				return LWS_HPI_RET_PLEASE_CLOSE_ME;
 		}
@@ -1208,15 +1208,29 @@ drain:
 		lws_header_table_detach(wsi, 0);
 	}
 
-	pending = lws_ssl_pending(wsi);
+	pending = (unsigned int)lws_ssl_pending(wsi);
+
+#if defined(LWS_WITH_CLIENT)
+	if (!pending && (wsi->flags & LCCSCF_PRIORITIZE_READS) &&
+	    lws_buflist_total_len(&wsi->buflist))
+		pending = 9999999;
+#endif
+
 	if (pending) {
 		if (lws_is_ws_with_ext(wsi))
 			pending = pending > wsi->ws->rx_ubuf_alloc ?
 				wsi->ws->rx_ubuf_alloc : pending;
 		else
-			pending = pending > wsi->context->pt_serv_buf_size ?
-				wsi->context->pt_serv_buf_size : pending;
-		goto read;
+			pending = pending > wsi->a.context->pt_serv_buf_size ?
+				wsi->a.context->pt_serv_buf_size : pending;
+		if (--sanity)
+			goto read;
+		else
+			/*
+			 * Something has gone wrong, we are spinning...
+			 * let's bail on this connection
+			 */
+			return LWS_HPI_RET_PLEASE_CLOSE_ME;
 	}
 
 	if (buffered && /* were draining, now nothing left */
@@ -1246,7 +1260,7 @@ int rops_handle_POLLOUT_ws(struct lws *wsi)
 
 #if !defined(LWS_WITHOUT_EXTENSIONS)
 	lwsl_debug("%s: %s: wsi->ws->tx_draining_ext %d\n", __func__,
-			wsi->protocol->name, wsi->ws->tx_draining_ext);
+			wsi->a.protocol->name, wsi->ws->tx_draining_ext);
 #endif
 
 	/* Priority 3: pending control packets (pong or close)
@@ -1280,7 +1294,7 @@ int rops_handle_POLLOUT_ws(struct lws *wsi)
 
 	/* else, the send failed and we should just hang up */
 
-	if ((lwsi_role_ws(wsi) && wsi->ws->ping_pending_flag) ||
+	if ((lwsi_role_ws(wsi) && wsi->ws->pong_pending_flag) ||
 	    (lwsi_state(wsi) == LRS_RETURNED_CLOSE &&
 	     wsi->ws->payload_is_close)) {
 
@@ -1289,20 +1303,20 @@ int rops_handle_POLLOUT_ws(struct lws *wsi)
 		else {
 			if (wsi->wsistate_pre_close) {
 				/* we started close flow, forget pong */
-				wsi->ws->ping_pending_flag = 0;
+				wsi->ws->pong_pending_flag = 0;
 				return LWS_HP_RET_BAIL_OK;
 			}
-			lwsl_info("issuing pong %d on wsi %p\n",
-				  wsi->ws->ping_payload_len, wsi);
+			lwsl_info("issuing pong %d on %s\n",
+				  wsi->ws->pong_payload_len, lws_wsi_tag(wsi));
 		}
 
-		n = lws_write(wsi, &wsi->ws->ping_payload_buf[LWS_PRE],
-			      wsi->ws->ping_payload_len, write_type);
+		n = lws_write(wsi, &wsi->ws->pong_payload_buf[LWS_PRE],
+			      wsi->ws->pong_payload_len, (enum lws_write_protocol)write_type);
 		if (n < 0)
 			return LWS_HP_RET_BAIL_DIE;
 
 		/* well he is sent, mark him done */
-		wsi->ws->ping_pending_flag = 0;
+		wsi->ws->pong_pending_flag = 0;
 		if (wsi->ws->payload_is_close) {
 			// assert(0);
 			/* oh... a close frame was it... then we are done */
@@ -1316,8 +1330,9 @@ int rops_handle_POLLOUT_ws(struct lws *wsi)
 	if (!wsi->socket_is_permanently_unusable &&
 	    wsi->ws->send_check_ping) {
 
-		lwsl_info("%s: issuing ping on wsi %p: %s %s h2: %d\n", __func__, wsi,
-				wsi->role_ops->name, wsi->protocol->name,
+		lwsl_info("%s: issuing ping on wsi %s: %s %s h2: %d\n", __func__,
+				lws_wsi_tag(wsi),
+				wsi->role_ops->name, wsi->a.protocol->name,
 				wsi->mux_substream);
 		wsi->ws->send_check_ping = 0;
 		n = lws_write(wsi, &wsi->ws->ping_payload_buf[LWS_PRE],
@@ -1400,7 +1415,7 @@ int rops_handle_POLLOUT_ws(struct lws *wsi)
 
 		if (pmdrx.eb_in.len) {
 			n = lws_issue_raw(wsi, (unsigned char *)pmdrx.eb_in.token,
-					pmdrx.eb_in.len);
+					(unsigned int)pmdrx.eb_in.len);
 			if (n < 0) {
 				lwsl_info("closing from POLLOUT spill\n");
 				return LWS_HP_RET_BAIL_DIE;
@@ -1464,8 +1479,9 @@ rops_service_flag_pending_ws(struct lws_context *context, int tsi)
 	 */
 	wsi = pt->ws.rx_draining_ext_list;
 	while (wsi && wsi->position_in_fds_table != LWS_NO_FDS_POS) {
-		pt->fds[wsi->position_in_fds_table].revents |=
-			pt->fds[wsi->position_in_fds_table].events & LWS_POLLIN;
+		pt->fds[wsi->position_in_fds_table].revents =
+			(short)((short)pt->fds[wsi->position_in_fds_table].revents |
+			(short)(pt->fds[wsi->position_in_fds_table].events & LWS_POLLIN));
 		if (pt->fds[wsi->position_in_fds_table].revents & LWS_POLLIN)
 			forced = 1;
 
@@ -1549,8 +1565,8 @@ rops_close_role_ws(struct lws_context_per_thread *pt, struct lws *wsi)
 #endif
 	lws_free_set_NULL(wsi->ws->rx_ubuf);
 
-	wsi->ws->ping_payload_len = 0;
-	wsi->ws->ping_pending_flag = 0;
+	wsi->ws->pong_payload_len = 0;
+	wsi->ws->pong_pending_flag = 0;
 
 	/* deallocate any active extension contexts */
 
@@ -1565,7 +1581,7 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 			    enum lws_write_protocol *wp)
 {
 #if !defined(LWS_WITHOUT_EXTENSIONS)
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 	enum lws_write_protocol wpt;
 #endif
 	struct lws_ext_pm_deflate_rx_ebufs pmdrx;
@@ -1604,7 +1620,7 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 		 */
 
 		if (!(wpt & LWS_WRITE_NO_FIN) && len)
-			*wp &= ~LWS_WRITE_NO_FIN;
+			*wp &= (enum lws_write_protocol)~LWS_WRITE_NO_FIN;
 
 		lwsl_ext("FORCED draining wp to 0x%02X "
 			 "(stashed 0x%02X, incoming 0x%02X)\n", *wp,
@@ -1658,7 +1674,7 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 		break;
 	default:
 #if !defined(LWS_WITHOUT_EXTENSIONS)
-		n = lws_ext_cb_active(wsi, LWS_EXT_CB_PAYLOAD_TX, &pmdrx, *wp);
+		n = lws_ext_cb_active(wsi, (int)LWS_EXT_CB_PAYLOAD_TX, &pmdrx, (int)*wp);
 		if (n < 0)
 			return -1;
 		lwsl_ext("%s: defl ext ret %d, ext in remaining %d, "
@@ -1683,7 +1699,7 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 			 * action that has provoked generation of these
 			 * fragments, so the last guy can use its FIN state.
 			 */
-			wsi->ws->tx_draining_stashed_wp = *wp;
+			wsi->ws->tx_draining_stashed_wp = (uint8_t)*wp;
 			/*
 			 * Despite what we may have thought, this is definitely
 			 * NOT the last fragment, because the extension asserted
@@ -1699,7 +1715,7 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 #endif
 		if (pmdrx.eb_out.len && wsi->ws->stashed_write_pending) {
 			wsi->ws->stashed_write_pending = 0;
-			*wp = ((*wp) & 0xc0) | (int)wsi->ws->stashed_write_type;
+			*wp = (unsigned int)(((*wp) & 0xc0) | (unsigned int)wsi->ws->stashed_write_type);
 		}
 	}
 
@@ -1729,7 +1745,7 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 	}
 
 	buf = pmdrx.eb_out.token;
-	len = pmdrx.eb_out.len;
+	len = (unsigned int)pmdrx.eb_out.len;
 
 	if (!buf) {
 		lwsl_err("null buf (%d)\n", (int)len);
@@ -1774,24 +1790,24 @@ rops_write_role_protocol_ws(struct lws *wsi, unsigned char *buf, size_t len,
 
 		if (len < 126) {
 			pre += 2;
-			buf[-pre] = n;
+			buf[-pre] = (uint8_t)n;
 			buf[-pre + 1] = (unsigned char)(len | is_masked_bit);
 		} else {
 			if (len < 65536) {
 				pre += 4;
-				buf[-pre] = n;
-				buf[-pre + 1] = 126 | is_masked_bit;
+				buf[-pre] = (uint8_t)n;
+				buf[-pre + 1] = (uint8_t)(126 | is_masked_bit);
 				buf[-pre + 2] = (unsigned char)(len >> 8);
 				buf[-pre + 3] = (unsigned char)len;
 			} else {
 				pre += 10;
-				buf[-pre] = n;
-				buf[-pre + 1] = 127 | is_masked_bit;
+				buf[-pre] = (uint8_t)n;
+				buf[-pre + 1] = (uint8_t)(127 | is_masked_bit);
 #if defined __LP64__
 					buf[-pre + 2] = (len >> 56) & 0x7f;
-					buf[-pre + 3] = len >> 48;
-					buf[-pre + 4] = len >> 40;
-					buf[-pre + 5] = len >> 32;
+					buf[-pre + 3] = (uint8_t)(len >> 48);
+					buf[-pre + 4] = (uint8_t)(len >> 40);
+					buf[-pre + 5] = (uint8_t)(len >> 32);
 #else
 					buf[-pre + 2] = 0;
 					buf[-pre + 3] = 0;
@@ -1838,8 +1854,11 @@ do_more_inside_frame:
 		struct lws *encap = lws_get_network_wsi(wsi);
 
 		assert(encap != wsi);
-		return encap->role_ops->write_role_protocol(wsi, buf - pre,
-							    len + pre, wp);
+
+		return lws_rops_func_fidx(encap->role_ops,
+				   LWS_ROPS_write_role_protocol).
+					write_role_protocol(wsi, buf - pre,
+							    len + (unsigned int)pre, wp);
 	}
 
 	switch ((*wp) & 0x1f) {
@@ -1871,7 +1890,7 @@ do_more_inside_frame:
 			 * consumed.
 			 */
 
-			n = lws_issue_raw_ext_access(wsi, buf - pre, len + pre);
+			n = lws_issue_raw_ext_access(wsi, buf - pre, len + (unsigned int)pre);
 			wsi->ws->inside_frame = 1;
 			if (n <= 0)
 				return n;
@@ -1898,7 +1917,7 @@ do_more_inside_frame:
 	}
 
 send_raw:
-	return lws_issue_raw(wsi, (unsigned char *)buf - pre, len + pre);
+	return lws_issue_raw(wsi, (unsigned char *)buf - pre, len + (unsigned int)pre);
 }
 
 static int
@@ -1907,7 +1926,9 @@ rops_close_kill_connection_ws(struct lws *wsi, enum lws_close_status reason)
 	/* deal with ws encapsulation in h2 */
 #if defined(LWS_WITH_HTTP2)
 	if (wsi->mux_substream && wsi->h2_stream_carries_ws)
-		return role_ops_h2.close_kill_connection(wsi, reason);
+		return lws_rops_func_fidx(&role_ops_h2,
+				   LWS_ROPS_close_kill_connection).
+				close_kill_connection(wsi, reason);
 
 	return 0;
 #else
@@ -1921,10 +1942,14 @@ rops_callback_on_writable_ws(struct lws *wsi)
 #if defined(LWS_WITH_HTTP2)
 	if (lwsi_role_h2_ENCAPSULATION(wsi)) {
 		/* we know then that it has an h2 parent */
-		struct lws *enc = role_ops_h2.encapsulation_parent(wsi);
+		struct lws *enc = lws_rops_func_fidx(&role_ops_h2,
+						     LWS_ROPS_encapsulation_parent).
+						     encapsulation_parent(wsi);
 
 		assert(enc);
-		if (enc->role_ops->callback_on_writable(wsi))
+		if (lws_rops_func_fidx(enc->role_ops,
+				       LWS_ROPS_callback_on_writable).
+						callback_on_writable(wsi))
 			return 1;
 	}
 #endif
@@ -1951,20 +1976,23 @@ rops_init_vhost_ws(struct lws_vhost *vh,
 		 * ones that came from plugins
 		 */
 		vh->ws.extensions = lws_zalloc(sizeof(struct lws_extension) *
-				     (m + vh->context->plugin_extension_count + 1),
+				     (unsigned int)(m + vh->context->plugin_extension_count + 1),
 				     "extensions");
 		if (!vh->ws.extensions)
 			return 1;
 
 		memcpy((struct lws_extension *)vh->ws.extensions, info->extensions,
-		       sizeof(struct lws_extension) * m);
+		       sizeof(struct lws_extension) * (unsigned int)m);
 		plugin = vh->context->plugin_list;
 		while (plugin) {
+			const lws_plugin_protocol_t *plpr =
+				(const lws_plugin_protocol_t *)plugin->hdr;
+
 			memcpy((struct lws_extension *)&vh->ws.extensions[m],
-				plugin->caps.extensions,
+				plpr->extensions,
 			       sizeof(struct lws_extension) *
-			       plugin->caps.count_extensions);
-			m += plugin->caps.count_extensions;
+			       (unsigned int)plpr->count_extensions);
+			m += plpr->count_extensions;
 			plugin = plugin->list;
 		}
 	} else
@@ -2018,10 +2046,13 @@ rops_issue_keepalive_ws(struct lws *wsi, int isvalid)
 #if defined(LWS_WITH_HTTP2)
 	if (lwsi_role_h2_ENCAPSULATION(wsi)) {
 		/* we know then that it has an h2 parent */
-		struct lws *enc = role_ops_h2.encapsulation_parent(wsi);
+		struct lws *enc = lws_rops_func_fidx(&role_ops_h2,
+						     LWS_ROPS_encapsulation_parent).
+						     encapsulation_parent(wsi);
 
 		assert(enc);
-		if (enc->role_ops->issue_keepalive(enc, isvalid))
+		if (lws_rops_func_fidx(enc->role_ops, LWS_ROPS_issue_keepalive).
+						  issue_keepalive(enc, isvalid))
 			return 1;
 	}
 #endif
@@ -2029,7 +2060,7 @@ rops_issue_keepalive_ws(struct lws *wsi, int isvalid)
 	if (isvalid)
 		_lws_validity_confirmed_role(wsi);
 	else {
-		us = lws_now_usecs();
+		us = (uint64_t)lws_now_usecs();
 		memcpy(&wsi->ws->ping_payload_buf[LWS_PRE], &us, 8);
 		wsi->ws->send_check_ping = 1;
 		lws_callback_on_writable(wsi);
@@ -2038,29 +2069,49 @@ rops_issue_keepalive_ws(struct lws *wsi, int isvalid)
 	return 0;
 }
 
+static const lws_rops_t rops_table_ws[] = {
+	/*  1 */ { .init_vhost		    = rops_init_vhost_ws },
+	/*  2 */ { .destroy_vhost	    = rops_destroy_vhost_ws },
+	/*  3 */ { .service_flag_pending    = rops_service_flag_pending_ws },
+	/*  4 */ { .handle_POLLIN	    = rops_handle_POLLIN_ws },
+	/*  5 */ { .handle_POLLOUT	    = rops_handle_POLLOUT_ws },
+	/*  6 */ { .callback_on_writable    = rops_callback_on_writable_ws },
+	/*  7 */ { .write_role_protocol	    = rops_write_role_protocol_ws },
+	/*  8 */ { .close_via_role_protocol = rops_close_via_role_protocol_ws },
+	/*  9 */ { .close_role		    = rops_close_role_ws },
+	/* 10 */ { .close_kill_connection   = rops_close_kill_connection_ws },
+	/* 11 */ { .destroy_role	    = rops_destroy_role_ws },
+	/* 12 */ { .issue_keepalive	    = rops_issue_keepalive_ws },
+};
+
 const struct lws_role_ops role_ops_ws = {
 	/* role name */			"ws",
 	/* alpn id */			NULL,
-	/* check_upgrades */		NULL,
-	/* pt_init_destroy */		NULL,
-	/* init_vhost */		rops_init_vhost_ws,
-	/* destroy_vhost */		rops_destroy_vhost_ws,
-	/* service_flag_pending */	rops_service_flag_pending_ws,
-	/* handle_POLLIN */		rops_handle_POLLIN_ws,
-	/* handle_POLLOUT */		rops_handle_POLLOUT_ws,
-	/* perform_user_POLLOUT */	NULL,
-	/* callback_on_writable */	rops_callback_on_writable_ws,
-	/* tx_credit */			NULL,
-	/* write_role_protocol */	rops_write_role_protocol_ws,
-	/* encapsulation_parent */	NULL,
-	/* alpn_negotiated */		NULL,
-	/* close_via_role_protocol */	rops_close_via_role_protocol_ws,
-	/* close_role */		rops_close_role_ws,
-	/* close_kill_connection */	rops_close_kill_connection_ws,
-	/* destroy_role */		rops_destroy_role_ws,
-	/* adoption_bind */		NULL,
-	/* client_bind */		NULL,
-	/* issue_keepalive */		rops_issue_keepalive_ws,
+
+	/* rops_table */		rops_table_ws,
+	/* rops_idx */			{
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x00,
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x12,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x34,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x50,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x60,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x70,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x08,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x9a,
+	  /* LWS_ROPS_destroy_role */
+	  /* LWS_ROPS_adoption_bind */			0xb0,
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x0c,
+					},
+
 	/* adoption_cb clnt, srv */	{ LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED,
 					  LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED },
 	/* rx_cb clnt, srv */		{ LWS_CALLBACK_CLIENT_RECEIVE,

@@ -259,7 +259,7 @@ static bool ssl_write_client_cipher_list(SSL_HANDSHAKE *hs, CBB *out) {
         continue;
       }
       any_enabled = true;
-      if (!CBB_add_u16(&child, ssl_cipher_get_value(cipher))) {
+      if (!CBB_add_u16(&child, SSL_CIPHER_get_protocol_id(cipher))) {
         return false;
       }
     }
@@ -358,8 +358,7 @@ static bool parse_supported_versions(SSL_HANDSHAKE *hs, uint16_t *version,
 
   uint8_t alert = SSL_AD_DECODE_ERROR;
   if (!ssl_parse_extensions(&extensions, &alert, ext_types,
-                            OPENSSL_ARRAY_SIZE(ext_types),
-                            1 /* ignore unknown */)) {
+                            /*ignore_unknown=*/true)) {
     ssl_send_alert(ssl, SSL3_AL_FATAL, alert);
     return false;
   }
@@ -460,8 +459,8 @@ static enum ssl_hs_wait_t do_enter_early_data(SSL_HANDSHAKE *hs) {
   }
 
   if (!tls13_init_early_key_schedule(
-          hs, MakeConstSpan(ssl->session->master_key,
-                            ssl->session->master_key_length)) ||
+          hs,
+          MakeConstSpan(ssl->session->secret, ssl->session->secret_length)) ||
       !tls13_derive_early_secret(hs)) {
     return ssl_hs_error;
   }
@@ -637,12 +636,9 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
             .subspan(SSL3_RANDOM_SIZE - sizeof(kTLS13DowngradeRandom));
     if (suffix == kTLS12DowngradeRandom || suffix == kTLS13DowngradeRandom ||
         suffix == kJDK11DowngradeRandom) {
-      ssl->s3->tls13_downgrade = true;
-      if (!hs->config->ignore_tls13_downgrade) {
-        OPENSSL_PUT_ERROR(SSL, SSL_R_TLS13_DOWNGRADE);
-        ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
-        return ssl_hs_error;
-      }
+      OPENSSL_PUT_ERROR(SSL, SSL_R_TLS13_DOWNGRADE);
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
+      return ssl_hs_error;
     }
   }
 
@@ -1411,9 +1407,9 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  hs->new_session->master_key_length =
-      tls1_generate_master_secret(hs, hs->new_session->master_key, pms);
-  if (hs->new_session->master_key_length == 0) {
+  hs->new_session->secret_length =
+      tls1_generate_master_secret(hs, hs->new_session->secret, pms);
+  if (hs->new_session->secret_length == 0) {
     return ssl_hs_error;
   }
   hs->new_session->extended_master_secret = hs->extended_master_secret;
@@ -1551,18 +1547,12 @@ static bool can_false_start(const SSL_HANDSHAKE *hs) {
   //
   // Now that TLS 1.3 exists, we would like to avoid similar attacks between
   // TLS 1.2 and TLS 1.3, but there are too many TLS 1.2 deployments to
-  // sacrifice False Start on them. TLS 1.3's downgrade signal fixes this, but
-  // |SSL_CTX_set_ignore_tls13_downgrade| can disable it due to compatibility
-  // issues.
-  //
-  // |SSL_CTX_set_ignore_tls13_downgrade| normally still retains Finished-based
-  // downgrade protection, but False Start bypasses that. Thus, we disable False
-  // Start based on the TLS 1.3 downgrade signal, even if otherwise unenforced.
+  // sacrifice False Start on them. Instead, we rely on the ServerHello.random
+  // downgrade signal, which we unconditionally enforce.
   if (SSL_is_dtls(ssl) ||
       SSL_version(ssl) != TLS1_2_VERSION ||
       hs->new_cipher->algorithm_mkey != SSL_kECDHE ||
-      hs->new_cipher->algorithm_mac != SSL_AEAD ||
-      ssl->s3->tls13_downgrade) {
+      hs->new_cipher->algorithm_mac != SSL_AEAD) {
     return false;
   }
 

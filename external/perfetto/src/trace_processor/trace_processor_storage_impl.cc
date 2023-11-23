@@ -17,15 +17,17 @@
 #include "src/trace_processor/trace_processor_storage_impl.h"
 
 #include "perfetto/base/logging.h"
+#include "perfetto/ext/base/uuid.h"
 #include "src/trace_processor/forwarding_trace_parser.h"
 #include "src/trace_processor/importers/chrome_track_event.descriptor.h"
 #include "src/trace_processor/importers/common/args_tracker.h"
+#include "src/trace_processor/importers/common/args_translation_table.h"
 #include "src/trace_processor/importers/common/clock_tracker.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
 #include "src/trace_processor/importers/common/flow_tracker.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
 #include "src/trace_processor/importers/common/slice_tracker.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
+#include "src/trace_processor/importers/common/slice_translation_table.h"
 #include "src/trace_processor/importers/common/track_tracker.h"
 #include "src/trace_processor/importers/default_modules.h"
 #include "src/trace_processor/importers/proto/async_track_set_tracker.h"
@@ -49,7 +51,11 @@ TraceProcessorStorageImpl::TraceProcessorStorageImpl(const Config& cfg) {
   context_.track_tracker.reset(new TrackTracker(&context_));
   context_.async_track_set_tracker.reset(new AsyncTrackSetTracker(&context_));
   context_.args_tracker.reset(new ArgsTracker(&context_));
+  context_.args_translation_table.reset(
+      new ArgsTranslationTable(context_.storage.get()));
   context_.slice_tracker.reset(new SliceTracker(&context_));
+  context_.slice_translation_table.reset(
+      new SliceTranslationTable(context_.storage.get()));
   context_.flow_tracker.reset(new FlowTracker(&context_));
   context_.event_tracker.reset(new EventTracker(&context_));
   context_.process_tracker.reset(new ProcessTracker(&context_));
@@ -82,9 +88,8 @@ TraceProcessorStorageImpl::TraceProcessorStorageImpl(const Config& cfg) {
 
 TraceProcessorStorageImpl::~TraceProcessorStorageImpl() {}
 
-util::Status TraceProcessorStorageImpl::Parse(std::unique_ptr<uint8_t[]> data,
-                                              size_t size) {
-  if (size == 0)
+util::Status TraceProcessorStorageImpl::Parse(TraceBlobView blob) {
+  if (blob.size() == 0)
     return util::OkStatus();
   if (unrecoverable_parse_error_)
     return util::ErrStatus(
@@ -94,7 +99,20 @@ util::Status TraceProcessorStorageImpl::Parse(std::unique_ptr<uint8_t[]> data,
 
   auto scoped_trace = context_.storage->TraceExecutionTimeIntoStats(
       stats::parse_trace_duration_ns);
-  util::Status status = context_.chunk_reader->Parse(std::move(data), size);
+
+  if (hash_input_size_remaining_ > 0 && !context_.uuid_found_in_trace) {
+    const size_t hash_size = std::min(hash_input_size_remaining_, blob.size());
+    hash_input_size_remaining_ -= hash_size;
+
+    trace_hash_.Update(reinterpret_cast<const char*>(blob.data()), hash_size);
+    base::Uuid uuid(static_cast<int64_t>(trace_hash_.digest()), 0);
+    const StringId id_for_uuid =
+        context_.storage->InternString(base::StringView(uuid.ToPrettyString()));
+    context_.metadata_tracker->SetMetadata(metadata::trace_uuid,
+                                           Variadic::String(id_for_uuid));
+  }
+
+  util::Status status = context_.chunk_reader->Parse(std::move(blob));
   unrecoverable_parse_error_ |= !status.ok();
   return status;
 }

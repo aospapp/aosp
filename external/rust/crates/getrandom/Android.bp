@@ -37,12 +37,18 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "getrandom_defaults",
+rust_test {
+    name: "getrandom_test_src_lib",
+    host_supported: true,
     crate_name: "getrandom",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.5",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2018",
     features: ["std"],
     rustlibs: [
@@ -51,22 +57,11 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "getrandom_host_test_src_lib",
-    defaults: ["getrandom_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "getrandom_device_test_src_lib",
-    defaults: ["getrandom_defaults"],
-}
-
 rust_defaults {
-    name: "getrandom_defaults_getrandom",
+    name: "getrandom_test_defaults",
     crate_name: "getrandom",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.5",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -78,24 +73,10 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "getrandom_host_test_tests_custom",
-    defaults: ["getrandom_defaults_getrandom"],
-    srcs: ["tests/custom.rs"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
 rust_test {
-    name: "getrandom_device_test_tests_custom",
-    defaults: ["getrandom_defaults_getrandom"],
-    srcs: ["tests/custom.rs"],
-}
-
-rust_test_host {
-    name: "getrandom_host_test_tests_normal",
-    defaults: ["getrandom_defaults_getrandom"],
+    name: "getrandom_test_tests_normal",
+    defaults: ["getrandom_test_defaults"],
+    host_supported: true,
     srcs: ["tests/normal.rs"],
     test_options: {
         unit_test: true,
@@ -103,30 +84,21 @@ rust_test_host {
 }
 
 rust_test {
-    name: "getrandom_device_test_tests_normal",
-    defaults: ["getrandom_defaults_getrandom"],
-    srcs: ["tests/normal.rs"],
-}
-
-rust_test_host {
-    name: "getrandom_host_test_tests_rdrand",
-    defaults: ["getrandom_defaults_getrandom"],
+    name: "getrandom_test_tests_rdrand",
+    defaults: ["getrandom_test_defaults"],
+    host_supported: true,
     srcs: ["tests/rdrand.rs"],
     test_options: {
         unit_test: true,
     },
-}
-
-rust_test {
-    name: "getrandom_device_test_tests_rdrand",
-    defaults: ["getrandom_defaults_getrandom"],
-    srcs: ["tests/rdrand.rs"],
 }
 
 rust_library {
     name: "libgetrandom",
     host_supported: true,
     crate_name: "getrandom",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.5",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: ["std"],
@@ -139,7 +111,3 @@ rust_library {
         "com.android.virt",
     ],
 }
-
-// dependent_library ["feature_list"]
-//   cfg-if-1.0.0
-//   libc-0.2.97

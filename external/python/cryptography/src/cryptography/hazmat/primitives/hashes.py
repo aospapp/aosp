@@ -10,8 +10,11 @@ import six
 
 from cryptography import utils
 from cryptography.exceptions import (
-    AlreadyFinalized, UnsupportedAlgorithm, _Reasons
+    AlreadyFinalized,
+    UnsupportedAlgorithm,
+    _Reasons,
 )
+from cryptography.hazmat.backends import _get_backend
 from cryptography.hazmat.backends.interfaces import HashBackend
 
 
@@ -66,11 +69,12 @@ class ExtendableOutputFunction(object):
 
 @utils.register_interface(HashContext)
 class Hash(object):
-    def __init__(self, algorithm, backend, ctx=None):
+    def __init__(self, algorithm, backend=None, ctx=None):
+        backend = _get_backend(backend)
         if not isinstance(backend, HashBackend):
             raise UnsupportedAlgorithm(
                 "Backend object does not implement HashBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE
+                _Reasons.BACKEND_MISSING_INTERFACE,
             )
 
         if not isinstance(algorithm, HashAlgorithm):

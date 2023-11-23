@@ -288,12 +288,16 @@ cc_library_shared {
     },
 }
 
-subdirs = [
-    "lib",
-    "soong",
-    "utils/TableGen",
-    "tools/clang-check",
-    "tools/clang-format",
-    "tools/driver",
-    "tools/libclang",
-]
+genrule {
+    name: "renderscript-clang-include",
+    visibility: ["//development/build"],
+    tools: ["soong_zip"],
+    cmd: "$(location soong_zip) -o $(out) -P renderscript/clang-include " +
+        "-C $$(dirname $(location LICENSE.TXT))/lib/Headers -D $$(dirname $(location LICENSE.TXT))/lib/Headers " +
+        "-C $$(dirname $(location LICENSE.TXT)) -f $(location LICENSE.TXT)",
+    srcs: [
+        "lib/Headers/**/*",
+        "LICENSE.TXT",
+    ],
+    out: ["clang-include.zip"],
+}

@@ -145,6 +145,21 @@
 //!
 //! <br>
 
+#![allow(
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::doc_markdown,
+    clippy::enum_glob_use,
+    clippy::from_iter_instead_of_collect,
+    clippy::module_name_repetitions,
+    clippy::must_use_candidate,
+    clippy::needless_doctest_main,
+    clippy::needless_pass_by_value,
+    clippy::redundant_else,
+    clippy::toplevel_ref_arg,
+    clippy::unreadable_literal
+)]
+
 extern crate proc_macro;
 
 mod attr;
@@ -166,9 +181,9 @@ use proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, Tok
 use std::iter::FromIterator;
 
 // ANDROID: Soong is providing the version of rustc via an env variable.
-const ANDROID_RUSTVERSION: &str = env!("ANDROID_RUST_VERSION");
+const ANDROID_RUSTVERSION: Option<&str> = option_env!("ANDROID_RUST_VERSION");
 fn rust_version() -> Version {
-    let v: Vec<&str> = ANDROID_RUSTVERSION.split('.').collect();
+    let v: Vec<&str> = ANDROID_RUSTVERSION.unwrap().split('.').collect();
     Version {
         minor: v[1].parse().unwrap(),
         patch: v[2].parse().unwrap(),

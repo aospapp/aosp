@@ -361,7 +361,7 @@ static void calc_iframe_target_size(VP8_COMP *cpi) {
 
   cpi->this_frame_target = (int)target;
 
-  /* TODO: if we separate rate targeting from Q targetting, move this.
+  /* TODO: if we separate rate targeting from Q targeting, move this.
    * Reset the active worst quality to the baseline value for key frames.
    */
   if (cpi->pass != 2) cpi->active_worst_quality = cpi->worst_quality;
@@ -780,6 +780,7 @@ static void calc_pframe_target_size(VP8_COMP *cpi) {
         }
       } else {
         int percent_high = 0;
+        int64_t target = cpi->this_frame_target;
 
         if ((cpi->oxcf.end_usage == USAGE_STREAM_FROM_SERVER) &&
             (cpi->buffer_level > cpi->oxcf.optimal_buffer_level)) {
@@ -797,7 +798,9 @@ static void calc_pframe_target_size(VP8_COMP *cpi) {
           percent_high = 0;
         }
 
-        cpi->this_frame_target += (cpi->this_frame_target * percent_high) / 200;
+        target += (target * percent_high) / 200;
+        target = VPXMIN(target, INT_MAX);
+        cpi->this_frame_target = (int)target;
 
         /* Are we allowing control of active_worst_allowed_q according
          * to buffer level.
@@ -1078,8 +1081,8 @@ void vp8_update_rate_correction_factors(VP8_COMP *cpi, int damp_var) {
 
   /* Work out a size correction factor. */
   if (projected_size_based_on_q > 0) {
-    correction_factor =
-        (100 * cpi->projected_frame_size) / projected_size_based_on_q;
+    correction_factor = (int)((100 * (int64_t)cpi->projected_frame_size) /
+                              projected_size_based_on_q);
   }
 
   /* More heavily damped adjustment used if we have been oscillating

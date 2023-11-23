@@ -435,7 +435,7 @@ public class CollationIteratorTest extends TestFmwk {
         assertEqual(iter1, iter2);
 
         iter1.reset();
-        //now use the overloaded setText(ChracterIterator&, UErrorCode) function to set the text
+        //now use the overloaded setText(CharacterIterator&, UErrorCode) function to set the text
         CharacterIterator chariter = new StringCharacterIterator(test1);
         try {
             iter2.setText(chariter);
@@ -446,7 +446,7 @@ public class CollationIteratorTest extends TestFmwk {
         assertEqual(iter1, iter2);
 
         iter1.reset();
-        //now use the overloaded setText(ChracterIterator&, UErrorCode) function to set the text
+        //now use the overloaded setText(CharacterIterator&, UErrorCode) function to set the text
         UCharacterIterator uchariter = UCharacterIterator.getInstance(test1);
         try {
             iter2.setText(uchariter);
@@ -615,7 +615,7 @@ public class CollationIteratorTest extends TestFmwk {
                     int ce = resultiter.next();
                     while (ce != CollationElementIterator.NULLORDER) {
                         if (ce != iter.next()) {
-                            errln("Discontiguos contraction test mismatch at"
+                            errln("Discontiguous contraction test mismatch at"
                                   + count);
                             return;
                         }

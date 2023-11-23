@@ -43,6 +43,9 @@ pub static RENO: CongestionControlOps = CongestionControlOps {
     on_packet_acked,
     congestion_event,
     collapse_cwnd,
+    checkpoint,
+    rollback,
+    has_custom_pacing,
 };
 
 pub fn on_packet_sent(r: &mut Recovery, sent_bytes: usize, _now: Instant) {
@@ -63,38 +66,52 @@ fn on_packet_acked(
     }
 
     if r.congestion_window < r.ssthresh {
-        // Slow start.
-        if r.hystart.enabled() && epoch == packet::EPOCH_APPLICATION {
-            let (cwnd, ssthresh) = r.hystart_on_packet_acked(packet, now);
+        // In Slow slart, bytes_acked_sl is used for counting
+        // acknowledged bytes.
+        r.bytes_acked_sl += packet.size;
 
-            r.congestion_window = cwnd;
-            r.ssthresh = ssthresh;
-        } else {
-            r.congestion_window += packet.size;
+        if r.bytes_acked_sl >= r.max_datagram_size {
+            r.congestion_window += r.max_datagram_size;
+            r.bytes_acked_sl -= r.max_datagram_size;
+        }
+
+        if r.hystart.enabled() &&
+            epoch == packet::EPOCH_APPLICATION &&
+            r.hystart.try_enter_lss(
+                packet,
+                r.latest_rtt,
+                r.congestion_window,
+                now,
+                r.max_datagram_size,
+            )
+        {
+            r.ssthresh = r.congestion_window;
         }
     } else {
         // Congestion avoidance.
         let mut reno_cwnd = r.congestion_window;
 
-        r.bytes_acked += packet.size;
+        r.bytes_acked_ca += packet.size;
 
-        if r.bytes_acked >= r.congestion_window {
-            r.bytes_acked -= r.congestion_window;
-            reno_cwnd += recovery::MAX_DATAGRAM_SIZE;
+        if r.bytes_acked_ca >= r.congestion_window {
+            r.bytes_acked_ca -= r.congestion_window;
+            reno_cwnd += r.max_datagram_size;
         }
 
         // When in Limited Slow Start, take the max of CA cwnd and
         // LSS cwnd.
-        if r.hystart.enabled() &&
-            epoch == packet::EPOCH_APPLICATION &&
-            r.hystart.lss_start_time().is_some()
-        {
-            let (lss_cwnd, _) = r.hystart_on_packet_acked(packet, now);
+        if r.hystart.in_lss(epoch) {
+            let lss_cwnd_inc = r.hystart.lss_cwnd_inc(
+                packet.size,
+                r.congestion_window,
+                r.ssthresh,
+            );
 
-            reno_cwnd = cmp::max(reno_cwnd, lss_cwnd);
+            r.congestion_window =
+                cmp::max(reno_cwnd, r.congestion_window + lss_cwnd_inc);
+        } else {
+            r.congestion_window = reno_cwnd;
         }
-
-        r.congestion_window = reno_cwnd;
     }
 }
 
@@ -110,23 +127,34 @@ fn congestion_event(
             recovery::LOSS_REDUCTION_FACTOR)
             as usize;
 
-        r.congestion_window =
-            cmp::max(r.congestion_window, recovery::MINIMUM_WINDOW);
+        r.congestion_window = cmp::max(
+            r.congestion_window,
+            r.max_datagram_size * recovery::MINIMUM_WINDOW_PACKETS,
+        );
 
-        r.bytes_acked = (r.congestion_window as f64 *
+        r.bytes_acked_ca = (r.congestion_window as f64 *
             recovery::LOSS_REDUCTION_FACTOR) as usize;
 
         r.ssthresh = r.congestion_window;
 
-        if r.hystart.enabled() && epoch == packet::EPOCH_APPLICATION {
+        if r.hystart.in_lss(epoch) {
             r.hystart.congestion_event();
         }
     }
 }
 
 pub fn collapse_cwnd(r: &mut Recovery) {
-    r.congestion_window = recovery::MINIMUM_WINDOW;
-    r.bytes_acked = 0;
+    r.congestion_window = r.max_datagram_size * recovery::MINIMUM_WINDOW_PACKETS;
+    r.bytes_acked_sl = 0;
+    r.bytes_acked_ca = 0;
+}
+
+fn checkpoint(_r: &mut Recovery) {}
+
+fn rollback(_r: &mut Recovery) {}
+
+fn has_custom_pacing() -> bool {
+    false
 }
 
 #[cfg(test)]
@@ -175,7 +203,7 @@ mod tests {
             time_sent: now,
             time_acked: None,
             time_lost: None,
-            size: 5000,
+            size: r.max_datagram_size,
             ack_eliciting: true,
             in_flight: true,
             delivered: 0,
@@ -185,12 +213,10 @@ mod tests {
             has_data: false,
         };
 
-        // Send 5k x 4 = 20k, higher than default cwnd(~15k)
-        // to become no longer app limited.
-        r.on_packet_sent_cc(p.size, now);
-        r.on_packet_sent_cc(p.size, now);
-        r.on_packet_sent_cc(p.size, now);
-        r.on_packet_sent_cc(p.size, now);
+        // Send initcwnd full MSS packets to become no longer app limited
+        for _ in 0..recovery::INITIAL_WINDOW_PACKETS {
+            r.on_packet_sent_cc(p.size, now);
+        }
 
         let cwnd_prev = r.cwnd();
 
@@ -204,6 +230,62 @@ mod tests {
 
         // Check if cwnd increased by packet size (slow start).
         assert_eq!(r.cwnd(), cwnd_prev + p.size);
+    }
+
+    #[test]
+    fn reno_slow_start_multi_acks() {
+        let mut cfg = crate::Config::new(crate::PROTOCOL_VERSION).unwrap();
+        cfg.set_cc_algorithm(recovery::CongestionControlAlgorithm::Reno);
+
+        let mut r = Recovery::new(&cfg);
+
+        let now = Instant::now();
+
+        let p = recovery::Sent {
+            pkt_num: 0,
+            frames: vec![],
+            time_sent: now,
+            time_acked: None,
+            time_lost: None,
+            size: r.max_datagram_size,
+            ack_eliciting: true,
+            in_flight: true,
+            delivered: 0,
+            delivered_time: std::time::Instant::now(),
+            recent_delivered_packet_sent_time: std::time::Instant::now(),
+            is_app_limited: false,
+            has_data: false,
+        };
+
+        // Send initcwnd full MSS packets to become no longer app limited
+        for _ in 0..recovery::INITIAL_WINDOW_PACKETS {
+            r.on_packet_sent_cc(p.size, now);
+        }
+
+        let cwnd_prev = r.cwnd();
+
+        let acked = vec![
+            Acked {
+                pkt_num: p.pkt_num,
+                time_sent: p.time_sent,
+                size: p.size,
+            },
+            Acked {
+                pkt_num: p.pkt_num,
+                time_sent: p.time_sent,
+                size: p.size,
+            },
+            Acked {
+                pkt_num: p.pkt_num,
+                time_sent: p.time_sent,
+                size: p.size,
+            },
+        ];
+
+        r.on_packets_acked(acked, packet::EPOCH_APPLICATION, now);
+
+        // Acked 3 packets.
+        assert_eq!(r.cwnd(), cwnd_prev + p.size * 3);
     }
 
     #[test]
@@ -258,6 +340,6 @@ mod tests {
         r.on_packets_acked(acked, packet::EPOCH_APPLICATION, now + rtt * 2);
 
         // After acking more than cwnd, expect cwnd increased by MSS
-        assert_eq!(r.cwnd(), cur_cwnd + recovery::MAX_DATAGRAM_SIZE);
+        assert_eq!(r.cwnd(), cur_cwnd + r.max_datagram_size);
     }
 }

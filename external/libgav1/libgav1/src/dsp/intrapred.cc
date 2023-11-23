@@ -63,8 +63,8 @@ struct IntraPredBppFuncs_C {
 
 template <int block_width, int block_height, typename Pixel>
 void IntraPredFuncs_C<block_width, block_height, Pixel>::DcTop(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* /*left_column*/) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row, const void* /*left_column*/) {
   int sum = block_width >> 1;  // rounder
   const auto* const top = static_cast<const Pixel*>(top_row);
   for (int x = 0; x < block_width; ++x) sum += top[x];
@@ -80,8 +80,8 @@ void IntraPredFuncs_C<block_width, block_height, Pixel>::DcTop(
 
 template <int block_width, int block_height, typename Pixel>
 void IntraPredFuncs_C<block_width, block_height, Pixel>::DcLeft(
-    void* const dest, ptrdiff_t stride, const void* /*top_row*/,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* /*top_row*/, const void* LIBGAV1_RESTRICT const left_column) {
   int sum = block_height >> 1;  // rounder
   const auto* const left = static_cast<const Pixel*>(left_column);
   for (int y = 0; y < block_height; ++y) sum += left[y];
@@ -132,8 +132,9 @@ void IntraPredFuncs_C<block_width, block_height, Pixel>::DcLeft(
 
 template <int block_width, int block_height, typename Pixel>
 void IntraPredFuncs_C<block_width, block_height, Pixel>::Dc(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row,
+    const void* LIBGAV1_RESTRICT const left_column) {
   const int divisor = block_width + block_height;
   int sum = divisor >> 1;  // rounder
 
@@ -158,8 +159,8 @@ void IntraPredFuncs_C<block_width, block_height, Pixel>::Dc(
 // IntraPredFuncs_C::Vertical -- apply top row vertically
 template <int block_width, int block_height, typename Pixel>
 void IntraPredFuncs_C<block_width, block_height, Pixel>::Vertical(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* /*left_column*/) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row, const void* /*left_column*/) {
   auto* dst = static_cast<uint8_t*>(dest);
   for (int y = 0; y < block_height; ++y) {
     memcpy(dst, top_row, block_width * sizeof(Pixel));
@@ -170,8 +171,8 @@ void IntraPredFuncs_C<block_width, block_height, Pixel>::Vertical(
 // IntraPredFuncs_C::Horizontal -- apply left column horizontally
 template <int block_width, int block_height, typename Pixel>
 void IntraPredFuncs_C<block_width, block_height, Pixel>::Horizontal(
-    void* const dest, ptrdiff_t stride, const void* /*top_row*/,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* /*top_row*/, const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const left = static_cast<const Pixel*>(left_column);
   auto* dst = static_cast<Pixel*>(dest);
   stride /= sizeof(Pixel);
@@ -184,8 +185,9 @@ void IntraPredFuncs_C<block_width, block_height, Pixel>::Horizontal(
 // IntraPredFuncs_C::Paeth
 template <int block_width, int block_height, typename Pixel>
 void IntraPredFuncs_C<block_width, block_height, Pixel>::Paeth(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row,
+    const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const top = static_cast<const Pixel*>(top_row);
   const auto* const left = static_cast<const Pixel*>(left_column);
   const Pixel top_left = top[-1];

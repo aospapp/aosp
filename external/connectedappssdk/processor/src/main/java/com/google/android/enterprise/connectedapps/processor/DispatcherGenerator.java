@@ -184,7 +184,7 @@ final class DispatcherGenerator {
         ArrayTypeName.of(byte.class));
     methodCode.addStatement("throwableParcel.recycle()");
 
-    methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
+    // methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
 
     methodCode.addStatement("return throwableBytes");
     methodCode.nextControlFlow("catch ($T e)", Error.class);
@@ -199,7 +199,7 @@ final class DispatcherGenerator {
             ArrayTypeName.of(byte.class));
     methodCode.addStatement("throwableParcel.recycle()");
 
-    methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
+    // methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
 
     methodCode.addStatement("return throwableBytes");
     methodCode.endControlFlow();

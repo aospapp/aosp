@@ -22,23 +22,12 @@ test "${OUT}" != "" || exit 1
 build_dir=$WORK/build
 rm -rf ${build_dir}
 mkdir -p ${build_dir}
+
 pushd ${build_dir}
-
-cmake $SRC/libhevc
-make -j$(nproc)
+cmake ${SRC}/libhevc
+make -j$(nproc) hevc_dec_fuzzer
+cp ${build_dir}/hevc_dec_fuzzer $OUT/hevc_dec_fuzzer
 popd
-
-# build fuzzers
-$CXX $CXXFLAGS -std=c++11 \
--I$SRC/libhevc \
--I$SRC/libhevc/common \
--I$SRC/libhevc/decoder \
--I${build_dir} \
--Wl,--start-group \
-$LIB_FUZZING_ENGINE \
-$SRC/libhevc/fuzzer/hevc_dec_fuzzer.cpp -o $OUT/hevc_dec_fuzzer \
-${build_dir}/libhevcdec.a \
--Wl,--end-group
 
 cp $SRC/hevc_dec_fuzzer_seed_corpus.zip $OUT/hevc_dec_fuzzer_seed_corpus.zip
 cp $SRC/libhevc/fuzzer/hevc_dec_fuzzer.dict $OUT/hevc_dec_fuzzer.dict

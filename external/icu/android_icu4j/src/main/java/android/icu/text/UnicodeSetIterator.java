@@ -11,11 +11,14 @@ package android.icu.text;
 
 import java.util.Iterator;
 
+// Android patch: Make UnicodeSetIterator non-final.
 /**
  * UnicodeSetIterator iterates over the contents of a UnicodeSet.  It
  * iterates over either code points or code point ranges.  After all
  * code points or ranges have been returned, it returns the
- * multicharacter strings of the UnicodSet, if any.
+ * multicharacter strings of the UnicodeSet, if any.
+ *
+ * <p>This class is not intended for public subclassing.
  *
  * <p>To iterate over code points and multicharacter strings,
  * use a loop like this:
@@ -35,12 +38,19 @@ import java.util.Iterator;
  *   }
  * }
  * </pre>
+ *
+ * <p>To iterate over only the strings, start with <code>new UnicodeSetIterator(set).skipToStrings()</code>.
+ *
  * <p><b>Warning: </b>For speed, UnicodeSet iteration does not check for concurrent modification.
  * Do not alter the UnicodeSet while iterating.
  * @author M. Davis
+ * @see UnicodeSet#ranges()
+ * @see UnicodeSet#strings()
+ * @see UnicodeSet#iterator()
  */
 public class UnicodeSetIterator {
 
+    // Android patch: Make UnicodeSetIterator.IS_STRING non-final.
     /**
      * Value of <tt>codepoint</tt> if the iterator points to a string.
      * If <tt>codepoint == IS_STRING</tt>, then examine
@@ -86,6 +96,23 @@ public class UnicodeSetIterator {
      */
     public UnicodeSetIterator() {
         reset(new UnicodeSet());
+    }
+
+    /**
+     * Skips over the remaining code points/ranges, if any.
+     * A following call to next() or nextRange() will yield a string, if there is one.
+     * No-op if next() would return false, or if it would yield a string anyway.
+     *
+     * @return this
+     * @see UnicodeSet#strings()
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public UnicodeSetIterator skipToStrings() {
+        // Finish code point/range iteration.
+        range = endRange;
+        endElement = -1;
+        nextElement = 0;
+        return this;
     }
 
     /**
@@ -224,42 +251,23 @@ public class UnicodeSetIterator {
     private int range = 0;
 
     /**
-     * @deprecated This API is ICU internal only.
      * @hide original deprecated declaration
-     * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
-    public UnicodeSet getSet() {
-        return set;
-    }
-
+    private int endElement;
     /**
-     * @deprecated This API is ICU internal only.
      * @hide original deprecated declaration
-     * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
-    protected int endElement;
-    /**
-     * @deprecated This API is ICU internal only.
-     * @hide original deprecated declaration
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Deprecated
-    protected int nextElement;
-    private Iterator<String> stringIterator = null;
+    private int nextElement;
 
     /**
      * Invariant: stringIterator is null when there are no (more) strings remaining
      */
+    private Iterator<String> stringIterator = null;
 
     /**
-     * @deprecated This API is ICU internal only.
      * @hide original deprecated declaration
-     * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
-    protected void loadRange(int aRange) {
+    private void loadRange(int aRange) {
         nextElement = set.getRangeStart(aRange);
         endElement = set.getRangeEnd(aRange);
     }

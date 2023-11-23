@@ -336,7 +336,7 @@ int main(int argc, char **argv)
 		if (!strcmp(logfilename, "-")) {
 			logfile = stdout;
 		} else {
-			if ((logfile = fopen(logfilename, "a+")) == NULL) {
+			if ((logfile = fopen(logfilename, "a+e")) == NULL) {
 				fprintf(stderr,
 					"pan(%s): Error %s (%d) opening log file '%s'\n",
 					panname, strerror(errno), errno,
@@ -453,7 +453,7 @@ int main(int argc, char **argv)
 	}
 
 	if (failcmdfilename) {
-		if (!(failcmdfile = fopen(failcmdfilename, "a+"))) {
+		if (!(failcmdfile = fopen(failcmdfilename, "a+e"))) {
 			fprintf(stderr,
 				"pan(%s): Error %s (%d) opening fail cmd file '%s'\n",
 				panname, strerror(errno), errno,
@@ -463,7 +463,7 @@ int main(int argc, char **argv)
 	}
 
 	if (tconfcmdfilename) {
-		tconfcmdfile = fopen(tconfcmdfilename, "a+");
+		tconfcmdfile = fopen(tconfcmdfilename, "a+e");
 		if (!tconfcmdfile) {
 			fprintf(stderr, "pan(%s): Error %s (%d) opening "
 				"tconf cmd file '%s'\n", panname,
@@ -1389,8 +1389,8 @@ static void write_test_start(struct tag_pgrp *running, int no_kmsg)
 	if (!strcmp(reporttype, "rts")) {
 
 		printf
-		    ("%s\ntag=%s stime=%ld\ncmdline=\"%s\"\ncontacts=\"%s\"\nanalysis=%s\n%s\n",
-		     "<<<test_start>>>", running->cmd->name, running->mystime,
+		    ("%s\ntag=%s stime=%lld\ncmdline=\"%s\"\ncontacts=\"%s\"\nanalysis=%s\n%s\n",
+		     "<<<test_start>>>", running->cmd->name, (long long)running->mystime,
 		     running->cmd->cmdline, "", "exit", "<<<test_output>>>");
 	}
 	fflush(stdout);

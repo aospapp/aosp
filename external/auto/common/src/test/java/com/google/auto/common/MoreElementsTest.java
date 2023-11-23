@@ -18,6 +18,7 @@ package com.google.auto.common;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -58,13 +59,14 @@ public class MoreElementsTest {
   @Rule public CompilationRule compilation = new CompilationRule();
   @Rule public Expect expect = Expect.create();
 
+  private Elements elements;
   private PackageElement javaLangPackageElement;
   private TypeElement objectElement;
   private TypeElement stringElement;
 
   @Before
   public void initializeTestElements() {
-    Elements elements = compilation.getElements();
+    this.elements = compilation.getElements();
     this.javaLangPackageElement = elements.getPackageElement("java.lang");
     this.objectElement = elements.getTypeElement(Object.class.getCanonicalName());
     this.stringElement = elements.getTypeElement(String.class.getCanonicalName());
@@ -80,8 +82,7 @@ public class MoreElementsTest {
 
   @Test
   public void asPackage() {
-    assertThat(MoreElements.asPackage(javaLangPackageElement))
-        .isEqualTo(javaLangPackageElement);
+    assertThat(MoreElements.asPackage(javaLangPackageElement)).isEqualTo(javaLangPackageElement);
   }
 
   @Test
@@ -89,19 +90,20 @@ public class MoreElementsTest {
     try {
       MoreElements.asPackage(stringElement);
       fail();
-    } catch (IllegalArgumentException expected) {}
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
-  @Test public void asTypeElement() {
-    Element typeElement =
-        compilation.getElements().getTypeElement(String.class.getCanonicalName());
+  @Test
+  public void asTypeElement() {
+    Element typeElement = elements.getTypeElement(String.class.getCanonicalName());
     assertTrue(MoreElements.isType(typeElement));
     assertThat(MoreElements.asType(typeElement)).isEqualTo(typeElement);
   }
 
-  @Test public void asTypeElement_notATypeElement() {
-    TypeElement typeElement =
-        compilation.getElements().getTypeElement(String.class.getCanonicalName());
+  @Test
+  public void asTypeElement_notATypeElement() {
+    TypeElement typeElement = elements.getTypeElement(String.class.getCanonicalName());
     for (ExecutableElement e : ElementFilter.methodsIn(typeElement.getEnclosedElements())) {
       assertFalse(MoreElements.isType(e));
       try {
@@ -143,7 +145,8 @@ public class MoreElementsTest {
     try {
       MoreElements.asType(javaLangPackageElement);
       fail();
-    } catch (IllegalArgumentException expected) {}
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Test
@@ -158,7 +161,8 @@ public class MoreElementsTest {
     try {
       MoreElements.asVariable(javaLangPackageElement);
       fail();
-    } catch (IllegalArgumentException expected) {}
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Test
@@ -166,8 +170,8 @@ public class MoreElementsTest {
     for (Element methodElement : ElementFilter.methodsIn(stringElement.getEnclosedElements())) {
       assertThat(MoreElements.asExecutable(methodElement)).isEqualTo(methodElement);
     }
-    for (Element methodElement
-        : ElementFilter.constructorsIn(stringElement.getEnclosedElements())) {
+    for (Element methodElement :
+        ElementFilter.constructorsIn(stringElement.getEnclosedElements())) {
       assertThat(MoreElements.asExecutable(methodElement)).isEqualTo(methodElement);
     }
   }
@@ -177,7 +181,8 @@ public class MoreElementsTest {
     try {
       MoreElements.asExecutable(javaLangPackageElement);
       fail();
-    } catch (IllegalArgumentException expected) {}
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Retention(RetentionPolicy.RUNTIME)
@@ -190,39 +195,90 @@ public class MoreElementsTest {
   @Test
   public void isAnnotationPresent() {
     TypeElement annotatedAnnotationElement =
-        compilation.getElements().getTypeElement(AnnotatedAnnotation.class.getCanonicalName());
-    assertThat(MoreElements.isAnnotationPresent(annotatedAnnotationElement, Documented.class))
-        .isTrue();
-    assertThat(MoreElements.isAnnotationPresent(annotatedAnnotationElement, InnerAnnotation.class))
-        .isTrue();
-    assertThat(MoreElements.isAnnotationPresent(annotatedAnnotationElement, SuppressWarnings.class))
-        .isFalse();
+        elements.getTypeElement(AnnotatedAnnotation.class.getCanonicalName());
+
+    // Test Class API
+    isAnnotationPresentAsserts(
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, Documented.class),
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, InnerAnnotation.class),
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, SuppressWarnings.class));
+
+    // Test String API
+    String documentedName = Documented.class.getCanonicalName();
+    String innerAnnotationName = InnerAnnotation.class.getCanonicalName();
+    String suppressWarningsName = SuppressWarnings.class.getCanonicalName();
+    isAnnotationPresentAsserts(
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, documentedName),
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, innerAnnotationName),
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, suppressWarningsName));
+
+    // Test TypeElement API
+    TypeElement documentedElement = elements.getTypeElement(documentedName);
+    TypeElement innerAnnotationElement = elements.getTypeElement(innerAnnotationName);
+    TypeElement suppressWarningsElement = elements.getTypeElement(suppressWarningsName);
+    isAnnotationPresentAsserts(
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, documentedElement),
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, innerAnnotationElement),
+        MoreElements.isAnnotationPresent(annotatedAnnotationElement, suppressWarningsElement));
+  }
+
+  private void isAnnotationPresentAsserts(
+      boolean isDocumentedPresent,
+      boolean isInnerAnnotationPresent,
+      boolean isSuppressWarningsPresent) {
+    assertThat(isDocumentedPresent).isTrue();
+    assertThat(isInnerAnnotationPresent).isTrue();
+    assertThat(isSuppressWarningsPresent).isFalse();
   }
 
   @Test
   public void getAnnotationMirror() {
     TypeElement element =
-        compilation.getElements().getTypeElement(AnnotatedAnnotation.class.getCanonicalName());
+        elements.getTypeElement(AnnotatedAnnotation.class.getCanonicalName());
 
-    Optional<AnnotationMirror> documented =
-        MoreElements.getAnnotationMirror(element, Documented.class);
-    Optional<AnnotationMirror> innerAnnotation =
-        MoreElements.getAnnotationMirror(element, InnerAnnotation.class);
-    Optional<AnnotationMirror> suppressWarnings =
-        MoreElements.getAnnotationMirror(element, SuppressWarnings.class);
+    // Test Class API
+    getAnnotationMirrorAsserts(
+        MoreElements.getAnnotationMirror(element, Documented.class),
+        MoreElements.getAnnotationMirror(element, InnerAnnotation.class),
+        MoreElements.getAnnotationMirror(element, SuppressWarnings.class));
 
+    // Test String API
+    String documentedName = Documented.class.getCanonicalName();
+    String innerAnnotationName = InnerAnnotation.class.getCanonicalName();
+    String suppressWarningsName = SuppressWarnings.class.getCanonicalName();
+    getAnnotationMirrorAsserts(
+        MoreElements.getAnnotationMirror(element, documentedName),
+        MoreElements.getAnnotationMirror(element, innerAnnotationName),
+        MoreElements.getAnnotationMirror(element, suppressWarningsName));
+
+    // Test TypeElement API
+    TypeElement documentedElement = elements.getTypeElement(documentedName);
+    TypeElement innerAnnotationElement = elements.getTypeElement(innerAnnotationName);
+    TypeElement suppressWarningsElement = elements.getTypeElement(suppressWarningsName);
+    getAnnotationMirrorAsserts(
+        MoreElements.getAnnotationMirror(element, documentedElement),
+        MoreElements.getAnnotationMirror(element, innerAnnotationElement),
+        MoreElements.getAnnotationMirror(element, suppressWarningsElement));
+  }
+
+  private void getAnnotationMirrorAsserts(
+      Optional<AnnotationMirror> documented,
+      Optional<AnnotationMirror> innerAnnotation,
+      Optional<AnnotationMirror> suppressWarnings) {
     expect.that(documented).isPresent();
     expect.that(innerAnnotation).isPresent();
     expect.that(suppressWarnings).isAbsent();
 
     Element annotationElement = documented.get().getAnnotationType().asElement();
     expect.that(MoreElements.isType(annotationElement)).isTrue();
-    expect.that(MoreElements.asType(annotationElement).getQualifiedName().toString())
+    expect
+        .that(MoreElements.asType(annotationElement).getQualifiedName().toString())
         .isEqualTo(Documented.class.getCanonicalName());
 
     annotationElement = innerAnnotation.get().getAnnotationType().asElement();
     expect.that(MoreElements.isType(annotationElement)).isTrue();
-    expect.that(MoreElements.asType(annotationElement).getQualifiedName().toString())
+    expect
+        .that(MoreElements.asType(annotationElement).getQualifiedName().toString())
         .isEqualTo(InnerAnnotation.class.getCanonicalName());
   }
 
@@ -231,6 +287,7 @@ public class MoreElementsTest {
 
     abstract String foo();
 
+    @SuppressWarnings("unused")
     private void privateMethod() {}
   }
 
@@ -259,7 +316,6 @@ public class MoreElementsTest {
 
   @Test
   public void getLocalAndInheritedMethods_Old() {
-    Elements elements = compilation.getElements();
     Types types = compilation.getTypes();
     TypeMirror intMirror = types.getPrimitiveType(TypeKind.INT);
     TypeMirror longMirror = types.getPrimitiveType(TypeKind.LONG);
@@ -270,19 +326,20 @@ public class MoreElementsTest {
     Set<ExecutableElement> objectMethods = visibleMethodsFromObject();
     assertThat(childTypeMethods).containsAtLeastElementsIn(objectMethods);
     Set<ExecutableElement> nonObjectMethods = Sets.difference(childTypeMethods, objectMethods);
-    assertThat(nonObjectMethods).containsExactly(
+    assertThat(nonObjectMethods)
+        .containsExactly(
             getMethod(ParentInterface.class, "bar", longMirror),
             getMethod(ParentClass.class, "foo"),
             getMethod(Child.class, "bar"),
             getMethod(Child.class, "baz"),
             getMethod(Child.class, "buh", intMirror),
             getMethod(Child.class, "buh", intMirror, intMirror))
-        .inOrder();;
+        .inOrder();
+    ;
   }
 
   @Test
   public void getLocalAndInheritedMethods() {
-    Elements elements = compilation.getElements();
     Types types = compilation.getTypes();
     TypeMirror intMirror = types.getPrimitiveType(TypeKind.INT);
     TypeMirror longMirror = types.getPrimitiveType(TypeKind.LONG);
@@ -293,7 +350,8 @@ public class MoreElementsTest {
     Set<ExecutableElement> objectMethods = visibleMethodsFromObject();
     assertThat(childTypeMethods).containsAtLeastElementsIn(objectMethods);
     Set<ExecutableElement> nonObjectMethods = Sets.difference(childTypeMethods, objectMethods);
-    assertThat(nonObjectMethods).containsExactly(
+    assertThat(nonObjectMethods)
+        .containsExactly(
             getMethod(ParentInterface.class, "bar", longMirror),
             getMethod(ParentClass.class, "foo"),
             getMethod(Child.class, "bar"),
@@ -305,7 +363,6 @@ public class MoreElementsTest {
 
   @Test
   public void getAllMethods() {
-    Elements elements = compilation.getElements();
     Types types = compilation.getTypes();
     TypeMirror intMirror = types.getPrimitiveType(TypeKind.INT);
     TypeMirror longMirror = types.getPrimitiveType(TypeKind.LONG);
@@ -316,7 +373,8 @@ public class MoreElementsTest {
     Set<ExecutableElement> objectMethods = allMethodsFromObject();
     assertThat(childTypeMethods).containsAtLeastElementsIn(objectMethods);
     Set<ExecutableElement> nonObjectMethods = Sets.difference(childTypeMethods, objectMethods);
-    assertThat(nonObjectMethods).containsExactly(
+    assertThat(nonObjectMethods)
+        .containsExactly(
             getMethod(ParentInterface.class, "staticMethod"),
             getMethod(ParentInterface.class, "bar", longMirror),
             getMethod(ParentClass.class, "staticMethod"),
@@ -355,10 +413,9 @@ public class MoreElementsTest {
   // Example from https://github.com/williamlian/daggerbug
   @Test
   public void getLocalAndInheritedMethods_DaggerBug() {
-    Elements elementUtils = compilation.getElements();
-    TypeElement main = elementUtils.getTypeElement(Main.ParentComponent.class.getCanonicalName());
-    Set<ExecutableElement> methods = MoreElements.getLocalAndInheritedMethods(
-        main, compilation.getTypes(), elementUtils);
+    TypeElement main = elements.getTypeElement(Main.ParentComponent.class.getCanonicalName());
+    Set<ExecutableElement> methods =
+        MoreElements.getLocalAndInheritedMethods(main, compilation.getTypes(), elements);
     assertThat(methods).hasSize(1);
     ExecutableElement method = methods.iterator().next();
     assertThat(method.getSimpleName().toString()).isEqualTo("injectable");
@@ -404,7 +461,7 @@ public class MoreElementsTest {
   }
 
   private ExecutableElement getMethod(Class<?> c, String methodName, TypeMirror... parameterTypes) {
-    TypeElement type = compilation.getElements().getTypeElement(c.getCanonicalName());
+    TypeElement type = elements.getTypeElement(c.getCanonicalName());
     Types types = compilation.getTypes();
     ExecutableElement found = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
@@ -423,7 +480,7 @@ public class MoreElementsTest {
       }
     }
     assertWithMessage(methodName + Arrays.toString(parameterTypes)).that(found).isNotNull();
-    return found;
+    return requireNonNull(found);
   }
 
   private abstract static class AbstractAbstractList extends AbstractList<String> {}
@@ -458,8 +515,6 @@ public class MoreElementsTest {
   // are implemented in AbstractList.
   @Test
   public void getLocalAndInheritedMethods_AbstractList() {
-    Elements elements = compilation.getElements();
-
     TypeElement abstractType =
         elements.getTypeElement(AbstractAbstractList.class.getCanonicalName());
     Set<ExecutableElement> abstractTypeMethods =

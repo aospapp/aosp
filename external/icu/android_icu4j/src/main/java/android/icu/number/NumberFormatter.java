@@ -10,8 +10,9 @@ import android.icu.text.DecimalFormatSymbols;
 import android.icu.util.ULocale;
 
 /**
- * The main entrypoint to the localized number formatting library introduced in ICU 60. Basic usage
- * examples:
+ * All-in-one formatter for localized numbers, currencies, and units.
+ *
+ * For a full list of options, see {@link NumberFormatterSettings}.
  *
  * <pre>
  * // Most basic usage:
@@ -66,6 +67,67 @@ import android.icu.util.ULocale;
 public final class NumberFormatter {
 
     private static final UnlocalizedNumberFormatter BASE = new UnlocalizedNumberFormatter();
+
+    /**
+     * An enum declaring how to resolve conflicts between maximum fraction digits and maximum
+     * significant digits.
+     *
+     * <p>There are two modes, RELAXED and STRICT:
+     *
+     * <ul>
+     * <li> RELAXED: Relax one of the two constraints (fraction digits or significant digits) in order
+     *   to round the number to a higher level of precision.
+     * <li> STRICT: Enforce both constraints, resulting in the number being rounded to a lower
+     *   level of precision.
+     * </ul>
+     *
+     * <p>The default settings for compact notation rounding are Max-Fraction = 0 (round to the nearest
+     * integer), Max-Significant = 2 (round to 2 significant digits), and priority RELAXED (choose
+     * the constraint that results in more digits being displayed).
+     *
+     * <p>Conflicting *minimum* fraction and significant digits are always resolved in the direction that
+     * results in more trailing zeros.
+     *
+     * <p>Example 1: Consider the number 3.141, with various different settings:
+     *
+     * <ul>
+     * <li> Max-Fraction = 1: "3.1"
+     * <li> Max-Significant = 3: "3.14"
+     * </ul>
+     *
+     * <p>The rounding priority determines how to resolve the conflict when both Max-Fraction and
+     * Max-Significant are set. With RELAXED, the less-strict setting (the one that causes more digits
+     * to be displayed) will be used; Max-Significant wins. With STRICT, the more-strict setting (the
+     * one that causes fewer digits to be displayed) will be used; Max-Fraction wins.
+     *
+     * <p>Example 2: Consider the number 8317, with various different settings:
+     *
+     * <ul>
+     * <li> Max-Fraction = 1: "8317"
+     * <li> Max-Significant = 3: "8320"
+     * </ul>
+     *
+     * <p>Here, RELAXED favors Max-Fraction and STRICT favors Max-Significant. Note that this larger
+     * number caused the two modes to favor the opposite result.
+     *
+     * @hide Only a subset of ICU is exposed in Android
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static enum RoundingPriority {
+        /**
+         * Favor greater precision by relaxing one of the rounding constraints.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        RELAXED,
+
+        /**
+         * Favor adherence to all rounding constraints by producing lower precision.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        STRICT,
+    }
 
     /**
      * An enum declaring how to render units, including currencies. Example outputs when formatting 123
@@ -147,7 +209,6 @@ public final class NumberFormatter {
          * Behavior of this option with non-currency units is not defined at this time.
          *
          * @see NumberFormatter
-         * @hide draft / provisional / internal are hidden on Android
          */
         FORMAL,
 
@@ -159,7 +220,6 @@ public final class NumberFormatter {
          * Behavior of this option with non-currency units is not defined at this time.
          *
          * @see NumberFormatter
-         * @hide draft / provisional / internal are hidden on Android
          */
         VARIANT,
 
@@ -287,6 +347,9 @@ public final class NumberFormatter {
          * Show the minus sign on negative numbers, and do not show the sign on positive numbers. This is
          * the default behavior.
          *
+         * If using this option, a sign will be displayed on negative zero, including negative numbers
+         * that round to zero. To hide the sign on negative zero, use the NEGATIVE option.
+         *
          * @see NumberFormatter
          */
         AUTO,
@@ -349,6 +412,20 @@ public final class NumberFormatter {
          * @see NumberFormatter
          */
         ACCOUNTING_EXCEPT_ZERO,
+
+        /**
+         * Same as AUTO, but do not show the sign on negative zero.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        NEGATIVE,
+
+        /**
+         * Same as ACCOUNTING, but do not show the sign on negative zero.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        ACCOUNTING_NEGATIVE,
     }
 
     /**
@@ -377,6 +454,33 @@ public final class NumberFormatter {
          * @see NumberFormatter
          */
         ALWAYS,
+    }
+
+    /**
+     * An enum declaring how to render trailing zeros.
+     *
+     * <ul>
+     * <li>AUTO: 0.90, 1.00, 1.10
+     * <li>HIDE_IF_WHOLE: 0.90, 1, 1.10
+     * </ul>
+     *
+     * @hide Only a subset of ICU is exposed in Android
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static enum TrailingZeroDisplay {
+        /**
+         * Display trailing zeros according to the settings for minimum fraction and significant digits.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        AUTO,
+
+        /**
+         * Same as AUTO, but hide trailing zeros after the decimal separator if they are all zero.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        HIDE_IF_WHOLE,
     }
 
     /**
@@ -429,6 +533,9 @@ public final class NumberFormatter {
     /**
      * Call this method at the beginning of a NumberFormatter fluent chain to create an instance based
      * on a given number skeleton string.
+     *
+     * For more information on number skeleton strings, see:
+     * https://unicode-org.github.io/icu/userguide/format_parse/numbers/skeletons.html
      *
      * @param skeleton
      *            The skeleton string off of which to base this NumberFormatter.

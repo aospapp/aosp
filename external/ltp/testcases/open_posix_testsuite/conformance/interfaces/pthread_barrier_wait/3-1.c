@@ -39,13 +39,13 @@ static int sig_rcvd;
 #define ENTERED_THREAD 2
 #define EXITING_THREAD 3
 
-void sig_handler()
+static void sig_handler()
 {
 	sig_rcvd = 1;
 	printf("thread: interrupted by SIGUSR1\n");
 }
 
-static void *fn_chld(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *fn_chld(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	int rc = 0;
 	struct sigaction act;
@@ -169,7 +169,7 @@ int main(void)
 	}
 
 	if (pthread_barrier_destroy(&barrier) != 0) {
-		printf("Error at pthread_barrier_destroy()");
+		printf("Error at pthread_barrier_destroy()\n");
 		return PTS_UNRESOLVED;
 	}
 

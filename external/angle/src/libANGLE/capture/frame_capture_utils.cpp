@@ -14,9 +14,7 @@
 #include "common/Color.h"
 #include "common/MemoryBuffer.h"
 #include "common/angleutils.h"
-
-#include "libANGLE/capture/gl_enum_utils.h"
-
+#include "common/serializer/JsonSerializer.h"
 #include "libANGLE/Buffer.h"
 #include "libANGLE/Caps.h"
 #include "libANGLE/Context.h"
@@ -26,13 +24,12 @@
 #include "libANGLE/ResourceMap.h"
 #include "libANGLE/Sampler.h"
 #include "libANGLE/State.h"
-
 #include "libANGLE/TransformFeedback.h"
 #include "libANGLE/VertexAttribute.h"
 #include "libANGLE/angletypes.h"
+#include "libANGLE/capture/gl_enum_utils.h"
 #include "libANGLE/renderer/FramebufferImpl.h"
 #include "libANGLE/renderer/RenderbufferImpl.h"
-#include "libANGLE/serializer/JsonSerializer.h"
 
 #if !ANGLE_CAPTURE_ENABLED
 #    error Frame capture must be enabled to build this file.
@@ -347,6 +344,7 @@ Result SerializeFramebufferState(const gl::Context *context,
     json->addScalar("DefaultFixedSampleLocation",
                     framebufferState.getDefaultFixedSampleLocations());
     json->addScalar("DefaultLayers", framebufferState.getDefaultLayers());
+    json->addScalar("FlipY", framebufferState.getFlipY());
 
     {
         GroupScope attachmentsGroup(json, "Attachments");
@@ -606,7 +604,24 @@ void SerializeContextState(JsonSerializer *json, const gl::State &state)
     }
     json->addScalar("TexturesIncompatibleWithSamplers",
                     state.getTexturesIncompatibleWithSamplers().to_ulong());
-    SerializeBindingPointerVector<gl::Sampler>(json, state.getSamplers());
+
+    {
+        GroupScope texturesCacheGroup(json, "ActiveTexturesCache");
+
+        const gl::ActiveTexturesCache &texturesCache = state.getActiveTexturesCache();
+        for (GLuint textureIndex = 0; textureIndex < texturesCache.size(); ++textureIndex)
+        {
+            const gl::Texture *tex = texturesCache[textureIndex];
+            std::stringstream strstr;
+            strstr << "Tex " << std::setfill('0') << std::setw(2) << textureIndex;
+            json->addScalar(strstr.str(), tex ? tex->id().value : 0);
+        }
+    }
+
+    {
+        GroupScope samplersGroupScope(json, "Samplers");
+        SerializeBindingPointerVector<gl::Sampler>(json, state.getSamplers());
+    }
 
     {
         GroupScope imageUnitsGroup(json, "BoundImageUnits");
@@ -693,7 +708,7 @@ Result SerializeBuffer(const gl::Context *context,
 {
     GroupScope group(json, "Buffer", buffer->id().value);
     SerializeBufferState(json, buffer->getState());
-    if (buffer->getSize())
+    if (buffer->getSize() > 0)
     {
         MemoryBuffer *dataPtr = nullptr;
         ANGLE_CHECK_GL_ALLOC(
@@ -785,26 +800,41 @@ Result SerializeRenderbuffer(const gl::Context *context,
 
     if (renderbuffer->initState(gl::ImageIndex()) == gl::InitState::Initialized)
     {
-        const gl::InternalFormat &format = *renderbuffer->getFormat().info;
+        if (renderbuffer->getSamples() > 1 && renderbuffer->getFormat().info->depthBits > 0)
+        {
+            // Vulkan can't do resolve blits for multisampled depth attachemnts and
+            // we don't implement an emulation, therefore we can't read back any useful
+            // data here.
+            json->addCString("Pixels", "multisampled depth buffer");
+        }
+        else if (renderbuffer->getWidth() * renderbuffer->getHeight() <= 0)
+        {
+            json->addCString("Pixels", "no pixels");
+        }
+        else
+        {
+            const gl::InternalFormat &format = *renderbuffer->getFormat().info;
 
-        const gl::Extents size(renderbuffer->getWidth(), renderbuffer->getHeight(), 1);
-        gl::PixelPackState packState;
-        packState.alignment = 1;
+            const gl::Extents size(renderbuffer->getWidth(), renderbuffer->getHeight(), 1);
+            gl::PixelPackState packState;
+            packState.alignment = 1;
 
-        GLenum readFormat = renderbuffer->getImplementationColorReadFormat(context);
-        GLenum readType   = renderbuffer->getImplementationColorReadType(context);
+            GLenum readFormat = renderbuffer->getImplementationColorReadFormat(context);
+            GLenum readType   = renderbuffer->getImplementationColorReadType(context);
 
-        GLuint bytes   = 0;
-        bool computeOK = format.computePackUnpackEndByte(readType, size, packState, false, &bytes);
-        ASSERT(computeOK);
+            GLuint bytes = 0;
+            bool computeOK =
+                format.computePackUnpackEndByte(readType, size, packState, false, &bytes);
+            ASSERT(computeOK);
 
-        MemoryBuffer *pixelsPtr = nullptr;
-        ANGLE_CHECK_GL_ALLOC(const_cast<gl::Context *>(context),
-                             scratchBuffer->getInitialized(bytes, &pixelsPtr, 0));
+            MemoryBuffer *pixelsPtr = nullptr;
+            ANGLE_CHECK_GL_ALLOC(const_cast<gl::Context *>(context),
+                                 scratchBuffer->getInitialized(bytes, &pixelsPtr, 0));
 
-        ANGLE_TRY(renderbuffer->getImplementation()->getRenderbufferImage(
-            context, packState, nullptr, readFormat, readType, pixelsPtr->data()));
-        json->addBlob("Pixels", pixelsPtr->data(), pixelsPtr->size());
+            ANGLE_TRY(renderbuffer->getImplementation()->getRenderbufferImage(
+                context, packState, nullptr, readFormat, readType, pixelsPtr->data()));
+            json->addBlob("Pixels", pixelsPtr->data(), pixelsPtr->size());
+        }
     }
     else
     {
@@ -1013,13 +1043,8 @@ void SerializeProgramState(JsonSerializer *json, const gl::ProgramState &program
     SerializeRange(json, programState.getAtomicCounterUniformRange());
     SerializeVariableLocationsVector(json, "SecondaryOutputLocations",
                                      programState.getSecondaryOutputLocations());
-    json->addScalar("ActiveOutputVariables", programState.getActiveOutputVariables().to_ulong());
-    json->addVector("OutputVariableTypes", programState.getOutputVariableTypes());
-    json->addScalar("DrawBufferTypeMask", programState.getDrawBufferTypeMask().to_ulong());
     json->addScalar("BinaryRetrieveableHint", programState.hasBinaryRetrieveableHint());
     json->addScalar("Separable", programState.isSeparable());
-    json->addScalar("EarlyFragmentTestsOptimization",
-                    programState.hasEarlyFragmentTestsOptimization());
     json->addScalar("NumViews", programState.getNumViews());
     json->addScalar("DrawIDLocation", programState.getDrawIDLocation());
     json->addScalar("BaseVertexLocation", programState.getBaseVertexLocation());
@@ -1195,7 +1220,9 @@ Result SerializeTextureData(JsonSerializer *json,
         ASSERT(index.getType() == gl::TextureType::_2D || index.getType() == gl::TextureType::_3D ||
                index.getType() == gl::TextureType::_2DArray ||
                index.getType() == gl::TextureType::CubeMap ||
-               index.getType() == gl::TextureType::CubeMapArray);
+               index.getType() == gl::TextureType::CubeMapArray ||
+               index.getType() == gl::TextureType::_2DMultisampleArray ||
+               index.getType() == gl::TextureType::_2DMultisample);
 
         GLenum glFormat = format.format;
         GLenum glType   = format.type;

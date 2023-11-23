@@ -72,12 +72,24 @@
     {
       "bounds": [88.9, 27.2, 89.2, 27.7],
       "description": "Allow disputed area near Doklam to overlap (See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam)"
+    }, {
+      "bounds": [90.7, 27.8, 91.4, 28.1],
+      "description": "Allow disputed area along Northwest Bhutan-China border to overlap (See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE)"
     }
   ],
   "Asia/Shanghai-Asia/Urumqi": [
     {
       "bounds": [73.4, 34.3, 96.4, 49.2],
       "description": "Xinjiang time might be used by some locals in Xinjiang.  https://en.wikipedia.org/wiki/Xinjiang_Time"
+    }
+  ],
+  "Asia/Tbilisi-Europe/Moscow": [
+    {
+      "bounds": [39.8, 42.4, 42.2, 43.6],
+      "description": "Allow overlap of state of Abkhazia using Moscow time with Georgian time.  https://en.wikipedia.org/wiki/Abkhazia"
+    }, {
+      "bounds": [43.3, 42.8, 43.5, 42.9],
+      "description": "Allow overlap of minimal areas at mountaintops due to likely mismatching OSM boundaries that should probably be fixed in OSM."
     }
   ],
   "Europe/Amsterdam-Europe/Berlin": [

@@ -48,16 +48,19 @@
 
 #define CIL_MAX_NAME_LENGTH 2048
 
+#define CIL_DEGENERATE_INHERITANCE_DEPTH 10UL
+#define CIL_DEGENERATE_INHERITANCE_MINIMUM (0x01 << CIL_DEGENERATE_INHERITANCE_DEPTH)
+#define CIL_DEGENERATE_INHERITANCE_GROWTH 10UL
 
 enum cil_pass {
 	CIL_PASS_INIT = 0,
 
 	CIL_PASS_TIF,
-	CIL_PASS_IN,
+	CIL_PASS_IN_BEFORE,
 	CIL_PASS_BLKIN_LINK,
 	CIL_PASS_BLKIN_COPY,
 	CIL_PASS_BLKABS,
-	CIL_PASS_MACRO,
+	CIL_PASS_IN_AFTER,
 	CIL_PASS_CALL1,
 	CIL_PASS_CALL2,
 	CIL_PASS_ALIAS1,
@@ -156,6 +159,8 @@ extern char *CIL_KEY_HANDLEUNKNOWN_DENY;
 extern char *CIL_KEY_HANDLEUNKNOWN_REJECT;
 extern char *CIL_KEY_MACRO;
 extern char *CIL_KEY_IN;
+extern char *CIL_KEY_IN_BEFORE;
+extern char *CIL_KEY_IN_AFTER;
 extern char *CIL_KEY_MLS;
 extern char *CIL_KEY_DEFAULTRANGE;
 extern char *CIL_KEY_BLOCKINHERIT;
@@ -234,7 +239,9 @@ extern char *CIL_KEY_IOCTL;
 extern char *CIL_KEY_UNORDERED;
 extern char *CIL_KEY_SRC_INFO;
 extern char *CIL_KEY_SRC_CIL;
-extern char *CIL_KEY_SRC_HLL;
+extern char *CIL_KEY_SRC_HLL_LMS;
+extern char *CIL_KEY_SRC_HLL_LMX;
+extern char *CIL_KEY_SRC_HLL_LME;
 
 /*
 	Symbol Table Array Indices
@@ -273,7 +280,7 @@ enum cil_sym_array {
 	CIL_SYM_ARRAY_NUM
 };
 
-extern int cil_sym_sizes[CIL_SYM_ARRAY_NUM][CIL_SYM_NUM];
+extern const int cil_sym_sizes[CIL_SYM_ARRAY_NUM][CIL_SYM_NUM];
 
 #define CIL_CLASS_SYM_SIZE	256
 #define CIL_PERMS_PER_CLASS (sizeof(sepol_access_vector_t) * 8)
@@ -319,6 +326,7 @@ struct cil_db {
 	int handle_unknown;
 	int mls;
 	int multiple_decls;
+	int qualified_names;
 	int target_platform;
 	int policy_version;
 };
@@ -352,12 +360,12 @@ struct cil_blockabstract {
 
 struct cil_in {
 	symtab_t symtab[CIL_SYM_NUM];
+	int is_after;
 	char *block_str;
 };
 
 struct cil_optional {
 	struct cil_symtab_datum datum;
-	int enabled;
 };
 
 struct cil_perm {
@@ -722,14 +730,14 @@ struct cil_context {
 };
 
 enum cil_filecon_types {
-	CIL_FILECON_FILE = 1,
+	CIL_FILECON_ANY = 0,
+	CIL_FILECON_FILE,
 	CIL_FILECON_DIR,
 	CIL_FILECON_CHAR,
 	CIL_FILECON_BLOCK,
 	CIL_FILECON_SOCKET,
 	CIL_FILECON_PIPE,
 	CIL_FILECON_SYMLINK,
-	CIL_FILECON_ANY
 };
 
 struct cil_filecon {
@@ -783,6 +791,7 @@ struct cil_ipaddr {
 struct cil_genfscon {
 	char *fs_str;
 	char *path_str;
+	enum cil_filecon_types file_type;
 	char *context_str;
 	struct cil_context *context;
 };
@@ -961,7 +970,8 @@ struct cil_mls {
 };
 
 struct cil_src_info {
-	int is_cil;
+	char *kind;
+	uint32_t hll_line;
 	char *path;
 };
 
@@ -980,10 +990,12 @@ int cil_userprefixes_to_string(struct cil_db *db, char **out, size_t *size);
 int cil_selinuxusers_to_string(struct cil_db *db, char **out, size_t *size);
 int cil_filecons_to_string(struct cil_db *db, char **out, size_t *size);
 
-void cil_symtab_array_init(symtab_t symtab[], int symtab_sizes[CIL_SYM_NUM]);
+void cil_symtab_array_init(symtab_t symtab[], const int symtab_sizes[CIL_SYM_NUM]);
 void cil_symtab_array_destroy(symtab_t symtab[]);
 void cil_destroy_ast_symtabs(struct cil_tree_node *root);
 int cil_get_symtab(struct cil_tree_node *ast_node, symtab_t **symtab, enum cil_sym_index sym_index);
+int cil_string_to_uint32(const char *string, uint32_t *value, int base);
+int cil_string_to_uint64(const char *string, uint64_t *value, int base);
 
 void cil_sort_init(struct cil_sort **sort);
 void cil_sort_destroy(struct cil_sort **sort);

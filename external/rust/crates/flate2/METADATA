@@ -7,14 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/flate2/flate2-1.0.20.crate"
+    value: "https://static.crates.io/crates/flate2/flate2-1.0.22.crate"
   }
-  version: "1.0.20"
-  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  version: "1.0.22"
   license_type: NOTICE
   last_upgrade_date {
     year: 2021
-    month: 5
-    day: 11
+    month: 9
+    day: 22
   }
 }

@@ -41,6 +41,7 @@ class EagerExecutor;
 class EagerContext;
 class CustomDevice;
 class CustomDeviceOpHandler;
+class Device;
 
 // LINT.IfChange
 // Note: Keep in sync with exported copy of enum in eager/c_api.h.
@@ -64,9 +65,9 @@ enum ContextDevicePlacementPolicy {
 class ImmediateExecutionContext : public AbstractContext {
  public:
   // Optimized scalar creation functions
-  virtual AbstractTensorInterface* CreateInt64Scalar(int64 value) = 0;
+  virtual AbstractTensorInterface* CreateInt64Scalar(int64_t value) = 0;
   virtual AbstractTensorInterface* CreateUint64Scalar(uint64 value) = 0;
-  virtual AbstractTensorInterface* CreateInt32Scalar(int32 value) = 0;
+  virtual AbstractTensorInterface* CreateInt32Scalar(int32_t value) = 0;
   virtual AbstractTensorInterface* CreateFloatScalar(float value) = 0;
   virtual AbstractTensorInterface* CreateDoubleScalar(double value) = 0;
   virtual AbstractTensorInterface* CreateHalfScalar(Eigen::half value) = 0;
@@ -105,6 +106,10 @@ class ImmediateExecutionContext : public AbstractContext {
 
   // List attributes of available devices
   virtual void ListDevices(std::vector<DeviceAttributes>* devices) = 0;
+
+  // Add `devices` into context's device manager. Context's device manager
+  // will take ownership and maintain devices' lifetime.
+  virtual Status AddDevices(std::vector<std::unique_ptr<Device>> devices) = 0;
 
   // Block until all pending nodes are finished.
   virtual Status AsyncWait() = 0;
@@ -163,6 +168,20 @@ class ImmediateExecutionContext : public AbstractContext {
   virtual Status RegisterCustomDevice(const string& name,
                                       std::unique_ptr<CustomDevice> device) = 0;
 
+  // Return FunctionLibraryDefinition. Transformations need to use it to use it
+  // to invoke MLIR compiler passes.
+  virtual FunctionLibraryDefinition* FuncLibDef() = 0;
+
+  // When tensor transfer across functions/eager executions using send/recv ops
+  // are required, `reuse_rendezvous_for_functions_` can be set to true so that
+  // function executions and eager executions use the same rendezvous instance,
+  // instead of creating new instance per function calls.
+  virtual void SetReuseRendezvousForFunctions(
+      bool reuse_rendezvous_for_functions) = 0;
+
+  // Resets the global rendezvous used for functions.
+  virtual void ResetGlobalRendezvousForFunction() = 0;
+
   //===--------------------------------------------------------------------===//
   // Following are features in current TF Eager Runtime.
   // TODO(tfrt-devs): Figure out a way to deprecate following features after
@@ -184,6 +203,7 @@ class ImmediateExecutionContext : public AbstractContext {
   virtual void SetExecutorForThread(EagerExecutor* executor) = 0;
 
   // Return a list of local tensorflow::Device*.
+  // TODO(tfrt-devs): We shouldn't expose legacy device in this API.
   virtual std::vector<tensorflow::Device*> ListLocalTfDevices() = 0;
 
   //===--------------------------------------------------------------------===//
@@ -211,6 +231,12 @@ class ImmediateExecutionContext : public AbstractContext {
   // Distributed runtime related functions.
   //===--------------------------------------------------------------------===//
 #if !defined(IS_MOBILE_PLATFORM)
+  // Set up a multi-client distributed execution environment. Must be called on
+  // all tasks in the cluster.
+  // This call internally coordinates with other tasks to initialize the eager
+  // context and TF server for multi-client execution.
+  virtual Status EnableCollectiveOps(const ServerDef& server_def) = 0;
+
   // Set a distributed manager that helps set up, update, and check liveness
   // of member tasks in the cluster.
   virtual void SetDistributedManager(

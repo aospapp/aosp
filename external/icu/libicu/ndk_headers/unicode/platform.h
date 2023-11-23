@@ -54,12 +54,12 @@
 
 /**
  * Define some things so that they can be documented.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_IN_DOXYGEN
 /*
  * Problem: "platform.h:335: warning: documentation for unknown define U_HAVE_STD_STRING found." means that U_HAVE_STD_STRING is not documented.
- * Solution: #define any defines for non @internal API here, so that they are visible in the docs.  If you just set PREDEFINED in Doxyfile.in,  they won't be documented.
+ * Solution: #define any defines for non \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. API here, so that they are visible in the docs.  If you just set PREDEFINED in Doxyfile.in,  they won't be documented.
  */
 
 /* None for now. */
@@ -82,31 +82,31 @@
  * on the market at that time: BSD, System V, and Xenix.
  * This became Unix System V Release 4 (SVR4).
  *
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 
-/** Unknown platform. @internal */
+/** Unknown platform. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_UNKNOWN 0
-/** Windows @internal */
+/** Windows \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_WINDOWS 1000
-/** MinGW. Windows, calls to Win32 API, but using GNU gcc and binutils. @internal */
+/** MinGW. Windows, calls to Win32 API, but using GNU gcc and binutils. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_MINGW 1800
 /**
  * Cygwin. Windows, calls to cygwin1.dll for Posix functions,
  * using MSVC or GNU gcc and binutils.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #define U_PF_CYGWIN 1900
 /* Reserve 2000 for U_PF_UNIX? */
-/** HP-UX is based on UNIX System V. @internal */
+/** HP-UX is based on UNIX System V. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_HPUX 2100
-/** Solaris is a Unix operating system based on SVR4. @internal */
+/** Solaris is a Unix operating system based on SVR4. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_SOLARIS 2600
-/** BSD is a UNIX operating system derivative. @internal */
+/** BSD is a UNIX operating system derivative. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_BSD 3000
-/** AIX is based on UNIX System V Releases and 4.3 BSD. @internal */
+/** AIX is based on UNIX System V Releases and 4.3 BSD. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_AIX 3100
-/** IRIX is based on UNIX System V with BSD extensions. @internal */
+/** IRIX is based on UNIX System V with BSD extensions. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_IRIX 3200
 /**
  * Darwin is a POSIX-compliant operating system, composed of code developed by Apple,
@@ -114,25 +114,25 @@
  * built around the Mach kernel.
  * Darwin forms the core set of components upon which Mac OS X, Apple TV, and iOS are based.
  * (Original description modified from WikiPedia.)
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #define U_PF_DARWIN 3500
-/** iPhone OS (iOS) is a derivative of Mac OS X. @internal */
+/** iPhone OS (iOS) is a derivative of Mac OS X. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_IPHONE 3550
-/** QNX is a commercial Unix-like real-time operating system related to BSD. @internal */
+/** QNX is a commercial Unix-like real-time operating system related to BSD. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_QNX 3700
-/** Linux is a Unix-like operating system. @internal */
+/** Linux is a Unix-like operating system. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_LINUX 4000
 /**
  * Native Client is pretty close to Linux.
  * See https://developer.chrome.com/native-client and
  *  http://www.chromium.org/nativeclient
- *  @internal
+ *  \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #define U_PF_BROWSER_NATIVE_CLIENT 4020
-/** Android is based on Linux. @internal */
+/** Android is based on Linux. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_ANDROID 4050
-/** Fuchsia is a POSIX-ish platform. @internal */
+/** Fuchsia is a POSIX-ish platform. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_FUCHSIA 4100
 /* Maximum value for Linux-based platform is 4499 */
 /**
@@ -140,12 +140,12 @@
  * WebAssembly. It provides some POSIX-compatible wrappers and stubs and
  * some Linux-like functionality, but is not fully compatible with
  * either.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #define U_PF_EMSCRIPTEN 5010
-/** z/OS is the successor to OS/390 which was the successor to MVS. @internal */
+/** z/OS is the successor to OS/390 which was the successor to MVS. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_OS390 9000
-/** "IBM i" is the current name of what used to be i5/OS and earlier OS/400. @internal */
+/** "IBM i" is the current name of what used to be i5/OS and earlier OS/400. \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #define U_PF_OS400 9400
 
 #ifdef U_PLATFORM
@@ -210,7 +210,7 @@
  * \def CYGWINMSVC
  * Defined if this is Windows with Cygwin, but using MSVC rather than gcc.
  * Otherwise undefined.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 /* Commented out because this is already set in mh-cygwin-msvc
 #if U_PLATFORM == U_PF_CYGWIN && defined(_MSC_VER)
@@ -225,7 +225,7 @@
  * \def U_PLATFORM_USES_ONLY_WIN32_API
  * Defines whether the platform uses only the Win32 API.
  * Set to 1 for Windows/MSVC and MinGW but not Cygwin.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_PLATFORM_USES_ONLY_WIN32_API
     /* Use the predefined value. */
@@ -240,7 +240,7 @@
  * \def U_PLATFORM_HAS_WIN32_API
  * Defines whether the Win32 API is available on the platform.
  * Set to 1 for Windows/MSVC, MinGW and Cygwin.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_PLATFORM_HAS_WIN32_API
     /* Use the predefined value. */
@@ -254,7 +254,7 @@
  * \def U_PLATFORM_HAS_WINUWP_API
  * Defines whether target is intended for Universal Windows Platform API
  * Set to 1 for Windows10 Release Solution Configuration
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_PLATFORM_HAS_WINUWP_API
     /* Use the predefined value. */
@@ -266,7 +266,7 @@
  * \def U_PLATFORM_IMPLEMENTS_POSIX
  * Defines whether the platform implements (most of) the POSIX API.
  * Set to 1 for Cygwin and most other platforms.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_PLATFORM_IMPLEMENTS_POSIX
     /* Use the predefined value. */
@@ -279,7 +279,7 @@
 /**
  * \def U_PLATFORM_IS_LINUX_BASED
  * Defines whether the platform is Linux or one of its derivatives.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_PLATFORM_IS_LINUX_BASED
     /* Use the predefined value. */
@@ -292,7 +292,7 @@
 /**
  * \def U_PLATFORM_IS_DARWIN_BASED
  * Defines whether the platform is Darwin or one of its derivatives.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_PLATFORM_IS_DARWIN_BASED
     /* Use the predefined value. */
@@ -307,7 +307,7 @@
  * Defines whether stdint.h is available. It is a C99 standard header.
  * We used to include inttypes.h which includes stdint.h but we usually do not need
  * the additional definitions from inttypes.h.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_HAVE_STDINT_H
     /* Use the predefined value. */
@@ -332,7 +332,7 @@
  * \def U_HAVE_INTTYPES_H
  * Defines whether inttypes.h is available. It is a C99 standard header.
  * We include inttypes.h where it is available but stdint.h is not.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_HAVE_INTTYPES_H
     /* Use the predefined value. */
@@ -359,7 +359,7 @@
  *
  * For example, for testing for whether we have gcc, and whether it's 4.6 or higher,
  * use "#if U_GCC_MAJOR_MINOR >= 406".
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef __GNUC__
 #   define U_GCC_MAJOR_MINOR (__GNUC__ * 100 + __GNUC_MINOR__)
@@ -370,7 +370,7 @@
 /**
  * \def U_IS_BIG_ENDIAN
  * Determines the endianness of the platform.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_IS_BIG_ENDIAN
     /* Use the predefined value. */
@@ -399,7 +399,7 @@
 /**
  * \def U_HAVE_PLACEMENT_NEW
  * Determines whether to override placement new and delete for STL.
- * @stable ICU 2.6
+ * \xrefitem stable "Stable" "Stable List" ICU 2.6
  */
 #ifdef U_HAVE_PLACEMENT_NEW
     /* Use the predefined value. */
@@ -413,7 +413,7 @@
  * \def U_HAVE_DEBUG_LOCATION_NEW 
  * Define this to define the MFC debug version of the operator new.
  *
- * @stable ICU 3.4
+ * \xrefitem stable "Stable" "Stable List" ICU 3.4
  */
 #ifdef U_HAVE_DEBUG_LOCATION_NEW
     /* Use the predefined value. */
@@ -463,7 +463,7 @@
 /**
  * \def U_MALLOC_ATTR
  * Attribute to mark functions as malloc-like
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #if defined(__GNUC__) && __GNUC__>=3
 #    define U_MALLOC_ATTR __attribute__ ((__malloc__))
@@ -474,7 +474,7 @@
 /**
  * \def U_ALLOC_SIZE_ATTR
  * Attribute to specify the size of the allocated buffer for malloc-like functions
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #if (defined(__GNUC__) &&                                            \
         (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) || \
@@ -490,7 +490,7 @@
  * \def U_CPLUSPLUS_VERSION
  * 0 if no C++; 1, 11, 14, ... if C++.
  * Support for specific features cannot always be determined by the C++ version alone.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_CPLUSPLUS_VERSION
 #   if U_CPLUSPLUS_VERSION != 0 && !defined(__cplusplus)
@@ -521,7 +521,7 @@ namespace std {
  * "noexcept" if supported, otherwise empty.
  * Some code, especially STL containers, uses move semantics of objects only
  * if the move constructor and the move operator are declared as not throwing exceptions.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_NOEXCEPT
     /* Use the predefined value. */
@@ -533,7 +533,7 @@ namespace std {
  * \def U_FALLTHROUGH
  * Annotate intentional fall-through between switch labels.
  * http://clang.llvm.org/docs/AttributeReference.html#fallthrough-clang-fallthrough
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifndef __cplusplus
     // Not for C.
@@ -563,13 +563,13 @@ namespace std {
 
 /**
  * U_CHARSET_FAMILY is equal to this value when the platform is an ASCII based platform.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #define U_ASCII_FAMILY 0
 
 /**
  * U_CHARSET_FAMILY is equal to this value when the platform is an EBCDIC based platform.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #define U_EBCDIC_FAMILY 1
 
@@ -613,7 +613,7 @@ namespace std {
  *    '@' <commercial at>
  *    '`' <grave accent>
  * \endcode
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #ifdef U_CHARSET_FAMILY
     /* Use the predefined value. */
@@ -642,7 +642,7 @@ namespace std {
  *   configuration option (see unicode/uconfig.h)
  * - the UCONFIG_NO_CONVERSION build option in uconfig.h is more usable
  *
- * @stable ICU 4.2
+ * \xrefitem stable "Stable" "Stable List" ICU 4.2
  * @see UCONFIG_NO_CONVERSION
  */
 #ifdef U_CHARSET_IS_UTF8
@@ -664,7 +664,7 @@ namespace std {
  * \def U_HAVE_WCHAR_H
  * Indicates whether <wchar.h> is available (1) or not (0). Set to 1 by default.
  *
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #ifdef U_HAVE_WCHAR_H
     /* Use the predefined value. */
@@ -683,7 +683,7 @@ namespace std {
  * \def U_SIZEOF_WCHAR_T
  * U_SIZEOF_WCHAR_T==sizeof(wchar_t)
  *
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #ifdef U_SIZEOF_WCHAR_T
     /* Use the predefined value. */
@@ -759,7 +759,7 @@ namespace std {
  * and u"abc" UTF-16 string literals are supported.
  * This is a new standard type and standard string literal syntax in C++0x
  * but has been available in some compilers before.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_HAVE_CHAR16_T
     /* Use the predefined value. */
@@ -787,7 +787,7 @@ namespace std {
  * \def U_DECLARE_UTF16
  * Do not use this macro because it is not defined on all platforms.
  * Use the UNICODE_STRING or U_STRING_DECL macros instead.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef U_DECLARE_UTF16
     /* Use the predefined value. */
@@ -814,8 +814,8 @@ namespace std {
     /* Use the predefined value. */
 #elif defined(U_STATIC_IMPLEMENTATION)
 #   define U_EXPORT
-#elif defined(_MSC_VER) || (UPRV_HAS_DECLSPEC_ATTRIBUTE(dllexport) && \
-                            UPRV_HAS_DECLSPEC_ATTRIBUTE(dllimport))
+#elif defined(_MSC_VER) || (UPRV_HAS_DECLSPEC_ATTRIBUTE(__dllexport__) && \
+                            UPRV_HAS_DECLSPEC_ATTRIBUTE(__dllimport__))
 #   define U_EXPORT __declspec(dllexport)
 #elif defined(__GNUC__)
 #   define U_EXPORT __attribute__((visibility("default")))
@@ -839,8 +839,8 @@ namespace std {
 
 #ifdef U_IMPORT
     /* Use the predefined value. */
-#elif defined(_MSC_VER) || (UPRV_HAS_DECLSPEC_ATTRIBUTE(dllexport) && \
-                            UPRV_HAS_DECLSPEC_ATTRIBUTE(dllimport))
+#elif defined(_MSC_VER) || (UPRV_HAS_DECLSPEC_ATTRIBUTE(__dllexport__) && \
+                            UPRV_HAS_DECLSPEC_ATTRIBUTE(__dllimport__))
     /* Windows needs to export/import data. */
 #   define U_IMPORT __declspec(dllimport)
 #else
@@ -862,7 +862,7 @@ namespace std {
  * NO : "static const char U_CALLCONV *func( . . . )"
  * YES: "static const char* U_CALLCONV func( . . . )"
  *
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #if U_PLATFORM == U_PF_OS390 && defined(__cplusplus)
 #    define U_CALLCONV __cdecl
@@ -873,13 +873,13 @@ namespace std {
 /**
  * \def U_CALLCONV_FPTR
  * Similar to U_CALLCONV, but only used on function pointers.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #if U_PLATFORM == U_PF_OS390 && defined(__cplusplus)
 #    define U_CALLCONV_FPTR U_CALLCONV
 #else
 #    define U_CALLCONV_FPTR
 #endif
-/* @} */
+/** @} */
 
 #endif  // _PLATFORM_H

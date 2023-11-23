@@ -31,20 +31,15 @@
         <ImageView
             android:id="@+id/sud_layout_icon"
             style="?attr/sudGlifIconStyle"
-            android:layout_marginLeft="0dp"
-            android:layout_marginRight="0dp"
-            android:layout_marginTop="0dp"
-            android:layout_marginBottom="0dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:contentDescription="@null"
-            android:layout_gravity="?attr/sudGlifHeaderGravity"
             android:visibility="gone" />
     </FrameLayout>
 
     <TextView
         android:id="@+id/suc_layout_title"
-        style="@style/SudGlifHeaderTitle"
+        style="?attr/sudGlifHeaderTitleStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
@@ -61,7 +56,7 @@
 
     <com.google.android.setupdesign.view.RichTextView
         android:id="@+id/sud_layout_subtitle"
-        style="@style/SudGlifDescription"
+        style="?attr/sudGlifDescriptionStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:visibility="gone" />

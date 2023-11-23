@@ -14,9 +14,11 @@
 
 import("//build_overrides/pigweed.gni")
 
+import("$dir_pw_toolchain/clang_tools.gni")
+
 declare_args() {
-  # Sets the sanitizer to pass to clang. Valid values are those for "-fsanitize"
-  # listed in https://clang.llvm.org/docs/UsersManual.html#id9.
+  # Sets the sanitizer to pass to clang. Valid values are "address", "memory",
+  # "thread", "undefined".
   pw_toolchain_SANITIZERS = []
 
   # Indicates if this build is a part of OSS-Fuzz, which needs to be able to
@@ -27,21 +29,27 @@ declare_args() {
 
 # Specifies the tools used by host Clang toolchains.
 _host_clang_toolchain = {
-  ar = "llvm-ar"
-
   if (pw_toolchain_OSS_FUZZ_ENABLED) {
+    # Just use the "llvm-ar" on the system path.
+    ar = "llvm-ar"
     cc = getenv("CC")
     cxx = getenv("CXX")
   } else {
-    cc = "clang"
-    cxx = "clang++"
+    forward_variables_from(pw_toolchain_clang_tools, "*")
   }
 
   is_host_toolchain = true
+
+  # Enable static analysis for host clang based toolchains,
+  # even with OSS-Fuzz enabled.
+  static_analysis = true
 }
 
 # Common default scope shared by all host Clang toolchains.
 _defaults = {
+  # TODO(pwbug/461) amend toolchain declaration process to
+  # remove this hack.
+  default_configs = []
   default_configs = [
     "$dir_pw_build:extra_debugging",
     "$dir_pw_toolchain/host_clang:no_system_libcpp",
@@ -56,6 +64,10 @@ pw_toolchain_host_clang = {
     defaults = {
       forward_variables_from(_defaults, "*")
       default_configs += [ "$dir_pw_build:optimize_debugging" ]
+      foreach(sanitizer, pw_toolchain_SANITIZERS) {
+        default_configs +=
+            [ "$dir_pw_toolchain/host_clang:sanitize_$sanitizer" ]
+      }
     }
   }
 
@@ -65,6 +77,10 @@ pw_toolchain_host_clang = {
     defaults = {
       forward_variables_from(_defaults, "*")
       default_configs += [ "$dir_pw_build:optimize_speed" ]
+      foreach(sanitizer, pw_toolchain_SANITIZERS) {
+        default_configs +=
+            [ "$dir_pw_toolchain/host_clang:sanitize_$sanitizer" ]
+      }
     }
   }
 
@@ -74,6 +90,10 @@ pw_toolchain_host_clang = {
     defaults = {
       forward_variables_from(_defaults, "*")
       default_configs += [ "$dir_pw_build:optimize_size" ]
+      foreach(sanitizer, pw_toolchain_SANITIZERS) {
+        default_configs +=
+            [ "$dir_pw_toolchain/host_clang:sanitize_$sanitizer" ]
+      }
     }
   }
 
@@ -100,6 +120,67 @@ pw_toolchain_host_clang = {
       }
     }
   }
+
+  asan = {
+    name = "host_clang_asan"
+    forward_variables_from(_host_clang_toolchain, "*")
+    defaults = {
+      forward_variables_from(_defaults, "*")
+
+      # Use debug mode to get proper debug information.
+      default_configs += [ "$dir_pw_build:optimize_debugging" ]
+      default_configs += [ "$dir_pw_toolchain/host_clang:sanitize_address" ]
+    }
+  }
+
+  ubsan = {
+    name = "host_clang_ubsan"
+    forward_variables_from(_host_clang_toolchain, "*")
+    defaults = {
+      forward_variables_from(_defaults, "*")
+
+      # Use debug mode to get proper debug information.
+      default_configs += [ "$dir_pw_build:optimize_debugging" ]
+      default_configs += [ "$dir_pw_toolchain/host_clang:sanitize_undefined" ]
+    }
+  }
+
+  ubsan_heuristic = {
+    name = "host_clang_ubsan_heuristic"
+    forward_variables_from(_host_clang_toolchain, "*")
+    defaults = {
+      forward_variables_from(_defaults, "*")
+
+      # Use debug mode to get proper debug information.
+      default_configs += [ "$dir_pw_build:optimize_debugging" ]
+      default_configs +=
+          [ "$dir_pw_toolchain/host_clang:sanitize_undefined_heuristic" ]
+    }
+  }
+
+  msan = {
+    name = "host_clang_msan"
+    forward_variables_from(_host_clang_toolchain, "*")
+    defaults = {
+      forward_variables_from(_defaults, "*")
+
+      # Use debug mode to get proper debug information.
+      default_configs += [ "$dir_pw_build:optimize_debugging" ]
+      default_configs += [ "$dir_pw_toolchain/host_clang:sanitize_memory" ]
+    }
+  }
+
+  tsan = {
+    name = "host_clang_tsan"
+    forward_variables_from(_host_clang_toolchain, "*")
+    defaults = {
+      forward_variables_from(_defaults, "*")
+
+      # Use debug mode to get proper debug information.
+      default_configs += [ "$dir_pw_build:optimize_debugging" ]
+      default_configs += [ "$dir_pw_toolchain/host_clang:sanitize_thread" ]
+    }
+  }
 }
 
 # Describes host clang toolchains.
@@ -108,4 +189,9 @@ pw_toolchain_host_clang_list = [
   pw_toolchain_host_clang.speed_optimized,
   pw_toolchain_host_clang.size_optimized,
   pw_toolchain_host_clang.fuzz,
+  pw_toolchain_host_clang.asan,
+  pw_toolchain_host_clang.ubsan,
+  pw_toolchain_host_clang.ubsan_heuristic,
+  pw_toolchain_host_clang.msan,
+  pw_toolchain_host_clang.tsan,
 ]

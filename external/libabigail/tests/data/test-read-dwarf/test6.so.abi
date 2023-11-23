@@ -1,4 +1,4 @@
-<abi-corpus version='2.0' path='data/test-read-dwarf/test6.so'>
+<abi-corpus version='2.1' path='data/test-read-dwarf/test6.so'>
   <elf-needed>
     <dependency name='libstdc++.so.6'/>
     <dependency name='libm.so.6'/>
@@ -21,7 +21,7 @@
     <class-decl name='B' size-in-bits='8' is-struct='yes' visibility='default' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test6.cc' line='9' column='1' id='type-id-2'>
       <member-function access='public'>
         <function-decl name='foo' mangled-name='_ZN1B3fooEv' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test6.cc' line='11' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN1B3fooEv'>
-          <parameter type-id='type-id-3' name='this' is-artificial='yes'/>
+          <parameter type-id='type-id-3' is-artificial='yes'/>
           <return type-id='type-id-1'/>
         </function-decl>
       </member-function>
@@ -31,8 +31,7 @@
         <var-decl name='bar' type-id='type-id-1' mangled-name='_ZN1CIiE3barE' visibility='default' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test6.cc' line='31' column='1' elf-symbol-id='_ZN1CIiE3barE'/>
       </data-member>
     </class-decl>
-    <pointer-type-def type-id='type-id-2' size-in-bits='64' id='type-id-5'/>
-    <qualified-type-def type-id='type-id-5' const='yes' id='type-id-3'/>
+    <pointer-type-def type-id='type-id-2' size-in-bits='64' id='type-id-3'/>
     <function-decl name='bar' mangled-name='_Z3barv' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test6.cc' line='19' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_Z3barv'>
       <return type-id='type-id-1'/>
     </function-decl>

@@ -15,7 +15,7 @@
 
 import logging
 from pathlib import Path
-from typing import NamedTuple, Union, Iterator
+from typing import NamedTuple, Optional, Union, Iterator
 
 import pw_cli.color
 import pw_cli.env
@@ -23,6 +23,9 @@ import pw_cli.plugins
 
 # Log level used for captured output of a subprocess run through pw.
 LOGLEVEL_STDOUT = 21
+
+# Log level indicating a irrecoverable failure.
+LOGLEVEL_FATAL = 70
 
 
 class _LogLevel(NamedTuple):
@@ -35,16 +38,22 @@ class _LogLevel(NamedTuple):
 # Shorten all the log levels to 3 characters for column-aligned logs.
 # Color the logs using ANSI codes.
 _LOG_LEVELS = (
-    _LogLevel(logging.CRITICAL, 'bold_red', 'CRT', '☠️ '),
-    _LogLevel(logging.ERROR,    'red',      'ERR', '❌'),
-    _LogLevel(logging.WARNING,  'yellow',   'WRN', '⚠️ '),
-    _LogLevel(logging.INFO,     'magenta',  'INF', 'ℹ️ '),
-    _LogLevel(LOGLEVEL_STDOUT,  'cyan',     'OUT', '💬'),
-    _LogLevel(logging.DEBUG,    'blue',     'DBG', '👾'),
+    _LogLevel(LOGLEVEL_FATAL,   'bold_red',     'FTL', '☠️ '),
+    _LogLevel(logging.CRITICAL, 'bold_magenta', 'CRT', '‼️ '),
+    _LogLevel(logging.ERROR,    'red',          'ERR', '❌'),
+    _LogLevel(logging.WARNING,  'yellow',       'WRN', '⚠️ '),
+    _LogLevel(logging.INFO,     'magenta',      'INF', 'ℹ️ '),
+    _LogLevel(LOGLEVEL_STDOUT,  'cyan',         'OUT', '💬'),
+    _LogLevel(logging.DEBUG,    'blue',         'DBG', '👾'),
 )  # yapf: disable
 
 _LOG = logging.getLogger(__name__)
 _STDERR_HANDLER = logging.StreamHandler()
+
+
+def c_to_py_log_level(c_level: int) -> int:
+    """Converts pw_log C log-level macros to Python logging levels."""
+    return c_level * 10
 
 
 def main() -> None:
@@ -54,7 +63,8 @@ def main() -> None:
     _LOG.setLevel(logging.DEBUG)
 
     # Log one message for every log level.
-    _LOG.critical('Something terrible has happened!')
+    _LOG.log(LOGLEVEL_FATAL, 'An irrecoverable error has occurred!')
+    _LOG.critical('Something important has happened!')
     _LOG.error('There was an error on our last operation')
     _LOG.warning('Looks like something is amiss; consider investigating')
     _LOG.info('The operation went as expected')
@@ -63,17 +73,47 @@ def main() -> None:
 
 
 def _setup_handler(handler: logging.Handler, formatter: logging.Formatter,
-                   level: int) -> None:
+                   level: Union[str, int], logger: logging.Logger) -> None:
     handler.setLevel(level)
     handler.setFormatter(formatter)
-    logging.getLogger().addHandler(handler)
+    logger.addHandler(handler)
 
 
-def install(level: int = logging.INFO,
+def install(level: Union[str, int] = logging.INFO,
             use_color: bool = None,
             hide_timestamp: bool = False,
-            log_file: Union[str, Path] = None) -> None:
-    """Configures the system logger for the default pw command log format."""
+            log_file: Union[str, Path] = None,
+            logger: Optional[logging.Logger] = None) -> None:
+    """Configures the system logger for the default pw command log format.
+
+    If you have Python loggers separate from the root logger you can use
+    `pw_cli.log.install` to get the Pigweed log formatting there too. For
+    example: ::
+
+        import logging
+
+        import pw_cli.log
+
+        pw_cli.log.install(
+            level=logging.INFO,
+            use_color=True,
+            hide_timestamp=False,
+            log_file=(Path.home() / 'logs.txt'),
+            logger=logging.getLogger(__package__),
+        )
+
+    Args:
+      level: The logging level to apply. Default: `logging.INFO`.
+      use_color: When `True` include ANSI escape sequences to colorize log
+          messages.
+      hide_timestamp: When `True` omit timestamps from the log formatting.
+      log_file: File to save logs into.
+      logger: Python Logger instance to install Pigweed formatting into.
+          Defaults to the Python root logger: `logging.getLogger()`.
+
+    """
+    if not logger:
+        logger = logging.getLogger()
 
     colors = pw_cli.color.colors(use_color)
 
@@ -91,15 +131,18 @@ def install(level: int = logging.INFO,
     formatter = logging.Formatter(timestamp_fmt + '%(levelname)s %(message)s',
                                   '%Y%m%d %H:%M:%S')
 
-    # Set the log level on the root logger to 1, so logs that all logs
+    # Set the log level on the root logger to NOTSET, so that all logs
     # propagated from child loggers are handled.
-    logging.getLogger().setLevel(1)
+    logging.getLogger().setLevel(logging.NOTSET)
 
     # Always set up the stderr handler, even if it isn't used.
-    _setup_handler(_STDERR_HANDLER, formatter, level)
+    _setup_handler(_STDERR_HANDLER, formatter, level, logger)
 
     if log_file:
-        _setup_handler(logging.FileHandler(log_file), formatter, level)
+        # Set utf-8 encoding for the log file. Encoding errors may come up on
+        # Windows if the default system encoding is set to cp1250.
+        _setup_handler(logging.FileHandler(log_file, encoding='utf-8'),
+                       formatter, level, logger)
         # Since we're using a file, filter logs out of the stderr handler.
         _STDERR_HANDLER.setLevel(logging.CRITICAL + 1)
 

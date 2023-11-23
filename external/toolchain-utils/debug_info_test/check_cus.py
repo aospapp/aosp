@@ -49,7 +49,7 @@ def check_compile_units(dso_path):
   comp_path = ''
 
   readelf = subprocess.Popen(
-      ['readelf', '--debug-dump=info', '--dwarf-depth=1', dso_path],
+      ['llvm-dwarfdump', '--recurse-depth=0', dso_path],
       stdout=subprocess.PIPE,
       stderr=open(os.devnull, 'w'),
       encoding='utf-8')

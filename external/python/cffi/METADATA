@@ -11,7 +11,7 @@ third_party {
     type: HG
     value: "https://bitbucket.org/cffi/cffi/src"
   }
-  version: "1.12.2"
-  last_upgrade_date { year: 2019 month: 2 day: 26 }
+  version: "1.15.0"
+  last_upgrade_date { year: 2020 month: 11 day: 8 }
   license_type: NOTICE
 }

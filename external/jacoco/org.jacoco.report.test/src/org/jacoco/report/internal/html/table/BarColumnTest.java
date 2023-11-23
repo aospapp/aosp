@@ -1,13 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
- *    
+ *
  *******************************************************************************/
 package org.jacoco.report.internal.html.table;
 
@@ -171,8 +172,11 @@ public class BarColumnTest {
 		col.item(td, i1, resources, root);
 		final Document doc = parseDoc();
 
-		assertEquals("123\u00a0456",
-				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@alt"));
+		// Prior to integration of JDK-8221432 in JDK 13
+		// formatting of a below number was using non-breaking space,
+		// after - narrow non-breaking space:
+		assertTrue(support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@alt")
+				.matches("123[\u00A0\u202F]456"));
 	}
 
 	@Test

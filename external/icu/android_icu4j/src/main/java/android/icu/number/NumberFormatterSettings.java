@@ -45,7 +45,8 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
     static final int KEY_THRESHOLD = 14;
     static final int KEY_PER_UNIT = 15;
     static final int KEY_USAGE = 16;
-    static final int KEY_MAX = 17;
+    static final int KEY_UNIT_DISPLAY_CASE = 17;
+    static final int KEY_MAX = 18;
 
     private final NumberFormatterSettings<?> parent;
     private final int key;
@@ -518,10 +519,26 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      * @param usage A usage parameter from the units resource.
      * @return The fluent chain
      * @throws IllegalArgumentException in case of Setting a usage string but not a correct input unit.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T usage(String usage) {
+        if (usage != null && usage.isEmpty()) {
+            return create(KEY_USAGE, null);
+        }
+
         return create(KEY_USAGE, usage);
+    }
+
+    /**
+     * Specifies the desired case for a unit formatter's output (e.g.
+     * accusative, dative, genitive).
+     *
+     * @return The fluent chain
+     * @deprecated This API is for technology preview only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public T unitDisplayCase(String unitDisplayCase) {
+        return create(KEY_UNIT_DISPLAY_CASE, unitDisplayCase);
     }
 
     /**
@@ -568,6 +585,9 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      * <p>
      * The returned skeleton is in normalized form, such that two number formatters with equivalent
      * behavior should produce the same skeleton.
+     * <p>
+     * For more information on number skeleton strings, see:
+     * https://unicode-org.github.io/icu/userguide/format_parse/numbers/skeletons.html
      *
      * @return A number skeleton string with behavior corresponding to this number formatter.
      * @throws UnsupportedOperationException
@@ -650,6 +670,9 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
                 break;
             case KEY_USAGE:
                 macros.usage = (String) current.value;
+                break;
+            case KEY_UNIT_DISPLAY_CASE:
+                macros.unitDisplayCase = (String) current.value;
                 break;
             default:
                 throw new AssertionError("Unknown key: " + current.key);

@@ -72,509 +72,542 @@ h1, h2, h3 {
 
 </style>
 
-<h1><a href="blogger_v3.html">Blogger API</a> . <a href="blogger_v3.posts.html">posts</a></h1>
+<h1><a href="blogger_v3.html">Blogger API v3</a> . <a href="blogger_v3.posts.html">posts</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#delete">delete(blogId, postId)</a></code></p>
-<p class="firstline">Delete a post by ID.</p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
 <p class="toc_element">
-  <code><a href="#get">get(blogId, postId, maxComments=None, fetchImages=None, fetchBody=None, view=None)</a></code></p>
-<p class="firstline">Get a post by ID.</p>
+  <code><a href="#delete">delete(blogId, postId, x__xgafv=None)</a></code></p>
+<p class="firstline">Deletes a post by blog id and post id.</p>
 <p class="toc_element">
-  <code><a href="#getByPath">getByPath(blogId, path, maxComments=None, view=None)</a></code></p>
-<p class="firstline">Retrieve a Post by Path.</p>
+  <code><a href="#get">get(blogId, postId, fetchBody=None, fetchImages=None, maxComments=None, view=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Gets a post by blog id and post id</p>
 <p class="toc_element">
-  <code><a href="#insert">insert(blogId, body, isDraft=None, fetchImages=None, fetchBody=None)</a></code></p>
-<p class="firstline">Add a post.</p>
+  <code><a href="#getByPath">getByPath(blogId, path, maxComments=None, view=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Gets a post by path.</p>
 <p class="toc_element">
-  <code><a href="#list">list(blogId, orderBy=None, startDate=None, endDate=None, labels=None, pageToken=None, status=None, maxResults=None, fetchBodies=None, fetchImages=None, view=None)</a></code></p>
-<p class="firstline">Retrieves a list of posts, possibly filtered.</p>
+  <code><a href="#insert">insert(blogId, body=None, fetchBody=None, fetchImages=None, isDraft=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Inserts a post.</p>
+<p class="toc_element">
+  <code><a href="#list">list(blogId, endDate=None, fetchBodies=None, fetchImages=None, labels=None, maxResults=None, orderBy=None, pageToken=None, startDate=None, status=None, view=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Lists posts.</p>
 <p class="toc_element">
   <code><a href="#list_next">list_next(previous_request, previous_response)</a></code></p>
 <p class="firstline">Retrieves the next page of results.</p>
 <p class="toc_element">
-  <code><a href="#patch">patch(blogId, postId, body, maxComments=None, revert=None, publish=None, fetchImages=None, fetchBody=None)</a></code></p>
-<p class="firstline">Update a post. This method supports patch semantics.</p>
+  <code><a href="#patch">patch(blogId, postId, body=None, fetchBody=None, fetchImages=None, maxComments=None, publish=None, revert=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Patches a post.</p>
 <p class="toc_element">
-  <code><a href="#publish">publish(blogId, postId, publishDate=None)</a></code></p>
-<p class="firstline">Publishes a draft post, optionally at the specific time of the given publishDate parameter.</p>
+  <code><a href="#publish">publish(blogId, postId, publishDate=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Publishes a post.</p>
 <p class="toc_element">
-  <code><a href="#revert">revert(blogId, postId)</a></code></p>
-<p class="firstline">Revert a published or scheduled post to draft state.</p>
+  <code><a href="#revert">revert(blogId, postId, x__xgafv=None)</a></code></p>
+<p class="firstline">Reverts a published or scheduled post to draft state.</p>
 <p class="toc_element">
-  <code><a href="#search">search(blogId, q, orderBy=None, fetchBodies=None)</a></code></p>
-<p class="firstline">Search for a post.</p>
+  <code><a href="#search">search(blogId, q, fetchBodies=None, orderBy=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Searches for posts matching given query terms in the specified blog.</p>
 <p class="toc_element">
-  <code><a href="#update">update(blogId, postId, body, maxComments=None, revert=None, publish=None, fetchImages=None, fetchBody=None)</a></code></p>
-<p class="firstline">Update a post.</p>
+  <code><a href="#update">update(blogId, postId, body=None, fetchBody=None, fetchImages=None, maxComments=None, publish=None, revert=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Updates a post by blog id and post id.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="delete">delete(blogId, postId)</code>
-  <pre>Delete a post by ID.
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="delete">delete(blogId, postId, x__xgafv=None)</code>
+  <pre>Deletes a post by blog id and post id.
 
 Args:
-  blogId: string, The ID of the Blog. (required)
-  postId: string, The ID of the Post. (required)
+  blogId: string, A parameter (required)
+  postId: string, A parameter (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 </pre>
 </div>
 
 <div class="method">
-    <code class="details" id="get">get(blogId, postId, maxComments=None, fetchImages=None, fetchBody=None, view=None)</code>
-  <pre>Get a post by ID.
+    <code class="details" id="get">get(blogId, postId, fetchBody=None, fetchImages=None, maxComments=None, view=None, x__xgafv=None)</code>
+  <pre>Gets a post by blog id and post id
 
 Args:
-  blogId: string, ID of the blog to fetch the post from. (required)
-  postId: string, The ID of the post (required)
-  maxComments: integer, Maximum number of comments to pull back on a post.
-  fetchImages: boolean, Whether image URL metadata for each post is included (default: false).
-  fetchBody: boolean, Whether the body content of the post is included (default: true). This should be set to false when the post bodies are not required, to help minimize traffic.
-  view: string, Access level with which to view the returned result. Note that some fields require elevated access.
+  blogId: string, A parameter (required)
+  postId: string, A parameter (required)
+  fetchBody: boolean, A parameter
+  fetchImages: boolean, A parameter
+  maxComments: integer, A parameter
+  view: string, A parameter
     Allowed values
-      ADMIN - Admin level detail
-      AUTHOR - Author level detail
-      READER - Reader level detail
+      VIEW_TYPE_UNSPECIFIED - 
+      READER - 
+      AUTHOR - 
+      ADMIN - 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
-        {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
-        },
-      ],
-      "selfLink": "A String", # The URL of the comments on this post.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
     },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
-    },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
-    },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "url": "A String",
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="getByPath">getByPath(blogId, path, maxComments=None, view=None)</code>
-  <pre>Retrieve a Post by Path.
+    <code class="details" id="getByPath">getByPath(blogId, path, maxComments=None, view=None, x__xgafv=None)</code>
+  <pre>Gets a post by path.
 
 Args:
-  blogId: string, ID of the blog to fetch the post from. (required)
-  path: string, Path of the Post to retrieve. (required)
-  maxComments: integer, Maximum number of comments to pull back on a post.
-  view: string, Access level with which to view the returned result. Note that some fields require elevated access.
+  blogId: string, A parameter (required)
+  path: string, A parameter (required)
+  maxComments: integer, A parameter
+  view: string, A parameter
     Allowed values
-      ADMIN - Admin level detail
-      AUTHOR - Author level detail
-      READER - Reader level detail
+      VIEW_TYPE_UNSPECIFIED - 
+      READER - 
+      AUTHOR - 
+      ADMIN - 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
-        {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
-        },
-      ],
-      "selfLink": "A String", # The URL of the comments on this post.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
     },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
-    },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
-    },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "url": "A String",
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="insert">insert(blogId, body, isDraft=None, fetchImages=None, fetchBody=None)</code>
-  <pre>Add a post.
+    <code class="details" id="insert">insert(blogId, body=None, fetchBody=None, fetchImages=None, isDraft=None, x__xgafv=None)</code>
+  <pre>Inserts a post.
 
 Args:
-  blogId: string, ID of the blog to add the post to. (required)
-  body: object, The request body. (required)
+  blogId: string, A parameter (required)
+  body: object, The request body.
     The object takes the form of:
 
 {
-  "status": "A String", # Status of the post. Only set for admin-level requests
-  "content": "A String", # The content of the Post. May contain HTML markup.
-  "kind": "blogger#post", # The kind of this entity. Always blogger#post
-  "titleLink": "A String", # The title link URL, similar to atom's related link.
-  "author": { # The author of this Post.
-    "url": "A String", # The URL of the Post creator's Profile page.
-    "image": { # The Post author's avatar.
-      "url": "A String", # The Post author's avatar URL.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "displayName": "A String", # The display name.
-    "id": "A String", # The identifier of the Post creator.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
   },
-  "replies": { # The container of comments on this Post.
-    "totalItems": "A String", # The count of comments on this post.
-    "items": [ # The List of Comments for this Post.
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "status": "A String", # The status of the comment (only populated for admin users)
-        "content": "A String", # The actual content of the comment. May include HTML markup.
-        "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-        "inReplyTo": { # Data about the comment this is in reply to.
-          "id": "A String", # The identified of the parent of this comment.
-        },
-        "author": { # The author of this Comment.
-          "url": "A String", # The URL of the Comment creator's Profile page.
-          "image": { # The comment creator's avatar.
-            "url": "A String", # The comment creator's avatar URL.
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
           },
-          "displayName": "A String", # The display name.
-          "id": "A String", # The identifier of the Comment creator.
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
         },
-        "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-        "blog": { # Data about the blog containing this comment.
-          "id": "A String", # The identifier of the blog containing this comment.
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
         },
-        "published": "A String", # RFC 3339 date-time when this comment was published.
-        "post": { # Data about the post containing this comment.
-          "id": "A String", # The identifier of the post containing this comment.
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
         },
-        "id": "A String", # The identifier for this resource.
-        "selfLink": "A String", # The API REST URL to fetch this resource from.
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "selfLink": "A String", # The URL of the comments on this post.
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
   },
-  "readerComments": "A String", # Comment control and display setting for readers of this post.
-  "labels": [ # The list of labels this Post was tagged with.
-    "A String",
-  ],
-  "customMetaData": "A String", # The JSON meta-data for the Post.
-  "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-  "blog": { # Data about the blog containing this Post.
-    "id": "A String", # The identifier of the Blog that contains this Post.
-  },
-  "url": "A String", # The URL where this Post is displayed.
-  "etag": "A String", # Etag of the resource.
-  "location": { # The location for geotagged posts.
-    "lat": 3.14, # Location's latitude.
-    "lng": 3.14, # Location's longitude.
-    "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-    "name": "A String", # Location name.
-  },
-  "published": "A String", # RFC 3339 date-time when this Post was published.
-  "images": [ # Display image for the Post.
-    {
-      "url": "A String",
-    },
-  ],
-  "title": "A String", # The title of the Post.
-  "id": "A String", # The identifier of this Post.
-  "selfLink": "A String", # The API REST URL to fetch this resource from.
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
 }
 
-  isDraft: boolean, Whether to create the post as a draft (default: false).
-  fetchImages: boolean, Whether image URL metadata for each post is included in the returned result (default: false).
-  fetchBody: boolean, Whether the body content of the post is included with the result (default: true).
+  fetchBody: boolean, A parameter
+  fetchImages: boolean, A parameter
+  isDraft: boolean, A parameter
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
-        {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
-        },
-      ],
-      "selfLink": "A String", # The URL of the comments on this post.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
     },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
-    },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
-    },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "url": "A String",
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="list">list(blogId, orderBy=None, startDate=None, endDate=None, labels=None, pageToken=None, status=None, maxResults=None, fetchBodies=None, fetchImages=None, view=None)</code>
-  <pre>Retrieves a list of posts, possibly filtered.
+    <code class="details" id="list">list(blogId, endDate=None, fetchBodies=None, fetchImages=None, labels=None, maxResults=None, orderBy=None, pageToken=None, startDate=None, status=None, view=None, x__xgafv=None)</code>
+  <pre>Lists posts.
 
 Args:
-  blogId: string, ID of the blog to fetch posts from. (required)
-  orderBy: string, Sort search results
+  blogId: string, A parameter (required)
+  endDate: string, A parameter
+  fetchBodies: boolean, A parameter
+  fetchImages: boolean, A parameter
+  labels: string, A parameter
+  maxResults: integer, A parameter
+  orderBy: string, A parameter
     Allowed values
-      published - Order by the date the post was published
-      updated - Order by the date the post was last updated
-  startDate: string, Earliest post date to fetch, a date-time with RFC 3339 formatting.
-  endDate: string, Latest post date to fetch, a date-time with RFC 3339 formatting.
-  labels: string, Comma-separated list of labels to search for.
-  pageToken: string, Continuation token if the request is paged.
-  status: string, Statuses to include in the results. (repeated)
+      ORDER_BY_UNSPECIFIED - 
+      PUBLISHED - 
+      UPDATED - 
+  pageToken: string, A parameter
+  startDate: string, A parameter
+  status: string, A parameter (repeated)
     Allowed values
-      draft - Draft (non-published) posts.
-      live - Published posts
-      scheduled - Posts that are scheduled to publish in the future.
-  maxResults: integer, Maximum number of posts to fetch.
-  fetchBodies: boolean, Whether the body content of posts is included (default: true). This should be set to false when the post bodies are not required, to help minimize traffic.
-  fetchImages: boolean, Whether image URL metadata for each post is included.
-  view: string, Access level with which to view the returned result. Note that some fields require escalated access.
+      LIVE - 
+      DRAFT - 
+      SCHEDULED - 
+  view: string, A parameter
     Allowed values
-      ADMIN - Admin level detail
-      AUTHOR - Author level detail
-      READER - Reader level detail
+      VIEW_TYPE_UNSPECIFIED - 
+      READER - 
+      AUTHOR - 
+      ADMIN - 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "nextPageToken": "A String", # Pagination token to fetch the next page, if one exists.
-    "items": [ # The list of Posts for this Blog.
-      {
-        "status": "A String", # Status of the post. Only set for admin-level requests
-        "content": "A String", # The content of the Post. May contain HTML markup.
-        "kind": "blogger#post", # The kind of this entity. Always blogger#post
-        "titleLink": "A String", # The title link URL, similar to atom's related link.
-        "author": { # The author of this Post.
-          "url": "A String", # The URL of the Post creator's Profile page.
-          "image": { # The Post author's avatar.
-            "url": "A String", # The Post author's avatar URL.
-          },
-          "displayName": "A String", # The display name.
-          "id": "A String", # The identifier of the Post creator.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the response.
+  &quot;items&quot;: [ # The list of Posts for this Blog.
+    {
+      &quot;author&quot;: { # The author of this Post.
+        &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+        &quot;image&quot;: { # The creator&#x27;s avatar.
+          &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
         },
-        "replies": { # The container of comments on this Post.
-          "totalItems": "A String", # The count of comments on this post.
-          "items": [ # The List of Comments for this Post.
-            {
-              "status": "A String", # The status of the comment (only populated for admin users)
-              "content": "A String", # The actual content of the comment. May include HTML markup.
-              "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-              "inReplyTo": { # Data about the comment this is in reply to.
-                "id": "A String", # The identified of the parent of this comment.
-              },
-              "author": { # The author of this Comment.
-                "url": "A String", # The URL of the Comment creator's Profile page.
-                "image": { # The comment creator's avatar.
-                  "url": "A String", # The comment creator's avatar URL.
-                },
-                "displayName": "A String", # The display name.
-                "id": "A String", # The identifier of the Comment creator.
-              },
-              "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-              "blog": { # Data about the blog containing this comment.
-                "id": "A String", # The identifier of the blog containing this comment.
-              },
-              "published": "A String", # RFC 3339 date-time when this comment was published.
-              "post": { # Data about the post containing this comment.
-                "id": "A String", # The identifier of the post containing this comment.
-              },
-              "id": "A String", # The identifier for this resource.
-              "selfLink": "A String", # The API REST URL to fetch this resource from.
-            },
-          ],
-          "selfLink": "A String", # The URL of the comments on this post.
-        },
-        "readerComments": "A String", # Comment control and display setting for readers of this post.
-        "labels": [ # The list of labels this Post was tagged with.
-          "A String",
-        ],
-        "customMetaData": "A String", # The JSON meta-data for the Post.
-        "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-        "blog": { # Data about the blog containing this Post.
-          "id": "A String", # The identifier of the Blog that contains this Post.
-        },
-        "url": "A String", # The URL where this Post is displayed.
-        "etag": "A String", # Etag of the resource.
-        "location": { # The location for geotagged posts.
-          "lat": 3.14, # Location's latitude.
-          "lng": 3.14, # Location's longitude.
-          "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-          "name": "A String", # Location name.
-        },
-        "published": "A String", # RFC 3339 date-time when this Post was published.
-        "images": [ # Display image for the Post.
-          {
-            "url": "A String",
-          },
-        ],
-        "title": "A String", # The title of the Post.
-        "id": "A String", # The identifier of this Post.
-        "selfLink": "A String", # The API REST URL to fetch this resource from.
+        &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
       },
-    ],
-    "kind": "blogger#postList", # The kind of this entity. Always blogger#postList
-    "etag": "A String", # Etag of the response.
-  }</pre>
+      &quot;blog&quot;: { # Data about the blog containing this Post.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+      },
+      &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+      &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+      &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+      &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+      &quot;images&quot;: [ # Display image for the Post.
+        {
+          &quot;url&quot;: &quot;A String&quot;,
+        },
+      ],
+      &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+      &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+        &quot;A String&quot;,
+      ],
+      &quot;location&quot;: { # The location for geotagged posts.
+        &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+        &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+        &quot;name&quot;: &quot;A String&quot;, # Location name.
+        &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+      },
+      &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+      &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+      &quot;replies&quot;: { # The container of comments on this Post.
+        &quot;items&quot;: [ # The List of Comments for this Post.
+          {
+            &quot;author&quot;: { # The author of this Comment.
+              &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+              &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+              &quot;image&quot;: { # The creator&#x27;s avatar.
+                &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+              },
+              &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+            },
+            &quot;blog&quot;: { # Data about the blog containing this comment.
+              &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+            },
+            &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+            &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+            &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+              &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+            },
+            &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+            &quot;post&quot;: { # Data about the post containing this comment.
+              &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+            },
+            &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+            &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+            &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+            &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
+          },
+        ],
+        &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+        &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+      },
+      &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+      &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+      &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+      &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+      &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+      &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#postList.
+  &quot;nextPageToken&quot;: &quot;A String&quot;, # Pagination token to fetch the next page, if one exists.
+  &quot;prevPageToken&quot;: &quot;A String&quot;, # Pagination token to fetch the previous page, if one exists.
+}</pre>
 </div>
 
 <div class="method">
@@ -586,609 +619,631 @@ Args:
   previous_response: The response from the request for the previous page. (required)
 
 Returns:
-  A request object that you can call 'execute()' on to request the next
+  A request object that you can call &#x27;execute()&#x27; on to request the next
   page. Returns None if there are no more items in the collection.
     </pre>
 </div>
 
 <div class="method">
-    <code class="details" id="patch">patch(blogId, postId, body, maxComments=None, revert=None, publish=None, fetchImages=None, fetchBody=None)</code>
-  <pre>Update a post. This method supports patch semantics.
+    <code class="details" id="patch">patch(blogId, postId, body=None, fetchBody=None, fetchImages=None, maxComments=None, publish=None, revert=None, x__xgafv=None)</code>
+  <pre>Patches a post.
 
 Args:
-  blogId: string, The ID of the Blog. (required)
-  postId: string, The ID of the Post. (required)
-  body: object, The request body. (required)
+  blogId: string, A parameter (required)
+  postId: string, A parameter (required)
+  body: object, The request body.
     The object takes the form of:
 
 {
-  "status": "A String", # Status of the post. Only set for admin-level requests
-  "content": "A String", # The content of the Post. May contain HTML markup.
-  "kind": "blogger#post", # The kind of this entity. Always blogger#post
-  "titleLink": "A String", # The title link URL, similar to atom's related link.
-  "author": { # The author of this Post.
-    "url": "A String", # The URL of the Post creator's Profile page.
-    "image": { # The Post author's avatar.
-      "url": "A String", # The Post author's avatar URL.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "displayName": "A String", # The display name.
-    "id": "A String", # The identifier of the Post creator.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
   },
-  "replies": { # The container of comments on this Post.
-    "totalItems": "A String", # The count of comments on this post.
-    "items": [ # The List of Comments for this Post.
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "status": "A String", # The status of the comment (only populated for admin users)
-        "content": "A String", # The actual content of the comment. May include HTML markup.
-        "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-        "inReplyTo": { # Data about the comment this is in reply to.
-          "id": "A String", # The identified of the parent of this comment.
-        },
-        "author": { # The author of this Comment.
-          "url": "A String", # The URL of the Comment creator's Profile page.
-          "image": { # The comment creator's avatar.
-            "url": "A String", # The comment creator's avatar URL.
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
           },
-          "displayName": "A String", # The display name.
-          "id": "A String", # The identifier of the Comment creator.
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
         },
-        "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-        "blog": { # Data about the blog containing this comment.
-          "id": "A String", # The identifier of the blog containing this comment.
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
         },
-        "published": "A String", # RFC 3339 date-time when this comment was published.
-        "post": { # Data about the post containing this comment.
-          "id": "A String", # The identifier of the post containing this comment.
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
         },
-        "id": "A String", # The identifier for this resource.
-        "selfLink": "A String", # The API REST URL to fetch this resource from.
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "selfLink": "A String", # The URL of the comments on this post.
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
   },
-  "readerComments": "A String", # Comment control and display setting for readers of this post.
-  "labels": [ # The list of labels this Post was tagged with.
-    "A String",
-  ],
-  "customMetaData": "A String", # The JSON meta-data for the Post.
-  "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-  "blog": { # Data about the blog containing this Post.
-    "id": "A String", # The identifier of the Blog that contains this Post.
-  },
-  "url": "A String", # The URL where this Post is displayed.
-  "etag": "A String", # Etag of the resource.
-  "location": { # The location for geotagged posts.
-    "lat": 3.14, # Location's latitude.
-    "lng": 3.14, # Location's longitude.
-    "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-    "name": "A String", # Location name.
-  },
-  "published": "A String", # RFC 3339 date-time when this Post was published.
-  "images": [ # Display image for the Post.
-    {
-      "url": "A String",
-    },
-  ],
-  "title": "A String", # The title of the Post.
-  "id": "A String", # The identifier of this Post.
-  "selfLink": "A String", # The API REST URL to fetch this resource from.
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
 }
 
-  maxComments: integer, Maximum number of comments to retrieve with the returned post.
-  revert: boolean, Whether a revert action should be performed when the post is updated (default: false).
-  publish: boolean, Whether a publish action should be performed when the post is updated (default: false).
-  fetchImages: boolean, Whether image URL metadata for each post is included in the returned result (default: false).
-  fetchBody: boolean, Whether the body content of the post is included with the result (default: true).
-
-Returns:
-  An object of the form:
-
-    {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
-    },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
-        {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
-        },
-      ],
-      "selfLink": "A String", # The URL of the comments on this post.
-    },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
-    },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
-    },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
-      {
-        "url": "A String",
-      },
-    ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
-</div>
-
-<div class="method">
-    <code class="details" id="publish">publish(blogId, postId, publishDate=None)</code>
-  <pre>Publishes a draft post, optionally at the specific time of the given publishDate parameter.
-
-Args:
-  blogId: string, The ID of the Blog. (required)
-  postId: string, The ID of the Post. (required)
-  publishDate: string, Optional date and time to schedule the publishing of the Blog. If no publishDate parameter is given, the post is either published at the a previously saved schedule date (if present), or the current time. If a future date is given, the post will be scheduled to be published.
-
-Returns:
-  An object of the form:
-
-    {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
-    },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
-        {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
-        },
-      ],
-      "selfLink": "A String", # The URL of the comments on this post.
-    },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
-    },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
-    },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
-      {
-        "url": "A String",
-      },
-    ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
-</div>
-
-<div class="method">
-    <code class="details" id="revert">revert(blogId, postId)</code>
-  <pre>Revert a published or scheduled post to draft state.
-
-Args:
-  blogId: string, The ID of the Blog. (required)
-  postId: string, The ID of the Post. (required)
-
-Returns:
-  An object of the form:
-
-    {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
-    },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
-        {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
-        },
-      ],
-      "selfLink": "A String", # The URL of the comments on this post.
-    },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
-    },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
-    },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
-      {
-        "url": "A String",
-      },
-    ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
-</div>
-
-<div class="method">
-    <code class="details" id="search">search(blogId, q, orderBy=None, fetchBodies=None)</code>
-  <pre>Search for a post.
-
-Args:
-  blogId: string, ID of the blog to fetch the post from. (required)
-  q: string, Query terms to search this blog for matching posts. (required)
-  orderBy: string, Sort search results
+  fetchBody: boolean, A parameter
+  fetchImages: boolean, A parameter
+  maxComments: integer, A parameter
+  publish: boolean, A parameter
+  revert: boolean, A parameter
+  x__xgafv: string, V1 error format.
     Allowed values
-      published - Order by the date the post was published
-      updated - Order by the date the post was last updated
-  fetchBodies: boolean, Whether the body content of posts is included (default: true). This should be set to false when the post bodies are not required, to help minimize traffic.
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "nextPageToken": "A String", # Pagination token to fetch the next page, if one exists.
-    "items": [ # The list of Posts for this Blog.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+    },
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "status": "A String", # Status of the post. Only set for admin-level requests
-        "content": "A String", # The content of the Post. May contain HTML markup.
-        "kind": "blogger#post", # The kind of this entity. Always blogger#post
-        "titleLink": "A String", # The title link URL, similar to atom's related link.
-        "author": { # The author of this Post.
-          "url": "A String", # The URL of the Post creator's Profile page.
-          "image": { # The Post author's avatar.
-            "url": "A String", # The Post author's avatar URL.
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
           },
-          "displayName": "A String", # The display name.
-          "id": "A String", # The identifier of the Post creator.
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
         },
-        "replies": { # The container of comments on this Post.
-          "totalItems": "A String", # The count of comments on this post.
-          "items": [ # The List of Comments for this Post.
-            {
-              "status": "A String", # The status of the comment (only populated for admin users)
-              "content": "A String", # The actual content of the comment. May include HTML markup.
-              "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-              "inReplyTo": { # Data about the comment this is in reply to.
-                "id": "A String", # The identified of the parent of this comment.
-              },
-              "author": { # The author of this Comment.
-                "url": "A String", # The URL of the Comment creator's Profile page.
-                "image": { # The comment creator's avatar.
-                  "url": "A String", # The comment creator's avatar URL.
-                },
-                "displayName": "A String", # The display name.
-                "id": "A String", # The identifier of the Comment creator.
-              },
-              "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-              "blog": { # Data about the blog containing this comment.
-                "id": "A String", # The identifier of the blog containing this comment.
-              },
-              "published": "A String", # RFC 3339 date-time when this comment was published.
-              "post": { # Data about the post containing this comment.
-                "id": "A String", # The identifier of the post containing this comment.
-              },
-              "id": "A String", # The identifier for this resource.
-              "selfLink": "A String", # The API REST URL to fetch this resource from.
-            },
-          ],
-          "selfLink": "A String", # The URL of the comments on this post.
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
         },
-        "readerComments": "A String", # Comment control and display setting for readers of this post.
-        "labels": [ # The list of labels this Post was tagged with.
-          "A String",
-        ],
-        "customMetaData": "A String", # The JSON meta-data for the Post.
-        "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-        "blog": { # Data about the blog containing this Post.
-          "id": "A String", # The identifier of the Blog that contains this Post.
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
         },
-        "url": "A String", # The URL where this Post is displayed.
-        "etag": "A String", # Etag of the resource.
-        "location": { # The location for geotagged posts.
-          "lat": 3.14, # Location's latitude.
-          "lng": 3.14, # Location's longitude.
-          "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-          "name": "A String", # Location name.
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
         },
-        "published": "A String", # RFC 3339 date-time when this Post was published.
-        "images": [ # Display image for the Post.
-          {
-            "url": "A String",
-          },
-        ],
-        "title": "A String", # The title of the Post.
-        "id": "A String", # The identifier of this Post.
-        "selfLink": "A String", # The API REST URL to fetch this resource from.
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "kind": "blogger#postList", # The kind of this entity. Always blogger#postList
-    "etag": "A String", # Etag of the response.
-  }</pre>
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="update">update(blogId, postId, body, maxComments=None, revert=None, publish=None, fetchImages=None, fetchBody=None)</code>
-  <pre>Update a post.
+    <code class="details" id="publish">publish(blogId, postId, publishDate=None, x__xgafv=None)</code>
+  <pre>Publishes a post.
 
 Args:
-  blogId: string, The ID of the Blog. (required)
-  postId: string, The ID of the Post. (required)
-  body: object, The request body. (required)
-    The object takes the form of:
-
-{
-  "status": "A String", # Status of the post. Only set for admin-level requests
-  "content": "A String", # The content of the Post. May contain HTML markup.
-  "kind": "blogger#post", # The kind of this entity. Always blogger#post
-  "titleLink": "A String", # The title link URL, similar to atom's related link.
-  "author": { # The author of this Post.
-    "url": "A String", # The URL of the Post creator's Profile page.
-    "image": { # The Post author's avatar.
-      "url": "A String", # The Post author's avatar URL.
-    },
-    "displayName": "A String", # The display name.
-    "id": "A String", # The identifier of the Post creator.
-  },
-  "replies": { # The container of comments on this Post.
-    "totalItems": "A String", # The count of comments on this post.
-    "items": [ # The List of Comments for this Post.
-      {
-        "status": "A String", # The status of the comment (only populated for admin users)
-        "content": "A String", # The actual content of the comment. May include HTML markup.
-        "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-        "inReplyTo": { # Data about the comment this is in reply to.
-          "id": "A String", # The identified of the parent of this comment.
-        },
-        "author": { # The author of this Comment.
-          "url": "A String", # The URL of the Comment creator's Profile page.
-          "image": { # The comment creator's avatar.
-            "url": "A String", # The comment creator's avatar URL.
-          },
-          "displayName": "A String", # The display name.
-          "id": "A String", # The identifier of the Comment creator.
-        },
-        "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-        "blog": { # Data about the blog containing this comment.
-          "id": "A String", # The identifier of the blog containing this comment.
-        },
-        "published": "A String", # RFC 3339 date-time when this comment was published.
-        "post": { # Data about the post containing this comment.
-          "id": "A String", # The identifier of the post containing this comment.
-        },
-        "id": "A String", # The identifier for this resource.
-        "selfLink": "A String", # The API REST URL to fetch this resource from.
-      },
-    ],
-    "selfLink": "A String", # The URL of the comments on this post.
-  },
-  "readerComments": "A String", # Comment control and display setting for readers of this post.
-  "labels": [ # The list of labels this Post was tagged with.
-    "A String",
-  ],
-  "customMetaData": "A String", # The JSON meta-data for the Post.
-  "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-  "blog": { # Data about the blog containing this Post.
-    "id": "A String", # The identifier of the Blog that contains this Post.
-  },
-  "url": "A String", # The URL where this Post is displayed.
-  "etag": "A String", # Etag of the resource.
-  "location": { # The location for geotagged posts.
-    "lat": 3.14, # Location's latitude.
-    "lng": 3.14, # Location's longitude.
-    "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-    "name": "A String", # Location name.
-  },
-  "published": "A String", # RFC 3339 date-time when this Post was published.
-  "images": [ # Display image for the Post.
-    {
-      "url": "A String",
-    },
-  ],
-  "title": "A String", # The title of the Post.
-  "id": "A String", # The identifier of this Post.
-  "selfLink": "A String", # The API REST URL to fetch this resource from.
-}
-
-  maxComments: integer, Maximum number of comments to retrieve with the returned post.
-  revert: boolean, Whether a revert action should be performed when the post is updated (default: false).
-  publish: boolean, Whether a publish action should be performed when the post is updated (default: false).
-  fetchImages: boolean, Whether image URL metadata for each post is included in the returned result (default: false).
-  fetchBody: boolean, Whether the body content of the post is included with the result (default: true).
+  blogId: string, A parameter (required)
+  postId: string, A parameter (required)
+  publishDate: string, A parameter
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "status": "A String", # Status of the post. Only set for admin-level requests
-    "content": "A String", # The content of the Post. May contain HTML markup.
-    "kind": "blogger#post", # The kind of this entity. Always blogger#post
-    "titleLink": "A String", # The title link URL, similar to atom's related link.
-    "author": { # The author of this Post.
-      "url": "A String", # The URL of the Post creator's Profile page.
-      "image": { # The Post author's avatar.
-        "url": "A String", # The Post author's avatar URL.
-      },
-      "displayName": "A String", # The display name.
-      "id": "A String", # The identifier of the Post creator.
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "replies": { # The container of comments on this Post.
-      "totalItems": "A String", # The count of comments on this post.
-      "items": [ # The List of Comments for this Post.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
+      {
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
+      },
+    ],
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="revert">revert(blogId, postId, x__xgafv=None)</code>
+  <pre>Reverts a published or scheduled post to draft state.
+
+Args:
+  blogId: string, A parameter (required)
+  postId: string, A parameter (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
+
+Returns:
+  An object of the form:
+
+    {
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+    },
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
+      {
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
+      },
+    ],
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="search">search(blogId, q, fetchBodies=None, orderBy=None, x__xgafv=None)</code>
+  <pre>Searches for posts matching given query terms in the specified blog.
+
+Args:
+  blogId: string, A parameter (required)
+  q: string, A parameter (required)
+  fetchBodies: boolean, A parameter
+  orderBy: string, A parameter
+    Allowed values
+      ORDER_BY_UNSPECIFIED - 
+      PUBLISHED - 
+      UPDATED - 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
+
+Returns:
+  An object of the form:
+
+    {
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the response.
+  &quot;items&quot;: [ # The list of Posts for this Blog.
+    {
+      &quot;author&quot;: { # The author of this Post.
+        &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+        &quot;image&quot;: { # The creator&#x27;s avatar.
+          &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+        },
+        &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+      },
+      &quot;blog&quot;: { # Data about the blog containing this Post.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+      },
+      &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+      &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+      &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+      &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+      &quot;images&quot;: [ # Display image for the Post.
         {
-          "status": "A String", # The status of the comment (only populated for admin users)
-          "content": "A String", # The actual content of the comment. May include HTML markup.
-          "kind": "blogger#comment", # The kind of this entry. Always blogger#comment
-          "inReplyTo": { # Data about the comment this is in reply to.
-            "id": "A String", # The identified of the parent of this comment.
-          },
-          "author": { # The author of this Comment.
-            "url": "A String", # The URL of the Comment creator's Profile page.
-            "image": { # The comment creator's avatar.
-              "url": "A String", # The comment creator's avatar URL.
-            },
-            "displayName": "A String", # The display name.
-            "id": "A String", # The identifier of the Comment creator.
-          },
-          "updated": "A String", # RFC 3339 date-time when this comment was last updated.
-          "blog": { # Data about the blog containing this comment.
-            "id": "A String", # The identifier of the blog containing this comment.
-          },
-          "published": "A String", # RFC 3339 date-time when this comment was published.
-          "post": { # Data about the post containing this comment.
-            "id": "A String", # The identifier of the post containing this comment.
-          },
-          "id": "A String", # The identifier for this resource.
-          "selfLink": "A String", # The API REST URL to fetch this resource from.
+          &quot;url&quot;: &quot;A String&quot;,
         },
       ],
-      "selfLink": "A String", # The URL of the comments on this post.
+      &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+      &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+        &quot;A String&quot;,
+      ],
+      &quot;location&quot;: { # The location for geotagged posts.
+        &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+        &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+        &quot;name&quot;: &quot;A String&quot;, # Location name.
+        &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+      },
+      &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+      &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+      &quot;replies&quot;: { # The container of comments on this Post.
+        &quot;items&quot;: [ # The List of Comments for this Post.
+          {
+            &quot;author&quot;: { # The author of this Comment.
+              &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+              &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+              &quot;image&quot;: { # The creator&#x27;s avatar.
+                &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+              },
+              &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+            },
+            &quot;blog&quot;: { # Data about the blog containing this comment.
+              &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+            },
+            &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+            &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+            &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+              &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+            },
+            &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+            &quot;post&quot;: { # Data about the post containing this comment.
+              &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+            },
+            &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+            &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+            &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+            &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
+          },
+        ],
+        &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+        &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+      },
+      &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+      &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+      &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+      &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+      &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+      &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
     },
-    "readerComments": "A String", # Comment control and display setting for readers of this post.
-    "labels": [ # The list of labels this Post was tagged with.
-      "A String",
-    ],
-    "customMetaData": "A String", # The JSON meta-data for the Post.
-    "updated": "A String", # RFC 3339 date-time when this Post was last updated.
-    "blog": { # Data about the blog containing this Post.
-      "id": "A String", # The identifier of the Blog that contains this Post.
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#postList.
+  &quot;nextPageToken&quot;: &quot;A String&quot;, # Pagination token to fetch the next page, if one exists.
+  &quot;prevPageToken&quot;: &quot;A String&quot;, # Pagination token to fetch the previous page, if one exists.
+}</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="update">update(blogId, postId, body=None, fetchBody=None, fetchImages=None, maxComments=None, publish=None, revert=None, x__xgafv=None)</code>
+  <pre>Updates a post by blog id and post id.
+
+Args:
+  blogId: string, A parameter (required)
+  postId: string, A parameter (required)
+  body: object, The request body.
+    The object takes the form of:
+
+{
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
     },
-    "url": "A String", # The URL where this Post is displayed.
-    "etag": "A String", # Etag of the resource.
-    "location": { # The location for geotagged posts.
-      "lat": 3.14, # Location's latitude.
-      "lng": 3.14, # Location's longitude.
-      "span": "A String", # Location's viewport span. Can be used when rendering a map preview.
-      "name": "A String", # Location name.
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
     },
-    "published": "A String", # RFC 3339 date-time when this Post was published.
-    "images": [ # Display image for the Post.
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
       {
-        "url": "A String",
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
       },
     ],
-    "title": "A String", # The title of the Post.
-    "id": "A String", # The identifier of this Post.
-    "selfLink": "A String", # The API REST URL to fetch this resource from.
-  }</pre>
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}
+
+  fetchBody: boolean, A parameter
+  fetchImages: boolean, A parameter
+  maxComments: integer, A parameter
+  publish: boolean, A parameter
+  revert: boolean, A parameter
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
+
+Returns:
+  An object of the form:
+
+    {
+  &quot;author&quot;: { # The author of this Post.
+    &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+    &quot;image&quot;: { # The creator&#x27;s avatar.
+      &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+    },
+    &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+  },
+  &quot;blog&quot;: { # Data about the blog containing this Post.
+    &quot;id&quot;: &quot;A String&quot;, # The identifier of the Blog that contains this Post.
+  },
+  &quot;content&quot;: &quot;A String&quot;, # The content of the Post. May contain HTML markup.
+  &quot;customMetaData&quot;: &quot;A String&quot;, # The JSON meta-data for the Post.
+  &quot;etag&quot;: &quot;A String&quot;, # Etag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The identifier of this Post.
+  &quot;images&quot;: [ # Display image for the Post.
+    {
+      &quot;url&quot;: &quot;A String&quot;,
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # The kind of this entity. Always blogger#post.
+  &quot;labels&quot;: [ # The list of labels this Post was tagged with.
+    &quot;A String&quot;,
+  ],
+  &quot;location&quot;: { # The location for geotagged posts.
+    &quot;lat&quot;: 3.14, # Location&#x27;s latitude.
+    &quot;lng&quot;: 3.14, # Location&#x27;s longitude.
+    &quot;name&quot;: &quot;A String&quot;, # Location name.
+    &quot;span&quot;: &quot;A String&quot;, # Location&#x27;s viewport span. Can be used when rendering a map preview.
+  },
+  &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was published.
+  &quot;readerComments&quot;: &quot;A String&quot;, # Comment control and display setting for readers of this post.
+  &quot;replies&quot;: { # The container of comments on this Post.
+    &quot;items&quot;: [ # The List of Comments for this Post.
+      {
+        &quot;author&quot;: { # The author of this Comment.
+          &quot;displayName&quot;: &quot;A String&quot;, # The display name.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the creator.
+          &quot;image&quot;: { # The creator&#x27;s avatar.
+            &quot;url&quot;: &quot;A String&quot;, # The creator&#x27;s avatar URL.
+          },
+          &quot;url&quot;: &quot;A String&quot;, # The URL of the creator&#x27;s Profile page.
+        },
+        &quot;blog&quot;: { # Data about the blog containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the blog containing this comment.
+        },
+        &quot;content&quot;: &quot;A String&quot;, # The actual content of the comment. May include HTML markup.
+        &quot;id&quot;: &quot;A String&quot;, # The identifier for this resource.
+        &quot;inReplyTo&quot;: { # Data about the comment this is in reply to.
+          &quot;id&quot;: &quot;A String&quot;, # The identified of the parent of this comment.
+        },
+        &quot;kind&quot;: &quot;A String&quot;, # The kind of this entry. Always blogger#comment.
+        &quot;post&quot;: { # Data about the post containing this comment.
+          &quot;id&quot;: &quot;A String&quot;, # The identifier of the post containing this comment.
+        },
+        &quot;published&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was published.
+        &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+        &quot;status&quot;: &quot;A String&quot;, # The status of the comment (only populated for admin users).
+        &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this comment was last updated.
+      },
+    ],
+    &quot;selfLink&quot;: &quot;A String&quot;, # The URL of the comments on this post.
+    &quot;totalItems&quot;: &quot;A String&quot;, # The count of comments on this post.
+  },
+  &quot;selfLink&quot;: &quot;A String&quot;, # The API REST URL to fetch this resource from.
+  &quot;status&quot;: &quot;A String&quot;, # Status of the post. Only set for admin-level requests.
+  &quot;title&quot;: &quot;A String&quot;, # The title of the Post.
+  &quot;titleLink&quot;: &quot;A String&quot;, # The title link URL, similar to atom&#x27;s related link.
+  &quot;updated&quot;: &quot;A String&quot;, # RFC 3339 date-time when this Post was last updated.
+  &quot;url&quot;: &quot;A String&quot;, # The URL where this Post is displayed.
+}</pre>
 </div>
 
 </body></html>

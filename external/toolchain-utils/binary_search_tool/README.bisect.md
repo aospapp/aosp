@@ -75,7 +75,9 @@ following arguments:
 
 * board: The board to bisect on. For example: daisy, falco, etc.
 * remote: The IP address of the physical machine you're using to test with.
-* package: The package to bisect with. For example: chromeos-chrome
+* package: The package to bisect with. For example: chromeos-chrome.
+* use_flags: (Optional) Use flags for emerge. For example: "-thinlto -cfi".
+* noreboot: (Optional) Do not reboot after updating the package.
 * dir: (Optional) the directory for your good/bad build trees. Defaults to
        $BISECT_DIR or /tmp/sysroot_bisect. This value will set $BISECT_DIR
        for all bisecting scripts.

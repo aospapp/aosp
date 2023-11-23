@@ -30,9 +30,13 @@ ExecutionPlan FP16MobileNetV2(pthreadpool_t threadpool);
 ExecutionPlan FP16MobileNetV3Large(pthreadpool_t threadpool);
 ExecutionPlan FP16MobileNetV3Small(pthreadpool_t threadpool);
 
+ExecutionPlan QC8MobileNetV1(pthreadpool_t threadpool);
+ExecutionPlan QC8MobileNetV2(pthreadpool_t threadpool);
+
 ExecutionPlan QS8MobileNetV1(pthreadpool_t threadpool);
 ExecutionPlan QS8MobileNetV2(pthreadpool_t threadpool);
 
 ExecutionPlan QU8MobileNetV1(pthreadpool_t threadpool);
+ExecutionPlan QU8MobileNetV2(pthreadpool_t threadpool);
 
 }  // namespace models

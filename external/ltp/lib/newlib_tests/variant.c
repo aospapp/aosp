@@ -17,12 +17,12 @@ static void do_test(void)
 		tst_res(TPASS, "Test passed");
 	break;
 	case 2:
-		/* This exits the test immediatelly */
+		/* This exits the test immediately */
 		tst_brk(TBROK, "Test broken");
 	break;
 	}
 
-	tst_res(TINFO, "test() function exitting normaly");
+	tst_res(TINFO, "test() function exiting normally");
 }
 
 static void setup(void)
@@ -31,13 +31,13 @@ static void setup(void)
 
 	switch (tst_variant) {
 	case 0:
-		tst_res(TINFO, "Starting tst_brk TCONF test");
+		tst_res(TINFO, "Starting tst_brk(TCONF) test");
 	break;
 	case 1:
-		tst_res(TINFO, "Starting tst_res TPASS test");
+		tst_res(TINFO, "Starting tst_res(TPASS) test");
 	break;
 	case 2:
-		tst_res(TINFO, "Starting tst_res TBROK test");
+		tst_res(TINFO, "Starting tst_brk(TBROK) test");
 	break;
 	}
 }

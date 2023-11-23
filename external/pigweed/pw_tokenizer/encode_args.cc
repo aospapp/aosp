@@ -32,12 +32,6 @@ enum class ArgType : uint8_t {
   kString = PW_TOKENIZER_ARG_TYPE_STRING,
 };
 
-// Just to be safe, make sure these values are what we expect them to be.
-static_assert(0b00u == static_cast<uint8_t>(ArgType::kInt));
-static_assert(0b01u == static_cast<uint8_t>(ArgType::kInt64));
-static_assert(0b10u == static_cast<uint8_t>(ArgType::kDouble));
-static_assert(0b11u == static_cast<uint8_t>(ArgType::kString));
-
 size_t EncodeInt(int value, const std::span<std::byte>& output) {
   return varint::Encode(value, std::as_writable_bytes(output));
 }
@@ -67,7 +61,8 @@ size_t EncodeString(const char* string, const std::span<std::byte>& output) {
   }
 
   // Subtract 1 to save room for the status byte.
-  const size_t max_bytes = std::min(output.size(), kMaxStringLength) - 1;
+  const size_t max_bytes =
+      std::min(static_cast<size_t>(output.size()), kMaxStringLength) - 1;
 
   // Scan the string to find out how many bytes to copy.
   size_t bytes_to_copy = 0;

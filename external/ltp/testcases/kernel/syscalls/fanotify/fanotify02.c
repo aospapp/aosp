@@ -3,25 +3,26 @@
  * Copyright (c) 2013 SUSE.  All Rights Reserved.
  *
  * Started by Jan Kara <jack@suse.cz>
- *
- * DESCRIPTION
- *     Check that fanotify work for children of a directory
  */
+
+/*\
+ * [Description]
+ * Check that fanotify work for children of a directory.
+ */
+
 #define _GNU_SOURCE
 #include "config.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
 #include "tst_test.h"
-#include "fanotify.h"
 
-#if defined(HAVE_SYS_FANOTIFY_H)
-#include <sys/fanotify.h>
+#ifdef HAVE_SYS_FANOTIFY_H
+#include "fanotify.h"
 
 #define EVENT_MAX 1024
 /* size of the event structure, not counting name */
@@ -46,16 +47,9 @@ void test01(void)
 
 	int tst_count = 0;
 
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD, FAN_ACCESS |
-			  FAN_MODIFY | FAN_CLOSE | FAN_OPEN |
-			  FAN_EVENT_ON_CHILD | FAN_ONDIR, AT_FDCWD,
-			  ".") < 0) {
-		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | "
-			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN | "
-			"FAN_EVENT_ON_CHILD | FAN_ONDIR, AT_FDCWD, '.') "
-			"failed", fd_notify);
-	}
+	SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_ADD, FAN_ACCESS |
+			  FAN_MODIFY | FAN_CLOSE | FAN_OPEN | FAN_EVENT_ON_CHILD |
+			  FAN_ONDIR, AT_FDCWD, ".");
 
 	/*
 	 * generate sequence of events
@@ -102,13 +96,8 @@ void test01(void)
 	/*
 	 * now remove child mark
 	 */
-	if (fanotify_mark(fd_notify, FAN_MARK_REMOVE,
-			  FAN_EVENT_ON_CHILD, AT_FDCWD, ".") < 0) {
-		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK REMOVE, "
-			"FAN_EVENT_ON_CHILD, AT_FDCWD, '.') failed",
-			fd_notify);
-	}
+	SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_REMOVE,
+			  FAN_EVENT_ON_CHILD, AT_FDCWD, ".");
 
 	/*
 	 * Do something to verify events didn't get generated

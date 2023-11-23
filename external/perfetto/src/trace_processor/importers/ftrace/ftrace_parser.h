@@ -19,7 +19,6 @@
 
 #include "perfetto/trace_processor/status.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/importers/ftrace/ftrace_descriptors.h"
 #include "src/trace_processor/importers/ftrace/rss_stat_tracker.h"
 #include "src/trace_processor/importers/ftrace/sched_event_tracker.h"
@@ -49,8 +48,8 @@ class FtraceParser {
                              protozero::ConstBytes,
                              PacketSequenceStateGeneration*);
   void ParseSchedSwitch(uint32_t cpu, int64_t timestamp, protozero::ConstBytes);
-  void ParseSchedWakeup(int64_t timestamp, protozero::ConstBytes);
-  void ParseSchedWaking(int64_t timestamp, protozero::ConstBytes);
+  void ParseSchedWakeup(int64_t timestamp, uint32_t pid, protozero::ConstBytes);
+  void ParseSchedWaking(int64_t timestamp, uint32_t pid, protozero::ConstBytes);
   void ParseSchedProcessFree(int64_t timestamp, protozero::ConstBytes);
   void ParseCpuFreq(int64_t timestamp, protozero::ConstBytes);
   void ParseGpuFreq(int64_t timestamp, protozero::ConstBytes);
@@ -120,7 +119,14 @@ class FtraceParser {
                          uint32_t pid,
                          protozero::ConstBytes);
   void ParseScmCallEnd(int64_t timestamp, uint32_t pid, protozero::ConstBytes);
-  void ParseWorkqueueExecuteStart(int64_t timestamp,
+  void ParseDirectReclaimBegin(int64_t timestamp,
+                               uint32_t pid,
+                               protozero::ConstBytes);
+  void ParseDirectReclaimEnd(int64_t timestamp,
+                             uint32_t pid,
+                             protozero::ConstBytes);
+  void ParseWorkqueueExecuteStart(uint32_t cpu,
+                                  int64_t timestamp,
                                   uint32_t pid,
                                   protozero::ConstBytes,
                                   PacketSequenceStateGeneration* seq_state);
@@ -147,15 +153,41 @@ class FtraceParser {
                            uint32_t pid,
                            protozero::ConstBytes);
   void ParseCpuhpPause(int64_t, uint32_t, protozero::ConstBytes);
+  void ParseNetifReceiveSkb(uint32_t cpu,
+                            int64_t timestamp,
+                            protozero::ConstBytes);
+  void ParseNetDevXmit(uint32_t cpu, int64_t timestamp, protozero::ConstBytes);
+  void ParseInetSockSetState(int64_t timestamp,
+                             uint32_t pid,
+                             protozero::ConstBytes);
+  void ParseTcpRetransmitSkb(int64_t timestamp, protozero::ConstBytes);
+  void ParseNapiGroReceiveEntry(uint32_t cpu,
+                                int64_t timestamp,
+                                protozero::ConstBytes);
+  void ParseNapiGroReceiveExit(uint32_t cpu,
+                               int64_t timestamp,
+                               protozero::ConstBytes);
+  void ParseCpuFrequencyLimits(int64_t timestamp, protozero::ConstBytes);
+  void ParseKfreeSkb(int64_t timestamp, protozero::ConstBytes);
+  void ParseUfshcdCommand(int64_t timestamp, protozero::ConstBytes);
+  void ParseUfshcdClkGating(int64_t timestamp, protozero::ConstBytes);
+
+  void ParseCrosEcSensorhubData(int64_t timestamp, protozero::ConstBytes);
+  void ParseWakeSourceActivate(int64_t timestamp, protozero::ConstBytes);
+  void ParseWakeSourceDeactivate(int64_t timestamp, protozero::ConstBytes);
+  void ParseSuspendResume(int64_t timestamp, protozero::ConstBytes);
 
   TraceProcessorContext* context_;
   RssStatTracker rss_stat_tracker_;
 
   const StringId sched_wakeup_name_id_;
   const StringId sched_waking_name_id_;
+  const StringId cpu_id_;
   const StringId cpu_freq_name_id_;
   const StringId gpu_freq_name_id_;
   const StringId cpu_idle_name_id_;
+  const StringId suspend_resume_name_id_;
+  const StringId kfree_skb_name_id_;
   const StringId ion_total_id_;
   const StringId ion_change_id_;
   const StringId ion_buffer_id_;
@@ -173,7 +205,17 @@ class FtraceParser {
   const StringId oom_kill_id_;
   const StringId workqueue_id_;
   const StringId irq_id_;
+  const StringId tcp_state_id_;
+  const StringId tcp_event_id_;
+  const StringId protocol_arg_id_;
+  const StringId napi_gro_id_;
+  const StringId tcp_retransmited_name_id_;
   const StringId ret_arg_id_;
+  const StringId len_arg_id_;
+  const StringId direct_reclaim_nr_reclaimed_id_;
+  const StringId direct_reclaim_order_id_;
+  const StringId direct_reclaim_may_writepage_id_;
+  const StringId direct_reclaim_gfp_flags_id_;
   const StringId vec_arg_id_;
   const StringId gpu_mem_total_name_id_;
   const StringId gpu_mem_total_unit_id_;
@@ -182,6 +224,12 @@ class FtraceParser {
   const StringId sched_blocked_reason_id_;
   const StringId io_wait_id_;
   const StringId function_id_;
+  const StringId waker_utid_id_;
+  const StringId cros_ec_arg_num_id_;
+  const StringId cros_ec_arg_ec_id_;
+  const StringId cros_ec_arg_sample_ts_id_;
+  const StringId ufs_clkgating_id_;
+  const StringId ufs_command_count_id_;
 
   struct FtraceMessageStrings {
     // The string id of name of the event field (e.g. sched_switch's id).
@@ -207,6 +255,25 @@ class FtraceParser {
   // Keep kMmEventCounterSize equal to mm_event_type::MM_TYPE_NUM in the kernel.
   static constexpr size_t kMmEventCounterSize = 7;
   std::array<MmEventCounterNames, kMmEventCounterSize> mm_event_counter_names_;
+
+  // Record number of received bytes from the network interface card.
+  std::unordered_map<StringId, uint64_t> nic_received_bytes_;
+
+  // Record number of transmitted bytes to the network interface card.
+  std::unordered_map<StringId, uint64_t> nic_transmitted_bytes_;
+
+  // Record number of kfree_skb with ip protocol.
+  uint64_t num_of_kfree_skb_ip_prot = 0;
+
+  // Keep sock to stream number mapping.
+  std::unordered_map<uint64_t, uint32_t> skaddr_to_stream_;
+
+  // Record number of tcp steams.
+  uint32_t num_of_tcp_stream_ = 0;
+
+  // A name collision is possible, always show if active wakelock exists
+  // with a give name
+  std::unordered_map<std::string, uint32_t> active_wakelock_to_count_;
 
   bool has_seen_first_ftrace_packet_ = false;
 

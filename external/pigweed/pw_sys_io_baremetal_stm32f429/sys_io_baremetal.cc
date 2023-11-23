@@ -87,7 +87,7 @@ constexpr uint32_t kTxRegisterEmpty = 0x1u << 7;
 
 // USART configuration flags for config1 register.
 // Note: a large number of configuration flags have been omitted as they default
-// to sane values and we don't need to change them.
+// to reasonable values and we don't need to change them.
 constexpr uint32_t kReceiveEnable = 0x1 << 2;
 constexpr uint32_t kTransmitEnable = 0x1 << 3;
 constexpr uint32_t kReadDataReady = 0x1u << 5;
@@ -130,7 +130,7 @@ volatile UsartBlock& usart1 =
 
 }  // namespace
 
-extern "C" void pw_sys_io_Init() {
+extern "C" void pw_sys_io_stm32f429_Init() {
   // Enable 'A' GIPO clocks.
   platform_rcc.ahb1_config |= kGpioAEnable;
 

@@ -60,7 +60,6 @@ import android.icu.impl.ICUResourceBundle;
  * @hide Only a subset of ICU is exposed in Android
  */
 
-@libcore.api.CorePlatformApi
 public class Region implements Comparable<Region> {
 
     /**
@@ -70,7 +69,6 @@ public class Region implements Comparable<Region> {
      * @hide Only a subset of ICU is exposed in Android
      */
 
-    @libcore.api.CorePlatformApi
     public enum RegionType {
         /**
          * Type representing the unknown region.
@@ -80,7 +78,6 @@ public class Region implements Comparable<Region> {
         /**
          * Type representing a territory.
          */
-        @libcore.api.CorePlatformApi
         TERRITORY,
 
         /**
@@ -345,6 +342,23 @@ public class Region implements Comparable<Region> {
             }
         }     
 
+        // Fill in the grouping containment resource as well
+        for ( int i = 0 ; i < groupingContainment.getSize(); i++ ) {
+            UResourceBundle mapping = groupingContainment.get(i);
+            String parent = mapping.getKey();
+            Region parentRegion = regionIDMap.get(parent);
+            for ( int j = 0 ; j < mapping.getSize(); j++ ) {
+                String child = mapping.getString(j);
+                Region childRegion = regionIDMap.get(child);
+                if ( parentRegion != null && childRegion != null ) {                    
+                    // Add the child region to the set of regions contained by the parent
+                    parentRegion.containedRegions.add(childRegion);
+                    // Do NOT change the parent of the child region, since groupings are
+                    // never the primary parent of a region.
+                }
+            }
+        }     
+
         // Create the availableRegions lists
 
         for (int i = 0 ; i < RegionType.values().length ; i++) {
@@ -435,7 +449,6 @@ public class Region implements Comparable<Region> {
      * @return An unmodifiable set of all known regions that match the given type.
      */
 
-    @libcore.api.CorePlatformApi
     public static Set<Region> getAvailable(RegionType type) {
 
         loadRegionData();

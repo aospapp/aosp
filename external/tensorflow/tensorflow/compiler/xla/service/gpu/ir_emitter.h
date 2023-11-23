@@ -104,10 +104,8 @@ class IrEmitter : public DfsHloVisitorWithDefault,
   llvm::IRBuilder<>* builder() { return &b_; }
 
   // Emits constants to generated LLVM IR, and also populate related
-  // inforamtion to ir_emitter_context for large-constant initializations. If
-  // `lookup_indices` is true, the allocation index associated with the constant
-  // is also populated.
-  Status EmitConstants(const HloComputation& computation, bool lookup_indices);
+  // inforamtion to ir_emitter_context for large-constant initializations.
+  Status EmitConstants(const HloComputation& computation);
 
  protected:
   // Constructs an IrEmitter with the given IrEmitter context.
@@ -203,7 +201,7 @@ class IrEmitter : public DfsHloVisitorWithDefault,
 
   // A helper method for HandleSort(). It adds the inner comparison loop where
   // we compare elements pointed to by 'keys_index' and 'compare_keys_index'.
-  void EmitCompareLoop(int64 dimension_to_sort,
+  void EmitCompareLoop(int64_t dimension_to_sort,
                        const llvm_ir::IrArray::Index& keys_index,
                        const llvm_ir::IrArray::Index& compare_keys_index,
                        const llvm_ir::IrArray& keys_array);

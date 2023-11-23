@@ -13,6 +13,7 @@
 
 #include "utils/common.h"
 #include "utils/uuid.h"
+#include "utils/crc32.h"
 #include "common/ieee802_11_defs.h"
 #include "common/sae.h"
 #include "crypto/sha256.h"
@@ -2332,6 +2333,22 @@ fail:
 #endif /* CONFIG_DPP2 */
 
 
+static int get_hex_config(u8 *buf, size_t max_len, int line,
+			  const char *field, const char *val)
+{
+	size_t hlen = os_strlen(val), len = hlen / 2;
+	u8 tmp[EXT_CAPA_MAX_LEN];
+
+	os_memset(tmp, 0, EXT_CAPA_MAX_LEN);
+	if (hlen & 1 || len > EXT_CAPA_MAX_LEN || hexstr2bin(val, tmp, len)) {
+		wpa_printf(MSG_ERROR, "Line %d: Invalid %s", line, field);
+		return -1;
+	}
+	os_memcpy(buf, tmp, EXT_CAPA_MAX_LEN);
+	return 0;
+}
+
+
 static int hostapd_config_fill(struct hostapd_config *conf,
 			       struct hostapd_bss_config *bss,
 			       const char *buf, char *pos, int line)
@@ -2380,16 +2397,19 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		wpa_printf(MSG_INFO, "Line %d: DEPRECATED: 'dump_file' configuration variable is not used anymore",
 			   line);
 	} else if (os_strcmp(buf, "ssid") == 0) {
-		bss->ssid.ssid_len = os_strlen(pos);
-		if (bss->ssid.ssid_len > SSID_MAX_LEN ||
-		    bss->ssid.ssid_len < 1) {
+		struct hostapd_ssid *ssid = &bss->ssid;
+
+		ssid->ssid_len = os_strlen(pos);
+		if (ssid->ssid_len > SSID_MAX_LEN || ssid->ssid_len < 1) {
 			wpa_printf(MSG_ERROR, "Line %d: invalid SSID '%s'",
 				   line, pos);
 			return 1;
 		}
-		os_memcpy(bss->ssid.ssid, pos, bss->ssid.ssid_len);
-		bss->ssid.ssid_set = 1;
+		os_memcpy(ssid->ssid, pos, ssid->ssid_len);
+		ssid->ssid_set = 1;
+		ssid->short_ssid = crc32(ssid->ssid, ssid->ssid_len);
 	} else if (os_strcmp(buf, "ssid2") == 0) {
+		struct hostapd_ssid *ssid = &bss->ssid;
 		size_t slen;
 		char *str = wpa_config_parse_string(pos, &slen);
 		if (str == NULL || slen < 1 || slen > SSID_MAX_LEN) {
@@ -2398,9 +2418,10 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 			os_free(str);
 			return 1;
 		}
-		os_memcpy(bss->ssid.ssid, str, slen);
-		bss->ssid.ssid_len = slen;
-		bss->ssid.ssid_set = 1;
+		os_memcpy(ssid->ssid, str, slen);
+		ssid->ssid_len = slen;
+		ssid->ssid_set = 1;
+		ssid->short_ssid = crc32(ssid->ssid, ssid->ssid_len);
 		os_free(str);
 	} else if (os_strcmp(buf, "utf8_ssid") == 0) {
 		bss->ssid.utf8_ssid = atoi(pos) > 0;
@@ -2458,12 +2479,13 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		bss->ieee802_1x = atoi(pos);
 	} else if (os_strcmp(buf, "eapol_version") == 0) {
 		int eapol_version = atoi(pos);
-
 #ifdef CONFIG_MACSEC
-		if (eapol_version < 1 || eapol_version > 3) {
+		int max_ver = 3;
 #else /* CONFIG_MACSEC */
-		if (eapol_version < 1 || eapol_version > 2) {
+		int max_ver = 2;
 #endif /* CONFIG_MACSEC */
+
+		if (eapol_version < 1 || eapol_version > max_ver) {
 			wpa_printf(MSG_ERROR,
 				   "Line %d: invalid EAPOL version (%d): '%s'.",
 				   line, eapol_version, pos);
@@ -2711,6 +2733,9 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 			return 1;
 		}
 		bss->radius->force_client_addr = 1;
+	} else if (os_strcmp(buf, "radius_client_dev") == 0) {
+			os_free(bss->radius->force_client_dev);
+			bss->radius->force_client_dev = os_strdup(pos);
 	} else if (os_strcmp(buf, "auth_server_addr") == 0) {
 		if (hostapd_config_read_radius_addr(
 			    &bss->radius->auth_servers,
@@ -3168,6 +3193,16 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		conf->acs_freq_list_present = 1;
 	} else if (os_strcmp(buf, "acs_exclude_6ghz_non_psc") == 0) {
 		conf->acs_exclude_6ghz_non_psc = atoi(pos);
+	} else if (os_strcmp(buf, "min_tx_power") == 0) {
+		int val = atoi(pos);
+
+		if (val < 0 || val > 255) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: invalid min_tx_power %d (expected 0..255)",
+				   line, val);
+			return 1;
+		}
+		conf->min_tx_power = val;
 	} else if (os_strcmp(buf, "beacon_int") == 0) {
 		int val = atoi(pos);
 		/* MIB defines range as 1..65535, but very small values
@@ -3491,8 +3526,12 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		conf->he_op.he_default_pe_duration = atoi(pos);
 	} else if (os_strcmp(buf, "he_twt_required") == 0) {
 		conf->he_op.he_twt_required = atoi(pos);
+	} else if (os_strcmp(buf, "he_twt_responder") == 0) {
+		conf->he_op.he_twt_responder = atoi(pos);
 	} else if (os_strcmp(buf, "he_rts_threshold") == 0) {
 		conf->he_op.he_rts_threshold = atoi(pos);
+	} else if (os_strcmp(buf, "he_er_su_disable") == 0) {
+		conf->he_op.he_er_su_disable = atoi(pos);
 	} else if (os_strcmp(buf, "he_basic_mcs_nss_set") == 0) {
 		conf->he_op.he_basic_mcs_nss_set = atoi(pos);
 	} else if (os_strcmp(buf, "he_mu_edca_qos_info_param_count") == 0) {
@@ -4277,8 +4316,9 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "assocresp_elements") == 0) {
 		if (parse_wpabuf_hex(line, buf, &bss->assocresp_elements, pos))
 			return 1;
-	} else if (os_strcmp(buf, "sae_anti_clogging_threshold") == 0) {
-		bss->sae_anti_clogging_threshold = atoi(pos);
+	} else if (os_strcmp(buf, "sae_anti_clogging_threshold") == 0 ||
+		   os_strcmp(buf, "anti_clogging_threshold") == 0) {
+		bss->anti_clogging_threshold = atoi(pos);
 	} else if (os_strcmp(buf, "sae_sync") == 0) {
 		bss->sae_sync = atoi(pos);
 	} else if (os_strcmp(buf, "sae_groups") == 0) {
@@ -4665,6 +4705,8 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 #ifdef CONFIG_TESTING_OPTIONS
 	} else if (os_strcmp(buf, "force_kdk_derivation") == 0) {
 		bss->force_kdk_derivation = atoi(pos);
+	} else if (os_strcmp(buf, "pasn_corrupt_mic") == 0) {
+		bss->pasn_corrupt_mic = atoi(pos);
 #endif /* CONFIG_TESTING_OPTIONS */
 	} else if (os_strcmp(buf, "pasn_groups") == 0) {
 		if (hostapd_parse_intlist(&bss->pasn_groups, pos)) {
@@ -4673,7 +4715,19 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 				   line, pos);
 			return 1;
 		}
+	} else if (os_strcmp(buf, "pasn_comeback_after") == 0) {
+		bss->pasn_comeback_after = atoi(pos);
 #endif /* CONFIG_PASN */
+	} else if (os_strcmp(buf, "ext_capa_mask") == 0) {
+		if (get_hex_config(bss->ext_capa_mask, EXT_CAPA_MAX_LEN,
+				   line, "ext_capa_mask", pos))
+			return 1;
+	} else if (os_strcmp(buf, "ext_capa") == 0) {
+		if (get_hex_config(bss->ext_capa, EXT_CAPA_MAX_LEN,
+				   line, "ext_capa", pos))
+			return 1;
+	} else if (os_strcmp(buf, "rnr") == 0) {
+		bss->rnr = atoi(pos);
 	} else {
 		wpa_printf(MSG_ERROR,
 			   "Line %d: unknown configuration item '%s'",

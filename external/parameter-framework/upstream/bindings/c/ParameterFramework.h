@@ -192,14 +192,15 @@ const char *pfwGetLastError(const PfwHandler *handle) NONNULL;
   * @return true on success and false on failure.
   */
 CPARAMETER_EXPORT
-bool pfwSetCriterion(PfwHandler *handle, const char name[], int value) NONNULL USERESULT;
+bool pfwSetCriterion(PfwHandler *handle, const char name[], uint64_t value) NONNULL USERESULT;
 /** Get a criterion value given its name.
   * Same usage as pfwSetCriterion except that value is an out param.
   * Get criterion will return the last value setted with pfwSetCriterion independantly of
   * pfwCommitCritenio.
   */
 CPARAMETER_EXPORT
-bool pfwGetCriterion(const PfwHandler *handle, const char name[], int *value) NONNULL USERESULT;
+bool pfwGetCriterion(const PfwHandler *handle, const char name[],
+                     uint64_t *value) NONNULL USERESULT;
 
 /** Commit criteria change and change parameters according to the configurations.
   * Criterion do not have impact on the parameters value when changed,

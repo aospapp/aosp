@@ -4,7 +4,7 @@
 
 use std::marker::{Send, Sized};
 
-use crate::Bus;
+use crate::{Bus, IrqEdgeEvent, IrqLevelEvent};
 use base::{Event, Result};
 use hypervisor::{IrqRoute, MPState, Vcpu};
 use resources::SystemAllocator;
@@ -13,7 +13,7 @@ mod kvm;
 pub use self::kvm::KvmKernelIrqChip;
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-pub use self::kvm::AARCH64_GIC_NR_IRQS;
+pub use self::kvm::{AARCH64_GIC_NR_IRQS, AARCH64_GIC_NR_SPIS};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub use self::kvm::KvmSplitIrqChip;
@@ -61,16 +61,25 @@ pub trait IrqChip: Send {
     /// Add a vcpu to the irq chip.
     fn add_vcpu(&mut self, vcpu_id: usize, vcpu: &dyn Vcpu) -> Result<()>;
 
-    /// Register an event that can trigger an interrupt for a particular GSI.
-    fn register_irq_event(
+    /// Register an event with edge-trigger semantic that can trigger an interrupt for a particular GSI.
+    fn register_edge_irq_event(
         &mut self,
         irq: u32,
-        irq_event: &Event,
-        resample_event: Option<&Event>,
+        irq_event: &IrqEdgeEvent,
     ) -> Result<Option<IrqEventIndex>>;
 
-    /// Unregister an event for a particular GSI.
-    fn unregister_irq_event(&mut self, irq: u32, irq_event: &Event) -> Result<()>;
+    /// Unregister an event with edge-trigger semantic for a particular GSI.
+    fn unregister_edge_irq_event(&mut self, irq: u32, irq_event: &IrqEdgeEvent) -> Result<()>;
+
+    /// Register an event with level-trigger semantic that can trigger an interrupt for a particular GSI.
+    fn register_level_irq_event(
+        &mut self,
+        irq: u32,
+        irq_event: &IrqLevelEvent,
+    ) -> Result<Option<IrqEventIndex>>;
+
+    /// Unregister an event with level-trigger semantic for a particular GSI.
+    fn unregister_level_irq_event(&mut self, irq: u32, irq_event: &IrqLevelEvent) -> Result<()>;
 
     /// Route an IRQ line to an interrupt controller, or to a particular MSI vector.
     fn route_irq(&mut self, route: IrqRoute) -> Result<()>;
@@ -128,12 +137,18 @@ pub trait IrqChip: Send {
     fn finalize_devices(
         &mut self,
         resources: &mut SystemAllocator,
-        io_bus: &mut Bus,
-        mmio_bus: &mut Bus,
+        io_bus: &Bus,
+        mmio_bus: &Bus,
     ) -> Result<()>;
 
     /// Process any irqs events that were delayed because of any locking issues.
     fn process_delayed_irq_events(&mut self) -> Result<()>;
+
+    /// Return an event which is meant to trigger process of any irqs events that were delayed
+    /// by calling process_delayed_irq_events(). This should be used by the main thread to wait
+    /// for delayed irq event kick. It is process_delayed_irq_events() responsibility to read
+    /// the event as long as there is no more irqs to be serviced.
+    fn irq_delayed_event_token(&self) -> Result<Option<Event>>;
 
     /// Checks if a particular `IrqChipCap` is available.
     fn check_capability(&self, c: IrqChipCap) -> bool;

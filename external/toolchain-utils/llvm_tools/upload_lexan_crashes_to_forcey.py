@@ -6,8 +6,6 @@
 
 """Fetches and submits the latest test-cases from Lexan's crash bucket."""
 
-# pylint: disable=cros-logging-import
-
 import argparse
 import contextlib
 import datetime
@@ -101,21 +99,29 @@ def temp_dir() -> Generator[str, None, None]:
     shutil.rmtree(loc)
 
 
+def download_and_unpack_test_case(gs_url: str, tempdir: str) -> None:
+  suffix = os.path.splitext(gs_url)[1]
+  target_name = 'test_case' + suffix
+  target = os.path.join(tempdir, target_name)
+  subprocess.run(['gsutil.py', 'cp', gs_url, target], check=True)
+  subprocess.run(['tar', 'xaf', target_name], check=True, cwd=tempdir)
+  os.unlink(target)
+
+
 def submit_test_case(gs_url: str, cr_tool: str) -> None:
   logging.info('Submitting %s', gs_url)
-  suffix = os.path.splitext(gs_url)[1]
   with temp_dir() as tempdir:
-    target_name = 'test_case' + suffix
-    target = os.path.join(tempdir, target_name)
-    subprocess.run(['gsutil.py', 'cp', gs_url, target], check=True)
-    subprocess.run(['tar', 'xaf', target_name], check=True, cwd=tempdir)
-    os.unlink(target)
+    download_and_unpack_test_case(gs_url, tempdir)
 
     # Sometimes (e.g., in
     # gs://chrome-clang-crash-reports/v1/2020/03/27/
     # chromium.clang-ToTiOS-12754-GTXToolKit-2bfcde.tgz)
     # we'll get `.crash` files. Unclear why, but let's filter them out anyway.
-    repro_files = [x for x in os.listdir(tempdir) if not x.endswith('.crash')]
+    repro_files = [
+        os.path.join(tempdir, x)
+        for x in os.listdir(tempdir)
+        if not x.endswith('.crash')
+    ]
     assert len(repro_files) == 2, repro_files
     if repro_files[0].endswith('.sh'):
       sh_file, src_file = repro_files
@@ -123,6 +129,13 @@ def submit_test_case(gs_url: str, cr_tool: str) -> None:
     else:
       src_file, sh_file = repro_files
       assert sh_file.endswith('.sh'), repro_files
+
+    # Peephole: lexan got a crash upload with a way old clang. Ignore it.
+    with open(sh_file, encoding='utf-8') as f:
+      if 'Crash reproducer for clang version 9.0.0' in f.read():
+        logging.warning('Skipping upload for %s; seems to be with an old clang',
+                        gs_url)
+        return
 
     subprocess.run(
         [

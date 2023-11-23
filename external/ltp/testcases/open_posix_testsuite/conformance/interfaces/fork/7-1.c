@@ -49,15 +49,16 @@
 #define MESSCAT_IN  "messcat.txt"
 #define MESSCAT_OUT "messcat.cat"
 
-void read_catalog(nl_catd cat, char *who)
+static void read_catalog(nl_catd cat, char *who)
 {
 	char *msg = NULL;
 	int i, j;
-	errno = 0;
 
 #if VERBOSE > 0
 	output("Reading the message catalog from %s...\n", who);
 #endif
+
+	errno = 0;
 
 	for (i = 1; i <= 2; i++) {
 		for (j = 1; j <= 2; j++) {

@@ -559,6 +559,28 @@ void impeg2d_fill_mem_rec(impeg2d_fill_mem_rec_ip_t *ps_ip,
         ps_mem_rec++;
         u1_no_rec++;
 
+#ifdef KEEP_THREADS_ACTIVE
+        /* To store start/done mutex */
+        ps_mem_rec->u4_mem_alignment = 8 /* 8 byte alignment*/;
+        ps_mem_rec->e_mem_type = IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM;
+        /* Request memory to hold mutex (start/done) */
+        WORD32 size = 2 * ithread_get_mutex_lock_size();
+        ps_mem_rec->u4_mem_size = size;
+
+        ps_mem_rec++;
+        u1_no_rec++;
+
+        /* To store start/done condition variables */
+        ps_mem_rec->u4_mem_alignment = 8 /* 8 byte alignment*/;
+        ps_mem_rec->e_mem_type = IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM;
+        /* Request memory to hold condition variables */
+        size = 2 * ithread_get_cond_struct_size();
+        ps_mem_rec->u4_mem_size = size;
+
+        ps_mem_rec++;
+        u1_no_rec++;
+#endif
+
         /*************************************************************************/
         /*      Fill the memory requirement for Motion Compensation Buffers      */
         /*************************************************************************/
@@ -1704,6 +1726,12 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
 
     for(i4_num_threads = 0; i4_num_threads < MAX_THREADS; i4_num_threads++)
     {
+#ifdef KEEP_THREADS_ACTIVE
+    WORD32 ret;
+    UWORD8 *pv_buf;
+    WORD32 mutex_size = ithread_get_mutex_lock_size();
+    WORD32 cond_size = ithread_get_cond_struct_size();
+#endif
     /*************************************************************************/
     /*                      For MPEG2 Decoder Context                        */
     /*************************************************************************/
@@ -1722,6 +1750,45 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
      ps_dec_state->pv_codec_thread_handle = ps_mem_rec->pv_base;
      u4_num_mem_rec++;
      ps_mem_rec++;
+
+#ifdef KEEP_THREADS_ACTIVE
+    pv_buf = ps_mem_rec->pv_base;
+    if (ps_mem_rec->u4_mem_size < 2 * mutex_size)
+    {
+        ps_dec_init_op->s_ivd_init_op_t.u4_error_code = IMPEG2D_INIT_DEC_PER_MEM_INSUFFICIENT;
+        return(IV_FAIL);
+    }
+
+    ps_dec_state->pv_proc_start_mutex = (UWORD8 *)pv_buf;
+    ps_dec_state->pv_proc_done_mutex = (UWORD8 *)pv_buf + mutex_size;
+
+    ret = ithread_mutex_init(ps_dec_state->pv_proc_start_mutex);
+    RETURN_IF((ret != (IMPEG2D_ERROR_CODES_T)IV_SUCCESS), ret);
+
+    ret = ithread_mutex_init(ps_dec_state->pv_proc_done_mutex);
+    RETURN_IF((ret != (IMPEG2D_ERROR_CODES_T)IV_SUCCESS), ret);
+
+    u4_num_mem_rec++;
+    ps_mem_rec++;
+
+    pv_buf = ps_mem_rec->pv_base;
+    if (ps_mem_rec->u4_mem_size < 2 * cond_size)
+    {
+        ps_dec_init_op->s_ivd_init_op_t.u4_error_code = IMPEG2D_INIT_DEC_PER_MEM_INSUFFICIENT;
+        return(IV_FAIL);
+    }
+    ps_dec_state->pv_proc_start_condition = (UWORD8 *)pv_buf;
+    ps_dec_state->pv_proc_done_condition = (UWORD8 *)pv_buf + cond_size;
+
+    ret = ithread_cond_init(ps_dec_state->pv_proc_start_condition);
+    RETURN_IF((ret != (IMPEG2D_ERROR_CODES_T)IV_SUCCESS), ret);
+
+    ret = ithread_cond_init(ps_dec_state->pv_proc_done_condition);
+    RETURN_IF((ret != (IMPEG2D_ERROR_CODES_T)IV_SUCCESS), ret);
+
+    u4_num_mem_rec++;
+    ps_mem_rec++;
+#endif
 
     /*************************************************************************/
     /*                      For Motion Compensation Buffers                  */
@@ -1947,13 +2014,6 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
     u4_num_mem_rec++;
     ps_mem_rec++;
 
-    if(u4_num_mem_rec > ps_dec_init_ip->s_ivd_init_ip_t.u4_num_mem_rec)
-    {
-        ps_dec_init_op->s_ivd_init_op_t.u4_error_code = IMPEG2D_INIT_NUM_MEM_REC_NOT_SUFFICIENT;
-        return(IV_FAIL);
-
-    }
-
     ps_dec_state->u1_flushfrm = 0;
     ps_dec_state->u1_flushcnt = 0;
     ps_dec_state->pv_jobq = impeg2_jobq_init(ps_dec_state->pv_jobq_buf, ps_dec_state->i4_jobq_buf_size);
@@ -1978,6 +2038,11 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
     ps_mem_rec++;
     ps_dec_state->u4_num_mem_records = u4_num_mem_rec;
 
+    if(u4_num_mem_rec != ps_dec_init_ip->s_ivd_init_ip_t.u4_num_mem_rec)
+    {
+        ps_dec_init_op->s_ivd_init_op_t.u4_error_code = IMPEG2D_INIT_NUM_MEM_REC_NOT_SUFFICIENT;
+        return(IV_FAIL);
+    }
 
     ps_dec_state->u4_num_frames_decoded    = 0;
     ps_dec_state->aps_ref_pics[0] = NULL;
@@ -2020,6 +2085,10 @@ IV_API_CALL_STATUS_T impeg2d_api_retrieve_mem_rec(iv_obj_t *ps_dechdl,
     dec_state_multi_core_t *ps_dec_state_multi_core;
     iv_mem_rec_t *ps_mem_rec;
     iv_mem_rec_t *ps_temp_rec;
+#ifdef KEEP_THREADS_ACTIVE
+    IMPEG2D_ERROR_CODES_T ret;
+    dec_state_t *ps_dec_thd;
+#endif
 
 
 
@@ -2044,6 +2113,48 @@ IV_API_CALL_STATUS_T impeg2d_api_retrieve_mem_rec(iv_obj_t *ps_dechdl,
 
     ps_retr_mem_rec_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code       = IV_SUCCESS;
     ps_retr_mem_rec_op->s_ivd_retrieve_mem_rec_op_t.u4_num_mem_rec_filled   = ps_dec_state->u4_num_mem_records;
+
+#ifdef KEEP_THREADS_ACTIVE
+    for(u4_i = 0; u4_i < MAX_THREADS; u4_i++)
+    {
+        ps_dec_thd = ps_dec_state_multi_core->ps_dec_state[u4_i];
+        if(ps_dec_state_multi_core->au4_thread_launched[u4_i])
+        {
+            ret = ithread_mutex_lock(ps_dec_thd->pv_proc_start_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret) return(IV_FAIL);
+
+            // set process start for the threads waiting on the start condition
+            // in the decode routine so as to break them
+            ps_dec_thd->ai4_process_start = 1;
+            ps_dec_state_multi_core->i4_break_threads = 1;
+
+            ret = ithread_cond_signal(ps_dec_thd->pv_proc_start_condition);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret) return(IV_FAIL);
+
+            ret = ithread_mutex_unlock(ps_dec_thd->pv_proc_start_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret) return(IV_FAIL);
+
+            ithread_join(ps_dec_thd->pv_codec_thread_handle, NULL);
+            ps_dec_state_multi_core->au4_thread_launched[u4_i] = 0;
+        }
+
+        ret = ithread_cond_destroy(ps_dec_thd->pv_proc_start_condition);
+        if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret)
+            return(IV_FAIL);
+
+        ret = ithread_cond_destroy(ps_dec_thd->pv_proc_done_condition);
+        if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret)
+            return(IV_FAIL);
+
+        ret = ithread_mutex_destroy(ps_dec_thd->pv_proc_start_mutex);
+        if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret)
+            return(IV_FAIL);
+
+        ret = ithread_mutex_destroy(ps_dec_thd->pv_proc_done_mutex);
+        if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != ret)
+            return(IV_FAIL);
+    }
+#endif
 
     impeg2_jobq_deinit(ps_dec_state->pv_jobq);
     IMPEG2D_PRINT_STATISTICS();

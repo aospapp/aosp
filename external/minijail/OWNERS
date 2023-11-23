@@ -1,5 +1,5 @@
 set noparent
-jorgelo@google.com
+include OWNERS_GENERAL
+# Emeritus.
 drewry@google.com
 keescook@google.com
-vapier@google.com

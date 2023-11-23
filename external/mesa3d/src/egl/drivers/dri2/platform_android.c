@@ -174,7 +174,11 @@ get_native_buffer_fds(struct ANativeWindowBuffer *buf, int fds[3])
    for (int i = 0; i < handle->numFds; i++)
       fds[i] = handle->data[i];
 
+#ifdef NUM_FDS_HACK
+   return 1;
+#else
    return handle->numFds;
+#endif
 }
 
 #ifdef HAVE_DRM_GRALLOC
@@ -199,24 +203,56 @@ droid_create_image_from_prime_fds_yuv(_EGLDisplay *disp,
    int ret;
    unsigned error;
 
-   if (!dri2_dpy->gralloc->lock_ycbcr) {
-      _eglLog(_EGL_WARNING, "Gralloc does not support lock_ycbcr");
-      return NULL;
-   }
-
    memset(&ycbcr, 0, sizeof(ycbcr));
-   ret = dri2_dpy->gralloc->lock_ycbcr(dri2_dpy->gralloc, buf->handle,
-                                       0, 0, 0, 0, 0, &ycbcr);
-   if (ret) {
-      /* HACK: See droid_create_image_from_prime_fds() and
-       * https://issuetracker.google.com/32077885.*/
-      if (buf->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)
-         return NULL;
+   if (dri2_dpy->gralloc->lock_ycbcr) {
+      ret = dri2_dpy->gralloc->lock_ycbcr(dri2_dpy->gralloc, buf->handle,
+                                          0, 0, 0, 0, 0, &ycbcr);
+      if (ret) {
+         /* HACK: See droid_create_image_from_prime_fds() and
+          * https://issuetracker.google.com/32077885.*/
+         if (buf->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)
+            return NULL;
 
-      _eglLog(_EGL_WARNING, "gralloc->lock_ycbcr failed: %d", ret);
-      return NULL;
+         _eglLog(_EGL_WARNING, "gralloc->lock_ycbcr failed: %d", ret);
+         return NULL;
+      }
+      dri2_dpy->gralloc->unlock(dri2_dpy->gralloc, buf->handle);
+   } else {
+      _eglLog(_EGL_WARNING, "Gralloc does not support lock_ycbcr!");
+      // HACK: Prepare a hardcoded ycrcb struct to prevent crashes while trying
+      // to create a YVU420_ANDROID or FLEX_YCbCr_420 (NV12) image with gralloc4
+      // see: b/225392099
+      if (buf->format == HAL_PIXEL_FORMAT_YV12) {
+         // HAL_PIXEL_FORMAT_YV12 => DRM_FORMAT_YVU420_ANDROID
+         // The stride of Android YV12 buffers is required to be aligned to 16 bytes
+         size_t luma_stride = ALIGN(buf->width, 32);
+         size_t chroma_stride = ALIGN(buf->width/2, 16);
+         ycbcr.y = 0;
+         ycbcr.cr = (void*)(luma_stride*buf->height);
+         ycbcr.cb = (void*)(luma_stride*buf->height+chroma_stride*buf->height/2);
+         ycbcr.ystride = luma_stride;
+         ycbcr.cstride = chroma_stride;
+         ycbcr.chroma_step = 1;
+         _eglLog(_EGL_WARNING,
+                 "Using a hardcoded ycbcr struct for DRM_FORMAT_YVU420_ANDROID format.");
+      } else if (buf->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+         // HAL_PIXEL_FORMAT_YCbCr_420_888 => DRM_FORMAT_FLEX_YCbCr_420_888
+         size_t luma_stride = buf->width;
+         size_t chroma_stride = buf->width;
+         ycbcr.y = 0;
+         ycbcr.cr = (void*)(luma_stride*buf->height+1);
+         ycbcr.cb = (void*)(luma_stride*buf->height);
+         ycbcr.ystride = luma_stride;
+         ycbcr.cstride = chroma_stride;
+         ycbcr.chroma_step = 2;
+         _eglLog(_EGL_WARNING,
+                 "Using a hardcoded ycbcr struct for DRM_FORMAT_FLEX_YCbCr_420_888 format.");
+      } else {
+         _eglLog(_EGL_WARNING,
+                 "Unable to create an image for native YUV format %x", buf->format);
+         return NULL;
+      }
    }
-   dri2_dpy->gralloc->unlock(dri2_dpy->gralloc, buf->handle);
 
    /* When lock_ycbcr's usage argument contains no SW_READ/WRITE flags
     * it will return the .y/.cb/.cr pointers based on a NULL pointer,

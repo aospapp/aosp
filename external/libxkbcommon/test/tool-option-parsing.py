@@ -31,8 +31,19 @@ import tempfile
 import unittest
 
 
-top_builddir = os.environ['top_builddir']
-top_srcdir = os.environ['top_srcdir']
+try:
+    top_builddir = os.environ['top_builddir']
+    top_srcdir = os.environ['top_srcdir']
+except KeyError:
+    print('Required environment variables not found: top_srcdir/top_builddir', file=sys.stderr)
+    from pathlib import Path
+    top_srcdir = '.'
+    try:
+        top_builddir = next(Path('.').glob('**/meson-logs/')).parent
+    except StopIteration:
+        sys.exit(1)
+    print('Using srcdir "{}", builddir "{}"'.format(top_srcdir, top_builddir), file=sys.stderr)
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('test')
@@ -65,10 +76,11 @@ class XkbcliTool:
     xkbcli_tool = 'xkbcli'
     subtool = None
 
-    def __init__(self, subtool=None, skipIf=()):
+    def __init__(self, subtool=None, skipIf=(), skipError=()):
         self.tool_path = top_builddir
         self.subtool = subtool
         self.skipIf = skipIf
+        self.skipError = skipError
 
     def run_command(self, args):
         for condition, reason in self.skipIf:
@@ -84,7 +96,11 @@ class XkbcliTool:
 
     def run_command_success(self, args):
         rc, stdout, stderr = self.run_command(args)
-        assert rc == 0, (stdout, stderr)
+        if rc != 0:
+            for testfunc, reason in self.skipError:
+                if testfunc(rc, stdout, stderr):
+                    raise unittest.SkipTest(reason)
+        assert rc == 0, (rc, stdout, stderr)
         return stdout, stderr
 
     def run_command_invalid(self, args):
@@ -121,7 +137,11 @@ class TestXkbcli(unittest.TestCase):
             (not int(os.getenv('HAVE_XKBCLI_INTERACTIVE_EVDEV', '1')), 'evdev not enabled'),
             (not os.path.exists('/dev/input/event0'), 'event node required'),
             (not os.access('/dev/input/event0', os.R_OK), 'insufficient permissions'),
-        ))
+        ), skipError=(
+            (lambda rc, stdout, stderr: 'Couldn\'t find any keyboards' in stderr,
+                'No keyboards available'),
+        ),
+        )
         cls.xkbcli_interactive_x11 = XkbcliTool('interactive-x11', skipIf=(
             (not int(os.getenv('HAVE_XKBCLI_INTERACTIVE_X11', '1')), 'x11 not enabled'),
             (not os.getenv('DISPLAY'), 'DISPLAY not set'),
@@ -250,7 +270,7 @@ class TestXkbcli(unittest.TestCase):
     def test_interactive_evdev_rmlvo(self):
         for rmlvo in rmlvos:
             with self.subTest(rmlvo=rmlvo):
-                self.xkbcli_interactive_evdev.run_command_success(rmlvos)
+                self.xkbcli_interactive_evdev.run_command_success(rmlvo)
 
     def test_interactive_evdev(self):
         # Note: --enable-compose fails if $prefix doesn't have the compose tables
@@ -278,6 +298,10 @@ if __name__ == '__main__':
     with tempfile.TemporaryDirectory() as tmpdir:
         # Use our own test xkeyboard-config copy.
         os.environ['XKB_CONFIG_ROOT'] = top_srcdir + '/test/data'
+        # Use our own X11 locale copy.
+        os.environ['XLOCALEDIR'] = top_srcdir + '/test/data/locale'
+        # Use our own locale.
+        os.environ['LC_CTYPE'] = 'en_US.UTF-8'
         # libxkbcommon has fallbacks when XDG_CONFIG_HOME isn't set so we need
         # to override it with a known (empty) directory. Otherwise our test
         # behavior depends on the system the test is run on.

@@ -8,8 +8,12 @@ import sys
 
 from cryptography import utils
 from cryptography.exceptions import (
-    AlreadyFinalized, InvalidKey, UnsupportedAlgorithm, _Reasons
+    AlreadyFinalized,
+    InvalidKey,
+    UnsupportedAlgorithm,
+    _Reasons,
 )
+from cryptography.hazmat.backends import _get_backend
 from cryptography.hazmat.backends.interfaces import ScryptBackend
 from cryptography.hazmat.primitives import constant_time
 from cryptography.hazmat.primitives.kdf import KeyDerivationFunction
@@ -22,11 +26,12 @@ _MEM_LIMIT = sys.maxsize // 2
 
 @utils.register_interface(KeyDerivationFunction)
 class Scrypt(object):
-    def __init__(self, salt, length, n, r, p, backend):
+    def __init__(self, salt, length, n, r, p, backend=None):
+        backend = _get_backend(backend)
         if not isinstance(backend, ScryptBackend):
             raise UnsupportedAlgorithm(
                 "Backend object does not implement ScryptBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE
+                _Reasons.BACKEND_MISSING_INTERFACE,
             )
 
         self._length = length

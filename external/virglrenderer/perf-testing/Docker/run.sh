@@ -70,14 +70,14 @@ if [ ! -f build/build.ninja ]; then
       -Ddri-drivers=i965 \
       -Dgallium-drivers=swrast,virgl,radeonsi,iris \
       -Dbuildtype=debugoptimized \
-      -Dllvm=true \
+      -Dllvm=enabled \
       -Dglx=dri \
-      -Degl=true \
-      -Dgbm=false \
-      -Dgallium-vdpau=false \
-      -Dgallium-va=false \
+      -Degl=enabled \
+      -Dgbm=disabled \
+      -Dgallium-vdpau=disabled \
+      -Dgallium-va=disabled \
       -Dvulkan-drivers=[] \
-      -Dvalgrind=false \
+      -Dvalgrind=disabled \
       -Dtracing=perfetto \
       -Dlibdir=lib
 else    
@@ -87,14 +87,14 @@ else
       -Ddri-drivers=i965 \
       -Dgallium-drivers=swrast,virgl,radeonsi,iris \
       -Dbuildtype=debugoptimized \
-      -Dllvm=true \
+      -Dllvm=enabled \
       -Dglx=dri \
-      -Degl=true \
-      -Dgbm=false \
-      -Dgallium-vdpau=false \
-      -Dgallium-va=false \
+      -Degl=enabled \
+      -Dgbm=disabled \
+      -Dgallium-vdpau=disabled \
+      -Dgallium-va=disabled \
       -Dvulkan-drivers=[] \
-      -Dvalgrind=false \
+      -Dvalgrind=disabled \
       -Dtracing=perfetto \
       -Dlibdir=lib
    popd

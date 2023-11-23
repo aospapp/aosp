@@ -35,6 +35,8 @@
 
 #ifdef HAVE_NUMA_V2
 
+static const struct tst_cgroup_group *cg;
+
 volatile int end;
 static int *nodes;
 static int nnodes;
@@ -47,15 +49,14 @@ static long count_cpu(void);
 
 static void test_cpuset(void)
 {
-	int child, i, status;
+	int child, i;
 	unsigned long nmask[MAXNODES / BITS_PER_LONG] = { 0 };
-	char mems[BUFSIZ], buf[BUFSIZ];
+	char buf[BUFSIZ];
 
-	read_cpuset_files(CPATH, "cpus", buf);
-	write_cpuset_files(CPATH_NEW, "cpus", buf);
-	read_cpuset_files(CPATH, "mems", mems);
-	write_cpuset_files(CPATH_NEW, "mems", mems);
-	SAFE_FILE_PRINTF(CPATH_NEW "/tasks", "%d", getpid());
+	SAFE_CGROUP_READ(cg, "cpuset.cpus", buf, sizeof(buf));
+	SAFE_CGROUP_PRINT(cg, "cpuset.cpus", buf);
+	SAFE_CGROUP_READ(cg, "cpuset.mems", buf, sizeof(buf));
+	SAFE_CGROUP_PRINT(cg, "cpuset.mems", buf);
 
 	child = SAFE_FORK();
 	if (child == 0) {
@@ -69,33 +70,30 @@ static void test_cpuset(void)
 		exit(mem_hog_cpuset(ncpus > 1 ? ncpus : 1));
 	}
 
-	snprintf(buf, BUFSIZ, "%d", nodes[0]);
-	write_cpuset_files(CPATH_NEW, "mems", buf);
-	snprintf(buf, BUFSIZ, "%d", nodes[1]);
-	write_cpuset_files(CPATH_NEW, "mems", buf);
+	SAFE_CGROUP_PRINTF(cg, "cpuset.mems", "%d", nodes[0]);
+	SAFE_CGROUP_PRINTF(cg, "cpuset.mems", "%d", nodes[1]);
 
-	SAFE_WAITPID(child, &status, WUNTRACED | WCONTINUED);
-	if (WEXITSTATUS(status) != 0) {
-		tst_res(TFAIL, "child exit status is %d", WEXITSTATUS(status));
-		return;
-	}
+	tst_reap_children();
 
 	tst_res(TPASS, "cpuset test pass");
 }
 
 static void setup(void)
 {
-	mount_mem("cpuset", "cpuset", NULL, CPATH, CPATH_NEW);
+	tst_cgroup_require("cpuset", NULL);
 	ncpus = count_cpu();
 	if (get_allowed_nodes_arr(NH_MEMS | NH_CPUS, &nnodes, &nodes) < 0)
 		tst_brk(TBROK | TERRNO, "get_allowed_nodes_arr");
 	if (nnodes <= 1)
 		tst_brk(TCONF, "requires a NUMA system.");
+
+	cg = tst_cgroup_get_test_group();
+	SAFE_CGROUP_PRINTF(cg, "cgroup.procs", "%d", getpid());
 }
 
 static void cleanup(void)
 {
-	umount_mem(CPATH, CPATH_NEW);
+	tst_cgroup_cleanup();
 }
 
 static void sighandler(int signo LTP_ATTRIBUTE_UNUSED)
@@ -183,6 +181,7 @@ static long count_cpu(void)
 
 static struct tst_test test = {
 	.needs_root = 1,
+	.forks_child = 1,
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = test_cpuset,

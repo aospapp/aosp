@@ -45,6 +45,7 @@ class FunctionsEGL
                             EGLConfig *configs,
                             EGLint config_size,
                             EGLint *num_config) const;
+    EGLBoolean getConfigs(EGLConfig *configs, EGLint config_size, EGLint *num_config) const;
     EGLBoolean getConfigAttrib(EGLConfig config, EGLint attribute, EGLint *value) const;
     EGLSurface getCurrentSurface(EGLint readdraw) const;
     EGLContext createContext(EGLConfig config,
@@ -109,6 +110,9 @@ class FunctionsEGL
     // use angle::NonCopyable so we replicated it here instead.
     FunctionsEGL(const FunctionsEGL &) = delete;
     void operator=(const FunctionsEGL &) = delete;
+
+    // Fallback mechanism for creating a display from a native device object.
+    EGLDisplay getNativeDisplay(int *major, int *minor);
 
     struct EGLDispatchTable;
     EGLDispatchTable *mFnPtrs;

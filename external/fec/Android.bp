@@ -37,6 +37,8 @@ license {
 cc_library {
     name: "libfec_rs",
     host_supported: true,
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
     recovery_available: true,
     srcs: [
         "encode_rs_char.c",

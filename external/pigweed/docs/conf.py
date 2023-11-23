@@ -13,17 +13,18 @@
 # the License.
 """Pigweed's Sphinx configuration."""
 
-import sphinx_rtd_theme
+from datetime import date
+import sphinx
 
 # The suffix of source filenames.
-source_suffix = ['.rst', '.md']
+source_suffix = ['.rst']
 
-# The master toctree document.
+# The master toctree document.  # inclusive-language: ignore
 master_doc = 'index'
 
 # General information about the project.
 project = 'Pigweed'
-copyright = '2020 The Pigweed Authors'  # pylint: disable=redefined-builtin
+copyright = f'{date.today().year} The Pigweed Authors'  # pylint: disable=redefined-builtin
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -35,20 +36,15 @@ version = '0.1'
 release = '0.1.0'
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygm = 'sphinx'
+pygments_style = 'pigweed-code-light'
+pygments_dark_style = 'pigweed-code'
 
 extensions = [
+    'pw_docgen.sphinx.google_analytics',  # Enables optional Google Analytics
     'sphinx.ext.autodoc',  # Automatic documentation for Python code
     'sphinx.ext.napoleon',  # Parses Google-style docstrings
-    'm2r',  # Converts Markdown to reStructuredText
-
-    # Blockdiag suite of diagram generators.
-    'sphinxcontrib.blockdiag',
-    'sphinxcontrib.nwdiag',
-    'sphinxcontrib.seqdiag',
-    'sphinxcontrib.actdiag',
-    'sphinxcontrib.rackdiag',
-    'sphinxcontrib.packetdiag',
+    'sphinxcontrib.mermaid',
+    'sphinx_design',
 ]
 
 _DIAG_HTML_IMAGE_FORMAT = 'SVG'
@@ -64,14 +60,7 @@ m2r_parse_relative_links = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
-
-# Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = [
-    '_themes',
-]
-
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+html_theme = 'furo'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -96,6 +85,68 @@ html_show_sourcelink = False
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 html_show_sphinx = False
 
+# These folders are copied to the documentation's HTML output
+html_static_path = ['docs/_static']
+
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = [
+    'css/pigweed.css',
+
+    # Needed for Inconsolata font.
+    'https://fonts.googleapis.com/css2?family=Inconsolata&display=swap',
+]
+
+html_theme_options = {
+    'light_css_variables': {
+        # Make the logo text more amaranth-like
+        'color-sidebar-brand-text': '#b529aa',
+        'color-sidebar-search-border': '#b529aa',
+        'color-sidebar-link-text--top-level': '#85004d',
+        'color-sidebar-link-text': '#016074',
+        'color-sidebar-item-background--current': '#f0f0f0',
+        'color-sidebar-item-background--hover': '#ffe2f3',
+        'color-sidebar-item-expander-background--hover': '#ffe2f3',
+        # Function signature colors
+        'color-api-function-border': '#cccccc',
+        'color-api-function-background': '#f0f0f0',
+        'color-api-class-background': '#e7f2fa',
+        'color-api-class-foreground': '#2980b9',
+        'color-api-class-border': '#6ab0de',
+        # Namespace::
+        'color-api-pre-name': '#2980b9',
+        # Function name
+        'color-api-name': '#2980b9',
+        'color-inline-code-background': '#fafafa',
+        'color-inline-code-border': '#cccccc',
+        'color-text-selection-background': '#1d5fad',
+        'color-text-selection-foreground': '#ffffff',
+    },
+    'dark_css_variables': {
+        'color-sidebar-brand-text': '#e815a5',
+        'color-sidebar-search-border': '#e815a5',
+        'color-sidebar-link-text--top-level': '#ff79c6',
+        'color-sidebar-link-text': '#8be9fd',
+        'color-sidebar-item-background--current': '#575757',
+        'color-sidebar-item-background--hover': '#4c333f',
+        'color-sidebar-item-expander-background--hover': '#4c333f',
+        # Function signature colors
+        'color-api-function-border': '#575757',
+        'color-api-function-background': '#2b2b2b',
+        'color-api-class-background': '#222c35',
+        'color-api-class-foreground': '#87c1e5',
+        'color-api-class-border': '#5288be',
+        # Namespace::
+        'color-api-pre-name': '#87c1e5',
+        # Function name
+        'color-api-name': '#87c1e5',
+        'color-inline-code-background': '#2b2b2b',
+        'color-inline-code-border': '#575757',
+        'color-text-selection-background': '#2674bf',
+        'color-text-selection-foreground': '#ffffff',
+    },
+}
+
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Pigweeddoc'
 
@@ -111,17 +162,20 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-# Markdown files imported using m2r aren't marked as "referenced," so exclude
-# them from the error reference checking.
-exclude_patterns = ['README.md']
-
 
 def do_not_skip_init(app, what, name, obj, would_skip, options):
     if name == "__init__":
         return False  # never skip __init__ functions
-
     return would_skip
 
 
+# Problem: CSS files aren't copied after modifying them. Solution:
+# https://github.com/sphinx-doc/sphinx/issues/2090#issuecomment-572902572
+def env_get_outdated(app, env, added, changed, removed):
+    return ['index']
+
+
 def setup(app):
+    app.add_css_file('css/pigweed.css')
+    app.connect('env-get-outdated', env_get_outdated)
     app.connect("autodoc-skip-member", do_not_skip_init)

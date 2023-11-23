@@ -15,7 +15,7 @@ import java.util.Date;
 /**
  * <b>Note:</b> The Holiday framework is a technology preview.
  * Despite its age, is still draft API, and clients should treat it as such.
- * 
+ *
  * A holiday whose date can be represented by a month, day, and optionally day of week
  * in the Gregorian calendar.
  *
@@ -119,7 +119,7 @@ public class SimpleHoliday extends Holiday {
     public SimpleHoliday(int month, int dayOfMonth, int dayOfWeek, String name,
                         int startYear)
     {
-        super(name, rangeRule(startYear, 0, 
+        super(name, rangeRule(startYear, 0,
                               new SimpleDateRule(month, dayOfMonth,
                                                  dayOfWeek > 0 ? dayOfWeek : - dayOfWeek,
                                                  dayOfWeek > 0)));
@@ -132,7 +132,7 @@ public class SimpleHoliday extends Holiday {
     public SimpleHoliday(int month, int dayOfMonth, int dayOfWeek, String name,
                         int startYear, int endYear)
     {
-        super(name, rangeRule(startYear, endYear, 
+        super(name, rangeRule(startYear, endYear,
                               new SimpleDateRule(month, dayOfMonth,
                                                  dayOfWeek > 0 ? dayOfWeek : - dayOfWeek,
                                                  dayOfWeek > 0)));

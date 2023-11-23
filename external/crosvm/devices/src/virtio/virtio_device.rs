@@ -8,7 +8,7 @@ use base::{Event, RawDescriptor};
 use vm_memory::GuestMemory;
 
 use super::*;
-use crate::pci::{MsixStatus, PciAddress, PciBarConfiguration, PciCapability};
+use crate::pci::{MsixStatus, PciAddress, PciBarConfiguration, PciBarIndex, PciCapability};
 
 /// Trait for virtio devices to be driven by a virtio transport.
 ///
@@ -36,7 +36,13 @@ pub trait VirtioDevice: Send {
     /// The maximum size of each queue that this device supports.
     fn queue_max_sizes(&self) -> &[u16];
 
+    /// The number of interrupts used by this device.
+    fn num_interrupts(&self) -> usize {
+        self.queue_max_sizes().len()
+    }
+
     /// The set of feature bits that this device supports in addition to the base features.
+    /// If this returns VIRTIO_F_ACCESS_PLATFORM, virtio-iommu will be enabled for this device.
     fn features(&self) -> u64 {
         0
     }
@@ -97,5 +103,21 @@ pub trait VirtioDevice: Send {
         sdts: Vec<SDT>,
     ) -> Option<Vec<SDT>> {
         Some(sdts)
+    }
+
+    /// Reads from a BAR region mapped in to the device.
+    /// * `addr` - The guest address inside the BAR.
+    /// * `data` - Filled with the data from `addr`.
+    fn read_bar(&mut self, _bar_index: PciBarIndex, _offset: u64, _data: &mut [u8]) {}
+
+    /// Writes to a BAR region mapped in to the device.
+    /// * `addr` - The guest address inside the BAR.
+    /// * `data` - The data to write.
+    fn write_bar(&mut self, _bar_index: PciBarIndex, _offset: u64, _data: &[u8]) {}
+
+    /// Returns the PCI address where the device will be allocated.
+    /// Returns `None` if any address is good for the device.
+    fn pci_address(&self) -> Option<PciAddress> {
+        None
     }
 }

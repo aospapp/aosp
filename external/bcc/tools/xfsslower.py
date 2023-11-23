@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # xfsslower  Trace slow XFS operations.
@@ -28,7 +28,6 @@ from __future__ import print_function
 from bcc import BPF
 import argparse
 from time import strftime
-import ctypes as ct
 
 # arguments
 examples = """examples:
@@ -197,7 +196,7 @@ static int trace_return(struct pt_regs *ctx, int type)
     struct qstr qs = valp->fp->f_path.dentry->d_name;
     if (qs.len == 0)
         return 0;
-    bpf_probe_read(&data.file, sizeof(data.file), (void *)qs.name);
+    bpf_probe_read_kernel(&data.file, sizeof(data.file), (void *)qs.name);
 
     // output
     events.perf_submit(ctx, &data, sizeof(data));
@@ -240,24 +239,9 @@ if debug or args.ebpf:
     if args.ebpf:
         exit()
 
-# kernel->user event data: struct data_t
-DNAME_INLINE_LEN = 32   # linux/dcache.h
-TASK_COMM_LEN = 16      # linux/sched.h
-class Data(ct.Structure):
-    _fields_ = [
-        ("ts_us", ct.c_ulonglong),
-        ("type", ct.c_ulonglong),
-        ("size", ct.c_ulonglong),
-        ("offset", ct.c_ulonglong),
-        ("delta_us", ct.c_ulonglong),
-        ("pid", ct.c_ulonglong),
-        ("task", ct.c_char * TASK_COMM_LEN),
-        ("file", ct.c_char * DNAME_INLINE_LEN)
-    ]
-
 # process event
 def print_event(cpu, data, size):
-    event = ct.cast(data, ct.POINTER(Data)).contents
+    event = b["events"].event(data)
 
     type = 'R'
     if event.type == 1:

@@ -20,16 +20,16 @@ void xnn_f32_avgpool_minmax_ukernel_9x__wasmsimd_arm_c4(
     float* output,
     size_t input_increment,
     size_t output_increment,
-    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(output_pixels != 0);
   assert(kernel_elements != 0);
   assert(kernel_elements <= 9);
   assert(channels != 0);
 
-  const v128_t vscale = wasm_v32x4_load_splat(&params->scalar.scale);
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+  const v128_t vscale = wasm_v128_load32_splat(&params->scalar.scale);
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
 
   do {
     const float* i0 = input[0];

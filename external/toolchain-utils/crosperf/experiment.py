@@ -29,7 +29,7 @@ class Experiment(object):
                cache_conditions, labels, benchmarks, experiment_file, email_to,
                acquire_timeout, log_dir, log_level, share_cache,
                results_directory, compress_results, locks_directory, cwp_dso,
-               ignore_min_max, skylab, dut_config):
+               ignore_min_max, crosfleet, dut_config, no_lock: bool):
     self.name = name
     self.working_directory = working_directory
     self.remote = remote
@@ -56,14 +56,15 @@ class Experiment(object):
     self.lock_mgr = None
     self.cwp_dso = cwp_dso
     self.ignore_min_max = ignore_min_max
-    self.skylab = skylab
+    self.crosfleet = crosfleet
+    self.no_lock = no_lock
     self.l = logger.GetLogger(log_dir)
 
     if not self.benchmarks:
       raise RuntimeError('No benchmarks specified')
     if not self.labels:
       raise RuntimeError('No labels specified')
-    if not remote and not self.skylab:
+    if not remote and not self.crosfleet:
       raise RuntimeError('No remote hosts specified')
 
     # We need one chromeos_root to run the benchmarks in, but it doesn't
@@ -123,10 +124,11 @@ class Experiment(object):
           logger_to_use = logger.Logger(self.log_dir, 'run.%s' % (full_name),
                                         True)
           benchmark_runs.append(
-              benchmark_run.BenchmarkRun(
-                  benchmark_run_name, benchmark, label, iteration,
-                  self.cache_conditions, self.machine_manager, logger_to_use,
-                  self.log_level, self.share_cache, dut_config))
+              benchmark_run.BenchmarkRun(benchmark_run_name, benchmark, label,
+                                         iteration, self.cache_conditions,
+                                         self.machine_manager, logger_to_use,
+                                         self.log_level, self.share_cache,
+                                         dut_config))
 
     return benchmark_runs
 
@@ -223,6 +225,6 @@ class Experiment(object):
           m for m in self.locked_machines if m not in unlocked_machines
       ]
       if failed_machines:
-        raise RuntimeError(
-            'These machines are not unlocked correctly: %s' % failed_machines)
+        raise RuntimeError('These machines are not unlocked correctly: %s' %
+                           failed_machines)
       self.lock_mgr = None

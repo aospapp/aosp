@@ -37,7 +37,7 @@ Then Build SL4A:
 ### Install Instructions
 Run the following command:
 
-    adb install -r <ANDROID_SOURCE_ROOT>/out/target/product/<TARGET>/data/app/sl4a/sl4a.apk
+    adb install -r <ANDROID_SOURCE_ROOT>/out/target/product/<TARGET>/testcases/sl4a/arm64/sl4a.apk
 
 ### Run Instructions
 a) SL4A may be launched from Android as a normal App; or  

@@ -180,7 +180,7 @@ void CallbacksImpl::CallSinks(std::span<const std::byte> header,
     if (sink_callbacks_[sink_idx].add_bytes) {
       sink_callbacks_[sink_idx].add_bytes(
           user_data, header.data(), header.size());
-      if (data.size() > 0) {
+      if (!data.empty()) {
         sink_callbacks_[sink_idx].add_bytes(
             user_data, data.data(), data.size());
       }
@@ -229,7 +229,8 @@ pw::Status CallbacksImpl::UnregisterSink(SinkHandle handle) {
 
 pw::Status CallbacksImpl::UnregisterAllSinks() {
   for (size_t sink_idx = 0; sink_idx < PW_TRACE_CONFIG_MAX_SINKS; sink_idx++) {
-    UnregisterSink(sink_idx);
+    UnregisterSink(sink_idx)
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
   }
   return PW_STATUS_OK;
 }
@@ -281,7 +282,8 @@ pw::Status CallbacksImpl::UnregisterEventCallback(EventCallbackHandle handle) {
 
 pw::Status CallbacksImpl::UnregisterAllEventCallbacks() {
   for (size_t i = 0; i < PW_TRACE_CONFIG_MAX_EVENT_CALLBACKS; i++) {
-    UnregisterEventCallback(i);
+    UnregisterEventCallback(i)
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
   }
   return PW_STATUS_OK;
 }

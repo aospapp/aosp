@@ -22,11 +22,11 @@ java_plugin {
     static_libs: [
         "Robolectric_annotations",
         "Robolectric_shadowapi",
-        "asm-commons-6.0",
+        "asm-commons-9.2",
         "guava",
-        "asm-tree-6.0",
+        "asm-tree-9.2",
         "gson-prebuilt-jar",
-        "asm-6.0",
+        "asm-9.2",
         "jsr305",
     ],
 

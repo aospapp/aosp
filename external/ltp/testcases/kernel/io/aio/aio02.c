@@ -18,7 +18,7 @@
 #define AIO_MAXIO 32
 #define AIO_BLKSIZE (64*1024)
 
-static int wait_count = 0;
+static int wait_count;
 
 #define DESC_FLAGS_OPR(x, y) .desc = (x == IO_CMD_PWRITE ? "WRITE: " #y: "READ : " #y), \
 	.flags = y, .operation = x
@@ -54,11 +54,11 @@ struct testcase {
 static void io_error(const char *func, int rc)
 {
 	if (rc == -ENOSYS)
-		tst_brk(TCONF, "AIO not in this kernel\n");
+		tst_brk(TCONF, "AIO not in this kernel");
 	else if (rc < 0)
-		tst_brk(TFAIL, "%s: %s\n", func, strerror(-rc));
+		tst_brk(TFAIL, "%s: %s", func, strerror(-rc));
 	else
-		tst_brk(TFAIL, "%s: error %d\n", func, rc);
+		tst_brk(TFAIL, "%s: error %d", func, rc);
 }
 
 /*
@@ -72,7 +72,7 @@ static void work_done(io_context_t ctx, struct iocb *iocb, long res, long res2)
 		io_error("aio write", res2);
 
 	if (res != (long)iocb->u.c.nbytes)
-		tst_brk(TFAIL, "write missed bytes expect %lu got %ld\n",
+		tst_brk(TFAIL, "write missed bytes expect %lu got %ld",
 			iocb->u.c.nbytes, res);
 
 	wait_count--;
@@ -155,7 +155,7 @@ static int io_tio(char *pathname, int flag, int operation)
 			offset += AIO_BLKSIZE;
 			break;
 		default:
-			tst_res(TFAIL, "Command failed; opcode returned: %d\n", operation);
+			tst_res(TFAIL, "Command failed; opcode returned: %d", operation);
 			return -1;
 			break;
 		}
@@ -203,10 +203,17 @@ static int io_tio(char *pathname, int flag, int operation)
 
 static void test_io(unsigned int n)
 {
-	int status;
+	int status, new_flags;
 	struct testcase *tc = testcases + n;
 
-	status = io_tio("file", tc->flags, tc->operation);
+	new_flags = tc->flags;
+
+	if ((tst_fs_type(".") == TST_TMPFS_MAGIC) && (tc->flags & O_DIRECT)) {
+		tst_res(TINFO, "Drop O_DIRECT flag for tmpfs");
+		new_flags &= ~O_DIRECT;
+	}
+
+	status = io_tio("file", new_flags, tc->operation);
 	if (status)
 		tst_res(TFAIL, "%s, status = %d", tc->desc, status);
 	else

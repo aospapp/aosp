@@ -11,13 +11,13 @@ use std::sync::Arc;
 
 use crate::virtio::gpu::GpuDisplayParameters;
 use crate::virtio::resource_bridge::{BufferInfo, PlaneInfo, ResourceInfo, ResourceResponse};
-use base::{error, ExternalMapping, Tube};
+use base::{error, ExternalMapping, SafeDescriptor, Tube};
 
 use data_model::VolatileSlice;
 
 use gpu_display::*;
 use rutabaga_gfx::{
-    ResourceCreate3D, ResourceCreateBlob, Rutabaga, RutabagaBuilder, RutabagaFenceData,
+    ResourceCreate3D, ResourceCreateBlob, Rutabaga, RutabagaBuilder, RutabagaFence,
     RutabagaFenceHandler, RutabagaIovec, Transfer3D,
 };
 
@@ -36,7 +36,7 @@ use sync::Mutex;
 
 use vm_memory::{GuestAddress, GuestMemory};
 
-use vm_control::{MemSlot, VmMemoryRequest, VmMemoryResponse};
+use vm_control::{MemSlot, VmMemoryDestination, VmMemoryRequest, VmMemoryResponse, VmMemorySource};
 
 struct VirtioGpuResource {
     resource_id: u32,
@@ -305,9 +305,10 @@ impl VirtioGpu {
         external_blob: bool,
         udmabuf: bool,
         fence_handler: RutabagaFenceHandler,
+        render_server_fd: Option<SafeDescriptor>,
     ) -> Option<VirtioGpu> {
         let rutabaga = rutabaga_builder
-            .build(fence_handler)
+            .build(fence_handler, render_server_fd)
             .map_err(|e| error!("failed to build rutabaga {}", e))
             .ok()?;
 
@@ -551,16 +552,22 @@ impl VirtioGpu {
         self.rutabaga.force_ctx_0()
     }
 
-    /// Creates a fence with the RutabagaFenceData that can be used to determine when the previous
+    /// Creates a fence with the RutabagaFence that can be used to determine when the previous
     /// command completed.
-    pub fn create_fence(&mut self, rutabaga_fence_data: RutabagaFenceData) -> VirtioGpuResult {
-        self.rutabaga.create_fence(rutabaga_fence_data)?;
+    pub fn create_fence(&mut self, rutabaga_fence: RutabagaFence) -> VirtioGpuResult {
+        self.rutabaga.create_fence(rutabaga_fence)?;
         Ok(OkNoData)
     }
 
-    /// Returns an array of RutabagaFenceData, describing completed fences.
-    pub fn fence_poll(&mut self) -> Vec<RutabagaFenceData> {
-        self.rutabaga.poll()
+    /// Polls the Rutabaga backend.
+    pub fn poll(&self) {
+        self.rutabaga.poll();
+    }
+
+    /// Gets a pollable eventfd that signals the device to wakeup and poll the
+    /// Rutabaga backend.
+    pub fn poll_descriptor(&self) -> Option<SafeDescriptor> {
+        self.rutabaga.poll_descriptor()
     }
 
     /// Creates a 3D resource with the given properties and resource_id.
@@ -690,44 +697,48 @@ impl VirtioGpu {
         let map_info = self.rutabaga.map_info(resource_id).map_err(|_| ErrUnspec)?;
         let vulkan_info_opt = self.rutabaga.vulkan_info(resource_id).ok();
 
-        let export = self.rutabaga.export_blob(resource_id);
-
-        let request = match export {
-            Ok(export) => match vulkan_info_opt {
-                Some(vulkan_info) => VmMemoryRequest::RegisterVulkanMemoryAtPciBarOffset {
-                    alloc: self.pci_bar,
+        let source = if let Ok(export) = self.rutabaga.export_blob(resource_id) {
+            match vulkan_info_opt {
+                Some(vulkan_info) => VmMemorySource::Vulkan {
                     descriptor: export.os_handle,
                     handle_type: export.handle_type,
                     memory_idx: vulkan_info.memory_idx,
                     physical_device_idx: vulkan_info.physical_device_idx,
-                    offset,
                     size: resource.size,
                 },
-                None => VmMemoryRequest::RegisterFdAtPciBarOffset(
-                    self.pci_bar,
-                    export.os_handle,
-                    resource.size as usize,
-                    offset,
-                ),
-            },
-            Err(_) => {
-                if self.external_blob {
+                None => VmMemorySource::Descriptor {
+                    descriptor: export.os_handle,
+                    offset: 0,
+                    size: resource.size,
+                },
+            }
+        } else {
+            if self.external_blob {
+                return Err(ErrUnspec);
+            }
+
+            let mapping = self.rutabaga.map(resource_id)?;
+            // Scope for lock
+            {
+                let mut map_req = self.map_request.lock();
+                if map_req.is_some() {
                     return Err(ErrUnspec);
                 }
-
-                let mapping = self.rutabaga.map(resource_id)?;
-                // Scope for lock
-                {
-                    let mut map_req = self.map_request.lock();
-                    if map_req.is_some() {
-                        return Err(ErrUnspec);
-                    }
-                    *map_req = Some(mapping);
-                }
-                VmMemoryRequest::RegisterHostPointerAtPciBarOffset(self.pci_bar, offset)
+                *map_req = Some(mapping);
+            }
+            VmMemorySource::ExternalMapping {
+                size: resource.size,
             }
         };
 
+        let request = VmMemoryRequest::RegisterMemory {
+            source,
+            dest: VmMemoryDestination::ExistingAllocation {
+                allocation: self.pci_bar,
+                offset,
+            },
+            read_only: false,
+        };
         self.gpu_device_tube.send(&request)?;
         let response = self.gpu_device_tube.recv()?;
 

@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 public final class ExecutorProvider<T extends Executor> {
 
   private static final int SETUP_METRICS_LOGGER_MAX_QUEUED = 50;
-  private static final int SETUP_COMPAT_BINDBACK_MAX_QUEUED = 1;
   /**
    * Creates a single threaded {@link ExecutorService} with a maximum pool size {@code maxSize}.
    * Jobs submitted when the pool is full causes {@link
@@ -42,11 +41,6 @@ public final class ExecutorProvider<T extends Executor> {
   public static final ExecutorProvider<ExecutorService> setupCompatServiceInvoker =
       new ExecutorProvider<>(
           createSizeBoundedExecutor("SetupCompatServiceInvoker", SETUP_METRICS_LOGGER_MAX_QUEUED));
-
-  public static final ExecutorProvider<ExecutorService> setupCompatExecutor =
-      new ExecutorProvider<>(
-          createSizeBoundedExecutor(
-              "SetupBindbackServiceExecutor", SETUP_COMPAT_BINDBACK_MAX_QUEUED));
 
   private final T executor;
 

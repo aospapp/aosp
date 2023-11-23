@@ -36,6 +36,17 @@ enum PredictionType : int {
   ENTITY_ANNOTATION = 3,
 }
 
+namespace libtextclassifier3;
+enum RankingOptionsSortType : int {
+  SORT_TYPE_UNSPECIFIED = 0,
+
+  // Rank results (or groups) by score, then type
+  SORT_TYPE_SCORE = 1,
+
+  // Rank results (or groups) by priority score, then score, then type
+  SORT_TYPE_PRIORITY_SCORE = 2,
+}
+
 // Prediction metadata for an arbitrary task.
 namespace libtextclassifier3;
 table PredictionMetadata {
@@ -315,10 +326,11 @@ table ActionSuggestionSpec {
   // Additional entity information.
   serialized_entity_data:string (shared);
 
-  // Priority score used for internal conflict resolution.
+  // For ranking and internal conflict resolution.
   priority_score:float = 0;
 
   entity_data:ActionsEntityData;
+  response_text_blocklist:[string];
 }
 
 // Options to specify triggering behaviour per action class.
@@ -416,6 +428,8 @@ table RankingOptions {
 
   // If true, keep actions from the same entities together for ranking.
   group_by_annotations:bool = true;
+
+  sort_type:RankingOptionsSortType = SORT_TYPE_SCORE;
 }
 
 // Entity data to set from capturing groups.

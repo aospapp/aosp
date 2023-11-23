@@ -30,6 +30,7 @@
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
 #include "src/base/test/test_task_runner.h"
+#include "src/protozero/filtering/filter_bytecode_generator.h"
 #include "src/tracing/core/shared_memory_arbiter_impl.h"
 #include "src/tracing/core/trace_writer_impl.h"
 #include "src/tracing/test/mock_consumer.h"
@@ -37,6 +38,7 @@
 #include "src/tracing/test/test_shared_memory.h"
 #include "test/gtest_and_gmock.h"
 
+#include "protos/perfetto/common/track_event_descriptor.gen.h"
 #include "protos/perfetto/trace/perfetto/tracing_service_event.gen.h"
 #include "protos/perfetto/trace/test_event.gen.h"
 #include "protos/perfetto/trace/test_event.pbzero.h"
@@ -1415,9 +1417,9 @@ TEST_F(TracingServiceImplTest, LockdownMode) {
   producer->WaitForDataSourceStart("data_source");
 
   std::unique_ptr<MockProducer> producer_otheruid = CreateMockProducer();
-  auto x =
-      svc->ConnectProducer(producer_otheruid.get(),
-                           base::GetCurrentUserId() + 1, "mock_producer_ouid");
+  auto x = svc->ConnectProducer(producer_otheruid.get(),
+                                base::GetCurrentUserId() + 1,
+                                base::GetProcessId(), "mock_producer_ouid");
   EXPECT_CALL(*producer_otheruid, OnConnect()).Times(0);
   task_runner.RunUntilIdle();
   Mock::VerifyAndClearExpectations(producer_otheruid.get());
@@ -1730,6 +1732,73 @@ TEST_F(TracingServiceImplTest, WriteIntoFileWithPath) {
                   Property(&protos::gen::TestEvent::str, Eq("payload")))));
 }
 
+TEST_F(TracingServiceImplTest, WriteIntoFileFilterMultipleChunks) {
+  static const size_t kNumTestPackets = 5;
+  static const size_t kPayloadSize = 500 * 1024UL;
+  static_assert(kNumTestPackets * kPayloadSize >
+                    TracingServiceImpl::kWriteIntoFileChunkSize,
+                "This test covers filtering multiple chunks");
+
+  std::unique_ptr<MockConsumer> consumer = CreateMockConsumer();
+  consumer->Connect(svc.get());
+
+  std::unique_ptr<MockProducer> producer = CreateMockProducer();
+  producer->Connect(svc.get(), "mock_producer");
+  producer->RegisterDataSource("data_source");
+
+  TraceConfig trace_config;
+  trace_config.add_buffers()->set_size_kb(4096);
+  auto* ds_config = trace_config.add_data_sources()->mutable_config();
+  ds_config->set_name("data_source");
+  ds_config->set_target_buffer(0);
+  trace_config.set_write_into_file(true);
+  trace_config.set_file_write_period_ms(100000);  // 100s
+
+  protozero::FilterBytecodeGenerator filt;
+  // Message 0: root Trace proto.
+  filt.AddNestedField(1 /* root trace.packet*/, 1);
+  filt.EndMessage();
+  // Message 1: TracePacket proto. Allow all fields.
+  filt.AddSimpleFieldRange(1, 1000);
+  filt.EndMessage();
+  trace_config.mutable_trace_filter()->set_bytecode(filt.Serialize());
+
+  base::TempFile tmp_file = base::TempFile::Create();
+  consumer->EnableTracing(trace_config, base::ScopedFile(dup(tmp_file.fd())));
+
+  producer->WaitForTracingSetup();
+  producer->WaitForDataSourceSetup("data_source");
+  producer->WaitForDataSourceStart("data_source");
+
+  std::unique_ptr<TraceWriter> writer =
+      producer->CreateTraceWriter("data_source");
+  for (size_t i = 0; i < kNumTestPackets; i++) {
+    auto tp = writer->NewTracePacket();
+    std::string payload(kPayloadSize, 'c');
+    tp->set_for_testing()->set_str(payload.c_str(), payload.size());
+  }
+
+  writer->Flush();
+  writer.reset();
+
+  consumer->DisableTracing();
+  producer->WaitForDataSourceStop("data_source");
+  consumer->WaitForTracingDisabled();
+
+  consumer->GetTraceStats();
+  TraceStats stats = consumer->WaitForTraceStats(true);
+
+  std::string trace_raw;
+  ASSERT_TRUE(base::ReadFile(tmp_file.path().c_str(), &trace_raw));
+  protozero::ProtoDecoder dec(trace_raw.data(), trace_raw.size());
+  size_t total_size = 0;
+  for (auto field = dec.ReadField(); field.valid(); field = dec.ReadField()) {
+    total_size += field.size();
+  }
+  EXPECT_EQ(total_size, stats.filter_stats().output_bytes());
+  EXPECT_GT(total_size, kNumTestPackets * kPayloadSize);
+}
+
 // Test the logic that allows the trace config to set the shm total size and
 // page size from the trace config. Also check that, if the config doesn't
 // specify a value we fall back on the hint provided by the producer.
@@ -1785,7 +1854,7 @@ TEST_F(TracingServiceImplTest, ProducerShmAndPageSizeOverriddenByTraceConfig) {
     auto name = "mock_producer_" + std::to_string(i);
     producer[i] = CreateMockProducer();
     producer[i]->Connect(svc.get(), name, base::GetCurrentUserId(),
-                         kSizes[i].hint_size_kb * 1024,
+                         base::GetProcessId(), kSizes[i].hint_size_kb * 1024,
                          kSizes[i].hint_page_size_kb * 1024);
     producer[i]->RegisterDataSource("data_source");
   }
@@ -2331,7 +2400,8 @@ TEST_F(TracingServiceImplTest, ResynchronizeTraceStreamUsingSyncMarker) {
   const int kNumMarkers = 5;
   auto writer = producer->CreateTraceWriter("data_source");
   for (int i = 1; i <= 100; i++) {
-    std::string payload(static_cast<size_t>(i), 'A' + (i % 25));
+    std::string payload(static_cast<size_t>(i),
+                        'A' + static_cast<char>(i % 25));
     writer->NewTracePacket()->set_for_testing()->set_str(payload.c_str());
     if (i % (100 / kNumMarkers) == 0) {
       writer->Flush();
@@ -2425,11 +2495,13 @@ TEST_F(TracingServiceImplTest, ProducerUIDsAndPacketSequenceIDs) {
   consumer->Connect(svc.get());
 
   std::unique_ptr<MockProducer> producer1 = CreateMockProducer();
-  producer1->Connect(svc.get(), "mock_producer1", 123u /* uid */);
+  producer1->Connect(svc.get(), "mock_producer1", 123u /* uid */,
+                     1001 /* pid */);
   producer1->RegisterDataSource("data_source");
 
   std::unique_ptr<MockProducer> producer2 = CreateMockProducer();
-  producer2->Connect(svc.get(), "mock_producer2", 456u /* uid */);
+  producer2->Connect(svc.get(), "mock_producer2", 456u /* uid */,
+                     2002 /* pid */);
   producer2->RegisterDataSource("data_source");
 
   TraceConfig trace_config;
@@ -2480,6 +2552,7 @@ TEST_F(TracingServiceImplTest, ProducerUIDsAndPacketSequenceIDs) {
           Property(&protos::gen::TracePacket::for_testing,
                    Property(&protos::gen::TestEvent::str, Eq("payload1a1"))),
           Property(&protos::gen::TracePacket::trusted_uid, Eq(123)),
+          Property(&protos::gen::TracePacket::trusted_pid, Eq(1001)),
           Property(&protos::gen::TracePacket::trusted_packet_sequence_id,
                    Eq(2u)))));
   EXPECT_THAT(
@@ -2488,6 +2561,7 @@ TEST_F(TracingServiceImplTest, ProducerUIDsAndPacketSequenceIDs) {
           Property(&protos::gen::TracePacket::for_testing,
                    Property(&protos::gen::TestEvent::str, Eq("payload1a2"))),
           Property(&protos::gen::TracePacket::trusted_uid, Eq(123)),
+          Property(&protos::gen::TracePacket::trusted_pid, Eq(1001)),
           Property(&protos::gen::TracePacket::trusted_packet_sequence_id,
                    Eq(2u)))));
   EXPECT_THAT(
@@ -2496,6 +2570,7 @@ TEST_F(TracingServiceImplTest, ProducerUIDsAndPacketSequenceIDs) {
           Property(&protos::gen::TracePacket::for_testing,
                    Property(&protos::gen::TestEvent::str, Eq("payload1b1"))),
           Property(&protos::gen::TracePacket::trusted_uid, Eq(123)),
+          Property(&protos::gen::TracePacket::trusted_pid, Eq(1001)),
           Property(&protos::gen::TracePacket::trusted_packet_sequence_id,
                    Eq(3u)))));
   EXPECT_THAT(
@@ -2504,6 +2579,7 @@ TEST_F(TracingServiceImplTest, ProducerUIDsAndPacketSequenceIDs) {
           Property(&protos::gen::TracePacket::for_testing,
                    Property(&protos::gen::TestEvent::str, Eq("payload1b2"))),
           Property(&protos::gen::TracePacket::trusted_uid, Eq(123)),
+          Property(&protos::gen::TracePacket::trusted_pid, Eq(1001)),
           Property(&protos::gen::TracePacket::trusted_packet_sequence_id,
                    Eq(3u)))));
   EXPECT_THAT(
@@ -2512,6 +2588,7 @@ TEST_F(TracingServiceImplTest, ProducerUIDsAndPacketSequenceIDs) {
           Property(&protos::gen::TracePacket::for_testing,
                    Property(&protos::gen::TestEvent::str, Eq("payload2a1"))),
           Property(&protos::gen::TracePacket::trusted_uid, Eq(456)),
+          Property(&protos::gen::TracePacket::trusted_pid, Eq(2002)),
           Property(&protos::gen::TracePacket::trusted_packet_sequence_id,
                    Eq(4u)))));
 }
@@ -3534,10 +3611,10 @@ TEST_F(TracingServiceImplTest, QueryServiceState) {
   consumer->Connect(svc.get());
 
   std::unique_ptr<MockProducer> producer1 = CreateMockProducer();
-  producer1->Connect(svc.get(), "producer1");
+  producer1->Connect(svc.get(), "producer1", /*uid=*/0);
 
   std::unique_ptr<MockProducer> producer2 = CreateMockProducer();
-  producer2->Connect(svc.get(), "producer2");
+  producer2->Connect(svc.get(), "producer2", /*uid=*/1002);
 
   producer1->RegisterDataSource("common_ds");
   producer2->RegisterDataSource("common_ds");
@@ -3545,39 +3622,137 @@ TEST_F(TracingServiceImplTest, QueryServiceState) {
   producer1->RegisterDataSource("p1_ds");
   producer2->RegisterDataSource("p2_ds");
 
+  producer2->RegisterDataSource("common_ds");
+
   TracingServiceState svc_state = consumer->QueryServiceState();
 
   EXPECT_EQ(svc_state.producers_size(), 2);
   EXPECT_EQ(svc_state.producers().at(0).id(), 1);
   EXPECT_EQ(svc_state.producers().at(0).name(), "producer1");
+  EXPECT_EQ(svc_state.producers().at(0).uid(), 0);
   EXPECT_EQ(svc_state.producers().at(1).id(), 2);
   EXPECT_EQ(svc_state.producers().at(1).name(), "producer2");
+  EXPECT_EQ(svc_state.producers().at(1).uid(), 1002);
 
-  EXPECT_EQ(svc_state.data_sources_size(), 4);
+  EXPECT_EQ(svc_state.data_sources_size(), 5);
 
-  EXPECT_EQ(svc_state.data_sources().at(0).producer_id(), 1);
-  EXPECT_EQ(svc_state.data_sources().at(0).ds_descriptor().name(), "common_ds");
+  auto count_ds = [&](int32_t producer_id, const std::string& ds_name) {
+    int count = 0;
+    for (const auto& ds : svc_state.data_sources()) {
+      if (ds.producer_id() == producer_id &&
+          ds.ds_descriptor().name() == ds_name)
+        ++count;
+    }
+    return count;
+  };
 
-  EXPECT_EQ(svc_state.data_sources().at(1).producer_id(), 2);
-  EXPECT_EQ(svc_state.data_sources().at(1).ds_descriptor().name(), "common_ds");
-
-  EXPECT_EQ(svc_state.data_sources().at(2).producer_id(), 1);
-  EXPECT_EQ(svc_state.data_sources().at(2).ds_descriptor().name(), "p1_ds");
-
-  EXPECT_EQ(svc_state.data_sources().at(3).producer_id(), 2);
-  EXPECT_EQ(svc_state.data_sources().at(3).ds_descriptor().name(), "p2_ds");
+  EXPECT_EQ(count_ds(1, "common_ds"), 1);
+  EXPECT_EQ(count_ds(1, "p1_ds"), 1);
+  EXPECT_EQ(count_ds(2, "common_ds"), 2);
+  EXPECT_EQ(count_ds(2, "p2_ds"), 1);
 
   // Test that descriptors are cleared when a producer disconnects.
   producer1.reset();
   svc_state = consumer->QueryServiceState();
 
   EXPECT_EQ(svc_state.producers_size(), 1);
-  EXPECT_EQ(svc_state.data_sources_size(), 2);
+  EXPECT_EQ(svc_state.data_sources_size(), 3);
 
-  EXPECT_EQ(svc_state.data_sources().at(0).producer_id(), 2);
-  EXPECT_EQ(svc_state.data_sources().at(0).ds_descriptor().name(), "common_ds");
+  EXPECT_EQ(count_ds(1, "common_ds"), 0);
+  EXPECT_EQ(count_ds(1, "p1_ds"), 0);
+  EXPECT_EQ(count_ds(2, "common_ds"), 2);
+  EXPECT_EQ(count_ds(2, "p2_ds"), 1);
+}
+
+TEST_F(TracingServiceImplTest, UpdateDataSource) {
+  std::unique_ptr<MockConsumer> consumer = CreateMockConsumer();
+  consumer->Connect(svc.get());
+
+  std::unique_ptr<MockProducer> producer1 = CreateMockProducer();
+  producer1->Connect(svc.get(), "producer1", /*uid=*/0);
+
+  std::unique_ptr<MockProducer> producer2 = CreateMockProducer();
+  producer2->Connect(svc.get(), "producer2", /*uid=*/1002);
+
+  producer1->RegisterTrackEventDataSource({"cat1"}, 1);
+  producer2->RegisterTrackEventDataSource({}, 1);
+  producer2->RegisterTrackEventDataSource({}, 2);
+
+  // This request should fail because ID=2 is already registered.
+  producer2->RegisterTrackEventDataSource({"this_should_fail"}, 2);
+
+  TracingServiceState svc_state = consumer->QueryServiceState();
+
+  auto parse_desc = [](const perfetto::protos::gen::DataSourceDescriptor& dsd) {
+    perfetto::protos::gen::TrackEventDescriptor desc;
+    auto desc_raw = dsd.track_event_descriptor_raw();
+    EXPECT_TRUE(desc.ParseFromArray(desc_raw.data(), desc_raw.size()));
+    return desc;
+  };
+
+  EXPECT_EQ(svc_state.data_sources_size(), 3);
+
+  EXPECT_EQ(svc_state.data_sources().at(0).producer_id(), 1);
+  EXPECT_EQ(svc_state.data_sources().at(0).ds_descriptor().name(),
+            "track_event");
+  EXPECT_EQ(svc_state.data_sources().at(0).ds_descriptor().id(), 1u);
+  auto ted = parse_desc(svc_state.data_sources().at(0).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 1);
+  EXPECT_EQ(ted.available_categories()[0].name(), "cat1");
+
   EXPECT_EQ(svc_state.data_sources().at(1).producer_id(), 2);
-  EXPECT_EQ(svc_state.data_sources().at(1).ds_descriptor().name(), "p2_ds");
+  EXPECT_EQ(svc_state.data_sources().at(1).ds_descriptor().name(),
+            "track_event");
+  EXPECT_EQ(svc_state.data_sources().at(1).ds_descriptor().id(), 1u);
+  ted = parse_desc(svc_state.data_sources().at(1).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 0);
+
+  EXPECT_EQ(svc_state.data_sources().at(2).ds_descriptor().id(), 2u);
+
+  // Test that TrackEvent DataSource is updated.
+  producer2->UpdateTrackEventDataSource({"cat1", "cat2"}, 2);
+
+  svc_state = consumer->QueryServiceState();
+
+  EXPECT_EQ(svc_state.data_sources_size(), 3);
+
+  EXPECT_EQ(svc_state.data_sources().at(0).producer_id(), 1);
+  EXPECT_EQ(svc_state.data_sources().at(0).ds_descriptor().id(), 1u);
+  ted = parse_desc(svc_state.data_sources().at(0).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 1);
+
+  EXPECT_EQ(svc_state.data_sources().at(1).ds_descriptor().id(), 1u);
+  ted = parse_desc(svc_state.data_sources().at(1).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 0);
+
+  EXPECT_EQ(svc_state.data_sources().at(2).producer_id(), 2);
+  EXPECT_EQ(svc_state.data_sources().at(2).ds_descriptor().id(), 2u);
+  ted = parse_desc(svc_state.data_sources().at(2).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 2);
+  EXPECT_EQ(ted.available_categories()[0].name(), "cat1");
+  EXPECT_EQ(ted.available_categories()[1].name(), "cat2");
+
+  // Test removal of a category.
+  producer2->UpdateTrackEventDataSource({"cat2"}, 2);
+
+  svc_state = consumer->QueryServiceState();
+
+  EXPECT_EQ(svc_state.data_sources_size(), 3);
+  EXPECT_EQ(svc_state.data_sources().at(2).ds_descriptor().id(), 2u);
+  ted = parse_desc(svc_state.data_sources().at(2).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 1);
+  EXPECT_EQ(ted.available_categories()[0].name(), "cat2");
+
+  // Test adding a category to the first data source.
+  producer2->UpdateTrackEventDataSource({"cat3"}, 1);
+
+  svc_state = consumer->QueryServiceState();
+
+  EXPECT_EQ(svc_state.data_sources_size(), 3);
+  EXPECT_EQ(svc_state.data_sources().at(1).ds_descriptor().id(), 1u);
+  ted = parse_desc(svc_state.data_sources().at(1).ds_descriptor());
+  EXPECT_EQ(ted.available_categories_size(), 1);
+  EXPECT_EQ(ted.available_categories()[0].name(), "cat3");
 }
 
 TEST_F(TracingServiceImplTest, LimitSessionsPerUid) {
@@ -3628,7 +3803,7 @@ TEST_F(TracingServiceImplTest, ProducerProvidedSMB) {
   SharedMemory* shm_raw = shm.get();
 
   // Service should adopt the SMB provided by the producer.
-  producer->Connect(svc.get(), "mock_producer", /*uid=*/42,
+  producer->Connect(svc.get(), "mock_producer", /*uid=*/42, /*pid=*/1025,
                     /*shared_memory_size_hint_bytes=*/0, kShmPageSizeBytes,
                     std::move(shm));
   EXPECT_TRUE(producer->endpoint()->IsShmemProvidedByProducer());
@@ -3683,7 +3858,7 @@ TEST_F(TracingServiceImplTest, ProducerProvidedSMBInvalidSizes) {
 
   // Service should not adopt the SMB provided by the producer, because the SMB
   // size isn't a multiple of the page size.
-  producer->Connect(svc.get(), "mock_producer", /*uid=*/42,
+  producer->Connect(svc.get(), "mock_producer", /*uid=*/42, /*pid=*/1025,
                     /*shared_memory_size_hint_bytes=*/0, kShmPageSizeBytes,
                     std::move(shm));
   EXPECT_FALSE(producer->endpoint()->IsShmemProvidedByProducer());

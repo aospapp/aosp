@@ -334,9 +334,6 @@ kernel module is not required by Android.
 The hugepage-mmap, hugepage-shm, compaction, and map_hugetlb tests rely on
 hugetlbfs/hugetlb page support which is not required by Android.
 
-The userfaultfd test relies on the userfaultfd syscall which is not required by
-Android.
-
 ### watchdog/
 
 The watchdog test depends on CONFIG_WATCHDOG which is not required by Android.

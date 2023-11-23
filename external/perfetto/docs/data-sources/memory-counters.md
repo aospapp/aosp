@@ -201,7 +201,7 @@ data_sources: {
             vmstat_counters: VMSTAT_NR_INACTIVE_ANON
             vmstat_counters: VMSTAT_NR_ACTIVE_ANON
 
-            stat_period_ms: 2500
+            stat_period_ms: 1000
             stat_counters: STAT_CPU_TIMES
             stat_counters: STAT_FORK_COUNT
         }
@@ -282,7 +282,7 @@ TODO: we are working on a better UI support for LMKs.
 
 ### SQL
 
-Both newer lmkd and legacy kernel-driven lowmemorykiler events are normalized
+Both newer lmkd and legacy kernel-driven lowmemorykiller events are normalized
 at import time and available under the `mem.lmk` key in the `instants` table.
 
 ```sql

@@ -444,13 +444,13 @@ ca{
         rap{"rapanui"}
         rar{"rarotongà"}
         rgn{"romanyès"}
+        rhg{"rohingya"}
         rm{"retoromànic"}
         rn{"rundi"}
         ro{"romanès"}
         ro_MD{"moldau"}
         rof{"rombo"}
         rom{"romaní"}
-        root{"arrel"}
         ru{"rus"}
         rup{"aromanès"}
         rw{"ruandès"}

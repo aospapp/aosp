@@ -17,87 +17,112 @@
 #ifndef ANDROID_DRM_CONNECTOR_H_
 #define ANDROID_DRM_CONNECTOR_H_
 
-#include <stdint.h>
 #include <xf86drmMode.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "DrmEncoder.h"
 #include "DrmMode.h"
 #include "DrmProperty.h"
+#include "DrmUnique.h"
 
 namespace android {
 
 class DrmDevice;
 
-class DrmConnector {
+class DrmConnector : public PipelineBindable<DrmConnector> {
  public:
-  DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
-               DrmEncoder *current_encoder,
-               std::vector<DrmEncoder *> &possible_encoders);
+  static auto CreateInstance(DrmDevice &dev, uint32_t connector_id,
+                             uint32_t index) -> std::unique_ptr<DrmConnector>;
+
   DrmConnector(const DrmProperty &) = delete;
   DrmConnector &operator=(const DrmProperty &) = delete;
 
-  int Init();
   int UpdateEdidProperty();
-  int GetEdidBlob(drmModePropertyBlobPtr &blob);
+  auto GetEdidBlob() -> DrmModePropertyBlobUnique;
 
-  uint32_t id() const;
+  auto GetDev() const -> DrmDevice & {
+    return *drm_;
+  }
 
-  int display() const;
-  void set_display(int display);
+  auto GetId() const {
+    return connector_->connector_id;
+  }
 
-  bool internal() const;
-  bool external() const;
-  bool writeback() const;
-  bool valid_type() const;
+  auto GetIndexInResArray() const {
+    return index_in_res_array_;
+  }
 
-  std::string name() const;
+  auto GetCurrentEncoderId() const {
+    return connector_->encoder_id;
+  }
+
+  auto SupportsEncoder(DrmEncoder &enc) const {
+    for (int i = 0; i < connector_->count_encoders; i++) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      if (connector_->encoders[i] == enc.GetId()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool IsInternal() const;
+  bool IsExternal() const;
+  bool IsWriteback() const;
+  bool IsValid() const;
+
+  std::string GetName() const;
 
   int UpdateModes();
 
-  const std::vector<DrmMode> &modes() const {
+  auto &GetModes() const {
     return modes_;
   }
-  const DrmMode &active_mode() const;
-  void set_active_mode(const DrmMode &mode);
 
-  const DrmProperty &dpms_property() const;
-  const DrmProperty &crtc_id_property() const;
-  const DrmProperty &edid_property() const;
-  const DrmProperty &writeback_pixel_formats() const;
-  const DrmProperty &writeback_fb_id() const;
-  const DrmProperty &writeback_out_fence() const;
-
-  const std::vector<DrmEncoder *> &possible_encoders() const {
-    return possible_encoders_;
+  auto &GetActiveMode() const {
+    return active_mode_;
   }
-  DrmEncoder *encoder() const;
-  void set_encoder(DrmEncoder *encoder);
 
-  drmModeConnection state() const;
+  void SetActiveMode(DrmMode &mode);
 
-  uint32_t mm_width() const;
-  uint32_t mm_height() const;
-
-  uint32_t get_preferred_mode_id() const {
-    return preferred_mode_id_;
+  auto &GetDpmsProperty() const {
+    return dpms_property_;
   }
+
+  auto &GetCrtcIdProperty() const {
+    return crtc_id_property_;
+  }
+
+  auto &GetEdidProperty() const {
+    return edid_property_;
+  }
+
+  auto IsConnected() const {
+    return connector_->connection == DRM_MODE_CONNECTED;
+  }
+
+  auto GetMmWidth() const {
+    return connector_->mmWidth;
+  }
+
+  auto GetMmHeight() const {
+    return connector_->mmHeight;
+  };
 
  private:
-  DrmDevice *drm_;
+  DrmConnector(DrmModeConnectorUnique connector, DrmDevice *drm, uint32_t index)
+      : connector_(std::move(connector)),
+        drm_(drm),
+        index_in_res_array_(index){};
 
-  uint32_t id_;
-  DrmEncoder *encoder_;
-  int display_;
+  DrmModeConnectorUnique connector_;
+  DrmDevice *const drm_;
 
-  uint32_t type_;
-  uint32_t type_id_;
-  drmModeConnection state_;
-
-  uint32_t mm_width_;
-  uint32_t mm_height_;
+  const uint32_t index_in_res_array_;
 
   DrmMode active_mode_;
   std::vector<DrmMode> modes_;
@@ -108,10 +133,6 @@ class DrmConnector {
   DrmProperty writeback_pixel_formats_;
   DrmProperty writeback_fb_id_;
   DrmProperty writeback_out_fence_;
-
-  std::vector<DrmEncoder *> possible_encoders_;
-
-  uint32_t preferred_mode_id_{};
 };
 }  // namespace android
 

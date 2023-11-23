@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define LOG_TAG "hwc-drm-property"
+
 #include "DrmProperty.h"
 
 #include <xf86drmMode.h>
@@ -23,6 +26,7 @@
 #include <string>
 
 #include "DrmDevice.h"
+#include "utils/log.h"
 
 namespace android {
 
@@ -30,11 +34,13 @@ DrmProperty::DrmPropertyEnum::DrmPropertyEnum(drm_mode_property_enum *e)
     : value_(e->value), name_(e->name) {
 }
 
-DrmProperty::DrmProperty(drmModePropertyPtr p, uint64_t value) {
-  Init(p, value);
+DrmProperty::DrmProperty(uint32_t obj_id, drmModePropertyPtr p,
+                         uint64_t value) {
+  Init(obj_id, p, value);
 }
 
-void DrmProperty::Init(drmModePropertyPtr p, uint64_t value) {
+void DrmProperty::Init(uint32_t obj_id, drmModePropertyPtr p, uint64_t value) {
+  obj_id_ = obj_id;
   id_ = p->prop_id;
   flags_ = p->flags;
   name_ = p->name;
@@ -131,4 +137,19 @@ std::tuple<uint64_t, int> DrmProperty::GetEnumValueWithName(
 
   return std::make_tuple(UINT64_MAX, -EINVAL);
 }
+
+auto DrmProperty::AtomicSet(drmModeAtomicReq &pset, uint64_t value) const
+    -> bool {
+  if (id_ == 0) {
+    ALOGE("AtomicSet() is called on non-initialized property!");
+    return false;
+  }
+  if (drmModeAtomicAddProperty(&pset, obj_id_, id_, value) < 0) {
+    ALOGE("Failed to add obj_id: %u, prop_id: %u (%s) to pset", obj_id_, id_,
+          name_.c_str());
+    return false;
+  }
+  return true;
+}
+
 }  // namespace android

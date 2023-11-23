@@ -16,17 +16,17 @@ impl Handle {
         Handle { time_source, inner }
     }
 
-    /// Returns the time source associated with this handle
+    /// Returns the time source associated with this handle.
     pub(super) fn time_source(&self) -> &ClockTime {
         &self.time_source
     }
 
-    /// Access the driver's inner structure
+    /// Access the driver's inner structure.
     pub(super) fn get(&self) -> &super::Inner {
         &*self.inner
     }
 
-    // Check whether the driver has been shutdown
+    /// Checks whether the driver has been shutdown.
     pub(super) fn is_shutdown(&self) -> bool {
         self.inner.is_shutdown()
     }
@@ -76,7 +76,7 @@ cfg_not_rt! {
         /// lazy, and so outside executed inside the runtime successfully without
         /// panicking.
         pub(crate) fn current() -> Self {
-            panic!(crate::util::error::CONTEXT_MISSING_ERROR)
+            panic!("{}", crate::util::error::CONTEXT_MISSING_ERROR)
         }
     }
 }

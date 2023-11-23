@@ -1,8 +1,0 @@
-import org.checkerframework.checker.nullness.qual.Nullable;
-
-package org.apache.logging.log4j;
-
-class ThreadContext {
-  @Nullable
-  static ReadOnlyThreadContextMap getThreadContextMap();
-}

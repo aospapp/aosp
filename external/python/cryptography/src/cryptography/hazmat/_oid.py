@@ -19,26 +19,36 @@ class ObjectIdentifier(object):
         # range 0..39.  All nodes must be integers.
         for node in nodes:
             try:
-                intnodes.append(int(node, 0))
+                node_value = int(node, 10)
             except ValueError:
                 raise ValueError(
-                    "Malformed OID: %s (non-integer nodes)" % (
-                        self._dotted_string))
+                    "Malformed OID: %s (non-integer nodes)"
+                    % (self._dotted_string)
+                )
+            if node_value < 0:
+                raise ValueError(
+                    "Malformed OID: %s (negative-integer nodes)"
+                    % (self._dotted_string)
+                )
+            intnodes.append(node_value)
 
         if len(nodes) < 2:
             raise ValueError(
-                "Malformed OID: %s (insufficient number of nodes)" % (
-                    self._dotted_string))
+                "Malformed OID: %s (insufficient number of nodes)"
+                % (self._dotted_string)
+            )
 
         if intnodes[0] > 2:
             raise ValueError(
-                "Malformed OID: %s (first node outside valid range)" % (
-                    self._dotted_string))
+                "Malformed OID: %s (first node outside valid range)"
+                % (self._dotted_string)
+            )
 
         if intnodes[0] < 2 and intnodes[1] >= 40:
             raise ValueError(
-                "Malformed OID: %s (second node outside valid range)" % (
-                    self._dotted_string))
+                "Malformed OID: %s (second node outside valid range)"
+                % (self._dotted_string)
+            )
 
     def __eq__(self, other):
         if not isinstance(other, ObjectIdentifier):
@@ -50,9 +60,8 @@ class ObjectIdentifier(object):
         return not self == other
 
     def __repr__(self):
-        return "<ObjectIdentifier(oid={0}, name={1})>".format(
-            self.dotted_string,
-            self._name
+        return "<ObjectIdentifier(oid={}, name={})>".format(
+            self.dotted_string, self._name
         )
 
     def __hash__(self):
@@ -62,6 +71,7 @@ class ObjectIdentifier(object):
     def _name(self):
         # Lazy import to avoid an import cycle
         from cryptography.x509.oid import _OID_NAMES
+
         return _OID_NAMES.get(self, "Unknown OID")
 
     dotted_string = utils.read_only_property("_dotted_string")

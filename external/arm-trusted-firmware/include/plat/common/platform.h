@@ -16,6 +16,7 @@
 #if TRNG_SUPPORT
 #include "plat_trng.h"
 #endif
+#include <drivers/fwu/fwu_metadata.h>
 
 /*******************************************************************************
  * Forward declarations
@@ -140,6 +141,8 @@ int plat_sdei_validate_entry_point(uintptr_t ep, unsigned int client_mode);
 void plat_sdei_handle_masked_trigger(uint64_t mpidr, unsigned int intr);
 #endif
 
+void plat_default_ea_handler(unsigned int ea_reason, uint64_t syndrome, void *cookie,
+		void *handle, uint64_t flags);
 void plat_ea_handler(unsigned int ea_reason, uint64_t syndrome, void *cookie,
 		void *handle, uint64_t flags);
 
@@ -348,5 +351,13 @@ int32_t plat_get_soc_revision(void);
  * Optional function to check for SMCCC function availability for platform
  */
 int32_t plat_is_smccc_feature_available(u_register_t fid);
+
+/*******************************************************************************
+ * FWU platform specific functions
+ ******************************************************************************/
+int plat_fwu_set_metadata_image_source(unsigned int image_id,
+				       uintptr_t *dev_handle,
+				       uintptr_t *image_spec);
+void plat_fwu_set_images_source(struct fwu_metadata *metadata);
 
 #endif /* PLATFORM_H */

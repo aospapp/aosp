@@ -108,6 +108,14 @@ static void FP16MobileNetV3Small(benchmark::State& state) {
   End2EndBenchmark(state, models::FP16MobileNetV3Small);
 }
 
+static void QC8MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, models::QC8MobileNetV1);
+}
+
+static void QC8MobileNetV2(benchmark::State& state) {
+  End2EndBenchmark(state, models::QC8MobileNetV2);
+}
+
 static void QS8MobileNetV1(benchmark::State& state) {
   End2EndBenchmark(state, models::QS8MobileNetV1);
 }
@@ -118,6 +126,10 @@ static void QS8MobileNetV2(benchmark::State& state) {
 
 static void QU8MobileNetV1(benchmark::State& state) {
   End2EndBenchmark(state, models::QU8MobileNetV1);
+}
+
+static void QU8MobileNetV2(benchmark::State& state) {
+  End2EndBenchmark(state, models::QU8MobileNetV2);
 }
 
 BENCHMARK(FP32MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
@@ -135,10 +147,14 @@ BENCHMARK(FP16MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->U
 BENCHMARK(FP16MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 BENCHMARK(FP16MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
+BENCHMARK(QC8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(QC8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+
 BENCHMARK(QS8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 BENCHMARK(QS8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
 BENCHMARK(QU8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(QU8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

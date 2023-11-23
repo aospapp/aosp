@@ -12,19 +12,48 @@
 if [[ ! -z "${DEBUG_SSH_KEY}" ]]; then
   echo "${DEBUG_SSH_KEY}" >>~/.ssh/authorized_keys
   external_ip=$(
-    curl -s -H "Metadata-Flavor: Google"
-    http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip
+    curl -s -H "Metadata-Flavor: Google" \
+      http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip
   )
   echo "SSH Debug enabled. Connect to: kbuilder@${external_ip}"
 fi
 
 setup_source() {
-  if [ -z "${KOKORO_ARTIFACTS_DIR}/git" ]; then
+  if [ ! -d "${KOKORO_ARTIFACTS_DIR}" ]; then
     echo "This script must be run in kokoro"
     exit 1
   fi
 
+  mkdir -p "${KOKORO_ARTIFACTS_DIR}/logs"
+
   cd "${KOKORO_ARTIFACTS_DIR}/git/crosvm"
+
+  # The Kokoro builder has not the required packages from ./tools/install-deps and an old python
+  # version.
+  # Install what is needed to run ./tools/dev_container
+  # Note: This won't be necessary once we switch to a custom Kokoro image (or luci)
+  if command -v pyenv; then
+    pyenv install -v 3.9.5
+    pyenv global 3.9.5
+    pip install argh
+  fi
+
+  echo "Rebasing changes to ToT"
+  # We cannot use the original origin that kokoro used, as we no longer have
+  # access the GoB host via rpc://.
+  git remote remove origin
+  git remote add origin https://chromium.googlesource.com/chromiumos/platform/crosvm
+  git fetch -q origin
+
+  # For some mysterious reason symlinks show up as modified, which prevents
+  # us from rebasing the changes.
+  git checkout -f
+  git rebase origin/main
+  if [ $? -ne 0 ]; then
+      return 1
+  fi
+
+  echo "Fetching Submodules..."
   git submodule update --init
 }
 

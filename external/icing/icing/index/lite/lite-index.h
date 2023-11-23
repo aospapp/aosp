@@ -37,10 +37,12 @@
 #include "icing/legacy/index/icing-lite-index-header.h"
 #include "icing/legacy/index/icing-lite-index-options.h"
 #include "icing/legacy/index/icing-mmapper.h"
+#include "icing/proto/debug.pb.h"
 #include "icing/proto/storage.pb.h"
 #include "icing/proto/term.pb.h"
 #include "icing/schema/section.h"
 #include "icing/store/document-id.h"
+#include "icing/store/namespace-checker.h"
 #include "icing/store/namespace-id.h"
 #include "icing/util/bit-util.h"
 #include "icing/util/crc32.h"
@@ -140,13 +142,19 @@ class LiteIndex {
   // skipping hits in non-prefix sections if only_from_prefix_sections is true,
   // to hits_out. If hits_out is nullptr, no hits will be added.
   //
+  // Only those hits which belongs to the given namespaces will be counted and
+  // appended. A nullptr namespace checker  will disable this check.
+  //
   // Returns the number of hits that would be added to hits_out.
   int AppendHits(uint32_t term_id, SectionIdMask section_id_mask,
                  bool only_from_prefix_sections,
+                 const NamespaceChecker* namespace_checker,
                  std::vector<DocHitInfo>* hits_out);
 
   // Returns the hit count of the term.
-  int CountHits(uint32_t term_id);
+  // Only those hits which belongs to the given namespaces will be counted.
+  libtextclassifier3::StatusOr<int> CountHits(
+      uint32_t term_id, const NamespaceChecker* namespace_checker);
 
   // Check if buffer has reached its capacity.
   bool is_full() const;
@@ -234,7 +242,7 @@ class LiteIndex {
   // Returns debug information for the index in out.
   // verbosity <= 0, simplest debug information - size of lexicon, hit buffer
   // verbosity > 0, more detailed debug information from the lexicon.
-  void GetDebugInfo(int verbosity, std::string* out) const;
+  IndexDebugInfoProto::LiteIndexDebugInfoProto GetDebugInfo(int verbosity);
 
   // Returns the byte size of all the elements held in the index. This excludes
   // the size of any internal metadata of the index, e.g. the index's header.

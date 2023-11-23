@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "libsqlite3-sys"
-version = "0.20.1"
+version = "0.22.2"
 authors = ["The rusqlite developers"]
 build = "build.rs"
 links = "sqlite3"
@@ -23,7 +23,7 @@ categories = ["external-ffi-bindings"]
 license = "MIT"
 repository = "https://github.com/rusqlite/rusqlite"
 [build-dependencies.bindgen]
-version = "0.55"
+version = "0.58"
 features = ["runtime"]
 optional = true
 default-features = false

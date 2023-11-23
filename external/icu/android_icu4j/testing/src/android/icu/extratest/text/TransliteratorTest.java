@@ -84,7 +84,7 @@ public class TransliteratorTest {
         Transliterator t = Transliterator.getInstance("Han-Latin");
         assertEquals("hàn zì/hàn zì", t.transliterate("汉字/漢字"));
 
-        assertEquals("chén", t.transliterate("\u6c88"));
+        assertEquals("shěn", t.transliterate("\u6c88"));
         assertEquals("shěn", t.transliterate("\u700b"));
         assertEquals("jiǎ", t.transliterate("\u8d3e"));
 

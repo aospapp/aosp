@@ -75,21 +75,28 @@ h1, h2, h3 {
 <h1><a href="testing_v1.html">Cloud Testing API</a> . <a href="testing_v1.applicationDetailService.html">applicationDetailService</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#getApkDetails">getApkDetails(body, x__xgafv=None)</a></code></p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
+<p class="toc_element">
+  <code><a href="#getApkDetails">getApkDetails(body=None, x__xgafv=None)</a></code></p>
 <p class="firstline">Gets the details of an Android application APK.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="getApkDetails">getApkDetails(body, x__xgafv=None)</code>
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="getApkDetails">getApkDetails(body=None, x__xgafv=None)</code>
   <pre>Gets the details of an Android application APK.
 
 Args:
-  body: object, The request body. (required)
+  body: object, The request body.
     The object takes the form of:
 
 { # A reference to a file, used for user inputs.
-    "gcsPath": "A String", # A path to a file in Google Cloud Storage.
-        # Example: gs://build-app-1414623860166/app-debug-unaligned.apk
-  }
+  &quot;gcsPath&quot;: &quot;A String&quot;, # A path to a file in Google Cloud Storage. Example: gs://build-app-1414623860166/app%40debug-unaligned.apk These paths are expected to be url encoded (percent encoding)
+}
 
   x__xgafv: string, V1 error format.
     Allowed values
@@ -100,31 +107,30 @@ Returns:
   An object of the form:
 
     { # Response containing the details of the specified Android application APK.
-    "apkDetail": { # Android application details based on application manifest and apk archive # Details of the Android APK.
-        # contents.
-      "apkManifest": { # An Android app manifest. See
-          # http://developer.android.com/guide/topics/manifest/manifest-intro.html
-        "packageName": "A String", # Full Java-style package name for this application, e.g.
-            # "com.example.foo".
-        "maxSdkVersion": 42, # Maximum API level on which the application is designed to run.
-        "minSdkVersion": 42, # Minimum API level required for the application to run.
-        "targetSdkVersion": 42, # Specifies the API Level on which the application is designed to run.
-        "applicationLabel": "A String", # User-readable name for the application.
-        "intentFilters": [
-          { # The <intent-filter> section of an <activity> tag.
-              # https://developer.android.com/guide/topics/manifest/intent-filter-element.html
-            "mimeType": "A String", # The android:mimeType value of the <data> tag.
-            "actionNames": [ # The android:name value of the <action> tag.
-              "A String",
-            ],
-            "categoryNames": [ # The android:name value of the <category> tag.
-              "A String",
-            ],
-          },
-        ],
-      },
+  &quot;apkDetail&quot;: { # Android application details based on application manifest and apk archive contents. # Details of the Android APK.
+    &quot;apkManifest&quot;: { # An Android app manifest. See http://developer.android.com/guide/topics/manifest/manifest-intro.html
+      &quot;applicationLabel&quot;: &quot;A String&quot;, # User-readable name for the application.
+      &quot;intentFilters&quot;: [
+        { # The section of an tag. https://developer.android.com/guide/topics/manifest/intent-filter-element.html
+          &quot;actionNames&quot;: [ # The android:name value of the tag.
+            &quot;A String&quot;,
+          ],
+          &quot;categoryNames&quot;: [ # The android:name value of the tag.
+            &quot;A String&quot;,
+          ],
+          &quot;mimeType&quot;: &quot;A String&quot;, # The android:mimeType value of the tag.
+        },
+      ],
+      &quot;maxSdkVersion&quot;: 42, # Maximum API level on which the application is designed to run.
+      &quot;minSdkVersion&quot;: 42, # Minimum API level required for the application to run.
+      &quot;packageName&quot;: &quot;A String&quot;, # Full Java-style package name for this application, e.g. &quot;com.example.foo&quot;.
+      &quot;targetSdkVersion&quot;: 42, # Specifies the API Level on which the application is designed to run.
+      &quot;usesPermission&quot;: [ # Permissions declared to be used by the application
+        &quot;A String&quot;,
+      ],
     },
-  }</pre>
+  },
+}</pre>
 </div>
 
 </body></html>

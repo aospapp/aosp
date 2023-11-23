@@ -62,7 +62,7 @@
 //! ```
 
 use std::io;
-use std::process::{Child, Command, ExitStatus};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, ExitStatus};
 use std::sync::{Condvar, Mutex};
 
 mod sys;
@@ -85,12 +85,32 @@ pub struct SharedChild {
 }
 
 impl SharedChild {
-    /// Spawn a new `SharedChild` from a `std::process::Command`.
-    pub fn spawn(command: &mut Command) -> io::Result<SharedChild> {
+    /// Spawn a new `SharedChild` from a
+    /// [`std::process::Command`](https://doc.rust-lang.org/std/process/struct.Command.html).
+    pub fn spawn(command: &mut Command) -> io::Result<Self> {
         let child = command.spawn()?;
-        Ok(SharedChild {
+        Ok(Self {
             child: Mutex::new(child),
             state_lock: Mutex::new(NotWaiting),
+            state_condvar: Condvar::new(),
+        })
+    }
+
+    /// Construct a new `SharedChild` from an already spawned
+    /// [`std::process::Child`](https://doc.rust-lang.org/std/process/struct.Child.html).
+    ///
+    /// This constructor needs to know whether `child` has already been waited on, and the only way
+    /// to find that out is to call `child.try_wait()` internally. If the child process is
+    /// currently a zombie, that call will clean it up as a side effect. The [`SharedChild::spawn`]
+    /// constructor doesn't need to do this.
+    pub fn new(mut child: Child) -> io::Result<Self> {
+        let state = match child.try_wait()? {
+            Some(status) => Exited(status),
+            None => NotWaiting,
+        };
+        Ok(Self {
+            child: Mutex::new(child),
+            state_lock: Mutex::new(state),
             state_condvar: Condvar::new(),
         })
     }
@@ -204,14 +224,45 @@ impl SharedChild {
         self.child.lock().unwrap().kill()
     }
 
-    /// Consume the `SharedChild` and return the `std::process::Child` it
-    /// contains.
+    /// Consume the `SharedChild` and return the
+    /// [`std::process::Child`](https://doc.rust-lang.org/std/process/struct.Child.html)
+    /// it contains.
     ///
-    /// We never reap the child process except through `Child::wait`, so the
-    /// child object's inner state is correct, even if it was waited on while it
-    /// was shared.
+    /// We never reap the child process except by calling `wait` or `try_wait`
+    /// on it, so the child object's inner state is correct, even if it was
+    /// waited on while it was shared.
     pub fn into_inner(self) -> Child {
         self.child.into_inner().unwrap()
+    }
+
+    /// Take the child's
+    /// [`stdin`](https://doc.rust-lang.org/std/process/struct.Child.html#structfield.stdin)
+    /// handle, if any.
+    ///
+    /// This will only return `Some` the first time it's called, and then only if the `Command`
+    /// that created the child was configured with `.stdin(Stdio::piped())`.
+    pub fn take_stdin(&self) -> Option<ChildStdin> {
+        self.child.lock().unwrap().stdin.take()
+    }
+
+    /// Take the child's
+    /// [`stdout`](https://doc.rust-lang.org/std/process/struct.Child.html#structfield.stdout)
+    /// handle, if any.
+    ///
+    /// This will only return `Some` the first time it's called, and then only if the `Command`
+    /// that created the child was configured with `.stdout(Stdio::piped())`.
+    pub fn take_stdout(&self) -> Option<ChildStdout> {
+        self.child.lock().unwrap().stdout.take()
+    }
+
+    /// Take the child's
+    /// [`stderr`](https://doc.rust-lang.org/std/process/struct.Child.html#structfield.stderr)
+    /// handle, if any.
+    ///
+    /// This will only return `Some` the first time it's called, and then only if the `Command`
+    /// that created the child was configured with `.stderr(Stdio::piped())`.
+    pub fn take_stderr(&self) -> Option<ChildStderr> {
+        self.child.lock().unwrap().stderr.take()
     }
 }
 
@@ -226,9 +277,9 @@ use crate::ChildState::*;
 
 #[cfg(test)]
 mod tests {
-    use super::{sys, SharedChild};
-    use std;
-    use std::process::Command;
+    use super::*;
+    use std::error::Error;
+    use std::process::{Command, Stdio};
     use std::sync::Arc;
 
     // Python isn't available on some Unix platforms, e.g. Android, so we need this instead.
@@ -244,6 +295,7 @@ mod tests {
         cmd
     }
 
+    // Python isn't available on some Unix platforms, e.g. Android, so we need this instead.
     #[cfg(unix)]
     pub fn sleep_forever_cmd() -> Command {
         let mut cmd = Command::new("sleep");
@@ -255,6 +307,19 @@ mod tests {
     pub fn sleep_forever_cmd() -> Command {
         let mut cmd = Command::new("python");
         cmd.arg("-c").arg("import time; time.sleep(1000000)");
+        cmd
+    }
+
+    // Python isn't available on some Unix platforms, e.g. Android, so we need this instead.
+    #[cfg(unix)]
+    pub fn cat_cmd() -> Command {
+        Command::new("cat")
+    }
+
+    #[cfg(not(unix))]
+    pub fn cat_cmd() -> Command {
+        let mut cmd = Command::new("python");
+        cmd.arg("-c").arg("");
         cmd
     }
 
@@ -344,5 +409,56 @@ mod tests {
         }
         // But wait should succeed.
         child.wait().unwrap();
+    }
+
+    #[test]
+    fn test_new() -> Result<(), Box<dyn Error>> {
+        // Spawn a short-lived child.
+        let mut command = cat_cmd();
+        command.stdin(Stdio::piped());
+        command.stdout(Stdio::null());
+        let mut child = command.spawn()?;
+        let child_stdin = child.stdin.take().unwrap();
+
+        // Construct a SharedChild from the Child, which has not yet been waited on. The child is
+        // blocked on stdin, so we know it hasn't yet exited.
+        let mut shared_child = SharedChild::new(child).unwrap();
+        assert!(matches!(
+            *shared_child.state_lock.lock().unwrap(),
+            NotWaiting,
+        ));
+
+        // Now close the child's stdin. This will cause the child to exit.
+        drop(child_stdin);
+
+        // Construct more SharedChild objects from the same child, in a loop. Eventually one of
+        // them will notice that the child has exited.
+        loop {
+            shared_child = SharedChild::new(shared_child.into_inner())?;
+            if let Exited(status) = &*shared_child.state_lock.lock().unwrap() {
+                assert!(status.success());
+                return Ok(());
+            }
+        }
+    }
+
+    #[test]
+    fn test_takes() -> Result<(), Box<dyn Error>> {
+        let mut command = true_cmd();
+        command.stdin(Stdio::piped());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        let shared_child = SharedChild::spawn(&mut command)?;
+
+        assert!(shared_child.take_stdin().is_some());
+        assert!(shared_child.take_stdout().is_some());
+        assert!(shared_child.take_stderr().is_some());
+
+        assert!(shared_child.take_stdin().is_none());
+        assert!(shared_child.take_stdout().is_none());
+        assert!(shared_child.take_stderr().is_none());
+
+        shared_child.wait()?;
+        Ok(())
     }
 }

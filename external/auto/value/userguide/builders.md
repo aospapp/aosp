@@ -10,15 +10,14 @@ Fortunately, AutoValue can generate builder classes too! This page explains how.
 Note that we recommend reading and understanding the basic usage shown in the
 [introduction](index.md) first.
 
-
-## How to use AutoValue with Builders<a name="howto"></a>
+## How to use AutoValue with Builders <a name="howto"></a>
 
 As explained in the introduction, the AutoValue concept is that **you write an
 abstract value class, and AutoValue implements it**. Builder generation works in
 the exact same way: you also create an abstract builder class, nesting it inside
 your abstract value class, and AutoValue generates implementations for both.
 
-### In `Animal.java`<a name="example_java"></a>
+### In `Animal.java` <a name="example_java"></a>
 
 ```java
 import com.google.auto.value.AutoValue;
@@ -45,7 +44,7 @@ Note that in real life, some classes and methods would presumably be public and
 have **Javadoc**. We're leaving these off in the User Guide only to keep the
 examples clean and short.
 
-### Usage<a name="usage"></a>
+### Usage <a name="usage"></a>
 
 ```java
 public void testAnimal() {
@@ -65,12 +64,12 @@ public void testAnimal() {
 }
 ```
 
-### What does AutoValue generate?<a name="generated"></a>
+### What does AutoValue generate? <a name="generated"></a>
 
 For the `Animal` example shown above, here is [typical code AutoValue might
 generate](generated-builder-example.md).
 
-## Warnings<a name="warnings"></a>
+## Warnings <a name="warnings"></a>
 
 Be sure to put the static `builder()` method directly in your value class (e.g.,
 `Animal`) and not the nested abstract `Builder` class. That ensures that the
@@ -92,10 +91,16 @@ exposing yourself to initialization-order problems.
     time?](builders-howto.md#normalize)
 *   ... [expose **both** a builder and a factory
     method?](builders-howto.md#both)
+*   ... [handle `Optional` properties?](builders-howto.md#optional)
 *   ... [use a **collection**-valued property?](builders-howto.md#collection)
     *   ... [let my builder **accumulate** values for a collection-valued
         property (not require them all at once)?](builders-howto.md#accumulate)
     *   ... [accumulate values for a collection-valued property, without
-        **breaking the chain**?](builders-howto.md#add)
+        **"breaking the chain"**?](builders-howto.md#add)
     *   ... [offer **both** accumulation and set-at-once methods for the same
         collection-valued property?](builders-howto.md#collection_both)
+*   ... [access nested builders while
+    building?](builders-howto.md#nested_builders)
+*   ... [create a "step builder"?](builders-howto.md#step)
+*   ... [create a builder for something other than an
+    `@AutoValue`?](builders-howto.md#autobuilder)

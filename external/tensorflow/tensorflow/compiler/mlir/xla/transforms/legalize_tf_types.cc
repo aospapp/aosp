@@ -30,7 +30,7 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"  // from @llvm-project
 #include "mlir/Transforms/DialectConversion.h"  // from @llvm-project
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
-#include "tensorflow/compiler/mlir/xla/transforms/passes_detail.h"
+#include "tensorflow/compiler/mlir/xla/transforms/xla_legalize_tf_passes_detail.h"
 
 #define DEBUG_TYPE "xla-legalize-tf-types"
 
@@ -38,13 +38,13 @@ namespace mlir {
 namespace mhlo {
 namespace {
 
-bool isIllegalElementType(Type type) {
+bool IsIllegalElementType(Type type) {
   return type
       .isa<mlir::TF::Qint8Type, mlir::TF::Qint16Type, mlir::TF::Qint32Type,
            mlir::TF::Quint8Type, mlir::TF::Quint16Type>();
 }
 
-Type replaceElementType(Type type) {
+Type ToLegalElementType(Type type) {
   return TypeSwitch<Type, Type>(type)
       .Case<mlir::TF::Qint8Type>([&type](Type) {
         return mlir::IntegerType::get(type.getContext(), 8);
@@ -71,61 +71,51 @@ Type replaceElementType(Type type) {
 // TODO(b/180234863): What's below this line is generic so convert it to a
 // utility.
 
-bool isIllegalType(Type type) {
-  if (isIllegalElementType(type)) return true;
-  if (auto shaped = type.dyn_cast<ShapedType>())
-    return isIllegalType(shaped.getElementType());
-  return false;
+bool IsIllegalType(Type type) {
+  return IsIllegalElementType(getElementTypeOrSelf(type));
 }
 
-Type replaceType(Type type) {
-  if (isIllegalElementType(type)) return replaceElementType(type);
+Type ToLegalType(Type type) {
+  if (IsIllegalElementType(type)) return ToLegalElementType(type);
   if (auto shaped = type.dyn_cast<ShapedType>()) {
     Type elem = shaped.getElementType();
-    if (isIllegalType(elem)) return shaped.clone(replaceType(elem));
+    if (IsIllegalType(elem)) return shaped.clone(ToLegalType(elem));
   }
   return type;
 }
-
-// An Op is illegal iff it contains an illegalType.
-class TfTypeConversionTarget : public ConversionTarget {
- public:
-  explicit TfTypeConversionTarget(MLIRContext &ctx) : ConversionTarget(ctx) {
-    markUnknownOpDynamicallyLegal();
-  }
-
- protected:
-  bool isDynamicallyLegal(Operation *op) const override {
-    // The FuncOp type can contain types that the op's operand and result types
-    // do not contain.
-    if (auto func = dyn_cast<FuncOp>(op)) {
-      if (llvm::any_of(func.getType().getInputs(), isIllegalType) ||
-          llvm::any_of(func.getType().getResults(), isIllegalType))
-        return false;
-    }
-    if (llvm::any_of(op->getOperandTypes(), isIllegalType) ||
-        llvm::any_of(op->getResultTypes(), isIllegalType))
-      return false;
-    return true;
-  }
-};
 
 class TfTypeConverter : public TypeConverter {
  public:
   TfTypeConverter() {
     addConversion([](Type type) -> Type {
-      if (isIllegalType(type))
-        return replaceType(type);
-      else
-        return type;
+      return IsIllegalType(type) ? ToLegalType(type) : type;
     });
   }
+};
+
+// An Op is illegal iff it contains an illegalType.
+class TfTypeConversionTarget : public ConversionTarget {
+ public:
+  explicit TfTypeConversionTarget(MLIRContext &ctx, TfTypeConverter &converter)
+      : ConversionTarget(ctx), converter_(converter) {
+    markUnknownOpDynamicallyLegal([this](Operation *op) {
+      // The FuncOp type can contain types that the op's operand and result
+      // types do not contain.
+      if (auto func = dyn_cast<FuncOp>(op)) {
+        if (!converter_.isSignatureLegal(func.getType())) return false;
+      }
+      return converter_.isLegal(op);
+    });
+  }
+
+ private:
+  TfTypeConverter &converter_;
 };
 
 class TfTypePattern : public ConversionPattern {
  public:
   TfTypePattern(MLIRContext *ctx, TypeConverter &converter)
-      : ConversionPattern(1, converter, MatchAnyOpTypeTag()) {}
+      : ConversionPattern(converter, MatchAnyOpTypeTag(), 1, ctx) {}
 
   // The dialect conversion framework will call this matchAndRewrite on each
   // Operation in the IR tree. This call matchAndRewrite needs to update the
@@ -163,17 +153,13 @@ struct LegalizeTfTypesPass
 
 void LegalizeTfTypesPass::runOnOperation() {
   TfTypeConverter converter;
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   patterns.insert<TfTypePattern>(&getContext(), converter);
-  populateFuncOpTypeConversionPattern(patterns, &getContext(), converter);
-  TfTypeConversionTarget target(getContext());
+  populateFuncOpTypeConversionPattern(patterns, converter);
+  TfTypeConversionTarget target(getContext(), converter);
   if (failed(applyFullConversion(getOperation(), target, std::move(patterns))))
     return signalPassFailure();
 }
-
-static PassRegistration<LegalizeTfTypesPass> registration(
-    "xla-legalize-tf-types",
-    "Replace TensorFlow types with types that are legal in the MHLO dialect");
 
 }  // namespace
 

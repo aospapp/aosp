@@ -3,7 +3,9 @@
  *  Copyright (c) SUSE LLC, 2019
  *  Author: Christian Amann <camann@suse.com>
  */
-/*
+/*\
+ * [DOCUMENTATION]
+ *
  * This tests if the kernel writes correct data to the
  * process accounting file.
  *
@@ -49,25 +51,27 @@ static union acct_union {
 	struct acct_v3	v3;
 } acct_struct;
 
+#define ACCT_V3 "CONFIG_BSD_PROCESS_ACCT_V3"
+
 static int acct_version_is_3(void)
 {
-	const char *kconfig_acct_v3[] = {
-		"CONFIG_BSD_PROCESS_ACCT_V3",
-		NULL
+	struct tst_kconfig_var kconfig = {
+		.id = ACCT_V3,
+		.id_len = sizeof(ACCT_V3)-1,
 	};
 
-	struct tst_kconfig_res results[1];
+	tst_kconfig_read(&kconfig, 1);
 
-	tst_kconfig_read(kconfig_acct_v3, results, 1);
+	tst_res(TINFO, ACCT_V3 "=%c", kconfig.choice);
 
-	return results[0].match == 'y';
+	return kconfig.choice == 'y';
 }
 
 static void run_command(void)
 {
 	const char *const cmd[] = {COMMAND, NULL};
 
-	rc = tst_run_cmd(cmd, NULL, NULL, 1) << 8;
+	rc = tst_cmd(cmd, NULL, NULL, TST_CMD_PASS_RETVAL) << 8;
 }
 
 static int verify_acct(void *acc, int elap_time)
@@ -141,7 +145,7 @@ static int verify_acct(void *acc, int elap_time)
 		ret = 1;
 	}
 
-	if (ACCT_MEMBER_V3(ac_version) != (3 | ACCT_BYTEORDER)) {
+	if (ACCT_MEMBER_V3(ac_version) != (char)(3 | ACCT_BYTEORDER)) {
 		tst_res(TINFO, "ac_version != 3 (%d)",
 			ACCT_MEMBER_V3(ac_version));
 		ret = 1;
@@ -250,14 +254,12 @@ static void cleanup(void)
 	acct(NULL);
 }
 
-static const char *kconfigs[] = {
-	"CONFIG_BSD_PROCESS_ACCT",
-	NULL
-};
-
 static struct tst_test test = {
 	.test_all = run,
-	.needs_kconfigs = kconfigs,
+	.needs_kconfigs = (const char *[]) {
+		"CONFIG_BSD_PROCESS_ACCT",
+		NULL
+	},
 	.setup = setup,
 	.cleanup = cleanup,
 	.needs_tmpdir = 1,

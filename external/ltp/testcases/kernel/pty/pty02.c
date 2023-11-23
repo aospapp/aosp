@@ -12,9 +12,11 @@
  * slave.  This is simplified from a syzkaller-generated reproducer.
  */
 
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <errno.h>
-#include <termio.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 
 #include "tst_test.h"
 #include "lapi/termbits.h"
@@ -37,7 +39,7 @@ static void do_test(void)
 	if (TST_RET == -1) {
 		if (TST_ERR == EINVAL)
 			tst_brk(TCONF, "tcsetattr(, , EXTPROC | ICANON) is not supported");
-		tst_brk(TBROK | TERRNO, "tcsetattr() failed");
+		tst_brk(TBROK | TTERRNO, "tcsetattr() failed");
 	}
 
 	if (unlockpt(ptmx) != 0)

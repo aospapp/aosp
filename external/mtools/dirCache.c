@@ -46,7 +46,7 @@ static uint32_t calcHash(wchar_t *name)
 				     * prime with 32, which makes sure that
 				     * successive letters cannot cover each
 				     * other easily */
-		c = towupper((wint_t)*name);		
+		c = towupper((wint_t)*name);
 		hash ^=  (c * (c+2)) ^ (i * (i+2));
 		hash &= 0xffffffff;
 		i++;
@@ -68,7 +68,7 @@ static unsigned int addBit(unsigned int *bitmap,
 
 	bit = 1u << (hash % BITS_PER_INT);
 	entry = (hash / BITS_PER_INT) % DC_BITMAP_SIZE;
-	
+
 	if(checkOnly)
 		return bitmap[entry] & bit;
 	else {
@@ -87,7 +87,7 @@ static int _addHash(dirCache_t *cache, unsigned int hash, int checkOnly)
 
 
 static void addNameToHash(dirCache_t *cache, wchar_t *name)
-{	
+{
 	_addHash(cache, calcHash(name), 0);
 }
 
@@ -118,7 +118,7 @@ int growDirCache(dirCache_t *cache, unsigned int slot)
 
 	if( cache->nr_entries <= slot) {
 		unsigned int i;
-		
+
 		cache->entries = realloc(cache->entries,
 					 (slot+1) * 2 *
 					 sizeof(dirCacheEntry_t *));
@@ -191,16 +191,17 @@ static int freeDirCacheRange(dirCache_t *cache,
 			beginSlot++;
 			continue;
 		}
-		
+
 		/* Due to the way this is called, we _always_ de-allocate
 		 * starting from beginning... */
+#ifdef HAVE_ASSERT_H
 		assert(entry->beginSlot == beginSlot);
-
+#endif
 		clearEnd = entry->endSlot;
 		if(clearEnd > endSlot)
 			clearEnd = endSlot;
 		clearBegin = beginSlot;
-		
+
 		for(i = clearBegin; i <clearEnd; i++)
 			cache->entries[i] = 0;
 
@@ -274,7 +275,7 @@ dirCacheEntry_t *addUsedEntry(dirCache_t *cache,
 	entry = allocDirCacheEntry(cache, beginSlot, endSlot, DCET_USED);
 	if(!entry)
 		return 0;
-	
+
 	entry->beginSlot = beginSlot;
 	entry->endSlot = endSlot;
 	if(longName)
@@ -305,7 +306,7 @@ static void mergeFreeSlots(dirCache_t *cache, unsigned int slot)
 			cache->entries[i] = previous;
 		previous->endSlot = next->endSlot;
 		previous->endMarkPos = next->endMarkPos;
-		free(next);		
+		free(next);
 	}
 }
 
@@ -353,7 +354,7 @@ dirCacheEntry_t *lookupInDircache(dirCache_t *cache, unsigned int pos)
 {
 	if(growDirCache(cache, pos+1) < 0)
 		return 0;
-	return cache->entries[pos];	
+	return cache->entries[pos];
 }
 
 void freeDirCache(Stream_t *Stream)

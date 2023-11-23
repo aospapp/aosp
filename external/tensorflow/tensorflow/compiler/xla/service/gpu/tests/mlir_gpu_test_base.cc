@@ -16,6 +16,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/gpu/tests/mlir_gpu_test_base.h"
 
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/SourceMgr.h"
 #include "mlir/IR/MLIRContext.h"  // from @llvm-project
 #include "mlir/InitAllDialects.h"  // from @llvm-project
 #include "mlir/Parser.h"  // from @llvm-project
@@ -52,21 +53,10 @@ StatusOr<std::unique_ptr<Executable>> MlirGpuTestBase::CompileMlirModule(
 
   se::StreamExecutor* stream_exec = stream->parent();
   GpuDeviceInfo gpu_device_info = GetGpuDeviceInfo(stream_exec);
-
-  absl::optional<CudaComputeCapability> cuda_compute_capability =
-      [&]() -> absl::optional<CudaComputeCapability> {
-    CudaComputeCapability cuda_compute_capability;
-    stream_exec->GetDeviceDescription().cuda_compute_capability(
-        &cuda_compute_capability.cc_major, &cuda_compute_capability.cc_minor);
-    if (cuda_compute_capability.cc_major == -1) {
-      return absl::nullopt;
-    }
-    return cuda_compute_capability;
-  }();
-
   IrEmitterContext ir_emitter_context(
       /*hlo_module=*/nullptr, /*buffer_assignment=*/nullptr,
-      backend_->platform()->Name(), gpu_device_info, cuda_compute_capability,
+      backend_->platform()->Name(), gpu_device_info,
+      stream_exec->GetDeviceDescription().cuda_compute_capability(),
       /*profile_index_map=*/nullptr, /*mlir_context=*/nullptr,
       llvm_module.get());
 
@@ -86,7 +76,8 @@ StatusOr<ExecutionOutput> MlirGpuTestBase::RunMlirModule(
   ExecutableRunOptions executable_run_options;
   executable_run_options.set_stream(stream);
   executable_run_options.set_allocator(backend_->memory_allocator());
-  ServiceExecutableRunOptions run_options(executable_run_options);
+  ServiceExecutableRunOptions run_options(executable_run_options,
+                                          backend_->StreamBorrower());
   std::vector<ExecutionInput> execution_inputs;
 
   for (auto arg : arguments) {
@@ -141,15 +132,21 @@ MlirGpuTestBase::RunMlirModuleWithHostBuffers(
   return host_outputs;
 }
 
-mlir::OwningModuleRef MlirGpuTestBase::ParseMlirModule(
+StatusOr<mlir::OwningModuleRef> MlirGpuTestBase::ParseMlirModule(
     absl::string_view module_text, mlir::MLIRContext& context) {
   context.loadDialect<mlir::lmhlo::LmhloDialect, mlir::mhlo::MhloDialect,
                       mlir::StandardOpsDialect,
                       mlir::lmhlo_gpu::LmhloGpuDialect>();
+  llvm::SourceMgr source_mgr;
+  std::string diagnostic_str;
+  llvm::raw_string_ostream os(diagnostic_str);
+  mlir::SourceMgrDiagnosticHandler handler(source_mgr, &context, os);
 
   mlir::OwningModuleRef module = parseSourceString(
       llvm::StringRef(module_text.data(), module_text.size()), &context);
-  CHECK(module);
+  if (!module) {
+    return InvalidArgument("Failed to parse MLIR module: %s", diagnostic_str);
+  }
   return module;
 }
 
@@ -157,14 +154,16 @@ StatusOr<std::vector<std::vector<uint8>>>
 MlirGpuTestBase::RunMlirTextWithHostBuffers(
     absl::string_view module_text, std::vector<absl::Span<uint8>> arguments) {
   mlir::MLIRContext context;
-  mlir::OwningModuleRef module = ParseMlirModule(module_text, context);
+  TF_ASSIGN_OR_RETURN(mlir::OwningModuleRef module,
+                      ParseMlirModule(module_text, context));
   return RunMlirModuleWithHostBuffers(*module, arguments);
 }
 
 StatusOr<std::unique_ptr<Executable>> MlirGpuTestBase::CompileMlirText(
     absl::string_view module_text) {
   mlir::MLIRContext context;
-  mlir::OwningModuleRef module = ParseMlirModule(module_text, context);
+  TF_ASSIGN_OR_RETURN(mlir::OwningModuleRef module,
+                      ParseMlirModule(module_text, context));
   auto stream = backend_->BorrowStream(backend_->default_device_ordinal())
                     .ConsumeValueOrDie();
   return CompileMlirModule(*module, stream.get());

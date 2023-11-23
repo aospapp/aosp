@@ -1,4 +1,2 @@
-# This project was last update 4 years ago by ceki@qos.ch?
-# Please update this list if you find better candidates.
-jeffbailey@google.com
-rtenneti@google.com
+# Bug component: 24949
+include platform/libcore:/OWNERS

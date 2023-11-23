@@ -13,10 +13,10 @@
 [package]
 edition = "2018"
 name = "quiche"
-version = "0.6.0"
+version = "0.9.0"
 authors = ["Alessandro Ghedini <alessandro@ghedini.me>"]
 build = "src/build.rs"
-include = ["/*.md", "/*.toml", "/CODEOWNERS", "/COPYING", "/benches", "/deps/boringssl/**/*.[chS]", "/deps/boringssl/src/**/*.cc", "/deps/boringssl/**/CMakeLists.txt", "/deps/boringssl/**/sources.cmake", "/deps/boringssl/LICENSE", "/examples", "/include", "/quiche.svg", "/src"]
+include = ["/*.md", "/*.toml", "/CODEOWNERS", "/COPYING", "/benches", "/deps/boringssl/**/*.[chS]", "/deps/boringssl/**/*.asm", "/deps/boringssl/src/**/*.cc", "/deps/boringssl/**/CMakeLists.txt", "/deps/boringssl/**/sources.cmake", "/deps/boringssl/LICENSE", "/examples", "/include", "/quiche.svg", "/src"]
 description = "🥧 Savoury implementation of the QUIC transport protocol and HTTP/3"
 readme = "README.md"
 keywords = ["quic", "http3"]
@@ -33,6 +33,10 @@ debug = true
 
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]
+[dependencies.boring-sys]
+version = "1.0.2"
+optional = true
+
 [dependencies.lazy_static]
 version = "1"
 
@@ -47,7 +51,7 @@ version = "0.4"
 features = ["std"]
 
 [dependencies.qlog]
-version = "0.3"
+version = "0.4"
 optional = true
 
 [dependencies.ring]
@@ -63,6 +67,7 @@ version = "0.1"
 [features]
 boringssl-vendored = []
 default = ["boringssl-vendored"]
+ffi = []
 fuzzing = []
 ndk-old-gcc = []
 pkg-config-meta = []

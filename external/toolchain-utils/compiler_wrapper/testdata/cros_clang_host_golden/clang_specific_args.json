@@ -6,7 +6,6 @@
         "path": "./x86_64-cros-linux-gnu-clang",
         "args": [
           "-mno-movbe",
-          "-pass-exit-codes",
           "-Wclobbered",
           "-Wno-psabi",
           "-Wlogical-op",
@@ -27,10 +26,9 @@
           "args": [
             "-Qunused-arguments",
             "-fno-addrsig",
-            "-fcommon",
             "-fuse-ld=lld",
+            "-fdebug-default-version=5",
             "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
             "-Wno-final-dtor-non-final-class",
@@ -38,7 +36,9 @@
             "-Wno-unknown-warning-option",
             "-fexperimental-new-pass-manager",
             "-Wno-compound-token-split-by-macro",
+            "-Wno-deprecated-declarations",
             "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
+            "-fcommon",
             "-mno-movbe",
             "-Wclobbered",
             "-Wno-psabi",
@@ -50,7 +50,9 @@
             "main.cc",
             "-Wno-implicit-int-float-conversion",
             "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
+            "-Wno-string-concatenation",
+            "-Wno-deprecated-copy",
+            "-Wno-unused-but-set-variable"
           ]
         }
       }
@@ -74,10 +76,9 @@
           "args": [
             "-Qunused-arguments",
             "-fno-addrsig",
-            "-fcommon",
             "-fuse-ld=lld",
+            "-fdebug-default-version=5",
             "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
             "-Wno-final-dtor-non-final-class",
@@ -85,12 +86,16 @@
             "-Wno-unknown-warning-option",
             "-fexperimental-new-pass-manager",
             "-Wno-compound-token-split-by-macro",
+            "-Wno-deprecated-declarations",
             "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
+            "-fcommon",
             "-Wno-#warnings",
             "main.cc",
             "-Wno-implicit-int-float-conversion",
             "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
+            "-Wno-string-concatenation",
+            "-Wno-deprecated-copy",
+            "-Wno-unused-but-set-variable"
           ]
         }
       }
@@ -114,10 +119,9 @@
           "args": [
             "-Qunused-arguments",
             "-fno-addrsig",
-            "-fcommon",
             "-fuse-ld=lld",
+            "-fdebug-default-version=5",
             "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
             "-Wno-final-dtor-non-final-class",
@@ -125,132 +129,16 @@
             "-Wno-unknown-warning-option",
             "-fexperimental-new-pass-manager",
             "-Wno-compound-token-split-by-macro",
+            "-Wno-deprecated-declarations",
             "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
+            "-fcommon",
             "-Wno-error=uninitialized",
             "main.cc",
             "-Wno-implicit-int-float-conversion",
             "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
-          ]
-        }
-      }
-    ]
-  },
-  {
-    "wd": "/tmp/stable",
-    "wrapper": {
-      "cmd": {
-        "path": "./x86_64-cros-linux-gnu-clang",
-        "args": [
-          "-Wno-error=unused-but-set-variable",
-          "main.cc"
-        ]
-      }
-    },
-    "cmds": [
-      {
-        "cmd": {
-          "path": "/tmp/stable/clang",
-          "args": [
-            "-Qunused-arguments",
-            "-fno-addrsig",
-            "-fcommon",
-            "-fuse-ld=lld",
-            "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
-            "-Wno-tautological-constant-compare",
-            "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-final-dtor-non-final-class",
-            "-Werror=poison-system-directories",
-            "-Wno-unknown-warning-option",
-            "-fexperimental-new-pass-manager",
-            "-Wno-compound-token-split-by-macro",
-            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
-            "-Wno-error=unused-variable",
-            "main.cc",
-            "-Wno-implicit-int-float-conversion",
-            "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
-          ]
-        }
-      }
-    ]
-  },
-  {
-    "wd": "/tmp/stable",
-    "wrapper": {
-      "cmd": {
-        "path": "./x86_64-cros-linux-gnu-clang",
-        "args": [
-          "-Wno-unused-but-set-variable",
-          "main.cc"
-        ]
-      }
-    },
-    "cmds": [
-      {
-        "cmd": {
-          "path": "/tmp/stable/clang",
-          "args": [
-            "-Qunused-arguments",
-            "-fno-addrsig",
-            "-fcommon",
-            "-fuse-ld=lld",
-            "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
-            "-Wno-tautological-constant-compare",
-            "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-final-dtor-non-final-class",
-            "-Werror=poison-system-directories",
-            "-Wno-unknown-warning-option",
-            "-fexperimental-new-pass-manager",
-            "-Wno-compound-token-split-by-macro",
-            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
-            "-Wno-unused-variable",
-            "main.cc",
-            "-Wno-implicit-int-float-conversion",
-            "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
-          ]
-        }
-      }
-    ]
-  },
-  {
-    "wd": "/tmp/stable",
-    "wrapper": {
-      "cmd": {
-        "path": "./x86_64-cros-linux-gnu-clang",
-        "args": [
-          "-Wunused-but-set-variable",
-          "main.cc"
-        ]
-      }
-    },
-    "cmds": [
-      {
-        "cmd": {
-          "path": "/tmp/stable/clang",
-          "args": [
-            "-Qunused-arguments",
-            "-fno-addrsig",
-            "-fcommon",
-            "-fuse-ld=lld",
-            "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
-            "-Wno-tautological-constant-compare",
-            "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-final-dtor-non-final-class",
-            "-Werror=poison-system-directories",
-            "-Wno-unknown-warning-option",
-            "-fexperimental-new-pass-manager",
-            "-Wno-compound-token-split-by-macro",
-            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
-            "-Wunused-variable",
-            "main.cc",
-            "-Wno-implicit-int-float-conversion",
-            "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
+            "-Wno-string-concatenation",
+            "-Wno-deprecated-copy",
+            "-Wno-unused-but-set-variable"
           ]
         }
       }
@@ -274,10 +162,9 @@
           "args": [
             "-Qunused-arguments",
             "-fno-addrsig",
-            "-fcommon",
             "-fuse-ld=lld",
+            "-fdebug-default-version=5",
             "-Wno-unused-local-typedefs",
-            "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
             "-Wno-final-dtor-non-final-class",
@@ -285,12 +172,16 @@
             "-Wno-unknown-warning-option",
             "-fexperimental-new-pass-manager",
             "-Wno-compound-token-split-by-macro",
+            "-Wno-deprecated-declarations",
             "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
+            "-fcommon",
             "-someflag",
             "main.cc",
             "-Wno-implicit-int-float-conversion",
             "-Wno-compound-token-split-by-space",
-            "-Wno-string-concatenation"
+            "-Wno-string-concatenation",
+            "-Wno-deprecated-copy",
+            "-Wno-unused-but-set-variable"
           ]
         }
       }

@@ -18,10 +18,10 @@ package com.google.turbine.bytecode.sig;
 
 import com.google.common.collect.ImmutableList;
 import com.google.turbine.model.TurbineConstantTypeKind;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** JVMS 4.7.9.1 signatures. */
-public class Sig {
+public final class Sig {
 
   /** A JVMS 4.7.9.1 ClassSignature. */
   public static class ClassSig {
@@ -59,18 +59,18 @@ public class Sig {
   public static class TyParamSig {
 
     private final String name;
-    @Nullable private final TySig classBound;
+    private final @Nullable TySig classBound;
     private final ImmutableList<TySig> interfaceBounds;
 
-    public TyParamSig(String name, TySig classBound, ImmutableList<TySig> interfaceBounds) {
+    public TyParamSig(
+        String name, @Nullable TySig classBound, ImmutableList<TySig> interfaceBounds) {
       this.name = name;
       this.classBound = classBound;
       this.interfaceBounds = interfaceBounds;
     }
 
     /** A single class upper-bound, or {@code null}. */
-    @Nullable
-    public TySig classBound() {
+    public @Nullable TySig classBound() {
       return classBound;
     }
 
@@ -343,4 +343,6 @@ public class Sig {
       return exceptions;
     }
   }
+
+  private Sig() {}
 }

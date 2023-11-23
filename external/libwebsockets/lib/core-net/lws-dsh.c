@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -52,13 +52,15 @@ lws_dsh_align(size_t length)
 lws_dsh_t *
 lws_dsh_create(lws_dll2_owner_t *owner, size_t buf_len, int count_kinds)
 {
-	size_t oha_len = sizeof(lws_dsh_obj_head_t) * ++count_kinds;
+	size_t oha_len = sizeof(lws_dsh_obj_head_t) * (unsigned int)(++count_kinds);
 	lws_dsh_obj_t *obj;
 	lws_dsh_t *dsh;
 	int n;
 
 	assert(buf_len);
 	assert(count_kinds > 1);
+	assert(buf_len > sizeof(lws_dsh_t) + oha_len);
+	buf_len += 64;
 
 	dsh = lws_malloc(sizeof(lws_dsh_t) + buf_len + oha_len, __func__);
 	if (!dsh)
@@ -75,8 +77,10 @@ lws_dsh_create(lws_dll2_owner_t *owner, size_t buf_len, int count_kinds)
 	/* clear down the obj heads array */
 
 	memset(dsh->oha, 0, oha_len);
-	for (n = 0; n < count_kinds; n++)
+	for (n = 0; n < count_kinds; n++) {
 		dsh->oha[n].kind = n;
+		dsh->oha[n].total_size = 0;
+	}
 
 	/* initially the whole buffer is on the free kind (0) list */
 
@@ -116,130 +120,30 @@ search_best_free(struct lws_dll2 *d, void *user)
 	return 0;
 }
 
-static int
-try_foreign(struct lws_dll2 *d, void *user)
-{
-	struct lws_dsh_search *s = (struct lws_dsh_search *)user;
-	lws_dsh_t *dsh1 = lws_container_of(d, lws_dsh_t, list);
-
-	if (dsh1 == s->already_checked)
-		return 0;
-
-	if (dsh1->being_destroyed)
-		return 0;
-
-	if (dsh1->count_kinds < s->kind + 1)
-		return 0;
-
-	lwsl_debug("%s: actual try_foreign: dsh %p (free list size %d)\n",
-			__func__, dsh1, dsh1->oha[0].owner.count);
-
-	s->this_dsh = dsh1;
-	if (lws_dll2_foreach_safe(&dsh1->oha[0].owner, s, search_best_free))
-		return 1;
-
-	return 0;
-}
-
-static int
-free_foreign(struct lws_dll2 *d, void *user)
-{
-	lws_dsh_obj_t *obj = lws_container_of(d, lws_dsh_obj_t, list);
-	lws_dsh_t *dsh = (lws_dsh_t *)user;
-	void *p = (void *)&obj[1];
-
-	if (obj->dsh != dsh)
-		lws_dsh_free(&p);
-
-	return 0;
-}
-
-static int
-evict2(struct lws_dll2 *d, void *user)
-{
-	lws_dsh_obj_t *obj = lws_container_of(d, lws_dsh_obj_t, list);
-	lws_dsh_t *dsh = (lws_dsh_t *)user;
-	void *p;
-
-	if (obj->dsh != dsh)
-		return 0;
-
-	/*
-	 * If we are here, it means obj is a live object that is allocated on
-	 * the dsh being destroyed, from a different dsh.  We need to migrate
-	 * the object to a dsh that isn't being destroyed.
-	 */
-
-	lwsl_debug("%s: migrating object size %zu\n", __func__, obj->size);
-
-	if (_lws_dsh_alloc_tail(dsh, 0, (void *)&obj[1], obj->size, NULL, 0, &obj->list)) {
-		lwsl_notice("%s: failed to migrate object\n", __func__);
-		/*
-		 * only thing we can do is drop the logical object
-		 */
-		p = (uint8_t *)&obj[1];
-		lws_dsh_free(&p);
-	}
-
-	return 0;
-}
-
-static int
-evict1(struct lws_dll2 *d, void *user)
-{
-	lws_dsh_t *dsh1 = lws_container_of(d, lws_dsh_t, list);
-	lws_dsh_t *dsh = (lws_dsh_t *)user;
-	int n;
-
-	if (dsh1->being_destroyed)
-		return 0;
-
-	/*
-	 * For every dsh that's not being destroyed, send every object to
-	 * evict2 for checking.
-	 */
-
-	lwsl_debug("%s: checking dsh %p\n", __func__, dsh1);
-
-	for (n = 1; n < dsh1->count_kinds; n++) {
-		lws_dll2_describe(&dsh1->oha[n].owner, "check dsh1");
-		lws_dll2_foreach_safe(&dsh1->oha[n].owner, dsh, evict2);
-	}
-
-	return 0;
-}
-
 void
 lws_dsh_destroy(lws_dsh_t **pdsh)
 {
 	lws_dsh_t *dsh = *pdsh;
-	int n;
 
 	if (!dsh)
 		return;
 
-	lwsl_debug("%s: destroying dsh %p\n", __func__, dsh);
-
 	dsh->being_destroyed = 1;
-
-	/* we need to explicitly free any of our allocations in foreign dsh */
-
-	for (n = 1; n < dsh->count_kinds; n++)
-		lws_dll2_foreach_safe(&dsh->oha[n].owner, dsh, free_foreign);
-
-	/*
-	 * We need to have anybody else with allocations in us evict them
-	 * and make a copy in a buffer that isn't being destroyed
-	 */
-
-	if (dsh->list.owner)
-		lws_dll2_foreach_safe(dsh->list.owner, dsh, evict1);
 
 	lws_dll2_remove(&dsh->list);
 
 	/* everything else is in one heap allocation */
 
 	lws_free_set_NULL(*pdsh);
+}
+
+size_t
+lws_dsh_get_size(struct lws_dsh *dsh, int kind)
+{
+	kind++;
+	assert(kind < dsh->count_kinds);
+
+	return dsh->oha[kind].total_size;
 }
 
 static int
@@ -267,19 +171,9 @@ _lws_dsh_alloc_tail(lws_dsh_t *dsh, int kind, const void *src1, size_t size1,
 		lws_dll2_foreach_safe(&dsh->oha[0].owner, &s, search_best_free);
 
 	if (!s.best) {
-		/*
-		 * Let's see if any other buffer has room
-		 */
-		s.already_checked = dsh;
+		lwsl_notice("%s: no buffer has space\n", __func__);
 
-		if (dsh && dsh->list.owner)
-			lws_dll2_foreach_safe(dsh->list.owner, &s, try_foreign);
-
-		if (!s.best) {
-			lwsl_notice("%s: no buffer has space\n", __func__);
-
-			return 1;
-		}
+		return 1;
 	}
 
 	/* anything coming out of here must be aligned */
@@ -295,6 +189,7 @@ _lws_dsh_alloc_tail(lws_dsh_t *dsh, int kind, const void *src1, size_t size1,
 		 */
 		lws_dll2_remove(&s.best->list);
 		s.best->dsh = s.dsh;
+		s.best->kind = kind;
 		s.best->size = size1 + size2;
 		memcpy(&s.best[1], src1, size1);
 		if (src2)
@@ -309,12 +204,15 @@ _lws_dsh_alloc_tail(lws_dsh_t *dsh, int kind, const void *src1, size_t size1,
 			if (replace->next)
 				replace->next->prev = &s.best->list;
 		} else
-			if (dsh)
+			if (dsh) {
+				assert(!(((unsigned long)(intptr_t)(s.best)) & (sizeof(int *) - 1)));
 				lws_dll2_add_tail(&s.best->list, &dsh->oha[kind].owner);
+			}
 
 		assert(s.dsh->locally_free >= s.best->asize);
 		s.dsh->locally_free -= s.best->asize;
 		s.dsh->locally_in_use += s.best->asize;
+		dsh->oha[kind].total_size += s.best->asize;
 		assert(s.dsh->locally_in_use <= s.dsh->buffer_size);
 	} else {
 		lws_dsh_obj_t *obj;
@@ -333,10 +231,11 @@ _lws_dsh_alloc_tail(lws_dsh_t *dsh, int kind, const void *src1, size_t size1,
 
 		/* latter part becomes new object */
 
-		obj = (lws_dsh_obj_t *)(((uint8_t *)s.best) + s.best->asize);
+		obj = (lws_dsh_obj_t *)(((uint8_t *)s.best) + lws_dsh_align(s.best->asize));
 
 		lws_dll2_clear(&obj->list);
 		obj->dsh = s.dsh;
+		obj->kind = kind;
 		obj->size = size1 + size2;
 		obj->asize = asize;
 
@@ -353,12 +252,15 @@ _lws_dsh_alloc_tail(lws_dsh_t *dsh, int kind, const void *src1, size_t size1,
 			if (replace->next)
 				replace->next->prev = &s.best->list;
 		} else
-			if (dsh)
+			if (dsh) {
+				assert(!(((unsigned long)(intptr_t)(obj)) & (sizeof(int *) - 1)));
 				lws_dll2_add_tail(&obj->list, &dsh->oha[kind].owner);
+			}
 
 		assert(s.dsh->locally_free >= asize);
 		s.dsh->locally_free -= asize;
 		s.dsh->locally_in_use += asize;
+		dsh->oha[kind].total_size += asize;
 		assert(s.dsh->locally_in_use <= s.dsh->buffer_size);
 	}
 
@@ -401,6 +303,7 @@ lws_dsh_free(void **pobj)
 	assert(dsh->locally_in_use >= _o->asize);
 	dsh->locally_free += _o->asize;
 	dsh->locally_in_use -= _o->asize;
+	dsh->oha[_o->kind].total_size -= _o->asize; /* account for usage by kind */
 	assert(dsh->locally_in_use <= dsh->buffer_size);
 
 	/*
@@ -454,8 +357,12 @@ lws_dsh_free(void **pobj)
 int
 lws_dsh_get_head(lws_dsh_t *dsh, int kind, void **obj, size_t *size)
 {
-	lws_dsh_obj_t *_obj = (lws_dsh_obj_t *)
-			lws_dll2_get_head(&dsh->oha[kind + 1].owner);
+	lws_dsh_obj_t *_obj;
+
+	if (!dsh)
+		return 1;
+
+	_obj = (lws_dsh_obj_t *)lws_dll2_get_head(&dsh->oha[kind + 1].owner);
 
 	if (!_obj) {
 		*obj = 0;
@@ -468,12 +375,12 @@ lws_dsh_get_head(lws_dsh_t *dsh, int kind, void **obj, size_t *size)
 	*size = _obj->size;
 
 	/* anything coming out of here must be aligned */
-	assert(!(((unsigned long)(*obj)) & (sizeof(int *) - 1)));
+	assert(!(((unsigned long)(intptr_t)(*obj)) & (sizeof(int *) - 1)));
 
 	return 0;	/* we returned the head */
 }
 
-#if defined(_DEBUG)
+#if defined(_DEBUG) && !defined(LWS_WITH_NO_LOGS)
 
 static int
 describe_kind(struct lws_dll2 *d, void *user)

@@ -42,7 +42,6 @@ namespace pw::kvs {
 namespace {
 
 using internal::EntryHeader;
-using std::byte;
 
 constexpr size_t kMaxEntries = 256;
 constexpr size_t kMaxUsableSectors = 256;
@@ -204,7 +203,8 @@ TEST(InMemoryKvs, WriteOneKeyMultipleTimes) {
              sizeof(fname_buf),
              "WriteOneKeyMultipleTimes_%d.bin",
              reload);
-    flash.Dump(fname_buf);
+    flash.Dump(fname_buf)
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
   }
 }
 
@@ -233,7 +233,8 @@ TEST(InMemoryKvs, WritingMultipleKeysIncreasesSize) {
     EXPECT_OK(kvs.Put(key.view(), value));
     EXPECT_EQ(kvs.size(), i + 1);
   }
-  flash.Dump("WritingMultipleKeysIncreasesSize.bin");
+  flash.Dump("WritingMultipleKeysIncreasesSize.bin")
+      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
 }
 
 TEST(InMemoryKvs, WriteAndReadOneKey) {

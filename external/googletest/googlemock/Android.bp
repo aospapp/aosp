@@ -47,9 +47,6 @@ cc_defaults {
 cc_defaults {
     name: "gmock_defaults",
     host_supported: true,
-    sanitize: {
-        never: true,
-    },
     target: {
         linux_bionic: {
             enabled: true,

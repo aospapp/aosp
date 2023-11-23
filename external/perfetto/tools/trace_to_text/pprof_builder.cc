@@ -14,24 +14,21 @@
  * limitations under the License.
  */
 
-#include "perfetto/base/build_config.h"
-
 #include "perfetto/profiling/pprof_builder.h"
+
+#include "perfetto/base/build_config.h"
 
 #if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 #include <cxxabi.h>
 #endif
 
-#include <inttypes.h>
-
 #include <algorithm>
+#include <cinttypes>
 #include <map>
 #include <set>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-#include "tools/trace_to_text/utils.h"
 
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/hash.h"
@@ -43,6 +40,7 @@
 #include "src/profiling/symbolizer/symbolize_database.h"
 #include "src/profiling/symbolizer/symbolizer.h"
 #include "src/trace_processor/containers/string_pool.h"
+#include "tools/trace_to_text/utils.h"
 
 #include "protos/perfetto/trace/trace.pbzero.h"
 #include "protos/perfetto/trace/trace_packet.pbzero.h"
@@ -144,19 +142,6 @@ namespace trace_to_text {
 namespace {
 
 using ::perfetto::trace_processor::Iterator;
-
-void MaybeDemangle(std::string* name) {
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
-  char* data = nullptr;
-#else
-  int ignored;
-  char* data = abi::__cxa_demangle(name->c_str(), nullptr, nullptr, &ignored);
-#endif
-  if (data) {
-    *name = data;
-    free(data);
-  }
-}
 
 uint64_t ToPprofId(int64_t id) {
   PERFETTO_DCHECK(id >= 0);
@@ -261,12 +246,13 @@ class LocationTracker {
 };
 
 struct PreprocessedInline {
-  StringId system_name_id = StringId::Null();
+  // |name_id| is already demangled
+  StringId name_id = StringId::Null();
   StringId filename_id = StringId::Null();
   int64_t line_no = 0;
 
   PreprocessedInline(StringId s, StringId f, int64_t line)
-      : system_name_id(s), filename_id(f), line_no(line) {}
+      : name_id(s), filename_id(f), line_no(line) {}
 };
 
 std::unordered_map<int64_t, std::vector<PreprocessedInline>>
@@ -338,8 +324,9 @@ LocationTracker PreprocessLocations(trace_processor::TraceProcessor* tp,
       continue;
 
     std::string annotated_query =
-        "select sp.id, sp.annotation, spf.mapping, "
-        "ifnull(spf.deobfuscated_name, spf.name), spf.symbol_set_id from "
+        "select sp.id, sp.annotation, spf.mapping, spf.name, "
+        "coalesce(spf.deobfuscated_name, demangle(spf.name), spf.name), "
+        "spf.symbol_set_id from "
         "experimental_annotated_callstack(" +
         std::to_string(query_cid) +
         ") sp join stack_profile_frame spf on (sp.frame_id == spf.id) "
@@ -349,24 +336,25 @@ LocationTracker PreprocessLocations(trace_processor::TraceProcessor* tp,
     std::vector<int64_t> callstack_loc_ids;
     while (c_it.Next()) {
       int64_t cid = c_it.Get(0).AsLong();
-      int64_t mapping_id = c_it.Get(2).AsLong();
       auto annotation = c_it.Get(1).is_null() ? "" : c_it.Get(1).AsString();
+      int64_t mapping_id = c_it.Get(2).AsLong();
       auto func_sysname = c_it.Get(3).is_null() ? "" : c_it.Get(3).AsString();
+      auto func_name = c_it.Get(4).is_null() ? "" : c_it.Get(4).AsString();
       base::Optional<int64_t> symbol_set_id =
-          c_it.Get(4).is_null() ? base::nullopt
-                                : base::make_optional(c_it.Get(4).AsLong());
+          c_it.Get(5).is_null() ? base::nullopt
+                                : base::make_optional(c_it.Get(5).AsLong());
 
       Location loc(mapping_id, /*single_function_id=*/-1, {});
 
       auto intern_function = [interner, &tracker, annotate_frames](
-                                 StringId func_sysname_id, StringId filename_id,
+                                 StringId func_sysname_id,
+                                 StringId original_func_name_id,
+                                 StringId filename_id,
                                  const std::string& anno) {
-        std::string func_name = interner->Get(func_sysname_id).ToStdString();
-        MaybeDemangle(&func_name);
-        if (annotate_frames && !anno.empty() && !func_name.empty())
-          func_name = func_name + " [" + anno + "]";
-        StringId func_name_id =
-            interner->InternString(base::StringView(func_name));
+        std::string fname = interner->Get(original_func_name_id).ToStdString();
+        if (annotate_frames && !anno.empty() && !fname.empty())
+          fname = fname + " [" + anno + "]";
+        StringId func_name_id = interner->InternString(base::StringView(fname));
         Function func(func_name_id, func_sysname_id, filename_id);
         return tracker.InternFunction(func);
       };
@@ -383,8 +371,13 @@ LocationTracker PreprocessLocations(trace_processor::TraceProcessor* tp,
         }
 
         // N inlined functions
+        // The symbolised packets currently assume pre-demangled data (as that's
+        // the default of llvm-symbolizer), so we don't have a system name for
+        // each deinlined frame. Set the human-readable name for both fields. We
+        // can change this, but there's no demand for accurate system names in
+        // pprofs.
         for (const auto& line : it->second) {
-          int64_t func_id = intern_function(line.system_name_id,
+          int64_t func_id = intern_function(line.name_id, line.name_id,
                                             line.filename_id, annotation);
 
           loc.inlined_functions.emplace_back(func_id, line.line_no);
@@ -393,6 +386,7 @@ LocationTracker PreprocessLocations(trace_processor::TraceProcessor* tp,
         // Otherwise - single function
         int64_t func_id =
             intern_function(interner->InternString(func_sysname),
+                            interner->InternString(func_name),
                             /*filename_id=*/StringId::Null(), annotation);
         loc.single_function_id = func_id;
       }

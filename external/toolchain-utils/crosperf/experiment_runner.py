@@ -107,15 +107,15 @@ class ExperimentRunner(object):
     """Get where is the machine from.
 
     Returns:
-      The location of the machine: local or skylab
+      The location of the machine: local or crosfleet
     """
     # We assume that lab machine always starts with chromeos*, and local
     # machines are ip address.
     if 'chromeos' in machine:
-      if lock_mgr.CheckMachineInSkylab(machine):
-        return 'skylab'
+      if lock_mgr.CheckMachineInCrosfleet(machine):
+        return 'crosfleet'
       else:
-        raise RuntimeError('Lab machine not in Skylab.')
+        raise RuntimeError('Lab machine not in Crosfleet.')
     return 'local'
 
   def _LockAllMachines(self, experiment):
@@ -125,7 +125,7 @@ class ExperimentRunner(object):
     in three different modes automatically, to prevent any other crosperf runs
     from being able to update/use the machines while this experiment is
     running:
-      - Skylab machines: Use skylab lease-dut mechanism to lease
+      - Crosfleet machines: Use crosfleet lease-dut mechanism to lease
       - Local machines: Use file lock mechanism to lock
     """
     if test_flag.GetTestMode():
@@ -143,8 +143,8 @@ class ExperimentRunner(object):
         machine_type = self._GetMachineType(experiment.lock_mgr, m)
         if machine_type == 'local':
           experiment.lock_mgr.AddMachineToLocal(m)
-        elif machine_type == 'skylab':
-          experiment.lock_mgr.AddMachineToSkylab(m)
+        elif machine_type == 'crosfleet':
+          experiment.lock_mgr.AddMachineToCrosfleet(m)
       machine_states = experiment.lock_mgr.GetMachineStates('lock')
       experiment.lock_mgr.CheckMachineLocks(machine_states, 'lock')
       self.locked_machines = experiment.lock_mgr.UpdateMachines(True)
@@ -160,8 +160,8 @@ class ExperimentRunner(object):
       cache.Init(br.label.chromeos_image, br.label.chromeos_root,
                  br.benchmark.test_name, br.iteration, br.test_args,
                  br.profiler_args, br.machine_manager, br.machine,
-                 br.label.board, br.cache_conditions, br.logger(), br.log_level,
-                 br.label, br.share_cache, br.benchmark.suite,
+                 br.label.board, br.cache_conditions, br.logger(),
+                 br.log_level, br.label, br.share_cache, br.benchmark.suite,
                  br.benchmark.show_all_results, br.benchmark.run_local,
                  br.benchmark.cwp_dso)
       cache_dir = cache.GetCacheDirForWrite()
@@ -171,12 +171,12 @@ class ExperimentRunner(object):
 
   def _Run(self, experiment):
     try:
-      # We should not lease machines if tests are launched via `skylab
-      # create-test`. This is because leasing DUT in skylab will create a
+      # We should not lease machines if tests are launched via `crosfleet
+      # create-test`. This is because leasing DUT in crosfleet will create a
       # no-op task on the DUT and new test created will be hanging there.
       # TODO(zhizhouy): Need to check whether machine is ready or not before
       # assigning a test to it.
-      if not experiment.skylab:
+      if not experiment.no_lock and not experiment.crosfleet:
         self._LockAllMachines(experiment)
       # Calculate all checksums of avaiable/locked machines, to ensure same
       # label has same machines for testing
@@ -236,8 +236,8 @@ class ExperimentRunner(object):
       if not benchmark_run.cache_hit:
         send_mail = True
         break
-    if (not send_mail and not experiment.email_to or
-        config.GetConfig('no_email')):
+    if (not send_mail and not experiment.email_to
+        or config.GetConfig('no_email')):
       return
 
     label_names = []
@@ -245,7 +245,8 @@ class ExperimentRunner(object):
       label_names.append(label.name)
     subject = '%s: %s' % (experiment.name, ' vs. '.join(label_names))
 
-    text_report = TextResultsReport.FromExperiment(experiment, True).GetReport()
+    text_report = TextResultsReport.FromExperiment(experiment,
+                                                   True).GetReport()
     text_report += ('\nResults are stored in %s.\n' %
                     experiment.results_directory)
     text_report = "<pre style='font-size: 13px'>%s</pre>" % text_report
@@ -253,12 +254,11 @@ class ExperimentRunner(object):
     attachment = EmailSender.Attachment('report.html', html_report)
     email_to = experiment.email_to or []
     email_to.append(getpass.getuser())
-    EmailSender().SendEmail(
-        email_to,
-        subject,
-        text_report,
-        attachments=[attachment],
-        msg_type='html')
+    EmailSender().SendEmail(email_to,
+                            subject,
+                            text_report,
+                            attachments=[attachment],
+                            msg_type='html')
 
   def _StoreResults(self, experiment):
     if self._terminated:
@@ -300,9 +300,10 @@ class ExperimentRunner(object):
     self.l.LogOutput('Storing results of each benchmark run.')
     for benchmark_run in experiment.benchmark_runs:
       if benchmark_run.result:
-        benchmark_run_name = ''.join(
-            ch for ch in benchmark_run.name if ch.isalnum())
-        benchmark_run_path = os.path.join(results_directory, benchmark_run_name)
+        benchmark_run_name = ''.join(ch for ch in benchmark_run.name
+                                     if ch.isalnum())
+        benchmark_run_path = os.path.join(results_directory,
+                                          benchmark_run_name)
         if experiment.compress_results:
           benchmark_run.result.CompressResultsTo(benchmark_run_path)
         else:
@@ -313,15 +314,16 @@ class ExperimentRunner(object):
     results_table_path = os.path.join(results_directory, 'results.html')
     report = HTMLResultsReport.FromExperiment(experiment).GetReport()
     if self.json_report:
-      json_report = JSONResultsReport.FromExperiment(
-          experiment, json_args={'indent': 2})
+      json_report = JSONResultsReport.FromExperiment(experiment,
+                                                     json_args={'indent': 2})
       _WriteJSONReportToFile(experiment, results_directory, json_report)
 
     FileUtils().WriteFile(results_table_path, report)
 
     self.l.LogOutput('Storing email message body in %s.' % results_directory)
     msg_file_path = os.path.join(results_directory, 'msg_body.html')
-    text_report = TextResultsReport.FromExperiment(experiment, True).GetReport()
+    text_report = TextResultsReport.FromExperiment(experiment,
+                                                   True).GetReport()
     text_report += ('\nResults are stored in %s.\n' %
                     experiment.results_directory)
     msg_body = "<pre style='font-size: 13px'>%s</pre>" % text_report

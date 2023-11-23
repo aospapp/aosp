@@ -16,6 +16,7 @@
 #include "tst_test.h"
 #include "clone_platform.h"
 #include "lapi/syscalls.h"
+#include "lapi/futex.h"
 
 static pid_t ptid, ctid, tgid;
 static void *child_stack;
@@ -159,7 +160,7 @@ static void test_clone_stopped(int t)
 
 	child = clone_child(&test_cases[t]);
 
-	TST_PROCESS_STATE_WAIT(child, 'T');
+	TST_PROCESS_STATE_WAIT(child, 'T', 0);
 
 	stopped_flag = 0;
 

@@ -1,9 +1,13 @@
+*.[1-9]
 *.a
+*.exe
 *.o
 *.patch
 *.so
 *.so.*
 /.build-config
+/boringssl
+/boringssl.tar.gz
 /fsverity
 /fsverity.sig
 /run-tests.log

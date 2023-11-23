@@ -16,6 +16,8 @@
 
 #include "annotator/datetime/extractor.h"
 
+#include <algorithm>
+
 #include "annotator/datetime/utils.h"
 #include "annotator/model_generated.h"
 #include "annotator/types.h"
@@ -347,10 +349,11 @@ bool DatetimeExtractor::ParseWrittenNumber(const UnicodeText& input,
     }
   }
 
-  std::sort(found_numbers.begin(), found_numbers.end(),
-            [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-              return a.first < b.first;
-            });
+  std::stable_sort(
+      found_numbers.begin(), found_numbers.end(),
+      [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+        return a.first < b.first;
+      });
 
   int sum = 0;
   int running_value = -1;

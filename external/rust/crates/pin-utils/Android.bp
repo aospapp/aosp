@@ -41,39 +41,24 @@ rust_library {
     name: "libpin_utils",
     host_supported: true,
     crate_name: "pin_utils",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
 
 rust_defaults {
-    name: "pin-utils_defaults",
+    name: "pin-utils_test_defaults",
     crate_name: "pin_utils",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-}
-
-rust_test_host {
-    name: "pin-utils_host_test_src_lib",
-    defaults: ["pin-utils_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "pin-utils_device_test_src_lib",
-    defaults: ["pin-utils_defaults"],
-}
-
-rust_defaults {
-    name: "pin-utils_defaults_pin_utils",
-    crate_name: "pin_utils",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -82,9 +67,10 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "pin-utils_host_test_tests_projection",
-    defaults: ["pin-utils_defaults_pin_utils"],
+rust_test {
+    name: "pin-utils_test_tests_projection",
+    defaults: ["pin-utils_test_defaults"],
+    host_supported: true,
     srcs: ["tests/projection.rs"],
     test_options: {
         unit_test: true,
@@ -92,22 +78,11 @@ rust_test_host {
 }
 
 rust_test {
-    name: "pin-utils_device_test_tests_projection",
-    defaults: ["pin-utils_defaults_pin_utils"],
-    srcs: ["tests/projection.rs"],
-}
-
-rust_test_host {
-    name: "pin-utils_host_test_tests_stack_pin",
-    defaults: ["pin-utils_defaults_pin_utils"],
+    name: "pin-utils_test_tests_stack_pin",
+    defaults: ["pin-utils_test_defaults"],
+    host_supported: true,
     srcs: ["tests/stack_pin.rs"],
     test_options: {
         unit_test: true,
     },
-}
-
-rust_test {
-    name: "pin-utils_device_test_tests_stack_pin",
-    defaults: ["pin-utils_defaults_pin_utils"],
-    srcs: ["tests/stack_pin.rs"],
 }

@@ -137,7 +137,9 @@ public final class ContentStyler {
             (int)
                 PartnerConfigHelper.get(context)
                     .getDimension(context, PartnerConfig.CONFIG_CONTENT_INFO_ICON_SIZE);
-        lp.width = lp.width * (lp.height / oldHeight);
+        // The scale ratio is lp.height/oldHeight, but the lp.height and oldHeight are all integer type.
+        // The division between integer will loss the decimal part, so need to do multiple first.
+        lp.width = lp.width * lp.height / oldHeight;
         infoIcon.setScaleType(ScaleType.FIT_CENTER);
       }
 

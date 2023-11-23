@@ -19,9 +19,9 @@
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
-#include <stdbool.h>
-#include <stdint.h>
 
+#include <cstdbool>
+#include <cstdint>
 #include <vector>
 
 #include "drm/DrmFbImporter.h"
@@ -32,7 +32,20 @@ namespace android {
 
 class DrmFbIdHandle;
 
-enum DrmHwcTransform {
+enum class DrmHwcColorSpace : int32_t {
+  kUndefined,
+  kItuRec601,
+  kItuRec709,
+  kItuRec2020,
+};
+
+enum class DrmHwcSampleRange : int32_t {
+  kUndefined,
+  kFullRange,
+  kLimitedRange,
+};
+
+enum DrmHwcTransform : uint32_t {
   kIdentity = 0,
   kFlipH = 1 << 0,
   kFlipV = 1 << 1,
@@ -42,31 +55,30 @@ enum DrmHwcTransform {
 };
 
 enum class DrmHwcBlending : int32_t {
-  kNone = HWC_BLENDING_NONE,
-  kPreMult = HWC_BLENDING_PREMULT,
-  kCoverage = HWC_BLENDING_COVERAGE,
+  kNone,
+  kPreMult,
+  kCoverage,
 };
 
 struct DrmHwcLayer {
-  buffer_handle_t sf_handle = NULL;
+  buffer_handle_t sf_handle = nullptr;
   hwc_drm_bo_t buffer_info{};
-  std::shared_ptr<DrmFbIdHandle> FbIdHandle;
+  std::shared_ptr<DrmFbIdHandle> fb_id_handle;
 
   int gralloc_buffer_usage = 0;
-  uint32_t transform;
+  DrmHwcTransform transform{};
   DrmHwcBlending blending = DrmHwcBlending::kNone;
-  uint16_t alpha = 0xffff;
+  uint16_t alpha = UINT16_MAX;
   hwc_frect_t source_crop;
   hwc_rect_t display_frame;
-  android_dataspace_t dataspace;
+  DrmHwcColorSpace color_space;
+  DrmHwcSampleRange sample_range;
 
   UniqueFd acquire_fence;
 
-  int ImportBuffer(DrmDevice *drmDevice);
+  int ImportBuffer(DrmDevice *drm_device);
 
-  void SetTransform(int32_t sf_transform);
-
-  bool protected_usage() const {
+  bool IsProtected() const {
     return (gralloc_buffer_usage & GRALLOC_USAGE_PROTECTED) ==
            GRALLOC_USAGE_PROTECTED;
   }

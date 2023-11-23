@@ -73,6 +73,7 @@ cc_library_static {
 
 cc_library_static {
     name: "libbsdiff",
+    recovery_available: true,
     defaults: ["bsdiff_defaults"],
 
     srcs: [

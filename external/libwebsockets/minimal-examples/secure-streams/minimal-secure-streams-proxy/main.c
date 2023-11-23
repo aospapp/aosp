@@ -26,9 +26,15 @@
 #include <string.h>
 #include <signal.h>
 
+#if defined(__APPLE__) || defined(__linux__)
+#include <execinfo.h>
+#include <assert.h>
+#endif
+
 static int interrupted, bad = 1, port = 0 /* unix domain socket */;
 static const char *ibind = NULL; /* default to unix domain skt "proxy.ss.lws" */
 static lws_state_notify_link_t nl;
+static struct lws_context *context;
 
 /*
  * We just define enough policy so it can fetch the latest one securely
@@ -60,7 +66,7 @@ static const char * const default_ss_policy =
 		 * We fetch the real policy from there using SS and switch to
 		 * using that.
 		 */
-		"{\"isrg_root_x1\": \"" /* ISRG ROOT X1 */
+		"{\"isrg_root_x1\": \""
 	"MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw"
 	"TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh"
 	"cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4"
@@ -90,56 +96,33 @@ static const char * const default_ss_policy =
 	"4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA"
 	"mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d"
 	"emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc="
-		"\"},"
-		"{\"LEX3_isrg_root_x1\": \"" /* LE X3 signed by ISRG X1 root */
-	"MIIFjTCCA3WgAwIBAgIRANOxciY0IzLc9AUoUSrsnGowDQYJKoZIhvcNAQELBQAw"
-	"TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh"
-	"cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTYxMDA2MTU0MzU1"
-	"WhcNMjExMDA2MTU0MzU1WjBKMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg"
-	"RW5jcnlwdDEjMCEGA1UEAxMaTGV0J3MgRW5jcnlwdCBBdXRob3JpdHkgWDMwggEi"
-	"MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCc0wzwWuUuR7dyXTeDs2hjMOrX"
-	"NSYZJeG9vjXxcJIvt7hLQQWrqZ41CFjssSrEaIcLo+N15Obzp2JxunmBYB/XkZqf"
-	"89B4Z3HIaQ6Vkc/+5pnpYDxIzH7KTXcSJJ1HG1rrueweNwAcnKx7pwXqzkrrvUHl"
-	"Npi5y/1tPJZo3yMqQpAMhnRnyH+lmrhSYRQTP2XpgofL2/oOVvaGifOFP5eGr7Dc"
-	"Gu9rDZUWfcQroGWymQQ2dYBrrErzG5BJeC+ilk8qICUpBMZ0wNAxzY8xOJUWuqgz"
-	"uEPxsR/DMH+ieTETPS02+OP88jNquTkxxa/EjQ0dZBYzqvqEKbbUC8DYfcOTAgMB"
-	"AAGjggFnMIIBYzAOBgNVHQ8BAf8EBAMCAYYwEgYDVR0TAQH/BAgwBgEB/wIBADBU"
-	"BgNVHSAETTBLMAgGBmeBDAECATA/BgsrBgEEAYLfEwEBATAwMC4GCCsGAQUFBwIB"
-	"FiJodHRwOi8vY3BzLnJvb3QteDEubGV0c2VuY3J5cHQub3JnMB0GA1UdDgQWBBSo"
-	"SmpjBH3duubRObemRWXv86jsoTAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3Js"
-	"LnJvb3QteDEubGV0c2VuY3J5cHQub3JnMHIGCCsGAQUFBwEBBGYwZDAwBggrBgEF"
-	"BQcwAYYkaHR0cDovL29jc3Aucm9vdC14MS5sZXRzZW5jcnlwdC5vcmcvMDAGCCsG"
-	"AQUFBzAChiRodHRwOi8vY2VydC5yb290LXgxLmxldHNlbmNyeXB0Lm9yZy8wHwYD"
-	"VR0jBBgwFoAUebRZ5nu25eQBc4AIiMgaWPbpm24wDQYJKoZIhvcNAQELBQADggIB"
-	"ABnPdSA0LTqmRf/Q1eaM2jLonG4bQdEnqOJQ8nCqxOeTRrToEKtwT++36gTSlBGx"
-	"A/5dut82jJQ2jxN8RI8L9QFXrWi4xXnA2EqA10yjHiR6H9cj6MFiOnb5In1eWsRM"
-	"UM2v3e9tNsCAgBukPHAg1lQh07rvFKm/Bz9BCjaxorALINUfZ9DD64j2igLIxle2"
-	"DPxW8dI/F2loHMjXZjqG8RkqZUdoxtID5+90FgsGIfkMpqgRS05f4zPbCEHqCXl1"
-	"eO5HyELTgcVlLXXQDgAWnRzut1hFJeczY1tjQQno6f6s+nMydLN26WuU4s3UYvOu"
-	"OsUxRlJu7TSRHqDC3lSE5XggVkzdaPkuKGQbGpny+01/47hfXXNB7HntWNZ6N2Vw"
-	"p7G6OfY+YQrZwIaQmhrIqJZuigsrbe3W+gdn5ykE9+Ky0VgVUsfxo52mwFYs1JKY"
-	"2PGDuWx8M6DlS6qQkvHaRUo0FMd8TsSlbF0/v965qGFKhSDeQoMpYnwcmQilRh/0"
-	"ayLThlHLN81gSkJjVrPI0Y8xCVPB4twb1PFUd2fPM3sA1tJ83sZ5v8vgFv2yofKR"
-	"PB0t6JzUA81mSqM3kxl5e+IZwhYAyO0OTg3/fs8HqGTNKd9BqoUwSRBzp06JMg5b"
-	"rUCGwbCUDI0mxadJ3Bz4WxR6fyNpBK2yAinWEsikxqEt"
 		"\"}"
 	  "],"
 	  "\"trust_stores\": [" /* named cert chains */
 		"{"
 			"\"name\": \"le_via_isrg\","
 			"\"stack\": ["
-				"\"isrg_root_x1\","
-				"\"LEX3_isrg_root_x1\""
+				"\"isrg_root_x1\""
 			"]"
 		"}"
 	  "],"
-	  "\"s\": ["
-		"{\"fetch_policy\": {"
+	  "\"s\": [{"
+		"\"captive_portal_detect\": {"
+			"\"endpoint\": \"connectivitycheck.android.com\","
+			"\"http_url\": \"generate_204\","
+			"\"port\": 80,"
+			"\"protocol\": \"h1\","
+			"\"http_method\": \"GET\","
+			"\"opportunistic\": true,"
+			"\"http_expect\": 204,"
+			"\"http_fail_redirect\": true"
+		"},"
+		"\"fetch_policy\": {"
 			"\"endpoint\":"		"\"warmcat.com\","
 			"\"port\":"		"443,"
 			"\"protocol\":"		"\"h1\","
 			"\"http_method\":"	"\"GET\","
-			"\"http_url\":"		"\"policy/minimal-proxy.json\","
+			"\"http_url\":"		"\"policy/minimal-proxy-v4.2-v2.json\","
 			"\"tls\":"		"true,"
 			"\"opportunistic\":"	"true,"
 			"\"retry\":"		"\"default\","
@@ -161,6 +144,11 @@ static const char *canned_root_token_payload =
 	"xL_hDCcTho8opCVX-6QhJHl6SQFlTw13"
 	"&client_id="
 		"amzn1.application-oa2-client.4823334c434b4190a2b5a42c07938a2d";
+
+#if defined(LWS_WITH_SECURE_STREAMS_AUTH_SIGV4)
+static char *aws_keyid = NULL,
+	    *aws_key = NULL;
+#endif
 
 static int
 app_system_state_nf(lws_state_manager_t *mgr, lws_state_notify_link_t *link,
@@ -188,7 +176,18 @@ app_system_state_nf(lws_state_manager_t *mgr, lws_state_notify_link_t *link,
 				strlen(canned_root_token_payload));
 		break;
 	case LWS_SYSTATE_OPERATIONAL:
-		if (current == LWS_SYSTATE_OPERATIONAL)
+		if (current == LWS_SYSTATE_OPERATIONAL) {
+#if defined(LWS_WITH_SECURE_STREAMS_AUTH_SIGV4)
+
+			if (lws_aws_filesystem_credentials_helper(
+						  "~/.aws/credentials",
+						  "aws_access_key_id",
+						  "aws_secret_access_key",
+						  &aws_keyid, &aws_key))
+				return -1;
+
+			lws_ss_sigv4_set_aws_key(context, 0, aws_keyid, aws_key);
+#endif
 			/*
 			 * At this point we have DHCP, ntp, system auth token
 			 * and we can reasonably create the proxy
@@ -198,6 +197,7 @@ app_system_state_nf(lws_state_manager_t *mgr, lws_state_notify_link_t *link,
 						__func__);
 				return -1;
 			}
+		}
 		break;
 	case LWS_SYSTATE_POLICY_INVALID:
 		/*
@@ -218,23 +218,48 @@ static lws_state_notify_link_t * const app_notifier_list[] = {
 	&nl, NULL
 };
 
+#if defined(LWS_WITH_SYS_METRICS)
+
+static int
+my_metric_report(lws_metric_pub_t *mp)
+{
+	lws_metric_bucket_t *sub = mp->u.hist.head;
+	char buf[192];
+
+	do {
+		if (lws_metrics_format(mp, &sub, buf, sizeof(buf)))
+			lwsl_user("%s: %s\n", __func__, buf);
+	} while ((mp->flags & LWSMTFL_REPORT_HIST) && sub);
+
+	/* 0 = leave metric to accumulate, 1 = reset the metric */
+
+	return 1;
+}
+
+static const lws_system_ops_t system_ops = {
+	.metric_report = my_metric_report,
+};
+
+#endif
+
 static void
 sigint_handler(int sig)
 {
+	lwsl_notice("%s\n", __func__);
 	interrupted = 1;
+	lws_cancel_service(context);
 }
 
 int main(int argc, const char **argv)
 {
-	int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE;
 	struct lws_context_creation_info info;
-	struct lws_context *context;
 	const char *p;
+	int n = 0;
+
+	memset(&info, 0, sizeof info);
+	lws_cmdline_option_handle_builtin(argc, argv, &info);
 
 	signal(SIGINT, sigint_handler);
-
-	if ((p = lws_cmdline_option(argc, argv, "-d")))
-		logs = atoi(p);
 
 	/* connect to ssproxy via UDS by default, else via tcp with this port */
 	if ((p = lws_cmdline_option(argc, argv, "-p")))
@@ -245,25 +270,27 @@ int main(int argc, const char **argv)
 	if ((p = lws_cmdline_option(argc, argv, "-i")))
 		ibind = p;
 
-	lws_set_log_level(logs, NULL);
 	lwsl_user("LWS secure streams Proxy [-d<verb>]\n");
 
-	memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
-
 	info.options = LWS_SERVER_OPTION_EXPLICIT_VHOSTS |
+		       LWS_SERVER_OPTION_H2_JUST_FIX_WINDOW_UPDATE_OVERFLOW |
 		       LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
-	info.fd_limit_per_thread = 1 + 6 + 1;
+	info.fd_limit_per_thread = 1 + 26 + 1;
 	info.pss_policies_json = default_ss_policy;
 	info.port = CONTEXT_PORT_NO_LISTEN;
-#if defined(LWS_WITH_DETAILED_LATENCY)
-	info.detailed_latency_cb = lws_det_lat_plot_cb;
-	info.detailed_latency_filepath = "/tmp/lws-latency-ssproxy";
-#endif
 
 	/* integrate us with lws system state management when context created */
 	nl.name = "app";
 	nl.notify_cb = app_system_state_nf;
 	info.register_notifier_list = app_notifier_list;
+
+	info.pt_serv_buf_size = (unsigned int)((6144 * 2) + 2048);
+	info.max_http_header_data = (unsigned short)(6144 + 2048);
+
+#if defined(LWS_WITH_SYS_METRICS)
+	info.system_ops = &system_ops;
+	info.metrics_prefix = "ssproxy";
+#endif
 
 	context = lws_create_context(&info);
 	if (!context) {
@@ -273,10 +300,18 @@ int main(int argc, const char **argv)
 
 	/* the event loop */
 
-	while (n >= 0 && !interrupted)
+	do {
 		n = lws_service(context, 0);
+	} while (n >= 0 && !interrupted);
 
 	bad = 0;
+
+#if defined(LWS_WITH_SECURE_STREAMS_AUTH_SIGV4)
+	if (aws_keyid)
+		free(aws_keyid);
+	if (aws_key)
+		free(aws_key);
+#endif
 
 	lws_context_destroy(context);
 	lwsl_user("Completed: %s\n", bad ? "failed" : "OK");

@@ -61,7 +61,7 @@ Index: curl/lib/curl_config.h
 -/* The number of bytes in type time_t */
 -#define SIZEOF_TIME_T 8
 -
- /* Define to 1 if you have the ANSI C header files. */
+ /* Define to 1 if all of the C90 standard headers exist (not just the ones
  #define STDC_HEADERS 1
  
 @@ -1058,7 +1040,7 @@

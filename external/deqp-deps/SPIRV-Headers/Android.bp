@@ -3,6 +3,7 @@
 // deqp_spirv_headers_unified1_extinst.debuginfo.grammar.json
 // deqp_spirv_headers_unified1_extinst.glsl.std.450.grammar.json
 // deqp_spirv_headers_unified1_extinst.nonsemantic.clspvreflection.grammar.json
+// deqp_spirv_headers_unified1_extinst.nonsemantic.shader.debuginfo.100.grammar.json
 // deqp_spirv_headers_unified1_extinst.opencl.debuginfo.100.grammar.json
 // deqp_spirv_headers_unified1_extinst.opencl.std.100.grammar.json
 // deqp_spirv_headers_unified1_extinst.spv-amd-gcn-shader.grammar.json
@@ -57,6 +58,11 @@ filegroup {
 filegroup {
     name: "deqp_spirv_headers_unified1_extinst.nonsemantic.clspvreflection.grammar.json",
     srcs: ["include/spirv/unified1/extinst.nonsemantic.clspvreflection.grammar.json"],
+}
+
+filegroup {
+    name: "deqp_spirv_headers_unified1_extinst.nonsemantic.shader.debuginfo.100.grammar.json",
+    srcs: ["include/spirv/unified1/extinst.nonsemantic.shader.debuginfo.100.grammar.json"],
 }
 
 filegroup {

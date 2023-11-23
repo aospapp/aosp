@@ -117,7 +117,7 @@ public class CollationAPITest extends TestFmwk {
 
         byte key2identical[] = key2.toByteArray();
 
-        logln("Use secondary comparision level testing ...");
+        logln("Use secondary comparison level testing ...");
         col.setStrength(Collator.SECONDARY);
 
         key1 = col.getCollationKey(test1);
@@ -234,17 +234,17 @@ public class CollationAPITest extends TestFmwk {
         // there is no reason to have canonical decomposition in en_US OR default locale */
         if (vi_VN.getDecomposition() != Collator.CANONICAL_DECOMPOSITION)
         {
-            errln("vi_VN collation did not have cannonical decomposition for normalization!");
+            errln("vi_VN collation did not have canonical decomposition for normalization!");
         }
 
         if (el_GR.getDecomposition() != Collator.CANONICAL_DECOMPOSITION)
         {
-            errln("el_GR collation did not have cannonical decomposition for normalization!");
+            errln("el_GR collation did not have canonical decomposition for normalization!");
         }
 
         if (en_US.getDecomposition() != Collator.NO_DECOMPOSITION)
         {
-            errln("en_US collation had cannonical decomposition for normalization!");
+            errln("en_US collation had canonical decomposition for normalization!");
         }
     }
 
@@ -257,7 +257,7 @@ public class CollationAPITest extends TestFmwk {
         Collator col1 = Collator.getInstance(Locale.ENGLISH);
 
         // Collator col2 = (Collator)col1.clone();
-        // doAssert(col1.equals(col2), "Cloned object is not equal to the orginal");
+        // doAssert(col1.equals(col2), "Cloned object is not equal to the original");
         String ruleset = "&9 < a, A < b, B < c, C < d, D, e, E";
         RuleBasedCollator col3 = null;
         try {
@@ -268,7 +268,7 @@ public class CollationAPITest extends TestFmwk {
         }
         doAssert(!col1.equals(col3), "Cloned object is equal to some dummy");
         col3 = (RuleBasedCollator)col1;
-        doAssert(col1.equals(col3), "Copied object is not equal to the orginal");
+        doAssert(col1.equals(col3), "Copied object is not equal to the original");
 
     }
 
@@ -277,7 +277,7 @@ public class CollationAPITest extends TestFmwk {
      * - creation of a CollationElementIterator object
      * - == and != operators
      * - iterating forward
-     * - reseting the iterator index
+     * - resetting the iterator index
      * - requesting the order properties(primary, secondary or tertiary)
      */
     @Test
@@ -1702,6 +1702,19 @@ public class CollationAPITest extends TestFmwk {
             assertTrue("tailored Han before currency", coll.compare("\u4E00", "$") < 0);
         } catch (Exception e) {
             errln("unexpected exception for tailoring many characters at the end of symbols: " + e);
+        }
+    }
+
+    @Test
+    public void TestBogusLocaleID() {
+        try {
+            Collator c1 = Collator.getInstance(new ULocale("en-US-u-kn-true"));
+            Collator c2 = Collator.getInstance(new ULocale("en_US-u-kn-true"));
+
+            assertTrue("Comparison using \"normal\" collator failed", c1.compare("2", "10") < 0);
+            assertTrue("Comparison using \"bad\" collator failed", c2.compare("2", "10") < 0);
+        } catch (Exception e) {
+            errln("Exception creating collators: " + e);
         }
     }
 }

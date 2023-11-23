@@ -88,8 +88,7 @@ class AVxEncoderParmsGetToDecoder
   virtual ~AVxEncoderParmsGetToDecoder() {}
 
   virtual void SetUp() {
-    InitializeConfig();
-    SetMode(::libaom_test::kTwoPassGood);
+    InitializeConfig(::libaom_test::kTwoPassGood);
     cfg_.g_lag_in_frames = 25;
     test_video_ = kAV1ParamPassingTestVector;
     cfg_.rc_target_bitrate = test_video_.bitrate;
@@ -155,6 +154,6 @@ TEST_P(AVxEncoderParmsGetToDecoder, BitstreamParms) {
   ASSERT_NO_FATAL_FAILURE(RunLoop(video.get()));
 }
 
-AV1_INSTANTIATE_TEST_CASE(AVxEncoderParmsGetToDecoder,
-                          ::testing::ValuesIn(kAV1EncodeParameterSet));
+AV1_INSTANTIATE_TEST_SUITE(AVxEncoderParmsGetToDecoder,
+                           ::testing::ValuesIn(kAV1EncodeParameterSet));
 }  // namespace

@@ -31,14 +31,16 @@ ThreadStateGenerator::ThreadStateGenerator(TraceProcessorContext* context)
 
 ThreadStateGenerator::~ThreadStateGenerator() = default;
 
-util::Status ThreadStateGenerator::ValidateConstraints(
+base::Status ThreadStateGenerator::ValidateConstraints(
     const QueryConstraints&) {
-  return util::OkStatus();
+  return base::OkStatus();
 }
 
-std::unique_ptr<Table> ThreadStateGenerator::ComputeTable(
+base::Status ThreadStateGenerator::ComputeTable(
     const std::vector<Constraint>&,
-    const std::vector<Order>&) {
+    const std::vector<Order>&,
+    const BitVector&,
+    std::unique_ptr<Table>& table_return) {
   if (!unsorted_thread_state_table_) {
     int64_t trace_end_ts =
         context_->storage->GetTraceTimestampBoundsNs().second;
@@ -52,8 +54,11 @@ std::unique_ptr<Table> ThreadStateGenerator::ComputeTable(
     sorted_thread_state_table_ = unsorted_thread_state_table_->Sort(
         {unsorted_thread_state_table_->ts().ascending()});
   }
+  // TODO(rsavitski): return base::ErrStatus instead?
   PERFETTO_CHECK(sorted_thread_state_table_);
-  return std::unique_ptr<Table>(new Table(sorted_thread_state_table_->Copy()));
+  table_return =
+      std::unique_ptr<Table>(new Table(sorted_thread_state_table_->Copy()));
+  return base::OkStatus();
 }
 
 std::unique_ptr<tables::ThreadStateTable>
@@ -65,19 +70,23 @@ ThreadStateGenerator::ComputeThreadStateTable(int64_t trace_end_ts) {
   const auto& instants = context_->storage->instant_table();
 
   // In both tables, exclude utid == 0 which represents the idle thread.
-  Table sched = raw_sched.Filter({raw_sched.utid().ne(0)});
+  Table sched = raw_sched.Filter({raw_sched.utid().ne(0)},
+                                 RowMap::OptimizeFor::kLookupSpeed);
   Table waking = instants.Filter(
-      {instants.name().eq("sched_waking"), instants.ref().ne(0)});
+      {instants.name().eq("sched_waking"), instants.ref().ne(0)},
+      RowMap::OptimizeFor::kLookupSpeed);
 
   // We prefer to use waking if at all possible and fall back to wakeup if not
   // available.
   if (waking.row_count() == 0) {
     waking = instants.Filter(
-        {instants.name().eq("sched_wakeup"), instants.ref().ne(0)});
+        {instants.name().eq("sched_wakeup"), instants.ref().ne(0)},
+        RowMap::OptimizeFor::kLookupSpeed);
   }
 
   Table sched_blocked_reason = instants.Filter(
-      {instants.name().eq("sched_blocked_reason"), instants.ref().ne(0)});
+      {instants.name().eq("sched_blocked_reason"), instants.ref().ne(0)},
+      RowMap::OptimizeFor::kLookupSpeed);
 
   const auto& sched_ts_col = sched.GetTypedColumnByName<int64_t>("ts");
   const auto& waking_ts_col = waking.GetTypedColumnByName<int64_t>("ts");
@@ -87,7 +96,7 @@ ThreadStateGenerator::ComputeThreadStateTable(int64_t trace_end_ts) {
   uint32_t sched_idx = 0;
   uint32_t waking_idx = 0;
   uint32_t blocked_idx = 0;
-  std::unordered_map<UniqueTid, ThreadSchedInfo> state_map;
+  TidInfoMap state_map(/*initial_capacity=*/1024);
   while (sched_idx < sched.row_count() || waking_idx < waking.row_count() ||
          blocked_idx < sched_blocked_reason.row_count()) {
     int64_t sched_ts = sched_idx < sched.row_count()
@@ -113,21 +122,21 @@ ThreadStateGenerator::ComputeThreadStateTable(int64_t trace_end_ts) {
   }
 
   // At the end, go through and flush any remaining pending events.
-  for (const auto& utid_to_pending_info : state_map) {
-    UniqueTid utid = utid_to_pending_info.first;
-    const ThreadSchedInfo& pending_info = utid_to_pending_info.second;
+  for (auto it = state_map.GetIterator(); it; ++it) {
+    // for (const auto& utid_to_pending_info : state_map) {
+    UniqueTid utid = it.key();
+    const ThreadSchedInfo& pending_info = it.value();
     FlushPendingEventsForThread(utid, pending_info, table.get(), base::nullopt);
   }
 
   return table;
 }
 
-void ThreadStateGenerator::AddSchedEvent(
-    const Table& sched,
-    uint32_t sched_idx,
-    std::unordered_map<UniqueTid, ThreadSchedInfo>& state_map,
-    int64_t trace_end_ts,
-    tables::ThreadStateTable* table) {
+void ThreadStateGenerator::AddSchedEvent(const Table& sched,
+                                         uint32_t sched_idx,
+                                         TidInfoMap& state_map,
+                                         int64_t trace_end_ts,
+                                         tables::ThreadStateTable* table) {
   int64_t ts = sched.GetTypedColumnByName<int64_t>("ts")[sched_idx];
   UniqueTid utid = sched.GetTypedColumnByName<uint32_t>("utid")[sched_idx];
   ThreadSchedInfo* info = &state_map[utid];
@@ -197,10 +206,9 @@ void ThreadStateGenerator::AddSchedEvent(
   info->scheduled_row = id_and_row.row;
 }
 
-void ThreadStateGenerator::AddWakingEvent(
-    const Table& waking,
-    uint32_t waking_idx,
-    std::unordered_map<UniqueTid, ThreadSchedInfo>& state_map) {
+void ThreadStateGenerator::AddWakingEvent(const Table& waking,
+                                          uint32_t waking_idx,
+                                          TidInfoMap& state_map) {
   int64_t ts = waking.GetTypedColumnByName<int64_t>("ts")[waking_idx];
   UniqueTid utid = static_cast<UniqueTid>(
       waking.GetTypedColumnByName<int64_t>("ref")[waking_idx]);
@@ -295,10 +303,9 @@ void ThreadStateGenerator::FlushPendingEventsForThread(
   }
 }
 
-void ThreadStateGenerator::AddBlockedReasonEvent(
-    const Table& blocked_reason,
-    uint32_t blocked_idx,
-    std::unordered_map<UniqueTid, ThreadSchedInfo>& state_map) {
+void ThreadStateGenerator::AddBlockedReasonEvent(const Table& blocked_reason,
+                                                 uint32_t blocked_idx,
+                                                 TidInfoMap& state_map) {
   const auto& utid_col = blocked_reason.GetTypedColumnByName<int64_t>("ref");
   const auto& arg_set_id_col =
       blocked_reason.GetTypedColumnByName<uint32_t>("arg_set_id");
@@ -308,7 +315,7 @@ void ThreadStateGenerator::AddBlockedReasonEvent(
   ThreadSchedInfo& info = state_map[utid];
 
   base::Optional<Variadic> opt_value;
-  util::Status status =
+  base::Status status =
       context_->storage->ExtractArg(arg_set_id, "io_wait", &opt_value);
 
   // We can't do anything better than ignoring any errors here.

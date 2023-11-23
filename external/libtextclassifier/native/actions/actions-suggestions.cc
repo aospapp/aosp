@@ -17,6 +17,7 @@
 #include "actions/actions-suggestions.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "utils/base/statusor.h"
@@ -40,6 +41,7 @@
 #include "utils/strings/stringpiece.h"
 #include "utils/strings/utf8.h"
 #include "utils/utf8/unicodetext.h"
+#include "absl/container/flat_hash_set.h"
 #include "tensorflow/lite/string_util.h"
 
 namespace libtextclassifier3 {
@@ -809,12 +811,14 @@ bool ActionsSuggestions::SetupModelInput(
 
 void ActionsSuggestions::PopulateTextReplies(
     const tflite::Interpreter* interpreter, int suggestion_index,
-    int score_index, const std::string& type,
+    int score_index, const std::string& type, float priority_score,
+    const absl::flat_hash_set<std::string>& blocklist,
     ActionsSuggestionsResponse* response) const {
   const std::vector<tflite::StringRef> replies =
       model_executor_->Output<tflite::StringRef>(suggestion_index, interpreter);
   const TensorView<float> scores =
       model_executor_->OutputView<float>(score_index, interpreter);
+
   for (int i = 0; i < replies.size(); i++) {
     if (replies[i].len == 0) {
       continue;
@@ -823,8 +827,12 @@ void ActionsSuggestions::PopulateTextReplies(
     if (score < preconditions_.min_reply_score_threshold) {
       continue;
     }
-    response->actions.push_back(
-        {std::string(replies[i].str, replies[i].len), type, score});
+    std::string response_text(replies[i].str, replies[i].len);
+    if (blocklist.contains(response_text)) {
+      continue;
+    }
+
+    response->actions.push_back({response_text, type, score, priority_score});
   }
 }
 
@@ -909,10 +917,12 @@ bool ActionsSuggestions::ReadModelOutput(
   // Read smart reply predictions.
   if (!response->output_filtered_min_triggering_score &&
       model_->tflite_model_spec()->output_replies() >= 0) {
+    absl::flat_hash_set<std::string> empty_blocklist;
     PopulateTextReplies(interpreter,
                         model_->tflite_model_spec()->output_replies(),
                         model_->tflite_model_spec()->output_replies_scores(),
-                        model_->smart_reply_action_type()->str(), response);
+                        model_->smart_reply_action_type()->str(),
+                        /* priority_score */ 0.0, empty_blocklist, response);
   }
 
   // Read actions suggestions.
@@ -950,17 +960,26 @@ bool ActionsSuggestions::ReadModelOutput(
       const int suggestions_index = metadata->output_suggestions();
       const int suggestions_scores_index =
           metadata->output_suggestions_scores();
+      absl::flat_hash_set<std::string> response_text_blocklist;
       switch (metadata->prediction_type()) {
         case PredictionType_NEXT_MESSAGE_PREDICTION:
           if (!task_spec || task_spec->type()->size() == 0) {
             TC3_LOG(WARNING) << "Task type not provided, use default "
                                 "smart_reply_action_type!";
           }
+          if (task_spec) {
+            if (task_spec->response_text_blocklist()) {
+              for (const auto& val : *task_spec->response_text_blocklist()) {
+                response_text_blocklist.insert(val->str());
+              }
+            }
+          }
           PopulateTextReplies(
               interpreter, suggestions_index, suggestions_scores_index,
               task_spec ? task_spec->type()->str()
                         : model_->smart_reply_action_type()->str(),
-              response);
+              task_spec ? task_spec->priority_score() : 0.0,
+              response_text_blocklist, response);
           break;
         case PredictionType_INTENT_TRIGGERING:
           PopulateIntentTriggering(interpreter, suggestions_index,

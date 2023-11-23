@@ -6,8 +6,6 @@
 
 """Tests for rust_watch.py."""
 
-# pylint: disable=cros-logging-import
-
 import logging
 import pathlib
 import subprocess
@@ -15,16 +13,15 @@ import time
 import unittest
 import unittest.mock
 
-import rust_watch
 from cros_utils import tiny_render
+
+import rust_watch
 
 
 class Test(unittest.TestCase):
   """Tests."""
-
   def _silence_logs(self):
     """Silences all log output until the end of the current test."""
-
     def should_log(_record):
       return 0
 
@@ -40,8 +37,8 @@ class Test(unittest.TestCase):
 
   def test_release_version_json_round_trips(self):
     ver = rust_watch.RustReleaseVersion(1, 2, 3)
-    self.assertEqual(
-        rust_watch.RustReleaseVersion.from_json(ver.to_json()), ver)
+    self.assertEqual(rust_watch.RustReleaseVersion.from_json(ver.to_json()),
+                     ver)
 
   def test_state_json_round_trips(self):
     state = rust_watch.State(
@@ -98,34 +95,14 @@ class Test(unittest.TestCase):
         rust_watch.GitCommit('abc123', 'newer commit'),
     ])
 
-  def test_compose_email_on_a_new_release(self):
-    new_release = rust_watch.maybe_compose_email(
-        old_state=rust_watch.State(
-            last_seen_release=rust_watch.RustReleaseVersion(1, 0, 0),
-            last_gentoo_sha='',
-        ),
-        newest_release=rust_watch.RustReleaseVersion(1, 1, 0),
-        new_gentoo_commits=[],
-    )
-
-    self.assertEqual(new_release, ('[rust-watch] new rustc release detected',
-                                   ['Rustc tag for v1.1.0 was found.']))
-
   def test_compose_email_on_a_new_gentoo_commit(self):
     sha_a = 'a' * 40
-    new_commit = rust_watch.maybe_compose_email(
-        old_state=rust_watch.State(
-            last_seen_release=rust_watch.RustReleaseVersion(1, 0, 0),
-            last_gentoo_sha='',
+    new_commit = rust_watch.maybe_compose_email(new_gentoo_commits=[
+        rust_watch.GitCommit(
+            sha=sha_a,
+            subject='summary_a',
         ),
-        newest_release=rust_watch.RustReleaseVersion(1, 0, 0),
-        new_gentoo_commits=[
-            rust_watch.GitCommit(
-                sha=sha_a,
-                subject='summary_a',
-            ),
-        ],
-    )
+    ], )
 
     self.assertEqual(new_commit,
                      ('[rust-watch] new rust ebuild commit detected', [
@@ -141,60 +118,48 @@ class Test(unittest.TestCase):
                          ])
                      ]))
 
-  def test_compose_email_on_multiple_events(self):
-    sha_a = 'a' * 40
-    new_commit_and_release = rust_watch.maybe_compose_email(
+  def test_compose_email_composes_nothing_when_no_new_updates_exist(self):
+    self.assertIsNone(rust_watch.maybe_compose_email(new_gentoo_commits=()))
+
+  def test_compose_bug_creates_bugs_on_new_versions(self):
+    title, body = rust_watch.maybe_compose_bug(
+        old_state=rust_watch.State(
+            last_seen_release=rust_watch.RustReleaseVersion(1, 0, 0),
+            last_gentoo_sha='',
+        ),
+        newest_release=rust_watch.RustReleaseVersion(1, 0, 1),
+    )
+    self.assertEqual(title, '[Rust] Update to 1.0.1')
+    self.assertTrue(body.startswith('A new release has been detected;'))
+
+    title, body = rust_watch.maybe_compose_bug(
         old_state=rust_watch.State(
             last_seen_release=rust_watch.RustReleaseVersion(1, 0, 0),
             last_gentoo_sha='',
         ),
         newest_release=rust_watch.RustReleaseVersion(1, 1, 0),
-        new_gentoo_commits=[
-            rust_watch.GitCommit(
-                sha=sha_a,
-                subject='summary_a',
-            ),
-        ],
     )
+    self.assertEqual(title, '[Rust] Update to 1.1.0')
+    self.assertTrue(body.startswith('A new release has been detected;'))
 
-    self.assertEqual(
-        new_commit_and_release,
-        ('[rust-watch] new rustc release detected; new rust ebuild commit '
-         'detected', [
-             'Rustc tag for v1.1.0 was found.',
-             tiny_render.line_break,
-             tiny_render.line_break,
-             'commit:',
-             tiny_render.UnorderedList([
-                 [
-                     tiny_render.Link(
-                         rust_watch.gentoo_sha_to_link(sha_a),
-                         sha_a[:12],
-                     ),
-                     ': summary_a',
-                 ],
-             ]),
-         ]))
+    title, body = rust_watch.maybe_compose_bug(
+        old_state=rust_watch.State(
+            last_seen_release=rust_watch.RustReleaseVersion(1, 0, 0),
+            last_gentoo_sha='',
+        ),
+        newest_release=rust_watch.RustReleaseVersion(2, 0, 0),
+    )
+    self.assertEqual(title, '[Rust] Update to 2.0.0')
+    self.assertTrue(body.startswith('A new release has been detected;'))
 
-  def test_compose_email_composes_nothing_when_no_new_updates_exist(self):
+  def test_compose_bug_does_nothing_when_no_new_updates_exist(self):
     self.assertIsNone(
-        rust_watch.maybe_compose_email(
+        rust_watch.maybe_compose_bug(
             old_state=rust_watch.State(
                 last_seen_release=rust_watch.RustReleaseVersion(1, 0, 0),
                 last_gentoo_sha='',
             ),
             newest_release=rust_watch.RustReleaseVersion(1, 0, 0),
-            new_gentoo_commits=[],
-        ))
-
-    self.assertIsNone(
-        rust_watch.maybe_compose_email(
-            old_state=rust_watch.State(
-                last_seen_release=rust_watch.RustReleaseVersion(1, 1, 0),
-                last_gentoo_sha='',
-            ),
-            newest_release=rust_watch.RustReleaseVersion(1, 0, 0),
-            new_gentoo_commits=[],
         ))
 
 

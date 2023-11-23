@@ -135,7 +135,7 @@ class CharsetUTF8 extends CharsetICU {
                         }
 
                         /*
-                         * we're finished outputing, so now we need to read in the first byte of the
+                         * we're finished outputting, so now we need to read in the first byte of the
                          * next byte sequence that could form a code point
                          */
 
@@ -261,7 +261,7 @@ class CharsetUTF8 extends CharsetICU {
                         }
 
                         /*
-                         * we're finished outputing, so now we need to read in the first byte of the
+                         * we're finished outputting, so now we need to read in the first byte of the
                          * next byte sequence that could form a code point
                          */
 
@@ -397,7 +397,7 @@ class CharsetUTF8 extends CharsetICU {
                         }
                         targetArray[tgtIdx++] = encodeLastTail(char32);
 
-                    } else if (!UTF16.isSurrogate((char) char32) || isCESU8) {
+                    } else if (!UTF16.isSurrogate(char32) || isCESU8) {
                         /* 3 bytes to encode from char32 */
 
                         targetArray[tgtIdx++] = encodeHeadOf3(char32);
@@ -481,7 +481,7 @@ class CharsetUTF8 extends CharsetICU {
                         }
                         target.put(encodeLastTail(char32));
 
-                    } else if (!UTF16.isSurrogate((char) char32) || isCESU8) {
+                    } else if (!UTF16.isSurrogate(char32) || isCESU8) {
                         /* 3 bytes to encode from char32 */
 
                         target.put(encodeHeadOf3(char32));

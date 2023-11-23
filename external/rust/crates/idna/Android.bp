@@ -41,6 +41,8 @@ rust_library {
     name: "libidna",
     host_supported: true,
     crate_name: "idna",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.3",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -54,10 +56,3 @@ rust_library {
     ],
     min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   matches-0.1.8
-//   tinyvec-1.2.0 "alloc,default,tinyvec_macros"
-//   tinyvec_macros-0.1.0
-//   unicode-bidi-0.3.5 "default"
-//   unicode-normalization-0.1.17 "default,std"

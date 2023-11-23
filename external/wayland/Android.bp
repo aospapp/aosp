@@ -129,7 +129,7 @@ cc_defaults {
     generated_headers: [
         "wayland_core_client_protocol_headers",
     ],
-    export_include_dirs: ["src"],
+    export_include_dirs: ["src", "egl"],
     export_generated_headers: [
         "wayland_core_client_protocol_headers",
     ],

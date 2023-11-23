@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -108,10 +108,10 @@ uint64_t spmd_spm_core_sync_entry(spmd_spm_core_context_t *spmc_ctx)
 	cm_set_context(&(spmc_ctx->cpu_ctx), SECURE);
 
 	/* Restore the context assigned above */
-	cm_el1_sysregs_context_restore(SECURE);
-
 #if SPMD_SPM_AT_SEL2
 	cm_el2_sysregs_context_restore(SECURE);
+#else
+	cm_el1_sysregs_context_restore(SECURE);
 #endif
 	cm_set_next_eret_context(SECURE);
 
@@ -119,9 +119,10 @@ uint64_t spmd_spm_core_sync_entry(spmd_spm_core_context_t *spmc_ctx)
 	rc = spmd_spm_core_enter(&spmc_ctx->c_rt_ctx);
 
 	/* Save secure state */
-	cm_el1_sysregs_context_save(SECURE);
 #if SPMD_SPM_AT_SEL2
 	cm_el2_sysregs_context_save(SECURE);
+#else
+	cm_el1_sysregs_context_save(SECURE);
 #endif
 
 	return rc;
@@ -165,7 +166,6 @@ static int32_t spmd_init(void)
 	for (core_id = 0U; core_id < PLATFORM_CORE_COUNT; core_id++) {
 		if (core_id != linear_id) {
 			spm_core_context[core_id].state = SPMC_STATE_OFF;
-			spm_core_context[core_id].secondary_ep.entry_point = 0UL;
 		}
 	}
 
@@ -348,21 +348,23 @@ static uint64_t spmd_smc_forward(uint32_t smc_fid,
 	unsigned int secure_state_out = (!secure_origin) ? SECURE : NON_SECURE;
 
 	/* Save incoming security state */
-	cm_el1_sysregs_context_save(secure_state_in);
-#if CTX_INCLUDE_FPREGS
-	fpregs_context_save(get_fpregs_ctx(cm_get_context(secure_state_in)));
-#endif
 #if SPMD_SPM_AT_SEL2
+	if (secure_state_in == NON_SECURE) {
+		cm_el1_sysregs_context_save(secure_state_in);
+	}
 	cm_el2_sysregs_context_save(secure_state_in);
+#else
+	cm_el1_sysregs_context_save(secure_state_in);
 #endif
 
 	/* Restore outgoing security state */
-	cm_el1_sysregs_context_restore(secure_state_out);
-#if CTX_INCLUDE_FPREGS
-	fpregs_context_restore(get_fpregs_ctx(cm_get_context(secure_state_out)));
-#endif
 #if SPMD_SPM_AT_SEL2
+	if (secure_state_out == NON_SECURE) {
+		cm_el1_sysregs_context_restore(secure_state_out);
+	}
 	cm_el2_sysregs_context_restore(secure_state_out);
+#else
+	cm_el1_sysregs_context_restore(secure_state_out);
 #endif
 	cm_set_next_eret_context(secure_state_out);
 
@@ -377,8 +379,8 @@ static uint64_t spmd_smc_forward(uint32_t smc_fid,
  ******************************************************************************/
 static uint64_t spmd_ffa_error_return(void *handle, int error_code)
 {
-	SMC_RET8(handle, FFA_ERROR,
-		 FFA_TARGET_INFO_MBZ, error_code,
+	SMC_RET8(handle, (uint32_t) FFA_ERROR,
+		 FFA_TARGET_INFO_MBZ, (uint32_t)error_code,
 		 FFA_PARAM_MBZ, FFA_PARAM_MBZ, FFA_PARAM_MBZ,
 		 FFA_PARAM_MBZ, FFA_PARAM_MBZ);
 }
@@ -413,13 +415,6 @@ static int spmd_handle_spmc_message(unsigned long long msg,
 	VERBOSE("%s %llx %llx %llx %llx %llx\n", __func__,
 		msg, parm1, parm2, parm3, parm4);
 
-	switch (msg) {
-	case SPMD_DIRECT_MSG_SET_ENTRY_POINT:
-		return spmd_pm_secondary_core_set_ep(parm1, parm2, parm3);
-	default:
-		break;
-	}
-
 	return -EINVAL;
 }
 
@@ -436,6 +431,7 @@ uint64_t spmd_smc_handler(uint32_t smc_fid,
 			  void *handle,
 			  uint64_t flags)
 {
+	unsigned int linear_id = plat_my_core_pos();
 	spmd_spm_core_context_t *ctx = spmd_get_context();
 	bool secure_origin;
 	int32_t ret;
@@ -444,10 +440,12 @@ uint64_t spmd_smc_handler(uint32_t smc_fid,
 	/* Determine which security state this SMC originated from */
 	secure_origin = is_caller_secure(flags);
 
-	INFO("SPM: 0x%x 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx\n",
-	     smc_fid, x1, x2, x3, x4, SMC_GET_GP(handle, CTX_GPREG_X5),
-	     SMC_GET_GP(handle, CTX_GPREG_X6),
-	     SMC_GET_GP(handle, CTX_GPREG_X7));
+	VERBOSE("SPM(%u): 0x%x 0x%llx 0x%llx 0x%llx 0x%llx "
+		"0x%llx 0x%llx 0x%llx\n",
+		linear_id, smc_fid, x1, x2, x3, x4,
+		SMC_GET_GP(handle, CTX_GPREG_X5),
+		SMC_GET_GP(handle, CTX_GPREG_X6),
+		SMC_GET_GP(handle, CTX_GPREG_X7));
 
 	switch (smc_fid) {
 	case FFA_ERROR:
@@ -477,14 +475,16 @@ uint64_t spmd_smc_handler(uint32_t smc_fid,
 			(ctx->state == SPMC_STATE_RESET)) {
 			ret = FFA_ERROR_NOT_SUPPORTED;
 		} else if (!secure_origin) {
-			ret = MAKE_FFA_VERSION(spmc_attrs.major_version, spmc_attrs.minor_version);
+			ret = MAKE_FFA_VERSION(spmc_attrs.major_version,
+					       spmc_attrs.minor_version);
 		} else {
-			ret = MAKE_FFA_VERSION(FFA_VERSION_MAJOR, FFA_VERSION_MINOR);
+			ret = MAKE_FFA_VERSION(FFA_VERSION_MAJOR,
+					       FFA_VERSION_MINOR);
 		}
 
-		SMC_RET8(handle, ret, FFA_TARGET_INFO_MBZ, FFA_TARGET_INFO_MBZ,
-			 FFA_PARAM_MBZ, FFA_PARAM_MBZ, FFA_PARAM_MBZ,
-			 FFA_PARAM_MBZ, FFA_PARAM_MBZ);
+		SMC_RET8(handle, (uint32_t)ret, FFA_TARGET_INFO_MBZ,
+			 FFA_TARGET_INFO_MBZ, FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+			 FFA_PARAM_MBZ, FFA_PARAM_MBZ, FFA_PARAM_MBZ);
 		break; /* not reached */
 
 	case FFA_FEATURES:
@@ -499,7 +499,7 @@ uint64_t spmd_smc_handler(uint32_t smc_fid,
 		 */
 		if (!is_ffa_fid(x1)) {
 			return spmd_ffa_error_return(handle,
-						      FFA_ERROR_NOT_SUPPORTED);
+						     FFA_ERROR_NOT_SUPPORTED);
 		}
 
 		/* Forward SMC from Normal world to the SPM Core */
@@ -534,6 +534,52 @@ uint64_t spmd_smc_handler(uint32_t smc_fid,
 
 		SMC_RET8(handle, FFA_SUCCESS_SMC32,
 			 FFA_TARGET_INFO_MBZ, spmc_attrs.spmc_id,
+			 FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+			 FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+			 FFA_PARAM_MBZ);
+
+		break; /* not reached */
+
+	case FFA_SECONDARY_EP_REGISTER_SMC64:
+		if (secure_origin) {
+			ret = spmd_pm_secondary_ep_register(x1);
+
+			if (ret < 0) {
+				SMC_RET8(handle, FFA_ERROR_SMC64,
+					FFA_TARGET_INFO_MBZ, ret,
+					FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+					FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+					FFA_PARAM_MBZ);
+			} else {
+				SMC_RET8(handle, FFA_SUCCESS_SMC64,
+					FFA_TARGET_INFO_MBZ, FFA_PARAM_MBZ,
+					FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+					FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+					FFA_PARAM_MBZ);
+			}
+		}
+
+		return spmd_ffa_error_return(handle, FFA_ERROR_NOT_SUPPORTED);
+		break; /* Not reached */
+
+	case FFA_SPM_ID_GET:
+		if (MAKE_FFA_VERSION(1, 1) > FFA_VERSION_COMPILED) {
+			return spmd_ffa_error_return(handle,
+						     FFA_ERROR_NOT_SUPPORTED);
+		}
+		/*
+		 * Returns the ID of the SPMC or SPMD depending on the FF-A
+		 * instance where this function is invoked
+		 */
+		if (!secure_origin) {
+			SMC_RET8(handle, FFA_SUCCESS_SMC32,
+				 FFA_TARGET_INFO_MBZ, spmc_attrs.spmc_id,
+				 FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+				 FFA_PARAM_MBZ, FFA_PARAM_MBZ,
+				 FFA_PARAM_MBZ);
+		}
+		SMC_RET8(handle, FFA_SUCCESS_SMC32,
+			 FFA_TARGET_INFO_MBZ, SPMD_DIRECT_MSG_ENDPOINT_ID,
 			 FFA_PARAM_MBZ, FFA_PARAM_MBZ,
 			 FFA_PARAM_MBZ, FFA_PARAM_MBZ,
 			 FFA_PARAM_MBZ);
@@ -627,7 +673,7 @@ uint64_t spmd_smc_handler(uint32_t smc_fid,
 		}
 
 		/* Fall through to forward the call to the other world */
-
+	case FFA_INTERRUPT:
 	case FFA_MSG_YIELD:
 		/* This interface must be invoked only by the Secure world */
 		if (!secure_origin) {

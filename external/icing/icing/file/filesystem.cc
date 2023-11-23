@@ -16,7 +16,6 @@
 
 #include <dirent.h>
 #include <dlfcn.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <pthread.h>
@@ -26,6 +25,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <unordered_set>
 

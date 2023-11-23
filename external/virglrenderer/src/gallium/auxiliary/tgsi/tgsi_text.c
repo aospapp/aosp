@@ -1075,7 +1075,7 @@ parse_instruction(
       inst.Texture.Texture = TGSI_TEXTURE_UNKNOWN;
    }
 
-   if ((i >= TGSI_OPCODE_LOAD && i <= TGSI_OPCODE_ATOMIMAX) ||
+   if ((i >= TGSI_OPCODE_LOAD && i <= TGSI_OPCODE_ATOMIMAX && i != TGSI_OPCODE_BARRIER) ||
        i == TGSI_OPCODE_RESQ) {
       inst.Instruction.Memory = 1;
       inst.Memory.Qualifier = 0;

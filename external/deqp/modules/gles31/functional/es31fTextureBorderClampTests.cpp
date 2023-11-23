@@ -174,7 +174,7 @@ int getDimensionNumBlocks (int dimensionSize, int blockSize)
 	return (dimensionSize + blockSize - 1) / blockSize;
 }
 
-void generateDummyCompressedData (tcu::CompressedTexture& dst, const tcu::CompressedTexFormat& format)
+void generateDefaultCompressedData (tcu::CompressedTexture& dst, const tcu::CompressedTexFormat& format)
 {
 	const int			blockByteSize	= tcu::getBlockSize(format);
 	const tcu::IVec3	blockPixelSize	= tcu::getBlockPixelSize(format);
@@ -281,7 +281,7 @@ struct TextureTraits<glu::Texture3D>
 };
 
 template <typename T>
-de::MovePtr<T> genDummyTexture (glu::RenderContext& renderCtx, const glu::ContextInfo& ctxInfo, deUint32 texFormat, const typename TextureTraits<T>::SizeType& size)
+de::MovePtr<T> genDefaultTexture (glu::RenderContext& renderCtx, const glu::ContextInfo& ctxInfo, deUint32 texFormat, const typename TextureTraits<T>::SizeType& size)
 {
 	de::MovePtr<T> texture;
 
@@ -338,7 +338,7 @@ de::MovePtr<T> genDummyTexture (glu::RenderContext& renderCtx, const glu::Contex
 		const bool						isAstcFormat		= tcu::isAstcFormat(compressedFormat);
 		tcu::TexDecompressionParams		decompressionParams	((isAstcFormat) ? (tcu::TexDecompressionParams::ASTCMODE_LDR) : (tcu::TexDecompressionParams::ASTCMODE_LAST));
 
-		generateDummyCompressedData(compressedLevel, compressedFormat);
+		generateDefaultCompressedData(compressedLevel, compressedFormat);
 
 		texture = TextureTraits<T>::createTextureFromCompressedData(renderCtx,
 																	ctxInfo,
@@ -649,13 +649,14 @@ TextureBorderClampTest::~TextureBorderClampTest (void)
 void TextureBorderClampTest::init (void)
 {
 	// requirements
-	const bool supportsES32 = glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2));
+	const bool supportsGL45			= glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::core(4, 5));
+	const bool supportsES32orGL45	= glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2)) || supportsGL45;
 
-	if (!supportsES32 && !m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
+	if (!supportsES32orGL45 && !m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
 		throw tcu::NotSupportedError("Test requires GL_EXT_texture_border_clamp extension");
 
 	if (glu::isCompressedFormat(m_texFormat)													&&
-		!supportsES32																			&&
+		!supportsES32orGL45																		&&
 		tcu::isAstcFormat(glu::mapGLCompressedTexFormat(m_texFormat))							&&
 		!m_context.getContextInfo().isExtensionSupported("GL_KHR_texture_compression_astc_ldr"))
 	{
@@ -673,7 +674,7 @@ void TextureBorderClampTest::init (void)
 
 	// resources
 
-	m_texture = genDummyTexture<glu::Texture2D>(m_context.getRenderContext(), m_context.getContextInfo(), m_texFormat, tcu::IVec2(m_texWidth, m_texHeight));
+	m_texture = genDefaultTexture<glu::Texture2D>(m_context.getRenderContext(), m_context.getContextInfo(), m_texFormat, tcu::IVec2(m_texWidth, m_texHeight));
 
 	m_testCtx.getLog()	<< tcu::TestLog::Message
 						<< "Created texture with format " << glu::getTextureFormatName(m_texFormat)
@@ -1613,7 +1614,7 @@ void TextureBorderClampRangeClampCase::init (void)
 	}
 	else if (isFixed)
 	{
-		const bool		isSigned	= m_channelClass == tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT;;
+		const bool		isSigned	= m_channelClass == tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT;
 		const tcu::Vec4	lookupBias	= (isSigned) ? (tcu::Vec4(0.5f))    : (tcu::Vec4(0.25f)); // scale & bias to [0.25, 0.5] range to make out-of-range values visible
 		const tcu::Vec4	lookupScale	= (isSigned) ? (tcu::Vec4(0.25f))   : (tcu::Vec4(0.5f));
 
@@ -2067,14 +2068,16 @@ TextureBorderClampPerAxisCase3D::TextureBorderClampPerAxisCase3D (Context&		cont
 
 void TextureBorderClampPerAxisCase3D::init (void)
 {
-	const bool				supportsES32	= glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2));
-	const glu::GLSLVersion	glslVersion		= glu::getContextTypeGLSLVersion(m_context.getRenderContext().getType());
+	auto		ctxType						= m_context.getRenderContext().getType();
+	const bool	isES32orGL45				= glu::contextSupports(ctxType, glu::ApiType::es(3, 2)) ||
+											  glu::contextSupports(ctxType, glu::ApiType::core(4, 5));
+	const glu::GLSLVersion	glslVersion		= glu::getContextTypeGLSLVersion(ctxType);
 
-	if (!supportsES32 && !m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
+	if (!isES32orGL45 && !m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
 		throw tcu::NotSupportedError("Test requires GL_EXT_texture_border_clamp extension");
 
 	if (glu::isCompressedFormat(m_texFormat)													&&
-		!supportsES32																			&&
+		!isES32orGL45																			&&
 		tcu::isAstcFormat(glu::mapGLCompressedTexFormat(m_texFormat))							&&
 		!m_context.getContextInfo().isExtensionSupported("GL_KHR_texture_compression_astc_ldr"))
 	{
@@ -2089,7 +2092,7 @@ void TextureBorderClampPerAxisCase3D::init (void)
 	}
 
 	// resources
-	m_texture = genDummyTexture<glu::Texture3D>(m_context.getRenderContext(), m_context.getContextInfo(), m_texFormat, m_size);
+	m_texture = genDefaultTexture<glu::Texture3D>(m_context.getRenderContext(), m_context.getContextInfo(), m_texFormat, m_size);
 	m_renderer = de::MovePtr<gls::TextureTestUtil::TextureRenderer>(new gls::TextureTestUtil::TextureRenderer(m_context.getRenderContext(), m_testCtx.getLog(), glslVersion, glu::PRECISION_HIGHP));
 
 	// texture info
@@ -2275,10 +2278,19 @@ deUint32 TextureBorderClampPerAxisCase3D::getCaseSeed (void) const
 	return builder.get();
 }
 
+static bool isFormatSupported(deUint32 format, bool isGL45)
+{
+	if (isGL45 && (format == GL_LUMINANCE || format == GL_ALPHA || format == GL_LUMINANCE_ALPHA))
+		return false;
+
+	return true;
+}
+
 } // anonymous
 
-TextureBorderClampTests::TextureBorderClampTests (Context& context)
+TextureBorderClampTests::TextureBorderClampTests (Context& context, bool isGL45)
 	: TestCaseGroup(context, "border_clamp", "EXT_texture_border_clamp tests")
+	, m_isGL45(isGL45)
 {
 }
 
@@ -2416,7 +2428,7 @@ void TextureBorderClampTests::init (void)
 					const std::string		caseName		= std::string() + s_filters[filterNdx].name + "_" + sizeName;
 					const deUint32			filter			= s_filters[filterNdx].filter;
 
-					if (coreFilterable || !filterRequiresFilterability(filter))
+					if ((coreFilterable || !filterRequiresFilterability(filter)) && isFormatSupported(format, m_isGL45))
 						formatGroup->addChild(new TextureBorderClampFormatCase(m_context,
 																			   caseName.c_str(),
 																			   "",
@@ -2736,11 +2748,14 @@ void TextureBorderClampTests::init (void)
 
 		for (int formatNdx = 0; formatNdx < DE_LENGTH_OF_ARRAY(formats); ++formatNdx)
 		{
-			unusedGroup->addChild(new TextureBorderClampUnusedChannelCase(m_context,
-																		  formats[formatNdx].name,
-																		  "",
-																		  formats[formatNdx].format,
-																		  formats[formatNdx].mode));
+			if (isFormatSupported(formats[formatNdx].format, m_isGL45))
+			{
+				unusedGroup->addChild(new TextureBorderClampUnusedChannelCase(m_context,
+																			  formats[formatNdx].name,
+																			  "",
+																			  formats[formatNdx].format,
+																			  formats[formatNdx].mode));
+			}
 		}
 	}
 }

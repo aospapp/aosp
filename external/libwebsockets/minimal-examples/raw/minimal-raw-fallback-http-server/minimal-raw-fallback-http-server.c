@@ -63,7 +63,7 @@ callback_raw_echo(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (len > sizeof(pss->buf))
 			len = sizeof(pss->buf);
 		memcpy(pss->buf, in, len);
-		pss->len = len;
+		pss->len = (int)len;
 		lws_callback_on_writable(wsi);
 		break;
 
@@ -73,7 +73,7 @@ callback_raw_echo(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 	case LWS_CALLBACK_RAW_WRITEABLE:
 		lwsl_notice("LWS_CALLBACK_RAW_WRITEABLE\n");
-		lws_write(wsi, pss->buf, pss->len, LWS_WRITE_HTTP);
+		lws_write(wsi, pss->buf, (unsigned int)pss->len, LWS_WRITE_HTTP);
 		break;
 	default:
 		break;
@@ -83,8 +83,8 @@ callback_raw_echo(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 }
 
 static const struct lws_protocols protocols[] = {
-	{ "raw-echo", callback_raw_echo, sizeof(struct pss__raw_echo), 2048 },
-	{ NULL, NULL, 0, 0 }
+	{ "raw-echo", callback_raw_echo, sizeof(struct pss__raw_echo), 2048, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 void sigint_handler(int sig)
@@ -119,6 +119,7 @@ int main(int argc, const char **argv)
 	info.listen_accept_role = "raw-skt";
 	info.listen_accept_protocol = "raw-echo";
 
+#if defined(LWS_WITH_TLS)
 	if (lws_cmdline_option(argc, argv, "-s")) {
 		info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT |
 				LWS_SERVER_OPTION_ALLOW_NON_SSL_ON_SSL_PORT;
@@ -131,6 +132,7 @@ int main(int argc, const char **argv)
 		if (lws_cmdline_option(argc, argv, "-h"))
 			info.options |= LWS_SERVER_OPTION_ALLOW_HTTP_ON_HTTPS_LISTENER;
 	}
+#endif
 
 	context = lws_create_context(&info);
 	if (!context) {

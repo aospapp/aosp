@@ -198,6 +198,28 @@ impl Kvm {
 
         Ok(indices.to_vec())
     }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    // The x86 machine type is always 0
+    pub fn get_vm_type(&self) -> c_ulong {
+        0
+    }
+
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    // Compute the machine type, which should be the IPA range for the VM
+    // Ideally, this would take a description of the memory map and return
+    // the closest machine type for this VM. Here, we just return the maximum
+    // the kernel support.
+    pub fn get_vm_type(&self) -> c_ulong {
+        // Safe because we know self is a real kvm fd
+        match unsafe { ioctl_with_val(self, KVM_CHECK_EXTENSION(), KVM_CAP_ARM_VM_IPA_SIZE.into()) }
+        {
+            // Not supported? Use 0 as the machine type, which implies 40bit IPA
+            ret if ret < 0 => 0,
+            // Use the lower 8 bits representing the IPA space as the machine type
+            ipa => (ipa & 0xff) as c_ulong,
+        }
+    }
 }
 
 impl AsRawDescriptor for Kvm {
@@ -274,7 +296,7 @@ impl Vm {
     pub fn new(kvm: &Kvm, guest_mem: GuestMemory) -> Result<Vm> {
         // Safe because we know kvm is a real kvm fd as this module is the only one that can make
         // Kvm objects.
-        let ret = unsafe { ioctl(kvm, KVM_CREATE_VM()) };
+        let ret = unsafe { ioctl_with_val(kvm, KVM_CREATE_VM(), kvm.get_vm_type()) };
         if ret >= 0 {
             // Safe because we verify the value of ret and we are the owners of the fd.
             let vm_file = unsafe { File::from_raw_descriptor(ret) };
@@ -1064,10 +1086,12 @@ impl Vcpu {
                     return Err(Error::new(EINVAL));
                 }
                 let hcall = unsafe { &mut hyperv.u.hcall };
-                if data.len() != std::mem::size_of::<u64>() {
-                    return Err(Error::new(EINVAL));
+                match data.try_into() {
+                    Ok(data) => {
+                        hcall.result = u64::from_ne_bytes(data);
+                    }
+                    _ => return Err(Error::new(EINVAL)),
                 }
-                hcall.result.to_ne_bytes().copy_from_slice(data);
                 Ok(())
             }
             _ => Err(Error::new(EINVAL)),
@@ -1235,7 +1259,7 @@ impl Vcpu {
             // Mapping the unsized array to a slice is unsafe because the length isn't known.
             // Providing the length used to create the struct guarantees the entire slice is valid.
             let entries: &mut [kvm_msr_entry] = msrs[0].entries.as_mut_slice(msr_entries.len());
-            entries.copy_from_slice(&msr_entries);
+            entries.copy_from_slice(msr_entries);
         }
         msrs[0].nmsrs = msr_entries.len() as u32;
         let ret = unsafe {
@@ -1251,7 +1275,7 @@ impl Vcpu {
             assert!(count <= msr_entries.len());
             let entries: &mut [kvm_msr_entry] = msrs[0].entries.as_mut_slice(count);
             msr_entries.truncate(count);
-            msr_entries.copy_from_slice(&entries);
+            msr_entries.copy_from_slice(entries);
         }
         Ok(())
     }
@@ -1713,7 +1737,7 @@ mod tests {
     #[test]
     fn create_vm() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         Vm::new(&kvm, gm).unwrap();
     }
 
@@ -1728,7 +1752,7 @@ mod tests {
     #[test]
     fn check_vm_extension() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         assert!(vm.check_extension(Cap::UserMemory));
         // I assume nobody is testing this on s390
@@ -1762,11 +1786,8 @@ mod tests {
     #[test]
     fn add_memory() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![
-            (GuestAddress(0), 0x1000),
-            (GuestAddress(0x5000), 0x5000),
-        ])
-        .unwrap();
+        let gm =
+            GuestMemory::new(&[(GuestAddress(0), 0x1000), (GuestAddress(0x5000), 0x5000)]).unwrap();
         let mut vm = Vm::new(&kvm, gm).unwrap();
         let mem_size = 0x1000;
         let mem = MemoryMappingBuilder::new(mem_size).build().unwrap();
@@ -1780,7 +1801,7 @@ mod tests {
     #[test]
     fn add_memory_ro() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         let mut vm = Vm::new(&kvm, gm).unwrap();
         let mem_size = 0x1000;
         let mem = MemoryMappingBuilder::new(mem_size).build().unwrap();
@@ -1791,7 +1812,7 @@ mod tests {
     #[test]
     fn remove_memory_region() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         let mut vm = Vm::new(&kvm, gm).unwrap();
         let mem_size = 0x1000;
         let mem = MemoryMappingBuilder::new(mem_size).build().unwrap();
@@ -1807,7 +1828,7 @@ mod tests {
     #[test]
     fn remove_invalid_memory() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         let mut vm = Vm::new(&kvm, gm).unwrap();
         assert!(vm.remove_memory_region(0).is_err());
     }
@@ -1815,7 +1836,7 @@ mod tests {
     #[test]
     fn overlap_memory() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let mut vm = Vm::new(&kvm, gm).unwrap();
         let mem_size = 0x2000;
         let mem = MemoryMappingBuilder::new(mem_size).build().unwrap();
@@ -1827,7 +1848,7 @@ mod tests {
     #[test]
     fn get_memory() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let obj_addr = GuestAddress(0xf0);
         vm.get_memory().write_obj_at_addr(67u8, obj_addr).unwrap();
@@ -1839,7 +1860,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn clock_handling() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let mut clock_data = vm.get_clock().unwrap();
         clock_data.clock += 1000;
@@ -1850,7 +1871,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn pic_handling() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.create_irq_chip().unwrap();
         let pic_state = vm.get_pic_state(PicId::Secondary).unwrap();
@@ -1861,7 +1882,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn ioapic_handling() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.create_irq_chip().unwrap();
         let ioapic_state = vm.get_ioapic_state().unwrap();
@@ -1872,7 +1893,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn pit_handling() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.create_irq_chip().unwrap();
         vm.create_pit().unwrap();
@@ -1883,7 +1904,7 @@ mod tests {
     #[test]
     fn register_ioevent() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let evtfd = Event::new().unwrap();
         vm.register_ioevent(&evtfd, IoeventAddress::Pio(0xf4), Datamatch::AnyLength)
@@ -1919,7 +1940,7 @@ mod tests {
     #[test]
     fn unregister_ioevent() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let evtfd = Event::new().unwrap();
         vm.register_ioevent(&evtfd, IoeventAddress::Pio(0xf4), Datamatch::AnyLength)
@@ -1947,7 +1968,7 @@ mod tests {
     #[test]
     fn irqfd_resample() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let evtfd1 = Event::new().unwrap();
         let evtfd2 = Event::new().unwrap();
@@ -1963,7 +1984,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn set_gsi_routing() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.create_irq_chip().unwrap();
         vm.set_gsi_routing(&[]).unwrap();
@@ -2005,7 +2026,7 @@ mod tests {
     #[test]
     fn create_vcpu() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         Vcpu::new(0, &kvm, &vm).unwrap();
     }
@@ -2014,7 +2035,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn debugregs() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
         let mut dregs = vcpu.get_debugregs().unwrap();
@@ -2032,7 +2053,7 @@ mod tests {
             return;
         }
 
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
         let mut xcrs = vcpu.get_xcrs().unwrap();
@@ -2046,7 +2067,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn get_msrs() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
         let mut msrs = vec![
@@ -2069,7 +2090,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn get_hyperv_cpuid() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
         let cpuid = vcpu.get_hyperv_cpuid();
@@ -2086,12 +2107,14 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn enable_feature() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.create_irq_chip().unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
-        let mut cap: kvm_enable_cap = Default::default();
-        cap.cap = kvm_sys::KVM_CAP_HYPERV_SYNIC;
+        let cap: kvm_enable_cap = kvm_sys::kvm_enable_cap {
+            cap: kvm_sys::KVM_CAP_HYPERV_SYNIC,
+            ..Default::default()
+        };
         unsafe { vcpu.kvm_enable_cap(&cap) }.unwrap();
     }
 
@@ -2099,7 +2122,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn mp_state() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.create_irq_chip().unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
@@ -2110,7 +2133,7 @@ mod tests {
     #[test]
     fn set_signal_mask() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         let vcpu = Vcpu::new(0, &kvm, &vm).unwrap();
         vcpu.set_signal_mask(&[base::SIGRTMIN() + 0]).unwrap();
@@ -2129,7 +2152,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn set_identity_map_addr() {
         let kvm = Kvm::new().unwrap();
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x10000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap();
         let vm = Vm::new(&kvm, gm).unwrap();
         vm.set_identity_map_addr(GuestAddress(0x20000)).unwrap();
     }

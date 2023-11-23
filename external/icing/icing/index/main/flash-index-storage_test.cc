@@ -14,10 +14,10 @@
 
 #include "icing/index/main/flash-index-storage.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <limits>
 #include <utility>
 #include <vector>

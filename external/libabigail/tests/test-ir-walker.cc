@@ -157,7 +157,7 @@ main(int argc, char **argv)
 
   abigail::ir::environment_sptr env(new abigail::ir::environment);
   abigail::corpus_sptr c;
-  abigail::dwarf_reader::status status = abigail::dwarf_reader::STATUS_OK;
+  abigail::elf_reader::status status = abigail::elf_reader::STATUS_OK;
   std::vector<char**> di_roots;
   if (!(c = abigail::dwarf_reader::read_corpus_from_elf(file_name, di_roots,
 							env.get(),

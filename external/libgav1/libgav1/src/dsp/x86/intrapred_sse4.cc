@@ -90,11 +90,11 @@ struct DirectionalPredFuncs_SSE4_1 {
 
 template <int width_log2, int height_log2, DcSumFunc top_sumfn,
           DcSumFunc left_sumfn, DcStoreFunc storefn, int shiftk, int dc_mult>
-void DcPredFuncs_SSE4_1<width_log2, height_log2, top_sumfn, left_sumfn, storefn,
-                        shiftk, dc_mult>::DcTop(void* const dest,
-                                                ptrdiff_t stride,
-                                                const void* const top_row,
-                                                const void* /*left_column*/) {
+void DcPredFuncs_SSE4_1<
+    width_log2, height_log2, top_sumfn, left_sumfn, storefn, shiftk,
+    dc_mult>::DcTop(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                    const void* LIBGAV1_RESTRICT const top_row,
+                    const void* /*left_column*/) {
   const __m128i rounder = _mm_set1_epi32(1 << (width_log2 - 1));
   const __m128i sum = top_sumfn(top_row);
   const __m128i dc = _mm_srli_epi32(_mm_add_epi32(sum, rounder), width_log2);
@@ -103,11 +103,11 @@ void DcPredFuncs_SSE4_1<width_log2, height_log2, top_sumfn, left_sumfn, storefn,
 
 template <int width_log2, int height_log2, DcSumFunc top_sumfn,
           DcSumFunc left_sumfn, DcStoreFunc storefn, int shiftk, int dc_mult>
-void DcPredFuncs_SSE4_1<width_log2, height_log2, top_sumfn, left_sumfn, storefn,
-                        shiftk,
-                        dc_mult>::DcLeft(void* const dest, ptrdiff_t stride,
-                                         const void* /*top_row*/,
-                                         const void* const left_column) {
+void DcPredFuncs_SSE4_1<
+    width_log2, height_log2, top_sumfn, left_sumfn, storefn, shiftk,
+    dc_mult>::DcLeft(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                     const void* /*top_row*/,
+                     const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i rounder = _mm_set1_epi32(1 << (height_log2 - 1));
   const __m128i sum = left_sumfn(left_column);
   const __m128i dc = _mm_srli_epi32(_mm_add_epi32(sum, rounder), height_log2);
@@ -116,10 +116,11 @@ void DcPredFuncs_SSE4_1<width_log2, height_log2, top_sumfn, left_sumfn, storefn,
 
 template <int width_log2, int height_log2, DcSumFunc top_sumfn,
           DcSumFunc left_sumfn, DcStoreFunc storefn, int shiftk, int dc_mult>
-void DcPredFuncs_SSE4_1<width_log2, height_log2, top_sumfn, left_sumfn, storefn,
-                        shiftk, dc_mult>::Dc(void* const dest, ptrdiff_t stride,
-                                             const void* const top_row,
-                                             const void* const left_column) {
+void DcPredFuncs_SSE4_1<
+    width_log2, height_log2, top_sumfn, left_sumfn, storefn, shiftk,
+    dc_mult>::Dc(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                 const void* LIBGAV1_RESTRICT const top_row,
+                 const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i rounder =
       _mm_set1_epi32((1 << (width_log2 - 1)) + (1 << (height_log2 - 1)));
   const __m128i sum_top = top_sumfn(top_row);
@@ -141,8 +142,8 @@ void DcPredFuncs_SSE4_1<width_log2, height_log2, top_sumfn, left_sumfn, storefn,
 
 template <ColumnStoreFunc col_storefn>
 void DirectionalPredFuncs_SSE4_1<col_storefn>::Horizontal(
-    void* const dest, ptrdiff_t stride, const void* /*top_row*/,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* /*top_row*/, const void* LIBGAV1_RESTRICT const left_column) {
   col_storefn(dest, stride, left_column);
 }
 
@@ -384,8 +385,9 @@ inline void WriteDuplicate64x4(void* const dest, ptrdiff_t stride,
 // ColStoreN<height> copies each of the |height| values in |column| across its
 // corresponding in dest.
 template <WriteDuplicateFunc writefn>
-inline void ColStore4_SSE4_1(void* const dest, ptrdiff_t stride,
-                             const void* const column) {
+inline void ColStore4_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                             ptrdiff_t stride,
+                             const void* LIBGAV1_RESTRICT const column) {
   const __m128i col_data = Load4(column);
   const __m128i col_dup16 = _mm_unpacklo_epi8(col_data, col_data);
   const __m128i col_dup32 = _mm_unpacklo_epi16(col_dup16, col_dup16);
@@ -393,8 +395,9 @@ inline void ColStore4_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore8_SSE4_1(void* const dest, ptrdiff_t stride,
-                             const void* const column) {
+inline void ColStore8_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                             ptrdiff_t stride,
+                             const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   const __m128i col_data = LoadLo8(column);
   const __m128i col_dup16 = _mm_unpacklo_epi8(col_data, col_data);
@@ -407,8 +410,9 @@ inline void ColStore8_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore16_SSE4_1(void* const dest, ptrdiff_t stride,
-                              const void* const column) {
+inline void ColStore16_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                              ptrdiff_t stride,
+                              const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   const __m128i col_data = _mm_loadu_si128(static_cast<const __m128i*>(column));
   const __m128i col_dup16_lo = _mm_unpacklo_epi8(col_data, col_data);
@@ -428,8 +432,9 @@ inline void ColStore16_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore32_SSE4_1(void* const dest, ptrdiff_t stride,
-                              const void* const column) {
+inline void ColStore32_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                              ptrdiff_t stride,
+                              const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   auto* dst = static_cast<uint8_t*>(dest);
   for (int y = 0; y < 32; y += 16) {
@@ -457,8 +462,9 @@ inline void ColStore32_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore64_SSE4_1(void* const dest, ptrdiff_t stride,
-                              const void* const column) {
+inline void ColStore64_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                              ptrdiff_t stride,
+                              const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   auto* dst = static_cast<uint8_t*>(dest);
   for (int y = 0; y < 64; y += 16) {
@@ -574,7 +580,7 @@ struct DirDefs {
 };
 
 template <int y_mask>
-inline void WritePaethLine4(uint8_t* dst, const __m128i& top,
+inline void WritePaethLine4(uint8_t* LIBGAV1_RESTRICT dst, const __m128i& top,
                             const __m128i& left, const __m128i& top_lefts,
                             const __m128i& top_dists, const __m128i& left_dists,
                             const __m128i& top_left_diffs) {
@@ -614,7 +620,7 @@ inline void WritePaethLine4(uint8_t* dst, const __m128i& top,
 // could pay off to accommodate top_left_dists for cmpgt, and repack into epi8
 // for the blends.
 template <int y_mask>
-inline void WritePaethLine8(uint8_t* dst, const __m128i& top,
+inline void WritePaethLine8(uint8_t* LIBGAV1_RESTRICT dst, const __m128i& top,
                             const __m128i& left, const __m128i& top_lefts,
                             const __m128i& top_dists, const __m128i& left_dists,
                             const __m128i& top_left_diffs) {
@@ -658,7 +664,7 @@ inline void WritePaethLine8(uint8_t* dst, const __m128i& top,
 // |left_dists| is provided alongside its spread out version because it doesn't
 // change between calls and interacts with both kinds of packing.
 template <int y_mask>
-inline void WritePaethLine16(uint8_t* dst, const __m128i& top,
+inline void WritePaethLine16(uint8_t* LIBGAV1_RESTRICT dst, const __m128i& top,
                              const __m128i& left, const __m128i& top_lefts,
                              const __m128i& top_dists,
                              const __m128i& left_dists,
@@ -712,8 +718,9 @@ inline void WritePaethLine16(uint8_t* dst, const __m128i& top,
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), pred);
 }
 
-void Paeth4x4_SSE4_1(void* const dest, ptrdiff_t stride,
-                     const void* const top_row, const void* const left_column) {
+void Paeth4x4_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                     const void* LIBGAV1_RESTRICT const top_row,
+                     const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = _mm_cvtepu8_epi32(Load4(left_column));
   const __m128i top = _mm_cvtepu8_epi32(Load4(top_row));
 
@@ -742,8 +749,9 @@ void Paeth4x4_SSE4_1(void* const dest, ptrdiff_t stride,
                         top_left_diff);
 }
 
-void Paeth4x8_SSE4_1(void* const dest, ptrdiff_t stride,
-                     const void* const top_row, const void* const left_column) {
+void Paeth4x8_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                     const void* LIBGAV1_RESTRICT const top_row,
+                     const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadLo8(left_column);
   const __m128i left_lo = _mm_cvtepu8_epi32(left);
   const __m128i left_hi = _mm_cvtepu8_epi32(_mm_srli_si128(left, 4));
@@ -787,9 +795,9 @@ void Paeth4x8_SSE4_1(void* const dest, ptrdiff_t stride,
                         top_left_diff);
 }
 
-void Paeth4x16_SSE4_1(void* const dest, ptrdiff_t stride,
-                      const void* const top_row,
-                      const void* const left_column) {
+void Paeth4x16_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                      const void* LIBGAV1_RESTRICT const top_row,
+                      const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadUnaligned16(left_column);
   const __m128i left_0 = _mm_cvtepu8_epi32(left);
   const __m128i left_1 = _mm_cvtepu8_epi32(_mm_srli_si128(left, 4));
@@ -862,8 +870,9 @@ void Paeth4x16_SSE4_1(void* const dest, ptrdiff_t stride,
                         top_left_diff);
 }
 
-void Paeth8x4_SSE4_1(void* const dest, ptrdiff_t stride,
-                     const void* const top_row, const void* const left_column) {
+void Paeth8x4_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                     const void* LIBGAV1_RESTRICT const top_row,
+                     const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = _mm_cvtepu8_epi16(Load4(left_column));
   const __m128i top = _mm_cvtepu8_epi16(LoadLo8(top_row));
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
@@ -891,8 +900,9 @@ void Paeth8x4_SSE4_1(void* const dest, ptrdiff_t stride,
                               top_left_diff);
 }
 
-void Paeth8x8_SSE4_1(void* const dest, ptrdiff_t stride,
-                     const void* const top_row, const void* const left_column) {
+void Paeth8x8_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                     const void* LIBGAV1_RESTRICT const top_row,
+                     const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = _mm_cvtepu8_epi16(LoadLo8(left_column));
   const __m128i top = _mm_cvtepu8_epi16(LoadLo8(top_row));
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
@@ -932,9 +942,9 @@ void Paeth8x8_SSE4_1(void* const dest, ptrdiff_t stride,
                               top_left_diff);
 }
 
-void Paeth8x16_SSE4_1(void* const dest, ptrdiff_t stride,
-                      const void* const top_row,
-                      const void* const left_column) {
+void Paeth8x16_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                      const void* LIBGAV1_RESTRICT const top_row,
+                      const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadUnaligned16(left_column);
   const __m128i left_lo = _mm_cvtepu8_epi16(left);
   const __m128i left_hi = _mm_cvtepu8_epi16(_mm_srli_si128(left, 8));
@@ -1001,18 +1011,18 @@ void Paeth8x16_SSE4_1(void* const dest, ptrdiff_t stride,
                               left_dists, top_left_diff);
 }
 
-void Paeth8x32_SSE4_1(void* const dest, ptrdiff_t stride,
-                      const void* const top_row,
-                      const void* const left_column) {
+void Paeth8x32_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                      const void* LIBGAV1_RESTRICT const top_row,
+                      const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const left_ptr = static_cast<const uint8_t*>(left_column);
   auto* const dst = static_cast<uint8_t*>(dest);
   Paeth8x16_SSE4_1(dst, stride, top_row, left_column);
   Paeth8x16_SSE4_1(dst + (stride << 4), stride, top_row, left_ptr + 16);
 }
 
-void Paeth16x4_SSE4_1(void* const dest, ptrdiff_t stride,
-                      const void* const top_row,
-                      const void* const left_column) {
+void Paeth16x4_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                      const void* LIBGAV1_RESTRICT const top_row,
+                      const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = Load4(left_column);
   const __m128i top = LoadUnaligned16(top_row);
   const __m128i top_lo = _mm_cvtepu8_epi16(top);
@@ -1057,7 +1067,7 @@ void Paeth16x4_SSE4_1(void* const dest, ptrdiff_t stride,
 
 // Inlined for calling with offsets in larger transform sizes, mainly to
 // preserve top_left.
-inline void WritePaeth16x8(void* const dest, ptrdiff_t stride,
+inline void WritePaeth16x8(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
                            const uint8_t top_left, const __m128i top,
                            const __m128i left) {
   const __m128i top_lo = _mm_cvtepu8_epi16(top);
@@ -1115,9 +1125,9 @@ inline void WritePaeth16x8(void* const dest, ptrdiff_t stride,
                                top_left_diff_lo, top_left_diff_hi);
 }
 
-void Paeth16x8_SSE4_1(void* const dest, ptrdiff_t stride,
-                      const void* const top_row,
-                      const void* const left_column) {
+void Paeth16x8_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                      const void* LIBGAV1_RESTRICT const top_row,
+                      const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i top = LoadUnaligned16(top_row);
   const __m128i left = LoadLo8(left_column);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
@@ -1213,18 +1223,18 @@ void WritePaeth16x16(void* const dest, ptrdiff_t stride, const uint8_t top_left,
                                top_left_diff_lo, top_left_diff_hi);
 }
 
-void Paeth16x16_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth16x16_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadUnaligned16(left_column);
   const __m128i top = LoadUnaligned16(top_row);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
   WritePaeth16x16(static_cast<uint8_t*>(dest), stride, top_ptr[-1], top, left);
 }
 
-void Paeth16x32_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth16x32_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left_0 = LoadUnaligned16(left_column);
   const __m128i top = LoadUnaligned16(top_row);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
@@ -1236,9 +1246,9 @@ void Paeth16x32_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst + (stride << 4), stride, top_left, top, left_1);
 }
 
-void Paeth16x64_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth16x64_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const ptrdiff_t stride16 = stride << 4;
   const __m128i left_0 = LoadUnaligned16(left_column);
   const __m128i top = LoadUnaligned16(top_row);
@@ -1258,9 +1268,9 @@ void Paeth16x64_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst, stride, top_left, top, left_3);
 }
 
-void Paeth32x8_SSE4_1(void* const dest, ptrdiff_t stride,
-                      const void* const top_row,
-                      const void* const left_column) {
+void Paeth32x8_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                      const void* LIBGAV1_RESTRICT const top_row,
+                      const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadLo8(left_column);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
   const __m128i top_0 = LoadUnaligned16(top_row);
@@ -1271,9 +1281,9 @@ void Paeth32x8_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x8(dst + 16, stride, top_left, top_1, left);
 }
 
-void Paeth32x16_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth32x16_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadUnaligned16(left_column);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
   const __m128i top_0 = LoadUnaligned16(top_row);
@@ -1284,9 +1294,9 @@ void Paeth32x16_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst + 16, stride, top_left, top_1, left);
 }
 
-void Paeth32x32_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth32x32_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const left_ptr = static_cast<const uint8_t*>(left_column);
   const __m128i left_0 = LoadUnaligned16(left_ptr);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
@@ -1302,9 +1312,9 @@ void Paeth32x32_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst + 16, stride, top_left, top_1, left_1);
 }
 
-void Paeth32x64_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth32x64_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const left_ptr = static_cast<const uint8_t*>(left_column);
   const __m128i left_0 = LoadUnaligned16(left_ptr);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
@@ -1328,9 +1338,9 @@ void Paeth32x64_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst + 16, stride, top_left, top_1, left_3);
 }
 
-void Paeth64x16_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth64x16_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const __m128i left = LoadUnaligned16(left_column);
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);
   const __m128i top_0 = LoadUnaligned16(top_ptr);
@@ -1345,9 +1355,9 @@ void Paeth64x16_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst + 48, stride, top_left, top_3, left);
 }
 
-void Paeth64x32_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth64x32_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const left_ptr = static_cast<const uint8_t*>(left_column);
   const __m128i left_0 = LoadUnaligned16(left_ptr);
   const __m128i left_1 = LoadUnaligned16(left_ptr + 16);
@@ -1369,9 +1379,9 @@ void Paeth64x32_SSE4_1(void* const dest, ptrdiff_t stride,
   WritePaeth16x16(dst + 48, stride, top_left, top_3, left_1);
 }
 
-void Paeth64x64_SSE4_1(void* const dest, ptrdiff_t stride,
-                       const void* const top_row,
-                       const void* const left_column) {
+void Paeth64x64_SSE4_1(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                       const void* LIBGAV1_RESTRICT const top_row,
+                       const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const left_ptr = static_cast<const uint8_t*>(left_column);
   const __m128i left_0 = LoadUnaligned16(left_ptr);
   const __m128i left_1 = LoadUnaligned16(left_ptr + 16);
@@ -1793,7 +1803,6 @@ void Init8bpp() {
       DirDefs::_64x64::Horizontal;
 #endif
 }  // NOLINT(readability/fn_size)
-// TODO(petersonab): Split Init8bpp function into family-specific files.
 
 }  // namespace
 }  // namespace low_bitdepth
@@ -1937,16 +1946,18 @@ inline void WriteDuplicate64x4(void* const dest, ptrdiff_t stride,
 // ColStoreN<height> copies each of the |height| values in |column| across its
 // corresponding row in dest.
 template <WriteDuplicateFunc writefn>
-inline void ColStore4_SSE4_1(void* const dest, ptrdiff_t stride,
-                             const void* const column) {
+inline void ColStore4_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                             ptrdiff_t stride,
+                             const void* LIBGAV1_RESTRICT const column) {
   const __m128i col_data = LoadLo8(column);
   const __m128i col_dup32 = _mm_unpacklo_epi16(col_data, col_data);
   writefn(dest, stride, col_dup32);
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore8_SSE4_1(void* const dest, ptrdiff_t stride,
-                             const void* const column) {
+inline void ColStore8_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                             ptrdiff_t stride,
+                             const void* LIBGAV1_RESTRICT const column) {
   const __m128i col_data = LoadUnaligned16(column);
   const __m128i col_dup32_lo = _mm_unpacklo_epi16(col_data, col_data);
   const __m128i col_dup32_hi = _mm_unpackhi_epi16(col_data, col_data);
@@ -1958,8 +1969,9 @@ inline void ColStore8_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore16_SSE4_1(void* const dest, ptrdiff_t stride,
-                              const void* const column) {
+inline void ColStore16_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                              ptrdiff_t stride,
+                              const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   auto* dst = static_cast<uint8_t*>(dest);
   for (int y = 0; y < 32; y += 16) {
@@ -1975,8 +1987,9 @@ inline void ColStore16_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore32_SSE4_1(void* const dest, ptrdiff_t stride,
-                              const void* const column) {
+inline void ColStore32_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                              ptrdiff_t stride,
+                              const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   auto* dst = static_cast<uint8_t*>(dest);
   for (int y = 0; y < 64; y += 16) {
@@ -1992,8 +2005,9 @@ inline void ColStore32_SSE4_1(void* const dest, ptrdiff_t stride,
 }
 
 template <WriteDuplicateFunc writefn>
-inline void ColStore64_SSE4_1(void* const dest, ptrdiff_t stride,
-                              const void* const column) {
+inline void ColStore64_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                              ptrdiff_t stride,
+                              const void* LIBGAV1_RESTRICT const column) {
   const ptrdiff_t stride4 = stride << 2;
   auto* dst = static_cast<uint8_t*>(dest);
   for (int y = 0; y < 128; y += 16) {

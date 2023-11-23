@@ -66,7 +66,7 @@ pub use crate::codec::pb_codec::{de as pb_de, ser as pb_ser};
 pub use crate::codec::pr_codec::{de as pr_de, ser as pr_ser};
 
 pub use crate::auth_context::{AuthContext, AuthProperty, AuthPropertyIter};
-pub use crate::codec::Marshaller;
+pub use crate::codec::{Marshaller, MAX_MESSAGE_SIZE};
 pub use crate::env::{EnvBuilder, Environment};
 pub use crate::error::{Error, Result};
 pub use crate::log_util::redirect_log;
@@ -80,3 +80,24 @@ pub use crate::security::{
 pub use crate::server::{
     CheckResult, Server, ServerBuilder, ServerChecker, Service, ServiceBuilder, ShutdownFuture,
 };
+
+/// A shortcut for implementing a service method by returning `UNIMPLEMENTED` status code.
+///
+/// Compiler will provide a default implementations for all methods to invoke this macro, so
+/// you usually won't call it directly. If you really need to, just call it like:
+/// ```ignored
+/// fn method(&self, ctx: grpcio::RpcContext, req: Request, resp: UnarySink<Response>) {
+///     unimplemented_call!(ctx, resp);
+/// }
+/// ```
+#[macro_export]
+macro_rules! unimplemented_call {
+    ($ctx:ident, $sink:ident) => {{
+        let f = async move {
+            let _ = $sink
+                .fail($crate::RpcStatus::new($crate::RpcStatusCode::UNIMPLEMENTED))
+                .await;
+        };
+        $ctx.spawn(f)
+    }};
+}

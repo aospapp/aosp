@@ -14,8 +14,6 @@
 #include <xnnpack/dwconv.h>
 
 
-static const int32_t mask_table[14] = {-1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0};
-
 void xnn_f32_dwconv_minmax_ukernel_up8x25__avx_acc2(
     size_t channels,
     size_t output_width,
@@ -26,13 +24,13 @@ void xnn_f32_dwconv_minmax_ukernel_up8x25__avx_acc2(
     size_t output_increment,
     size_t input_offset,
     const float* zero,
-    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
 
-  const __m256 vmax = _mm256_broadcast_ps((const __m128*) params->sse.max);
-  const __m256 vmin = _mm256_broadcast_ps((const __m128*) params->sse.min);
+  const __m256 vmax = _mm256_load_ps(params->avx.max);
+  const __m256 vmin = _mm256_load_ps(params->avx.min);
   do {
     const float* i0 = input[0];
     assert(i0 != NULL);
@@ -331,7 +329,7 @@ void xnn_f32_dwconv_minmax_ukernel_up8x25__avx_acc2(
     if XNN_UNLIKELY(c != 0) {
       assert(c >= 1);
       assert(c <= 7);
-      __m256i vmask = _mm256_loadu_si256((const __m256i*) &mask_table[7 - c]);
+      const __m256i vmask = _mm256_loadu_si256((const __m256i*) &params->avx.mask_table[7 - c]);
 
       __m256 vacc01234567p0 = _mm256_load_ps(w);
 
@@ -441,7 +439,6 @@ void xnn_f32_dwconv_minmax_ukernel_up8x25__avx_acc2(
       __m256 vacc01234567 = _mm256_max_ps(vacc01234567p0, vmin);
       vacc01234567 = _mm256_min_ps(vacc01234567, vmax);
 
-      // _mm256_maskstore_ps(output, vmask, vacc01234567); output += c; could be used here, but triggers msan failures (probably an msan bug).
       __m128 vacc0123 = _mm256_castps256_ps128(vacc01234567);
       if (c & 4) {
         _mm_storeu_ps(output, vacc0123);

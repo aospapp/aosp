@@ -15,6 +15,10 @@ limitations under the License.
 
 #include "tensorflow/c/eager/parallel_device/parallel_device_lib.h"
 
+#include <string>
+#include <utility>
+
+#include "tensorflow/c/eager/c_api_experimental.h"
 #include "tensorflow/c/eager/tfe_cancellation_manager_internal.h"
 #include "tensorflow/c/eager/tfe_tensorhandle_internal.h"
 #include "tensorflow/c/tf_status.h"
@@ -22,6 +26,7 @@ limitations under the License.
 #include "tensorflow/core/lib/gtl/cleanup.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/mutex.h"
+#include "tensorflow/core/util/device_name_utils.h"
 
 namespace tensorflow {
 namespace parallel_device {
@@ -93,6 +98,9 @@ class DeviceThread {
   // the status from `TFE_Execute` and returns outputs if the status is OK.
   std::vector<TensorHandlePtr> Join(TF_Status* status);
 
+  // Block until all Ops finished running on the thread.
+  void AsyncWait(TF_Status* status);
+
  private:
   void Run();
 
@@ -148,6 +156,12 @@ DeviceThread::~DeviceThread() {
     execution_state_ = ExecutionState::kShuttingDown;
   }
   start_execute_.notify_one();
+}
+
+void DeviceThread::AsyncWait(TF_Status* status) {
+  tensorflow::mutex_lock l(execution_mutex_);
+  TFE_ExecutorWaitForAllPendingNodes(executor_.get(), status);
+  TFE_ExecutorClearError(executor_.get());
 }
 
 void DeviceThread::Run() {
@@ -336,6 +350,28 @@ void ParallelDevice::StartExecute(
   }
 }
 
+void ParallelDevice::AsyncWait(TFE_Context* context, TF_Status* status) const {
+  StatusPtr first_bad_status(nullptr);
+
+  for (const auto& dt : device_threads_) {
+    StatusPtr async_wait_status(TF_NewStatus());
+    dt->AsyncWait(async_wait_status.get());
+    // Prefer non cancelled errors to uncover real failures.
+    if (TF_GetCode(async_wait_status.get()) != TF_OK &&
+        (first_bad_status == nullptr ||
+         TF_GetCode(first_bad_status.get()) == TF_CANCELLED)) {
+      first_bad_status.reset(TF_NewStatus());
+      TF_SetStatus(first_bad_status.get(), TF_GetCode(async_wait_status.get()),
+                   TF_Message(async_wait_status.get()));
+    }
+  }
+
+  if (first_bad_status != nullptr) {
+    TF_SetStatus(status, TF_GetCode(first_bad_status.get()),
+                 TF_Message(first_bad_status.get()));
+  }
+}
+
 absl::optional<std::vector<std::unique_ptr<ParallelTensor>>>
 ParallelDevice::Join(
     const std::vector<PartialTensorShape>& expected_output_shapes,
@@ -404,6 +440,30 @@ ParallelDevice::Join(
   return result;
 }
 
+std::vector<std::string> ParallelDevice::SummarizeDeviceNames() const {
+  std::vector<DeviceNameUtils::ParsedName> parsed_components(
+      underlying_devices_.size());
+  for (int component_index = 0; component_index < underlying_devices_.size();
+       ++component_index) {
+    if (!DeviceNameUtils::ParseFullName(underlying_devices_[component_index],
+                                        &parsed_components[component_index]) ||
+        !DeviceNameUtils::IsSameAddressSpace(
+            underlying_devices_[component_index], underlying_devices_[0])) {
+      // Device names are from different address spaces, or we can't figure out
+      // whether they are, so we'll fully-qualify everything.
+      return underlying_devices_;
+    }
+  }
+  std::vector<std::string> local_names;
+  local_names.reserve(underlying_devices_.size());
+  for (const DeviceNameUtils::ParsedName& parsed_component :
+       parsed_components) {
+    local_names.push_back(
+        absl::StrCat(parsed_component.type, ":", parsed_component.id));
+  }
+  return local_names;
+}
+
 std::unique_ptr<ParallelTensor> ParallelTensor::FromTensorHandles(
     const ParallelDevice& parallel_device,
     std::vector<TensorHandlePtr> components, absl::Span<const int64> shape,
@@ -444,26 +504,59 @@ std::unique_ptr<ParallelTensor> ParallelTensor::FromTensorHandles(
 Status ParallelTensor::Shape(const std::vector<int64_t>** shape) const {
   if (!shape_.has_value()) {
     TF_Status status;
-    PartialTensorShape first_shape;
-    TF_RETURN_IF_ERROR(unwrap(tensors_[0].get())->Shape(&first_shape));
+    PartialTensorShape combined_shape;
+    TF_RETURN_IF_ERROR(unwrap(tensors_[0].get())->Shape(&combined_shape));
 
-    // Verify that the TensorHandle's shape matches all of the component shapes.
     for (const TensorHandlePtr& component : tensors_) {
       PartialTensorShape component_shape;
       TF_RETURN_IF_ERROR(unwrap(component.get())->Shape(&component_shape));
-      if (!first_shape.IsIdenticalTo(component_shape)) {
+      if (combined_shape.dims() < 0 ||
+          combined_shape.dims() != component_shape.dims()) {
+        PartialTensorShape first_shape;
+        TF_RETURN_IF_ERROR(unwrap(tensors_[0].get())->Shape(&first_shape));
         return errors::Unimplemented(absl::StrCat(
             "Computing the shape of a ParallelTensor when the components do "
-            "not all have the same shapes is not supported. One tensor had "
+            "not all have the same rank is not supported. One tensor had "
             "shape ",
             first_shape.DebugString(), " and another had shape ",
             component_shape.DebugString()));
+      } else {
+        // Generalize differing axis lengths to "variable"/"unknown".
+        for (int axis_index = 0; axis_index < combined_shape.dims();
+             ++axis_index) {
+          int64_t axis_length = combined_shape.dim_size(axis_index);
+          if (axis_length != component_shape.dim_size(axis_index)) {
+            axis_length = -1;
+          }
+          TF_RETURN_IF_ERROR(
+              combined_shape.SetDimWithStatus(axis_index, axis_length));
+        }
       }
     }
-    auto dim_sizes = first_shape.dim_sizes();
+    auto dim_sizes = combined_shape.dim_sizes();
     shape_ = std::vector<int64_t>(dim_sizes.begin(), dim_sizes.end());
   }
   *shape = &*shape_;
+  return Status::OK();
+}
+
+Status ParallelTensor::SummarizeValue(std::string& summary) {
+  summary = "{";
+  std::vector<std::string> summarized_devices = device_.SummarizeDeviceNames();
+  for (int component_index = 0; component_index < tensors_.size();
+       ++component_index) {
+    // TODO(allenl): Add a C API for summarizing tensors. Currently custom
+    // devices limiting themselves to a C API (for ABI compatibility) would need
+    // to implement summarization for component tensors themselves.
+    ImmediateExecutionTensorHandle* component =
+        tensorflow::unwrap(tensors_[component_index].get());
+    std::string component_summary;
+    TF_RETURN_IF_ERROR(component->SummarizeValue(component_summary));
+    absl::StrAppend(&summary, component_index == 0 ? "" : ", ", "\"",
+                    summarized_devices[component_index],
+                    "\": ", component_summary);
+  }
+  summary += "}";
   return Status::OK();
 }
 

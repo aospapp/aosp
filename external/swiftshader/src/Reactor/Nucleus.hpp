@@ -89,6 +89,11 @@ private:
 	Passes passes;
 };
 
+struct DebugConfig
+{
+	std::string asmEmitDir = "";
+};
+
 // Config holds the Reactor configuration settings.
 class Config
 {
@@ -99,8 +104,6 @@ public:
 	class Edit
 	{
 	public:
-		static const Edit None;
-
 		Edit &set(Optimization::Level level)
 		{
 			optLevel = level;
@@ -122,6 +125,12 @@ public:
 			optPassEdits.push_back({ ListEdit::Clear, Optimization::Pass::Disabled });
 			return *this;
 		}
+		Edit &setDebugConfig(const DebugConfig &cfg)
+		{
+			debugCfg = cfg;
+			debugCfgChanged = true;
+			return *this;
+		}
 
 		Config apply(const Config &cfg) const;
 
@@ -140,17 +149,22 @@ public:
 		Optimization::Level optLevel;
 		bool optLevelChanged = false;
 		std::vector<OptPassesEdit> optPassEdits;
+		DebugConfig debugCfg;
+		bool debugCfgChanged = false;
 	};
 
 	Config() = default;
-	Config(const Optimization &optimization)
+	Config(const Optimization &optimization, const DebugConfig &debugCfg)
 	    : optimization(optimization)
+	    , debugCfg(debugCfg)
 	{}
 
 	const Optimization &getOptimization() const { return optimization; }
+	const DebugConfig &getDebugConfig() const { return debugCfg; }
 
 private:
 	Optimization optimization;
+	DebugConfig debugCfg;
 };
 
 class Nucleus
@@ -166,7 +180,7 @@ public:
 	static void adjustDefaultConfig(const Config::Edit &cfgEdit);
 	static Config getDefaultConfig();
 
-	std::shared_ptr<Routine> acquireRoutine(const char *name, const Config::Edit &cfgEdit = Config::Edit::None);
+	std::shared_ptr<Routine> acquireRoutine(const char *name, const Config::Edit *cfgEdit = nullptr);
 
 	static Value *allocateStackVariable(Type *type, int arraySize = 0);
 	static BasicBlock *createBasicBlock();
@@ -203,7 +217,7 @@ public:
 	static void yield(Value *val);
 	// Called to finalize coroutine creation. After this call, Routine::getEntry can be called to retrieve the entry point to any
 	// of the three coroutine functions. Called by Coroutine::finalize.
-	std::shared_ptr<Routine> acquireCoroutine(const char *name, const Config::Edit &cfg = Config::Edit::None);
+	std::shared_ptr<Routine> acquireCoroutine(const char *name, const Config::Edit *cfg = nullptr);
 	// Called by Coroutine::operator() to execute CoroutineEntryBegin wrapped up in func. This is needed in case
 	// the call must be run on a separate thread of execution (e.g. on a fiber).
 	static CoroutineHandle invokeCoroutineBegin(Routine &routine, std::function<CoroutineHandle()> func);

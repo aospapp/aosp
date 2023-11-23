@@ -24,6 +24,7 @@ import org.junit.runners.JUnit4;
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.util.AnnualTimeZoneRule;
 import com.ibm.icu.util.BasicTimeZone;
+import com.ibm.icu.util.BasicTimeZone.LocalOption;
 import com.ibm.icu.util.Calendar;
 import com.ibm.icu.util.DateTimeRule;
 import com.ibm.icu.util.GregorianCalendar;
@@ -1079,7 +1080,7 @@ public class TimeZoneRuleTest extends TestFmwk {
 
         tzt1 = stz1.getNextTransition(time1, false);
         if (tzt1 != null) {
-            errln("FAIL: No transition must be returned by getNextTranstion for SimpleTimeZone with no DST rule");
+            errln("FAIL: No transition must be returned by getNextTransition for SimpleTimeZone with no DST rule");
         }
         tzt1 = stz1.getPreviousTransition(time1, false);
         if (tzt1 != null) {
@@ -1095,7 +1096,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         stz1.setEndRule(Calendar.NOVEMBER, 1, Calendar.SUNDAY, 2*HOUR); // First Sunday in November
         tzt1 = stz1.getNextTransition(time1, false);
         if (tzt1 == null) {
-            errln("FAIL: Non-null transition must be returned by getNextTranstion for SimpleTimeZone with a DST rule");
+            errln("FAIL: Non-null transition must be returned by getNextTransition for SimpleTimeZone with a DST rule");
         } else {
             String str = tzt1.toString();
             if (str == null || str.length() == 0) {
@@ -1222,7 +1223,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         long time1 = getUTCMillis(1950, Calendar.JANUARY, 1);
         long time2 = getUTCMillis(2020, Calendar.JANUARY, 1);
         if (!vtz.hasEquivalentTransitions(otz, time1, time2)) {
-            errln("FAIL: hasEquivalentTransitons returned false for the same time zone");
+            errln("FAIL: hasEquivalentTransitions returned false for the same time zone");
         }
 
         // getTimeZoneRules
@@ -1235,7 +1236,7 @@ public class TimeZoneRuleTest extends TestFmwk {
 
         int[] offsets_vtzc = new int[2];
         VTimeZone vtzc = VTimeZone.create("PST");
-        vtzc.getOffsetFromLocal(Calendar.getInstance(vtzc).getTimeInMillis(), VTimeZone.LOCAL_STD, VTimeZone.LOCAL_STD, offsets_vtzc);
+        vtzc.getOffsetFromLocal(Calendar.getInstance(vtzc).getTimeInMillis(), LocalOption.STANDARD_FORMER, LocalOption.STANDARD_LATTER, offsets_vtzc);
         if (offsets_vtzc[0] > offsets_vtzc[1]) {
             errln("Error getOffsetFromLocal()");
         }
@@ -1469,7 +1470,7 @@ public class TimeZoneRuleTest extends TestFmwk {
             BasicTimeZone btz = (BasicTimeZone)tz;
             int []offsets = new int[2];
 
-            btz.getOffsetFromLocal(Calendar.getInstance().getTimeInMillis(), BasicTimeZone.LOCAL_STD, BasicTimeZone.LOCAL_STD, offsets);
+            btz.getOffsetFromLocal(Calendar.getInstance().getTimeInMillis(), LocalOption.STANDARD_FORMER, LocalOption.STANDARD_LATTER, offsets);
             if (offsets[0] > offsets[1]) {
                 errln("Error calling getOffsetFromLocal().");
             }
@@ -1513,7 +1514,7 @@ public class TimeZoneRuleTest extends TestFmwk {
             if (tzt0 != null &&
                     (tzt0.getTo().getRawOffset() != tzt.getFrom().getRawOffset()
                     || tzt0.getTo().getDSTSavings() != tzt.getFrom().getDSTSavings())) {
-                errln("FAIL: TO rule of the previous transition does not match FROM rule of this transtion at "
+                errln("FAIL: TO rule of the previous transition does not match FROM rule of this transition at "
                         + time + " for " + icutz.getID());
             }
             tzt0 = tzt;
@@ -1541,7 +1542,7 @@ public class TimeZoneRuleTest extends TestFmwk {
             if (tzt0 != null &&
                     (tzt0.getFrom().getRawOffset() != tzt.getTo().getRawOffset()
                     || tzt0.getFrom().getDSTSavings() != tzt.getTo().getDSTSavings())) {
-                errln("FAIL: TO rule of the next transition does not match FROM rule in this transtion at "
+                errln("FAIL: TO rule of the next transition does not match FROM rule in this transition at "
                         + time + " for " + icutz.getID());
             }
             tzt0 = tzt;

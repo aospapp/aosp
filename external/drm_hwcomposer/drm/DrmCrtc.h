@@ -17,44 +17,55 @@
 #ifndef ANDROID_DRM_CRTC_H_
 #define ANDROID_DRM_CRTC_H_
 
-#include <stdint.h>
 #include <xf86drmMode.h>
 
+#include <cstdint>
+
+#include "DrmDisplayPipeline.h"
 #include "DrmMode.h"
 #include "DrmProperty.h"
+#include "DrmUnique.h"
 
 namespace android {
 
 class DrmDevice;
 
-class DrmCrtc {
+class DrmCrtc : public PipelineBindable<DrmCrtc> {
  public:
-  DrmCrtc(DrmDevice *drm, drmModeCrtcPtr c, unsigned pipe);
+  static auto CreateInstance(DrmDevice &dev, uint32_t crtc_id, uint32_t index)
+      -> std::unique_ptr<DrmCrtc>;
+
+  DrmCrtc() = delete;
   DrmCrtc(const DrmCrtc &) = delete;
   DrmCrtc &operator=(const DrmCrtc &) = delete;
 
-  int Init();
+  auto GetId() const {
+    return crtc_->crtc_id;
+  }
 
-  uint32_t id() const;
-  unsigned pipe() const;
+  auto GetIndexInResArray() const {
+    return index_in_res_array_;
+  }
 
-  int display() const;
-  void set_display(int display);
+  auto &GetActiveProperty() const {
+    return active_property_;
+  }
 
-  bool can_bind(int display) const;
+  auto &GetModeProperty() const {
+    return mode_property_;
+  }
 
-  const DrmProperty &active_property() const;
-  const DrmProperty &mode_property() const;
-  const DrmProperty &out_fence_ptr_property() const;
+  auto &GetOutFencePtrProperty() const {
+    return out_fence_ptr_property_;
+  }
 
  private:
-  DrmDevice *drm_;
+  DrmCrtc(DrmModeCrtcUnique crtc, uint32_t index)
+      : crtc_(std::move(crtc)), index_in_res_array_(index){};
 
-  uint32_t id_;
-  unsigned pipe_;
-  int display_;
+  DrmModeCrtcUnique crtc_;
 
-  DrmMode mode_;
+  const uint32_t index_in_res_array_;
 
   DrmProperty active_property_;
   DrmProperty mode_property_;

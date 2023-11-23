@@ -7,15 +7,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [
-          Ubuntu GCC,
-          Ubuntu GCC -m32,
-          Ubuntu GCC ARM HF,
-          Ubuntu GCC AARCH64,
-          Ubuntu GCC PPC,
-          Ubuntu GCC PPC64LE,
-          macOS Clang
-        ]
         include:
           - name: Ubuntu GCC
             os: ubuntu-latest
@@ -61,6 +52,12 @@ jobs:
             os: macOS-latest
             compiler: clang
 
+          - name: macOS Clang Native
+            os: macOS-latest
+            compiler: clang
+            cmake-args: -DWITH_NATIVE_INSTRUCTIONS=ON
+            configure-args: --native
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v1
@@ -69,12 +66,23 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends abigail-tools ninja-build ${{ matrix.packages }}
+        sudo apt-get install -y --no-install-recommends abigail-tools ninja-build diffoscope ${{ matrix.packages }}
 
     - name: Install packages (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew install ninja ${{ matrix.packages }}
+        brew install ninja diffoscope ${{ matrix.packages }}
+      env:
+        HOMEBREW_NO_INSTALL_CLEANUP: 1
+
+    - name: Select Xcode version (macOS)
+      # Use a version of Xcode that supports ZERO_AR_DATE until CMake supports
+      # AppleClang linking with libtool using -D argument
+      # https://gitlab.kitware.com/cmake/cmake/-/issues/19852
+      if: runner.os == 'macOS'
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '12.1.1'
 
     - name: Compare builds
       run: |
@@ -84,6 +92,7 @@ jobs:
         CFLAGS: ${{ matrix.cflags }}
         CHOST: ${{ matrix.chost }}
         CMAKE_ARGS: ${{ matrix.cmake-args }}
+        CONFIGURE_ARGS: ${{ matrix.configure-args }}
         LDFLAGS: ${{ matrix.ldflags }}
 
     - name: Compare builds (compat)
@@ -94,22 +103,45 @@ jobs:
         CFLAGS: ${{ matrix.cflags }}
         CHOST: ${{ matrix.chost }}
         CMAKE_ARGS: ${{ matrix.cmake-args }}
+        CONFIGURE_ARGS: ${{ matrix.configure-args }}
         LDFLAGS: ${{ matrix.ldflags }}
 
     - name: Check ABI
+      # macOS runner does not contain abigail
+      if: runner.os != 'macOS'
       run: |
         sh test/abicheck.sh --refresh_if
       env:
         CC: ${{ matrix.compiler }}
         CFLAGS: ${{ matrix.cflags }}
         CHOST: ${{ matrix.chost }}
+        CMAKE_ARGS: ${{ matrix.cmake-args }}
+        CONFIGURE_ARGS: ${{ matrix.configure-args }}
         LDFLAGS: ${{ matrix.ldflags }}
 
     - name: Check ABI (compat)
+      # macOS runner does not contain abigail
+      if: runner.os != 'macOS'
       run: |
-        if test "$CHOST" = "powerpc-linux-gnu" || test "$CFLAGS" = "-m32"; then echo "SKIP 32 bit compat broken, see issue 705"; else sh test/abicheck.sh --zlib-compat --refresh_if; fi
+        sh test/abicheck.sh --zlib-compat --refresh_if
       env:
         CC: ${{ matrix.compiler }}
         CFLAGS: ${{ matrix.cflags }}
         CHOST: ${{ matrix.chost }}
+        CMAKE_ARGS: ${{ matrix.cmake-args }}
+        CONFIGURE_ARGS: ${{ matrix.configure-args }}
         LDFLAGS: ${{ matrix.ldflags }}
+
+    - name: Upload build errors
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: ${{ matrix.name }}
+        path: |
+          btmp1/configure.log
+          btmp1/CMakeFiles/CMakeOutput.log
+          btmp1/CMakeFiles/CMakeError.log
+          btmp2/configure.log
+          btmp2/CMakeFiles/CMakeOutput.log
+          btmp2/CMakeFiles/CMakeError.log
+        retention-days: 30

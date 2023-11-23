@@ -3,7 +3,7 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_XA{
     Countries{
-        001{"[Ŵöŕļð one]"}
+        001{"[ŵöŕļð one]"}
         002{"[Åƒŕîçå one]"}
         003{"[Ñöŕţĥ Åɱéŕîçå one two]"}
         005{"[Šöûţĥ Åɱéŕîçå one two]"}

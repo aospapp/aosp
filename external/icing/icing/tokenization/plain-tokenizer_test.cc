@@ -18,9 +18,9 @@
 
 #include "gmock/gmock.h"
 #include "icing/absl_ports/str_cat.h"
-#include "icing/helpers/icu/icu-data-file-helper.h"
 #include "icing/portable/platform.h"
 #include "icing/testing/common-matchers.h"
+#include "icing/testing/icu-data-file-helper.h"
 #include "icing/testing/icu-i18n-test-utils.h"
 #include "icing/testing/jni-test-helpers.h"
 #include "icing/testing/test-data.h"
@@ -68,26 +68,27 @@ TEST_F(PlainTokenizerTest, Simple) {
 
   EXPECT_THAT(plain_tokenizer->TokenizeAll(""), IsOkAndHolds(IsEmpty()));
 
-  EXPECT_THAT(plain_tokenizer->TokenizeAll("Hello World"),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "Hello"),
-                                       EqualsToken(Token::REGULAR, "World"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll("Hello World"),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "Hello"),
+                               EqualsToken(Token::Type::REGULAR, "World"))));
 
   EXPECT_THAT(
       plain_tokenizer->TokenizeAll(
           "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
           "Duis efficitur iaculis auctor."),
-      IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "Lorem"),
-                               EqualsToken(Token::REGULAR, "ipsum"),
-                               EqualsToken(Token::REGULAR, "dolor"),
-                               EqualsToken(Token::REGULAR, "sit"),
-                               EqualsToken(Token::REGULAR, "amet"),
-                               EqualsToken(Token::REGULAR, "consectetur"),
-                               EqualsToken(Token::REGULAR, "adipiscing"),
-                               EqualsToken(Token::REGULAR, "elit"),
-                               EqualsToken(Token::REGULAR, "Duis"),
-                               EqualsToken(Token::REGULAR, "efficitur"),
-                               EqualsToken(Token::REGULAR, "iaculis"),
-                               EqualsToken(Token::REGULAR, "auctor"))));
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "Lorem"),
+                               EqualsToken(Token::Type::REGULAR, "ipsum"),
+                               EqualsToken(Token::Type::REGULAR, "dolor"),
+                               EqualsToken(Token::Type::REGULAR, "sit"),
+                               EqualsToken(Token::Type::REGULAR, "amet"),
+                               EqualsToken(Token::Type::REGULAR, "consectetur"),
+                               EqualsToken(Token::Type::REGULAR, "adipiscing"),
+                               EqualsToken(Token::Type::REGULAR, "elit"),
+                               EqualsToken(Token::Type::REGULAR, "Duis"),
+                               EqualsToken(Token::Type::REGULAR, "efficitur"),
+                               EqualsToken(Token::Type::REGULAR, "iaculis"),
+                               EqualsToken(Token::Type::REGULAR, "auctor"))));
 }
 
 TEST_F(PlainTokenizerTest, Whitespace) {
@@ -107,16 +108,18 @@ TEST_F(PlainTokenizerTest, Whitespace) {
   // 0x0009 is horizontal tab, considered as a whitespace
   std::string text_with_horizontal_tab =
       absl_ports::StrCat("Hello", UCharToString(0x0009), "World");
-  EXPECT_THAT(plain_tokenizer->TokenizeAll(text_with_horizontal_tab),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "Hello"),
-                                       EqualsToken(Token::REGULAR, "World"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll(text_with_horizontal_tab),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "Hello"),
+                               EqualsToken(Token::Type::REGULAR, "World"))));
 
   // 0x000B is vertical tab, considered as a whitespace
   std::string text_with_vertical_tab =
       absl_ports::StrCat("Hello", UCharToString(0x000B), "World");
-  EXPECT_THAT(plain_tokenizer->TokenizeAll(text_with_vertical_tab),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "Hello"),
-                                       EqualsToken(Token::REGULAR, "World"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll(text_with_vertical_tab),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "Hello"),
+                               EqualsToken(Token::Type::REGULAR, "World"))));
 }
 
 TEST_F(PlainTokenizerTest, Punctuation) {
@@ -131,38 +134,39 @@ TEST_F(PlainTokenizerTest, Punctuation) {
                                  language_segmenter.get()));
 
   // Half-width punctuation marks are filtered out.
-  EXPECT_THAT(plain_tokenizer->TokenizeAll(
-                  "Hello, World! Hello: World. \"Hello\" World?"),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "Hello"),
-                                       EqualsToken(Token::REGULAR, "World"),
-                                       EqualsToken(Token::REGULAR, "Hello"),
-                                       EqualsToken(Token::REGULAR, "World"),
-                                       EqualsToken(Token::REGULAR, "Hello"),
-                                       EqualsToken(Token::REGULAR, "World"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll(
+          "Hello, World! Hello: World. \"Hello\" World?"),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "Hello"),
+                               EqualsToken(Token::Type::REGULAR, "World"),
+                               EqualsToken(Token::Type::REGULAR, "Hello"),
+                               EqualsToken(Token::Type::REGULAR, "World"),
+                               EqualsToken(Token::Type::REGULAR, "Hello"),
+                               EqualsToken(Token::Type::REGULAR, "World"))));
 
   // Full-width punctuation marks are filtered out.
   std::vector<std::string_view> exp_tokens;
   if (IsCfStringTokenization()) {
     EXPECT_THAT(
         plain_tokenizer->TokenizeAll("你好，世界！你好：世界。“你好”世界？"),
-        IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "你"),
-                                 EqualsToken(Token::REGULAR, "好"),
-                                 EqualsToken(Token::REGULAR, "世界"),
-                                 EqualsToken(Token::REGULAR, "你"),
-                                 EqualsToken(Token::REGULAR, "好"),
-                                 EqualsToken(Token::REGULAR, "世界"),
-                                 EqualsToken(Token::REGULAR, "你"),
-                                 EqualsToken(Token::REGULAR, "好"),
-                                 EqualsToken(Token::REGULAR, "世界"))));
+        IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "你"),
+                                 EqualsToken(Token::Type::REGULAR, "好"),
+                                 EqualsToken(Token::Type::REGULAR, "世界"),
+                                 EqualsToken(Token::Type::REGULAR, "你"),
+                                 EqualsToken(Token::Type::REGULAR, "好"),
+                                 EqualsToken(Token::Type::REGULAR, "世界"),
+                                 EqualsToken(Token::Type::REGULAR, "你"),
+                                 EqualsToken(Token::Type::REGULAR, "好"),
+                                 EqualsToken(Token::Type::REGULAR, "世界"))));
   } else {
     EXPECT_THAT(
         plain_tokenizer->TokenizeAll("你好，世界！你好：世界。“你好”世界？"),
-        IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "你好"),
-                                 EqualsToken(Token::REGULAR, "世界"),
-                                 EqualsToken(Token::REGULAR, "你好"),
-                                 EqualsToken(Token::REGULAR, "世界"),
-                                 EqualsToken(Token::REGULAR, "你好"),
-                                 EqualsToken(Token::REGULAR, "世界"))));
+        IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "你好"),
+                                 EqualsToken(Token::Type::REGULAR, "世界"),
+                                 EqualsToken(Token::Type::REGULAR, "你好"),
+                                 EqualsToken(Token::Type::REGULAR, "世界"),
+                                 EqualsToken(Token::Type::REGULAR, "你好"),
+                                 EqualsToken(Token::Type::REGULAR, "世界"))));
   }
 }
 
@@ -180,14 +184,16 @@ TEST_F(PlainTokenizerTest, SpecialCharacters) {
   // Right now we don't have special logic for these characters, just output
   // them as tokens.
 
-  EXPECT_THAT(plain_tokenizer->TokenizeAll("1+1"),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "1"),
-                                       EqualsToken(Token::REGULAR, "+"),
-                                       EqualsToken(Token::REGULAR, "1"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll("1+1"),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "1"),
+                               EqualsToken(Token::Type::REGULAR, "+"),
+                               EqualsToken(Token::Type::REGULAR, "1"))));
 
-  EXPECT_THAT(plain_tokenizer->TokenizeAll("$50"),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "$"),
-                                       EqualsToken(Token::REGULAR, "50"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll("$50"),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "$"),
+                               EqualsToken(Token::Type::REGULAR, "50"))));
 }
 
 TEST_F(PlainTokenizerTest, CJKT) {
@@ -203,12 +209,13 @@ TEST_F(PlainTokenizerTest, CJKT) {
                              tokenizer_factory::CreateIndexingTokenizer(
                                  StringIndexingConfig::TokenizerType::PLAIN,
                                  language_segmenter.get()));
-  EXPECT_THAT(plain_tokenizer->TokenizeAll("我每天走路去上班。"),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "我"),
-                                       EqualsToken(Token::REGULAR, "每天"),
-                                       EqualsToken(Token::REGULAR, "走路"),
-                                       EqualsToken(Token::REGULAR, "去"),
-                                       EqualsToken(Token::REGULAR, "上班"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll("我每天走路去上班。"),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "我"),
+                               EqualsToken(Token::Type::REGULAR, "每天"),
+                               EqualsToken(Token::Type::REGULAR, "走路"),
+                               EqualsToken(Token::Type::REGULAR, "去"),
+                               EqualsToken(Token::Type::REGULAR, "上班"))));
   // Japanese
   options = language_segmenter_factory::SegmenterOptions(ULOC_JAPANESE,
                                                          jni_cache_.get());
@@ -220,41 +227,44 @@ TEST_F(PlainTokenizerTest, CJKT) {
                                  StringIndexingConfig::TokenizerType::PLAIN,
                                  language_segmenter.get()));
   if (IsCfStringTokenization()) {
-    EXPECT_THAT(plain_tokenizer->TokenizeAll("私は毎日仕事に歩いています。"),
-                IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "私"),
-                                         EqualsToken(Token::REGULAR, "は"),
-                                         EqualsToken(Token::REGULAR, "毎日"),
-                                         EqualsToken(Token::REGULAR, "仕事"),
-                                         EqualsToken(Token::REGULAR, "に"),
-                                         EqualsToken(Token::REGULAR, "歩い"),
-                                         EqualsToken(Token::REGULAR, "て"),
-                                         EqualsToken(Token::REGULAR, "い"),
-                                         EqualsToken(Token::REGULAR, "ます"))));
+    EXPECT_THAT(
+        plain_tokenizer->TokenizeAll("私は毎日仕事に歩いています。"),
+        IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "私"),
+                                 EqualsToken(Token::Type::REGULAR, "は"),
+                                 EqualsToken(Token::Type::REGULAR, "毎日"),
+                                 EqualsToken(Token::Type::REGULAR, "仕事"),
+                                 EqualsToken(Token::Type::REGULAR, "に"),
+                                 EqualsToken(Token::Type::REGULAR, "歩い"),
+                                 EqualsToken(Token::Type::REGULAR, "て"),
+                                 EqualsToken(Token::Type::REGULAR, "い"),
+                                 EqualsToken(Token::Type::REGULAR, "ます"))));
   } else {
-    EXPECT_THAT(plain_tokenizer->TokenizeAll("私は毎日仕事に歩いています。"),
-                IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "私"),
-                                         EqualsToken(Token::REGULAR, "は"),
-                                         EqualsToken(Token::REGULAR, "毎日"),
-                                         EqualsToken(Token::REGULAR, "仕事"),
-                                         EqualsToken(Token::REGULAR, "に"),
-                                         EqualsToken(Token::REGULAR, "歩"),
-                                         EqualsToken(Token::REGULAR, "い"),
-                                         EqualsToken(Token::REGULAR, "てい"),
-                                         EqualsToken(Token::REGULAR, "ます"))));
+    EXPECT_THAT(
+        plain_tokenizer->TokenizeAll("私は毎日仕事に歩いています。"),
+        IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "私"),
+                                 EqualsToken(Token::Type::REGULAR, "は"),
+                                 EqualsToken(Token::Type::REGULAR, "毎日"),
+                                 EqualsToken(Token::Type::REGULAR, "仕事"),
+                                 EqualsToken(Token::Type::REGULAR, "に"),
+                                 EqualsToken(Token::Type::REGULAR, "歩"),
+                                 EqualsToken(Token::Type::REGULAR, "い"),
+                                 EqualsToken(Token::Type::REGULAR, "てい"),
+                                 EqualsToken(Token::Type::REGULAR, "ます"))));
   }
 
   // Khmer
-  EXPECT_THAT(plain_tokenizer->TokenizeAll("ញុំដើរទៅធ្វើការរាល់ថ្ងៃ។"),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "ញុំ"),
-                                       EqualsToken(Token::REGULAR, "ដើរទៅ"),
-                                       EqualsToken(Token::REGULAR, "ធ្វើការ"),
-                                       EqualsToken(Token::REGULAR, "រាល់ថ្ងៃ"))));
-  // Korean
   EXPECT_THAT(
-      plain_tokenizer->TokenizeAll("나는 매일 출근합니다."),
-      IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "나는"),
-                               EqualsToken(Token::REGULAR, "매일"),
-                               EqualsToken(Token::REGULAR, "출근합니다"))));
+      plain_tokenizer->TokenizeAll("ញុំដើរទៅធ្វើការរាល់ថ្ងៃ។"),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "ញុំ"),
+                               EqualsToken(Token::Type::REGULAR, "ដើរទៅ"),
+                               EqualsToken(Token::Type::REGULAR, "ធ្វើការ"),
+                               EqualsToken(Token::Type::REGULAR, "រាល់ថ្ងៃ"))));
+  // Korean
+  EXPECT_THAT(plain_tokenizer->TokenizeAll("나는 매일 출근합니다."),
+              IsOkAndHolds(ElementsAre(
+                  EqualsToken(Token::Type::REGULAR, "나는"),
+                  EqualsToken(Token::Type::REGULAR, "매일"),
+                  EqualsToken(Token::Type::REGULAR, "출근합니다"))));
 
   // Thai
   // DIFFERENCE!! Disagreement over how to segment "ทุกวัน" (iOS groups).
@@ -264,23 +274,24 @@ TEST_F(PlainTokenizerTest, CJKT) {
         std::vector<Token> tokens,
         plain_tokenizer->TokenizeAll("ฉันเดินไปทำงานทุกวัน"));
 
-    EXPECT_THAT(tokens, ElementsAre(EqualsToken(Token::REGULAR, "ฉัน"),
-                                    EqualsToken(Token::REGULAR, "เดิน"),
-                                    EqualsToken(Token::REGULAR, "ไป"),
-                                    EqualsToken(Token::REGULAR, "ทำงาน"),
-                                    EqualsToken(Token::REGULAR, "ทุกวัน")));
+    EXPECT_THAT(tokens, ElementsAre(EqualsToken(Token::Type::REGULAR, "ฉัน"),
+                                    EqualsToken(Token::Type::REGULAR, "เดิน"),
+                                    EqualsToken(Token::Type::REGULAR, "ไป"),
+                                    EqualsToken(Token::Type::REGULAR, "ทำงาน"),
+                                    EqualsToken(Token::Type::REGULAR, "ทุกวัน")));
   } else {
-    EXPECT_THAT(plain_tokenizer->TokenizeAll("ฉันเดินไปทำงานทุกวัน"),
-                IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "ฉัน"),
-                                         EqualsToken(Token::REGULAR, "เดิน"),
-                                         EqualsToken(Token::REGULAR, "ไป"),
-                                         EqualsToken(Token::REGULAR, "ทำงาน"),
-                                         EqualsToken(Token::REGULAR, "ทุก"),
-                                         EqualsToken(Token::REGULAR, "วัน"))));
+    EXPECT_THAT(
+        plain_tokenizer->TokenizeAll("ฉันเดินไปทำงานทุกวัน"),
+        IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "ฉัน"),
+                                 EqualsToken(Token::Type::REGULAR, "เดิน"),
+                                 EqualsToken(Token::Type::REGULAR, "ไป"),
+                                 EqualsToken(Token::Type::REGULAR, "ทำงาน"),
+                                 EqualsToken(Token::Type::REGULAR, "ทุก"),
+                                 EqualsToken(Token::Type::REGULAR, "วัน"))));
   }
 }
 
-TEST_F(PlainTokenizerTest, ResetToTokenAfterSimple) {
+TEST_F(PlainTokenizerTest, ResetToTokenStartingAfterSimple) {
   language_segmenter_factory::SegmenterOptions options(ULOC_US,
                                                        jni_cache_.get());
   ICING_ASSERT_OK_AND_ASSIGN(
@@ -294,13 +305,13 @@ TEST_F(PlainTokenizerTest, ResetToTokenAfterSimple) {
   constexpr std::string_view kText = "f b";
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
 
-  EXPECT_TRUE(iterator->ResetToTokenAfter(0));
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::REGULAR, "b"));
+  EXPECT_TRUE(iterator->ResetToTokenStartingAfter(0));
+  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "b"));
 
-  EXPECT_FALSE(iterator->ResetToTokenAfter(2));
+  EXPECT_FALSE(iterator->ResetToTokenStartingAfter(2));
 }
 
-TEST_F(PlainTokenizerTest, ResetToTokenBeforeSimple) {
+TEST_F(PlainTokenizerTest, ResetToTokenEndingBeforeSimple) {
   language_segmenter_factory::SegmenterOptions options(ULOC_US,
                                                        jni_cache_.get());
   ICING_ASSERT_OK_AND_ASSIGN(
@@ -314,13 +325,13 @@ TEST_F(PlainTokenizerTest, ResetToTokenBeforeSimple) {
   constexpr std::string_view kText = "f b";
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
 
-  EXPECT_TRUE(iterator->ResetToTokenBefore(2));
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::REGULAR, "f"));
+  EXPECT_TRUE(iterator->ResetToTokenEndingBefore(2));
+  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "f"));
 
-  EXPECT_FALSE(iterator->ResetToTokenBefore(0));
+  EXPECT_FALSE(iterator->ResetToTokenEndingBefore(0));
 }
 
-TEST_F(PlainTokenizerTest, ResetToTokenAfter) {
+TEST_F(PlainTokenizerTest, ResetToTokenStartingAfter) {
   language_segmenter_factory::SegmenterOptions options(ULOC_US,
                                                        jni_cache_.get());
   ICING_ASSERT_OK_AND_ASSIGN(
@@ -332,11 +343,12 @@ TEST_F(PlainTokenizerTest, ResetToTokenAfter) {
                                  language_segmenter.get()));
 
   constexpr std::string_view kText = " foo . bar baz.. bat ";
-  EXPECT_THAT(plain_tokenizer->TokenizeAll(kText),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "foo"),
-                                       EqualsToken(Token::REGULAR, "bar"),
-                                       EqualsToken(Token::REGULAR, "baz"),
-                                       EqualsToken(Token::REGULAR, "bat"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll(kText),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "foo"),
+                               EqualsToken(Token::Type::REGULAR, "bar"),
+                               EqualsToken(Token::Type::REGULAR, "baz"),
+                               EqualsToken(Token::Type::REGULAR, "bat"))));
   std::vector<std::string> expected_text = {
       "foo",  //  0: " foo . bar"
       "bar",  //  1: "foo . bar "
@@ -359,19 +371,19 @@ TEST_F(PlainTokenizerTest, ResetToTokenAfter) {
 
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
   EXPECT_TRUE(iterator->Advance());
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::REGULAR, "foo"));
+  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "foo"));
   for (int i = 0; i < kText.length(); ++i) {
     if (i < expected_text.size()) {
-      EXPECT_TRUE(iterator->ResetToTokenAfter(i));
+      EXPECT_TRUE(iterator->ResetToTokenStartingAfter(i));
       EXPECT_THAT(iterator->GetToken(),
-                  EqualsToken(Token::REGULAR, expected_text[i]));
+                  EqualsToken(Token::Type::REGULAR, expected_text[i]));
     } else {
-      EXPECT_FALSE(iterator->ResetToTokenAfter(i));
+      EXPECT_FALSE(iterator->ResetToTokenStartingAfter(i));
     }
   }
 }
 
-TEST_F(PlainTokenizerTest, ResetToTokenBefore) {
+TEST_F(PlainTokenizerTest, ResetToTokenEndingBefore) {
   language_segmenter_factory::SegmenterOptions options(ULOC_US,
                                                        jni_cache_.get());
   ICING_ASSERT_OK_AND_ASSIGN(
@@ -383,11 +395,12 @@ TEST_F(PlainTokenizerTest, ResetToTokenBefore) {
                                  language_segmenter.get()));
 
   constexpr std::string_view kText = " foo . bar baz.. bat ";
-  EXPECT_THAT(plain_tokenizer->TokenizeAll(kText),
-              IsOkAndHolds(ElementsAre(EqualsToken(Token::REGULAR, "foo"),
-                                       EqualsToken(Token::REGULAR, "bar"),
-                                       EqualsToken(Token::REGULAR, "baz"),
-                                       EqualsToken(Token::REGULAR, "bat"))));
+  EXPECT_THAT(
+      plain_tokenizer->TokenizeAll(kText),
+      IsOkAndHolds(ElementsAre(EqualsToken(Token::Type::REGULAR, "foo"),
+                               EqualsToken(Token::Type::REGULAR, "bar"),
+                               EqualsToken(Token::Type::REGULAR, "baz"),
+                               EqualsToken(Token::Type::REGULAR, "bat"))));
   std::vector<std::string> expected_text = {
       "bat",  // 20: "baz.. bat "
       "baz",  // 19: " baz.. bat"
@@ -410,15 +423,16 @@ TEST_F(PlainTokenizerTest, ResetToTokenBefore) {
 
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
   EXPECT_TRUE(iterator->Advance());
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::REGULAR, "foo"));
+  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "foo"));
   for (int i = kText.length() - 1; i >= 0; --i) {
     int expected_index = kText.length() - 1 - i;
     if (expected_index < expected_text.size()) {
-      EXPECT_TRUE(iterator->ResetToTokenBefore(i));
-      EXPECT_THAT(iterator->GetToken(),
-                  EqualsToken(Token::REGULAR, expected_text[expected_index]));
+      EXPECT_TRUE(iterator->ResetToTokenEndingBefore(i));
+      EXPECT_THAT(
+          iterator->GetToken(),
+          EqualsToken(Token::Type::REGULAR, expected_text[expected_index]));
     } else {
-      EXPECT_FALSE(iterator->ResetToTokenBefore(i));
+      EXPECT_FALSE(iterator->ResetToTokenEndingBefore(i));
     }
   }
 }

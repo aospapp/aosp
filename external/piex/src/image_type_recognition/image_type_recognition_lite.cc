@@ -183,13 +183,14 @@ class ArwTypeChecker : public TypeChecker {
     // Search for (kSignatureFileTypeSection + kSignatureVersions[i]) in first
     // requested bytes
     const string kSignatureSection("\x00\xb0\x01\x00\x04\x00\x00\x00", 8);
-    const int kSignatureVersionsSize = 5;
+    const int kSignatureVersionsSize = 6;
     const string kSignatureVersions[kSignatureVersionsSize] = {
         string("\x02\x00", 2),  // ARW 1.0
         string("\x03\x00", 2),  // ARW 2.0
         string("\x03\x01", 2),  // ARW 2.1
         string("\x03\x02", 2),  // ARW 2.2
         string("\x03\x03", 2),  // ARW 2.3
+        string("\x04\x00", 2),  // ARW 4.0
     };
     bool matched = false;
     for (int i = 0; i < kSignatureVersionsSize; ++i) {
@@ -198,6 +199,25 @@ class ArwTypeChecker : public TypeChecker {
                                kSignatureSection + kSignatureVersions[i], NULL);
     }
     return matched;
+  }
+};
+
+// Canon RAW (CR3 extension).
+class Cr3TypeChecker : public TypeChecker {
+ public:
+  static constexpr size_t kSignatureOffset = 4;
+  static constexpr const char* kSignature = "ftypcrx ";
+
+  virtual RawImageTypes Type() const { return kCr3Image; }
+
+  virtual size_t RequestedSize() const {
+    return kSignatureOffset + strlen(kSignature);
+  }
+
+  // Checks for the ftyp box w/ brand 'crx '.
+  virtual bool IsMyType(const RangeCheckedBytePtr& source) const {
+    RangeCheckedBytePtr limited_source = LimitSource(source);
+    return IsSignatureMatched(limited_source, kSignatureOffset, kSignature);
   }
 };
 
@@ -749,6 +769,7 @@ class TypeCheckerList {
   TypeCheckerList() {
     // Add all supported RAW type checkers here.
     checkers_.push_back(new ArwTypeChecker());
+    checkers_.push_back(new Cr3TypeChecker());
     checkers_.push_back(new Cr2TypeChecker());
     checkers_.push_back(new CrwTypeChecker());
     checkers_.push_back(new DcrTypeChecker());
@@ -841,6 +862,7 @@ bool IsRaw(const RawImageTypes type) {
 
     // Raw image types
     case kArwImage:
+    case kCr3Image:
     case kCr2Image:
     case kCrwImage:
     case kDcrImage:

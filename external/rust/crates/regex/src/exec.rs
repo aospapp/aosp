@@ -5,26 +5,26 @@ use std::sync::Arc;
 
 #[cfg(feature = "perf-literal")]
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
-use syntax::hir::literal::Literals;
-use syntax::hir::Hir;
-use syntax::ParserBuilder;
+use regex_syntax::hir::literal::Literals;
+use regex_syntax::hir::Hir;
+use regex_syntax::ParserBuilder;
 
-use backtrack;
-use compile::Compiler;
+use crate::backtrack;
+use crate::compile::Compiler;
 #[cfg(feature = "perf-dfa")]
-use dfa;
-use error::Error;
-use input::{ByteInput, CharInput};
-use literal::LiteralSearcher;
-use pikevm;
-use pool::{Pool, PoolGuard};
-use prog::Program;
-use re_builder::RegexOptions;
-use re_bytes;
-use re_set;
-use re_trait::{Locations, RegularExpression, Slot};
-use re_unicode;
-use utf8::next_utf8;
+use crate::dfa;
+use crate::error::Error;
+use crate::input::{ByteInput, CharInput};
+use crate::literal::LiteralSearcher;
+use crate::pikevm;
+use crate::pool::{Pool, PoolGuard};
+use crate::prog::Program;
+use crate::re_builder::RegexOptions;
+use crate::re_bytes;
+use crate::re_set;
+use crate::re_trait::{Locations, RegularExpression, Slot};
+use crate::re_unicode;
+use crate::utf8::next_utf8;
 
 /// `Exec` manages the execution of a regular expression.
 ///
@@ -140,7 +140,7 @@ impl ExecBuilder {
     ///
     /// Note that when compiling 2 or more regular expressions, capture groups
     /// are completely unsupported. (This means both `find` and `captures`
-    /// wont work.)
+    /// won't work.)
     pub fn new_many<I, S>(res: I) -> Self
     where
         S: AsRef<str>,
@@ -373,9 +373,6 @@ impl ExecBuilder {
             AhoCorasickBuilder::new()
                 .match_kind(MatchKind::LeftmostFirst)
                 .auto_configure(&lits)
-                // We always want this to reduce size, regardless
-                // of what auto-configure does.
-                .byte_classes(true)
                 .build_with_size::<u32, _, _>(&lits)
                 // This should never happen because we'd long exceed the
                 // compilation limit for regexes first.
@@ -739,7 +736,7 @@ impl<'c> ExecNoSync<'c> {
         text: &[u8],
         start: usize,
     ) -> dfa::Result<(usize, usize)> {
-        use dfa::Result::*;
+        use crate::dfa::Result::*;
         let end = match dfa::Fsm::forward(
             &self.ro.dfa,
             self.cache.value(),
@@ -779,7 +776,7 @@ impl<'c> ExecNoSync<'c> {
         text: &[u8],
         start: usize,
     ) -> dfa::Result<(usize, usize)> {
-        use dfa::Result::*;
+        use crate::dfa::Result::*;
         match dfa::Fsm::reverse(
             &self.ro.dfa_reverse,
             self.cache.value(),
@@ -835,7 +832,7 @@ impl<'c> ExecNoSync<'c> {
         text: &[u8],
         original_start: usize,
     ) -> Option<dfa::Result<(usize, usize)>> {
-        use dfa::Result::*;
+        use crate::dfa::Result::*;
 
         let lcs = self.ro.suffixes.lcs();
         debug_assert!(lcs.len() >= 1);
@@ -880,7 +877,7 @@ impl<'c> ExecNoSync<'c> {
         text: &[u8],
         start: usize,
     ) -> dfa::Result<(usize, usize)> {
-        use dfa::Result::*;
+        use crate::dfa::Result::*;
 
         let match_start = match self.exec_dfa_reverse_suffix(text, start) {
             None => return self.find_dfa_forward(text, start),
@@ -1263,7 +1260,7 @@ impl<'c> ExecNoSyncStr<'c> {
 impl Exec {
     /// Get a searcher that isn't Sync.
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub fn searcher(&self) -> ExecNoSync {
+    pub fn searcher(&self) -> ExecNoSync<'_> {
         ExecNoSync {
             ro: &self.ro, // a clone is too expensive here! (and not needed)
             cache: self.pool.get(),
@@ -1272,7 +1269,7 @@ impl Exec {
 
     /// Get a searcher that isn't Sync and can match on &str.
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub fn searcher_str(&self) -> ExecNoSyncStr {
+    pub fn searcher_str(&self) -> ExecNoSyncStr<'_> {
         ExecNoSyncStr(self.searcher())
     }
 
@@ -1550,7 +1547,7 @@ impl ProgramCacheInner {
 /// literals, and if so, returns them. Otherwise, this returns None.
 #[cfg(feature = "perf-literal")]
 fn alternation_literals(expr: &Hir) -> Option<Vec<Vec<u8>>> {
-    use syntax::hir::{HirKind, Literal};
+    use regex_syntax::hir::{HirKind, Literal};
 
     // This is pretty hacky, but basically, if `is_alternation_literal` is
     // true, then we can make several assumptions about the structure of our
@@ -1602,7 +1599,7 @@ fn alternation_literals(expr: &Hir) -> Option<Vec<Vec<u8>>> {
 mod test {
     #[test]
     fn uppercut_s_backtracking_bytes_default_bytes_mismatch() {
-        use internal::ExecBuilder;
+        use crate::internal::ExecBuilder;
 
         let backtrack_bytes_re = ExecBuilder::new("^S")
             .bounded_backtracking()
@@ -1630,7 +1627,7 @@ mod test {
 
     #[test]
     fn unicode_lit_star_backtracking_utf8bytes_default_utf8bytes_mismatch() {
-        use internal::ExecBuilder;
+        use crate::internal::ExecBuilder;
 
         let backtrack_bytes_re = ExecBuilder::new(r"^(?u:\*)")
             .bounded_backtracking()

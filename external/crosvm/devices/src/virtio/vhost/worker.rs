@@ -6,6 +6,7 @@ use std::os::raw::c_ulonglong;
 
 use base::{error, Error as SysError, Event, PollToken, Tube, WaitContext};
 use vhost::Vhost;
+use vm_memory::GuestMemory;
 
 use super::control_socket::{VhostDevRequest, VhostDevResponse};
 use super::{Error, Result};
@@ -44,16 +45,15 @@ impl<T: Vhost> Worker<T> {
         }
     }
 
-    pub fn run<F1, F2>(
+    pub fn init<F1>(
         &mut self,
+        mem: GuestMemory,
         queue_evts: Vec<Event>,
         queue_sizes: &[u16],
         activate_vqs: F1,
-        cleanup_vqs: F2,
     ) -> Result<()>
     where
         F1: FnOnce(&T) -> Result<()>,
-        F2: FnOnce(&T) -> Result<()>,
     {
         let avail_features = self
             .vhost_handle
@@ -66,7 +66,7 @@ impl<T: Vhost> Worker<T> {
             .map_err(Error::VhostSetFeatures)?;
 
         self.vhost_handle
-            .set_mem_table()
+            .set_mem_table(&mem)
             .map_err(Error::VhostSetMemTable)?;
 
         for (queue_index, queue) in self.queues.iter().enumerate() {
@@ -76,6 +76,7 @@ impl<T: Vhost> Worker<T> {
 
             self.vhost_handle
                 .set_vring_addr(
+                    &mem,
                     queue_sizes[queue_index],
                     queue.actual_size(),
                     queue_index,
@@ -96,7 +97,13 @@ impl<T: Vhost> Worker<T> {
         }
 
         activate_vqs(&self.vhost_handle)?;
+        Ok(())
+    }
 
+    pub fn run<F1>(&mut self, cleanup_vqs: F1) -> Result<()>
+    where
+        F1: FnOnce(&T) -> Result<()>,
+    {
         #[derive(PollToken)]
         enum Token {
             VhostIrqi { index: usize },

@@ -221,6 +221,7 @@ copy("vk_gl_cts_data_data_gles31_shaders_es32") {
 copy("vk_gl_cts_data_data_gles31_shaders_gl45") {
   sources = [
     "$deqp_path/data/gles31/shaders/gl45/arrays_of_arrays.test",
+    "$deqp_path/data/gles31/shaders/gl45/implicit_conversions.test",
     "$deqp_path/data/gles31/shaders/gl45/linkage_geometry.test",
     "$deqp_path/data/gles31/shaders/gl45/linkage_geometry_uniform_types.test",
     "$deqp_path/data/gles31/shaders/gl45/linkage_geometry_varying_types.test",
@@ -367,7 +368,6 @@ copy("vk_gl_cts_data_external_graphicsfuzz_data_gles3_graphicsfuzz_synthetic") {
 
 copy("vk_gl_cts_data_external_openglcts_data_gles3") {
   sources = [
-    "$deqp_path/external/openglcts/data/gles3/arrays.test",
     "$deqp_path/external/openglcts/data/gles3/declarations.test",
     "$deqp_path/external/openglcts/data/gles3/literal_parsing.test",
     "$deqp_path/external/openglcts/data/gles3/name_hiding.test",

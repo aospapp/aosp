@@ -4,7 +4,7 @@
 
 //! minigbm: implements swapchain allocation using ChromeOS's minigbm library.
 //!
-//! External code found at https://chromium.googlesource.com/chromiumos/platform/minigbm.
+//! External code found at <https://chromium.googlesource.com/chromiumos/platform/minigbm>.
 
 #![cfg(feature = "minigbm")]
 
@@ -140,7 +140,7 @@ impl Gralloc for MinigbmDevice {
                 || gbm_buffer.height() != reqs.info.height
                 || gbm_buffer.format() != reqs.info.drm_format
             {
-                return Err(RutabagaError::SpecViolation);
+                return Err(RutabagaError::InvalidGrallocDimensions);
             }
 
             let dmabuf = gbm_buffer.export()?.into();

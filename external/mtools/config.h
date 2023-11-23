@@ -5,7 +5,7 @@
 /* #undef DEBUG */
 
 /* Define when sys_errlist is defined in the standard include files */
-#define DECL_SYS_ERRLIST 1
+/* #undef DECL_SYS_ERRLIST */
 
 /* Define to 1 if you have the `alarm' function. */
 #define HAVE_ALARM 1
@@ -41,7 +41,7 @@
 #define HAVE_GETOPT_H 1
 
 /* Define to 1 if you have the `getpass' function. */
-#define HAVE_GETPASS 1
+/* #undef HAVE_GETPASS */
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
@@ -100,17 +100,17 @@
 /* Define to 1 if you have the `lockf' function. */
 #define HAVE_LOCKF 1
 
-/* Define when the compiler supports LOFF_T type */
-#define HAVE_LOFF_T 1
+/* Define to 1 if the system has the type `loff_t'. */
+/* #undef HAVE_LOFF_T */
 
-/* Define when the compiler supports LONG_LONG type */
+/* Define to 1 if the system has the type `long long'. */
 #define HAVE_LONG_LONG 1
 
 /* Define to 1 if you have the `lseek64' function. */
-#define HAVE_LSEEK64 1
+/* #undef HAVE_LSEEK64 */
 
 /* Define when you have an LSEEK64 prototype */
-#define HAVE_LSEEK64_PROTOTYPE 1
+/* #undef HAVE_LSEEK64_PROTOTYPE */
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #define HAVE_MALLOC_H 1
@@ -142,11 +142,11 @@
 /* Define to 1 if you have the <netinet/tcp.h> header file. */
 #define HAVE_NETINET_TCP_H 1
 
-/* Define when the compiler supports OFFSET_T type */
-/* #undef HAVE_OFFSET_T */
+/* Define to 1 if the system has the type `off64_t'. */
+/* #undef HAVE_OFF64_T */
 
-/* Define when the system has a 64 bit off_t type */
-#define HAVE_OFF_T_64 1
+/* Define to 1 if the system has the type `offset_t'. */
+/* #undef HAVE_OFFSET_T */
 
 /* Define to 1 if you have the `on_exit' function. */
 #define HAVE_ON_EXIT 1
@@ -188,7 +188,13 @@
 #define HAVE_SRANDOM 1
 
 /* Define to 1 if you have the `stat64' function. */
-#define HAVE_STAT64 1
+/* #undef HAVE_STAT64 */
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#define HAVE_STDARG_H 1
+
+/* Define to 1 if stdbool.h conforms to C99. */
+#define HAVE_STDBOOL_H 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -253,6 +259,9 @@
 /* Define to 1 if you have the `strtoul' function. */
 #define HAVE_STRTOUL 1
 
+/* Define to 1 if you have the <sys/fdio.h> header file. */
+/* #undef HAVE_SYS_FDIO_H */
+
 /* Define to 1 if you have the <sys/file.h> header file. */
 #define HAVE_SYS_FILE_H 1
 
@@ -302,7 +311,9 @@
 #define HAVE_TERMIOS_H 1
 
 /* Define to 1 if you have the <termio.h> header file. */
+#if !defined(ANDROID_HOST_MUSL)
 #define HAVE_TERMIO_H 1
+#endif
 
 /* Define to 1 if you have the `toupper_l' function. */
 #define HAVE_TOUPPER_L 1
@@ -343,6 +354,9 @@
 /* Define to 1 if you have the <xlocale.h> header file. */
 /* #undef HAVE_XLOCALE_H */
 
+/* Define to 1 if the system has the type `_Bool'. */
+#define HAVE__BOOL 1
+
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
 
@@ -370,8 +384,8 @@
 /* The size of `long', as computed by sizeof. */
 #define SIZEOF_LONG 8
 
-/* The size of `long long', as computed by sizeof. */
-#define SIZEOF_LONG_LONG 8
+/* The size of `off_t', as computed by sizeof. */
+#define SIZEOF_OFF_T 8
 
 /* The size of `size_t', as computed by sizeof. */
 #define SIZEOF_SIZE_T 8
@@ -436,6 +450,12 @@
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */
+
+/* Needed for off64_t / lseek64 */
+/* #undef _LARGEFILE64_SOURCE */
+
+/* Might be needed for loff_t / llseek64 */
+/* #undef _LARGEFILE_SOURCE */
 
 /* Define for large files, on AIX-style hosts. */
 /* #undef _LARGE_FILES */

@@ -1,33 +1,23 @@
-// Copyright 2016 Kyle Mayes
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 //! Rust bindings for `libclang`.
 //!
-//! ## Documentation
+//! ## [Documentation](https://docs.rs/clang-sys)
 //!
-//! There are two versions of the documentation, one for the API exposed when
-//! linking dynamically or statically and one for the API exposed when linking
-//! at runtime (see the
-//! [Dependencies](https://github.com/KyleMayes/clang-sys#dependencies) section
-//! of the README for more information on the linking options).
+//! Note that the documentation on https://docs.rs for this crate assumes usage
+//! of the `runtime` Cargo feature as well as the Cargo feature for the latest
+//! supported version of `libclang` (e.g., `clang_11_0`), neither of which are
+//! enabled by default.
 //!
-//! The only difference between the APIs exposed is that when linking at runtime
-//! a few additional types and functions are exposed to manage the loaded
-//! `libclang` shared library.
+//! Due to the usage of the `runtime` Cargo feature, this documentation will
+//! contain some additional types and functions to manage a dynamically loaded
+//! `libclang` instance at runtime.
 //!
-//! * Runtime - [Documentation](https://kylemayes.github.io/clang-sys/runtime/clang_sys)
-//! * Dynamic / Static - [Documentation](https://kylemayes.github.io/clang-sys/default/clang_sys)
+//! Due to the usage of the Cargo feature for the latest supported version of
+//! `libclang`, this documentation will contain constants and functions that are
+//! not available in the oldest supported version of `libclang` (3.5). All of
+//! these types and functions have a documentation comment which specifies the
+//! minimum `libclang` version required to use the item.
 
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
@@ -135,6 +125,8 @@ cenum! {
         const CXCallingConv_AArch64VectorCall = 16,
         const CXCallingConv_Invalid = 100,
         const CXCallingConv_Unexposed = 200,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCallingConv_SwiftAsync = 17,
     }
 }
 
@@ -323,6 +315,12 @@ cenum! {
         const CXCursor_ObjCAvailabilityCheckExpr = 148,
         /// Only produced by `libclang` 7.0 and later.
         const CXCursor_FixedPointLiteral = 149,
+        /// Only produced by `libclang` 12.0 and later.
+        const CXCursor_OMPArrayShapingExpr = 150,
+        /// Only produced by `libclang` 12.0 and later.
+        const CXCursor_OMPIteratorExpr = 151,
+        /// Only produced by `libclang` 12.0 and later.
+        const CXCursor_CXXAddrspaceCastExpr = 152,
         const CXCursor_UnexposedStmt = 200,
         const CXCursor_LabelStmt = 201,
         const CXCursor_CompoundStmt = 202,
@@ -452,6 +450,18 @@ cenum! {
         const CXCursor_OMPDepobjDirective = 286,
         /// Only produced by `libclang` 11.0 and later.
         const CXCursor_OMPScanDirective = 287,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCursor_OMPTileDirective = 288,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCursor_OMPCanonicalLoop = 289,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCursor_OMPInteropDirective = 290,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCursor_OMPDispatchDirective = 291,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCursor_OMPMaskedDirective = 292,
+        /// Only produced by `libclang` 13.0 and later.
+        const CXCursor_OMPUnrollDirective = 293,
         const CXCursor_TranslationUnit = 300,
         const CXCursor_UnexposedAttr = 400,
         const CXCursor_IBActionAttr = 401,
@@ -1031,6 +1041,8 @@ cenum! {
         const CXTypeNullability_Nullable = 1,
         const CXTypeNullability_Unspecified = 2,
         const CXTypeNullability_Invalid = 3,
+        /// Only produced by `libclang` 12.0 and later.
+        const CXTypeNullability_NullableResult = 4,
     }
 }
 
@@ -1762,12 +1774,6 @@ link! {
     /// Only available on `libclang` 3.7 and later.
     #[cfg(feature = "clang_3_7")]
     pub fn clang_Cursor_getOffsetOfField(cursor: CXCursor) -> c_longlong;
-    /// Only available on `libclang` 9.0 and later.
-    #[cfg(feature = "clang_9_0")]
-    pub fn clang_Cursor_isAnonymousRecordDecl(cursor: CXCursor) -> c_uint;
-    /// Only available on `libclang` 9.0 and later.
-    #[cfg(feature = "clang_9_0")]
-    pub fn clang_Cursor_isInlineNamespace(cursor: CXCursor) -> c_uint;
     pub fn clang_Cursor_getRawCommentText(cursor: CXCursor) -> CXString;
     pub fn clang_Cursor_getReceiverType(cursor: CXCursor) -> CXType;
     pub fn clang_Cursor_getSpellingNameRange(cursor: CXCursor, index: c_uint, reserved: c_uint) -> CXSourceRange;
@@ -1787,12 +1793,24 @@ link! {
     #[cfg(feature = "clang_3_6")]
     pub fn clang_Cursor_getTemplateArgumentValue(cursor: CXCursor, index: c_uint) -> c_longlong;
     pub fn clang_Cursor_getTranslationUnit(cursor: CXCursor) -> CXTranslationUnit;
+    /// Only available on `libclang` 12.0 and later.
+    #[cfg(feature = "clang_12_0")]
+    pub fn clang_Cursor_getVarDeclInitializer(cursor: CXCursor) -> CXCursor;
     /// Only available on `libclang` 3.9 and later.
     #[cfg(feature = "clang_3_9")]
     pub fn clang_Cursor_hasAttrs(cursor: CXCursor) -> c_uint;
+    /// Only available on `libclang` 12.0 and later.
+    #[cfg(feature = "clang_12_0")]
+    pub fn clang_Cursor_hasVarDeclGlobalStorage(cursor: CXCursor) -> c_uint;
+    /// Only available on `libclang` 12.0 and later.
+    #[cfg(feature = "clang_12_0")]
+    pub fn clang_Cursor_hasVarDeclExternalStorage(cursor: CXCursor) -> c_uint;
     /// Only available on `libclang` 3.7 and later.
     #[cfg(feature = "clang_3_7")]
     pub fn clang_Cursor_isAnonymous(cursor: CXCursor) -> c_uint;
+    /// Only available on `libclang` 9.0 and later.
+    #[cfg(feature = "clang_9_0")]
+    pub fn clang_Cursor_isAnonymousRecordDecl(cursor: CXCursor) -> c_uint;
     pub fn clang_Cursor_isBitField(cursor: CXCursor) -> c_uint;
     pub fn clang_Cursor_isDynamicCall(cursor: CXCursor) -> c_int;
     /// Only available on `libclang` 5.0 and later.
@@ -1801,6 +1819,9 @@ link! {
     /// Only available on `libclang` 3.9 and later.
     #[cfg(feature = "clang_3_9")]
     pub fn clang_Cursor_isFunctionInlined(cursor: CXCursor) -> c_uint;
+    /// Only available on `libclang` 9.0 and later.
+    #[cfg(feature = "clang_9_0")]
+    pub fn clang_Cursor_isInlineNamespace(cursor: CXCursor) -> c_uint;
     /// Only available on `libclang` 3.9 and later.
     #[cfg(feature = "clang_3_9")]
     pub fn clang_Cursor_isMacroBuiltin(cursor: CXCursor) -> c_uint;
@@ -1876,35 +1897,35 @@ link! {
     pub fn clang_Type_getAlignOf(type_: CXType) -> c_longlong;
     pub fn clang_Type_getCXXRefQualifier(type_: CXType) -> CXRefQualifierKind;
     pub fn clang_Type_getClassType(type_: CXType) -> CXType;
+    /// Only available on `libclang` 8.0 and later.
+    #[cfg(feature = "clang_8_0")]
+    pub fn clang_Type_getModifiedType(type_: CXType) -> CXType;
     /// Only available on `libclang` 3.9 and later.
     #[cfg(feature = "clang_3_9")]
     pub fn clang_Type_getNamedType(type_: CXType) -> CXType;
-    pub fn clang_Type_getNumTemplateArguments(type_: CXType) -> c_int;
     /// Only available on `libclang` 8.0 and later.
     #[cfg(feature = "clang_8_0")]
-    pub fn clang_Type_getObjCObjectBaseType(type_: CXType) -> CXType;
+    pub fn clang_Type_getNullability(type_: CXType) -> CXTypeNullabilityKind;
     /// Only available on `libclang` 8.0 and later.
     #[cfg(feature = "clang_8_0")]
     pub fn clang_Type_getNumObjCProtocolRefs(type_: CXType) -> c_uint;
     /// Only available on `libclang` 8.0 and later.
     #[cfg(feature = "clang_8_0")]
-    pub fn clang_Type_getObjCProtocolDecl(type_: CXType, index: c_uint) -> CXCursor;
-    /// Only available on `libclang` 8.0 and later.
-    #[cfg(feature = "clang_8_0")]
     pub fn clang_Type_getNumObjCTypeArgs(type_: CXType) -> c_uint;
-    /// Only available on `libclang` 8.0 and later.
-    #[cfg(feature = "clang_8_0")]
-    pub fn clang_Type_getObjCTypeArg(type_: CXType, index: c_uint) -> CXType;
+    pub fn clang_Type_getNumTemplateArguments(type_: CXType) -> c_int;
     /// Only available on `libclang` 3.9 and later.
     #[cfg(feature = "clang_3_9")]
     pub fn clang_Type_getObjCEncoding(type_: CXType) -> CXString;
+    /// Only available on `libclang` 8.0 and later.
+    #[cfg(feature = "clang_8_0")]
+    pub fn clang_Type_getObjCObjectBaseType(type_: CXType) -> CXType;
+    /// Only available on `libclang` 8.0 and later.
+    #[cfg(feature = "clang_8_0")]
+    pub fn clang_Type_getObjCProtocolDecl(type_: CXType, index: c_uint) -> CXCursor;
+    /// Only available on `libclang` 8.0 and later.
+    #[cfg(feature = "clang_8_0")]
+    pub fn clang_Type_getObjCTypeArg(type_: CXType, index: c_uint) -> CXType;
     pub fn clang_Type_getOffsetOf(type_: CXType, field: *const c_char) -> c_longlong;
-    /// Only available on `libclang` 8.0 and later.
-    #[cfg(feature = "clang_8_0")]
-    pub fn clang_Type_getModifiedType(type_: CXType) -> CXType;
-    /// Only available on `libclang` 8.0 and later.
-    #[cfg(feature = "clang_8_0")]
-    pub fn clang_Type_getNullability(type_: CXType) -> CXTypeNullabilityKind;
     pub fn clang_Type_getSizeOf(type_: CXType) -> c_longlong;
     pub fn clang_Type_getTemplateArgumentAsType(type_: CXType, index: c_uint) -> CXType;
     /// Only available on `libclang` 11.0 and later.
@@ -2097,16 +2118,17 @@ link! {
     pub fn clang_getSpecializedCursorTemplate(cursor: CXCursor) -> CXCursor;
     pub fn clang_getSpellingLocation(location: CXSourceLocation, file: *mut CXFile, line: *mut c_uint, column: *mut c_uint, offset: *mut c_uint);
     pub fn clang_getTUResourceUsageName(kind: CXTUResourceUsageKind) -> *const c_char;
-    /// Only available on `libclang` 5.0 and later.
-    #[cfg(feature = "clang_5_0")]
-    pub fn clang_getTranslationUnitTargetInfo(tu: CXTranslationUnit) -> CXTargetInfo;
     pub fn clang_getTemplateCursorKind(cursor: CXCursor) -> CXCursorKind;
+    pub fn clang_getToken(tu: CXTranslationUnit, location: CXSourceLocation) -> *mut CXToken;
     pub fn clang_getTokenExtent(tu: CXTranslationUnit, token: CXToken) -> CXSourceRange;
     pub fn clang_getTokenKind(token: CXToken) -> CXTokenKind;
     pub fn clang_getTokenLocation(tu: CXTranslationUnit, token: CXToken) -> CXSourceLocation;
     pub fn clang_getTokenSpelling(tu: CXTranslationUnit, token: CXToken) -> CXString;
     pub fn clang_getTranslationUnitCursor(tu: CXTranslationUnit) -> CXCursor;
     pub fn clang_getTranslationUnitSpelling(tu: CXTranslationUnit) -> CXString;
+    /// Only available on `libclang` 5.0 and later.
+    #[cfg(feature = "clang_5_0")]
+    pub fn clang_getTranslationUnitTargetInfo(tu: CXTranslationUnit) -> CXTargetInfo;
     pub fn clang_getTypeDeclaration(type_: CXType) -> CXCursor;
     pub fn clang_getTypeKindSpelling(type_: CXTypeKind) -> CXString;
     pub fn clang_getTypeSpelling(type_: CXType) -> CXString;
@@ -2185,10 +2207,10 @@ link! {
     pub fn clang_Cursor_getParsedComment(C: CXCursor) -> CXComment;
     pub fn clang_FullComment_getAsHTML(comment: CXComment) -> CXString;
     pub fn clang_FullComment_getAsXML(comment: CXComment) -> CXString;
-    pub fn clang_HTMLStartTagComment_isSelfClosing(comment: CXComment) -> c_uint;
     pub fn clang_HTMLStartTag_getAttrName(comment: CXComment, index: c_uint) -> CXString;
     pub fn clang_HTMLStartTag_getAttrValue(comment: CXComment, index: c_uint) -> CXString;
     pub fn clang_HTMLStartTag_getNumAttrs(comment: CXComment) -> c_uint;
+    pub fn clang_HTMLStartTagComment_isSelfClosing(comment: CXComment) -> c_uint;
     pub fn clang_HTMLTagComment_getAsString(comment: CXComment) -> CXString;
     pub fn clang_HTMLTagComment_getTagName(comment: CXComment) -> CXString;
     pub fn clang_InlineCommandComment_getArgText(comment: CXComment, index: c_uint) -> CXString;
@@ -2201,11 +2223,11 @@ link! {
     pub fn clang_ParamCommandComment_getParamName(comment: CXComment) -> CXString;
     pub fn clang_ParamCommandComment_isDirectionExplicit(comment: CXComment) -> c_uint;
     pub fn clang_ParamCommandComment_isParamIndexValid(comment: CXComment) -> c_uint;
+    pub fn clang_TextComment_getText(comment: CXComment) -> CXString;
     pub fn clang_TParamCommandComment_getDepth(comment: CXComment) -> c_uint;
     pub fn clang_TParamCommandComment_getIndex(comment: CXComment, depth: c_uint) -> c_uint;
     pub fn clang_TParamCommandComment_getParamName(comment: CXComment) -> CXString;
     pub fn clang_TParamCommandComment_isParamPositionValid(comment: CXComment) -> c_uint;
-    pub fn clang_TextComment_getText(comment: CXComment) -> CXString;
     pub fn clang_VerbatimBlockLineComment_getText(comment: CXComment) -> CXString;
     pub fn clang_VerbatimLineComment_getText(comment: CXComment) -> CXString;
 }

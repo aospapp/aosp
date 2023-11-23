@@ -15,45 +15,42 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "usb_util",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libassertions",
         "libbase_rust",
         "libdata_model",
         "liblibc",
+        "libthiserror",
         "libusb_sys",
     ],
     proc_macros: ["libremain"],
-}
-
-rust_defaults {
-    name: "usb_util_test_defaults",
-    defaults: ["crosvm_defaults"],
-    crate_name: "usb_util",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "libassertions",
-        "libbase_rust",
-        "libdata_model",
-        "liblibc",
-        "libusb_sys",
-    ],
-    proc_macros: ["libremain"],
-}
-
-rust_test_host {
-    name: "usb_util_host_test_src_lib",
-    defaults: ["usb_util_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
 }
 
 rust_test {
-    name: "usb_util_device_test_src_lib",
-    defaults: ["usb_util_test_defaults"],
+    name: "usb_util_test_src_lib",
+    defaults: ["crosvm_defaults"],
+    host_supported: true,
+    crate_name: "usb_util",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
+    srcs: ["src/lib.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2021",
+    rustlibs: [
+        "libassertions",
+        "libbase_rust",
+        "libdata_model",
+        "liblibc",
+        "libthiserror",
+        "libusb_sys",
+    ],
+    proc_macros: ["libremain"],
 }

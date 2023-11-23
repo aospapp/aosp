@@ -77,6 +77,7 @@
 //     ? Allow unknown arguments (pass them through to command).
 //     & first arg has imaginary dash (ala tar/ps/ar) which sets FLAGS_NODASH
 //     0 Include argv[0] in optargs
+//     note: ^ and ? implied when no options
 //
 //   At the end: [groups] of previously seen options
 //     - Only one in group (switch off)    [-abc] means -ab=-b, -ba=-a, -abc=-c
@@ -254,7 +255,7 @@ static int parse_optflaglist(struct getoptflagstate *gof)
 
   // Parse option string into a linked list of options with attributes.
 
-  if (!*options) gof->stopearly++;
+  if (!*options) gof->stopearly++, gof->noerror++;
   while (*options) {
     char *temp;
 
@@ -342,7 +343,7 @@ static int parse_optflaglist(struct getoptflagstate *gof)
 
   // Parse trailing group indicators
   while (*options) {
-    unsigned bits = 0;
+    unsigned long long bits = 0;
 
     if (CFG_TOYBOX_DEBUG && *options != '[') error_exit("trailing %s", options);
 
@@ -354,20 +355,20 @@ static int parse_optflaglist(struct getoptflagstate *gof)
     // Don't advance past ] but do process it once in loop.
     while (*options++ != ']') {
       struct opts *opt;
-      int i;
+      long long ll;
 
       if (CFG_TOYBOX_DEBUG && !*options) error_exit("[ without ]");
       // Find this option flag (in previously parsed struct opt)
-      for (i=0, opt = gof->opts; ; i++, opt = opt->next) {
+      for (ll = 1, opt = gof->opts; ; ll <<= 1, opt = opt->next) {
         if (*options == ']') {
           if (!opt) break;
-          if (bits&(1<<i)) opt->dex[idx] |= bits&~(1<<i);
+          if (bits&ll) opt->dex[idx] |= bits&~ll;
         } else {
           if (*options==1) break;
           if (CFG_TOYBOX_DEBUG && !opt)
             error_exit("[] unknown target %c", *options);
           if (opt->c == *options) {
-            bits |= 1<<i;
+            bits |= ll;
             break;
           }
         }
@@ -427,6 +428,7 @@ void get_optflags(void)
         }
 
         // do we match a known --longopt?
+        check_help(toys.argv+gof.argc);
         for (lo = gof.longopts; lo; lo = lo->next) {
           if (!strncmp(gof.arg, lo->str, lo->len)) {
             if (!gof.arg[lo->len]) gof.arg = 0;

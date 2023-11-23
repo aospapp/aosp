@@ -63,33 +63,40 @@ config CHATTR
 #include <linux/fs.h>
 
 GLOBALS(
-  long v;
-  long p;
+  long v, p;
 
-  long add, rm, set;
+  unsigned add, rm, set;
   // !add and !rm tell us whether they were used, but `chattr =` is meaningful.
   int have_set;
 )
 
-#define FS_PROJINHERT_FL 0x20000000 // Linux 4.5
-#define FS_CASEFOLD_FL   0x40000000 // Linux 5.4
-#define FS_VERITY_FL     0x00100000 // Linux 5.4
+// Added more recently than the 7 year support horizon. TODO: remove
+#ifndef FS_INLINE_DATA_FL
+#define FS_INLINE_DATA_FL 0x10000000 // commit 68ce7bfcd995a 2016-01-08
+#endif
+#ifndef FS_PROJINHERIT_FL
+#define FS_PROJINHERIT_FL 0x20000000 // commit 8b4953e13f4c5 2015-10-17
+#endif
+#ifndef FS_CASEFOLD_FL
+#define FS_CASEFOLD_FL    0x40000000 // commit 71e90b4654a92 2019-07-23
+#endif
+#ifndef FS_VERITY_FL
+#define FS_VERITY_FL      0x00100000 // commit fe9918d3b228b 2019-07-22
+#endif
 
-// Linux 4.5
-struct fsxattr_4_5 {
-  unsigned fsx_xflags;
-  unsigned fsx_extsize;
-  unsigned fsx_nextents;
-  unsigned fsx_projid;
-  unsigned fsx_cowextsize;
+#ifndef FS_IOC_FSGETXATTR
+// commit 334e580a6f97e 2016-01-04
+struct fsxattr {
+  unsigned fsx_xflags, fsx_extsize, fsx_nextents, fsx_projid, fsx_cowextsize;
   char fsx_pad[8];
 };
-#define FS_IOC_FSGETXATTR_4_5 _IOR('X', 31, struct fsxattr_4_5)
-#define FS_IOC_FSSETXATTR_4_5 _IOW('X', 32, struct fsxattr_4_5)
+#define FS_IOC_FSGETXATTR _IOR('X', 31, struct fsxattr)
+#define FS_IOC_FSSETXATTR _IOW('X', 32, struct fsxattr)
+#endif
 
 static struct ext2_attr {
   char *name;
-  unsigned long flag;
+  unsigned flag;
   char opt;
 } e2attrs[] = {
   // Do not sort! These are in the order that lsattr outputs them.
@@ -118,7 +125,7 @@ static struct ext2_attr {
 };
 
 // Get file flags on a Linux second extended file system.
-static int ext2_getflag(int fd, struct stat *sb, unsigned long *flag)
+static int ext2_getflag(int fd, struct stat *sb, unsigned *flag)
 {
   if(!S_ISREG(sb->st_mode) && !S_ISDIR(sb->st_mode)) {
     errno = EOPNOTSUPP;
@@ -127,7 +134,7 @@ static int ext2_getflag(int fd, struct stat *sb, unsigned long *flag)
   return (ioctl(fd, FS_IOC_GETFLAGS, (void*)flag));
 }
 
-static char *attrstr(unsigned long attrs, int full)
+static char *attrstr(unsigned attrs, int full)
 {
   struct ext2_attr *a = e2attrs;
   char *s = toybuf;
@@ -135,31 +142,32 @@ static char *attrstr(unsigned long attrs, int full)
   for (; a->name; a++)
     if (attrs & a->flag) *s++ = a->opt;
     else if (full) *s++ = '-';
-  *s = '\0';
+  *s = 0;
+
   return toybuf;
 }
 
 static void print_file_attr(char *path)
 {
-  unsigned long flag = 0, version = 0;
-  int fd;
+  unsigned flag = 0, version = 0;
+  int fd = -1;
   struct stat sb;
 
   if (!stat(path, &sb) && !S_ISREG(sb.st_mode) && !S_ISDIR(sb.st_mode)) {
     errno = EOPNOTSUPP;
-    goto LABEL1;
+    goto error;
   }
-  if (-1 == (fd=open(path, O_RDONLY | O_NONBLOCK))) goto LABEL1;
+  if (-1 == (fd=open(path, O_RDONLY | O_NONBLOCK))) goto error;
 
   if (FLAG(p)) {
-    struct fsxattr_4_5 fsx;
+    struct fsxattr fsx;
 
-    if (ioctl(fd, FS_IOC_FSGETXATTR_4_5, &fsx)) goto LABEL2;
+    if (ioctl(fd, FS_IOC_FSGETXATTR, &fsx)) goto error;
     xprintf("%5u ", fsx.fsx_projid);
   }
   if (FLAG(v)) {
-    if (ioctl(fd, FS_IOC_GETVERSION, (void*)&version) < 0) goto LABEL2;
-    xprintf("%-10lu ", version);
+    if (ioctl(fd, FS_IOC_GETVERSION, (void*)&version) < 0) goto error;
+    xprintf("%-10u ", version);
   }
 
   if (ext2_getflag(fd, &sb, &flag) < 0) perror_msg("reading flags '%s'", path);
@@ -181,10 +189,10 @@ static void print_file_attr(char *path)
       xputc('\n');
     } else xprintf("%s %s\n", attrstr(flag, 1), path);
   }
+  path = 0;
+error:
   xclose(fd);
-  return;
-LABEL2: xclose(fd);
-LABEL1: perror_msg("reading '%s'", path);
+  if (path) perror_msg("reading '%s'", path);
 }
 
 // Get directory information.
@@ -228,12 +236,11 @@ void lsattr_main(void)
 }
 
 // Switch gears from lsattr to chattr.
-#define CLEANUP_lsattr
 #define FOR_chattr
 #include "generated/flags.h"
 
 // Set file flags on a Linux second extended file system.
-static inline int ext2_setflag(int fd, struct stat *sb, unsigned long flag)
+static inline int ext2_setflag(int fd, struct stat *sb, unsigned flag)
 {
   if (!S_ISREG(sb->st_mode) && !S_ISDIR(sb->st_mode)) {
     errno = EOPNOTSUPP;
@@ -242,12 +249,11 @@ static inline int ext2_setflag(int fd, struct stat *sb, unsigned long flag)
   return (ioctl(fd, FS_IOC_SETFLAGS, (void*)&flag));
 }
 
-static unsigned long get_flag_val(char ch)
+static unsigned get_flag_val(char ch)
 {
   struct ext2_attr *ptr = e2attrs;
 
-  for (; ptr->name; ptr++)
-    if (ptr->opt == ch) return ptr->flag;
+  for (; ptr->name; ptr++) if (ptr->opt == ch) return ptr->flag;
   help_exit("bad '%c'", ch);
 }
 
@@ -281,7 +287,7 @@ static void parse_cmdline_arg(char ***argv)
 static int update_attr(struct dirtree *root)
 {
   char *fpath = NULL;
-  int v = TT.v, fd;
+  int vv = TT.v, fd;
 
   if (!dirtree_notdotdot(root)) return 0;
 
@@ -302,7 +308,7 @@ static int update_attr(struct dirtree *root)
 
   // Any potential flag changes?
   if (TT.have_set | TT.add | TT.rm) {
-    unsigned long orig, new;
+    unsigned orig, new;
 
     // Read current flags.
     if (ext2_getflag(fd, &(root->st), &orig) < 0) {
@@ -326,15 +332,15 @@ static int update_attr(struct dirtree *root)
 
   // (FS_IOC_SETVERSION works all the way back to 2.6, but FS_IOC_FSSETXATTR
   // isn't available until 4.5.)
-  if (FLAG(v) && (ioctl(fd, FS_IOC_SETVERSION, &v)<0))
-    perror_msg("%s: setting version to %d failed", fpath, v);
+  if (FLAG(v) && (ioctl(fd, FS_IOC_SETVERSION, &vv)<0))
+    perror_msg("%s: setting version to %d failed", fpath, vv);
 
   if (FLAG(p)) {
-    struct fsxattr_4_5 fsx;
-    int fail = ioctl(fd, FS_IOC_FSGETXATTR_4_5, &fsx);
+    struct fsxattr fsx;
+    int fail = ioctl(fd, FS_IOC_FSGETXATTR, &fsx);
 
     fsx.fsx_projid = TT.p;
-    if (fail || ioctl(fd, FS_IOC_FSSETXATTR_4_5, &fsx))
+    if (fail || ioctl(fd, FS_IOC_FSSETXATTR, &fsx))
       perror_msg("%s: setting projid to %u failed", fpath, fsx.fsx_projid);
   }
 

@@ -221,6 +221,8 @@ func TestCompileWithFallbackExtraArgs(t *testing.T) {
 
 func TestCompileWithFallbackLogCommandAndErrors(t *testing.T) {
 	withCompileWithFallbackTestContext(t, func(ctx *testContext) {
+		ctx.NoteTestReadsFromUmask()
+
 		ctx.env = append(ctx.env, "ANDROID_LLVM_FALLBACK_DISABLED_WARNINGS=-a -b")
 		ctx.cmdMock = func(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 			switch ctx.cmdCount {

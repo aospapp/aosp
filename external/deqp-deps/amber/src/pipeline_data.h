@@ -21,6 +21,15 @@
 
 namespace amber {
 
+struct Viewport {
+  float x;
+  float y;
+  float w;
+  float h;
+  float mind;
+  float maxd;
+};
+
 /// Stores information used to configure a pipeline.
 class PipelineData {
  public:
@@ -161,6 +170,19 @@ class PipelineData {
   void SetAlphaBlendOp(BlendOp op) { alpha_blend_op_ = op; }
   BlendOp GetAlphaBlendOp() const { return alpha_blend_op_; }
 
+  void SetViewport(const Viewport& v) {
+    has_viewport_data = true;
+    vp = v;
+  }
+
+  bool HasViewportData() const { return has_viewport_data; }
+  const Viewport& GetViewport() const { return vp; }
+
+  void SetPatchControlPoints(uint32_t control_points) {
+    patch_control_points_ = control_points;
+  }
+  uint32_t GetPatchControlPoints() const { return patch_control_points_; }
+
  private:
   StencilOp front_fail_op_ = StencilOp::kKeep;
   StencilOp front_pass_op_ = StencilOp::kKeep;
@@ -213,6 +235,11 @@ class PipelineData {
   float depth_bias_slope_factor_ = 0.0f;
   float min_depth_bounds_ = 0.0f;
   float max_depth_bounds_ = 0.0f;
+
+  bool has_viewport_data = false;
+  Viewport vp;
+
+  uint32_t patch_control_points_ = 3u;
 };
 
 }  // namespace amber

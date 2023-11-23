@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2020 Unicode, Inc.
+<!-- Copyright © 1991-2021 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
-Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
+SPDX-License-Identifier: Unicode-DFS-2016
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
@@ -96,21 +96,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 					<dateFormatLength type="full">
 						<dateFormat>
 							<pattern draft="provisional">EEEE, G y MMMM dd</pattern>
+							<datetimeSkeleton draft="provisional">GyMMMMEEEEdd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="long">
 						<dateFormat>
 							<pattern draft="provisional">G y MMMM d</pattern>
+							<datetimeSkeleton draft="provisional">GyMMMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="medium">
 						<dateFormat>
 							<pattern draft="provisional">G y MMM d</pattern>
+							<datetimeSkeleton draft="provisional">GyMMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="short">
 						<dateFormat>
 							<pattern draft="provisional">GGGGG y-MM-dd</pattern>
+							<datetimeSkeleton draft="provisional">GGGGGyMMdd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 				</dateFormats>
@@ -262,21 +266,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 					<dateFormatLength type="full">
 						<dateFormat>
 							<pattern draft="provisional">EEEE, y MMMM dd</pattern>
+							<datetimeSkeleton draft="provisional">yMMMMEEEEdd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="long">
 						<dateFormat>
 							<pattern draft="provisional">y MMMM d</pattern>
+							<datetimeSkeleton draft="provisional">yMMMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="medium">
 						<dateFormat>
 							<pattern draft="provisional">y MMM d</pattern>
+							<datetimeSkeleton draft="provisional">yMMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="short">
 						<dateFormat>
 							<pattern draft="provisional">y-MM-dd</pattern>
+							<datetimeSkeleton draft="provisional">yMMdd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 				</dateFormats>
@@ -284,21 +292,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 					<timeFormatLength type="full">
 						<timeFormat>
 							<pattern draft="provisional">h:mm:ss a zzzz</pattern>
+							<datetimeSkeleton draft="provisional">ahmmsszzzz</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="long">
 						<timeFormat>
 							<pattern draft="provisional">h:mm:ss a z</pattern>
+							<datetimeSkeleton draft="provisional">ahmmssz</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="medium">
 						<timeFormat>
 							<pattern draft="provisional">h:mm:ss a</pattern>
+							<datetimeSkeleton draft="provisional">ahmmss</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="short">
 						<timeFormat>
 							<pattern draft="provisional">h:mm a</pattern>
+							<datetimeSkeleton draft="provisional">ahmm</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 				</timeFormats>
@@ -369,9 +381,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<hourFormat draft="provisional">+HH:mm;-HH:mm</hourFormat>
 			<gmtFormat draft="provisional">JQG{0}</gmtFormat>
 			<regionFormat draft="provisional">Jikan {0}</regionFormat>
-			<zone type="Pacific/Honolulu">
-				<exemplarCity draft="provisional">Jikan alang Honoruru</exemplarCity>
-			</zone>
 			<zone type="Etc/Unknown">
 				<exemplarCity draft="provisional">Ini klayi ka Jikan hini</exemplarCity>
 			</zone>
@@ -383,6 +392,9 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			</zone>
 			<zone type="America/Sao_Paulo">
 				<exemplarCity draft="provisional">Jikan alang Snpaurow</exemplarCity>
+			</zone>
+			<zone type="Pacific/Honolulu">
+				<exemplarCity draft="provisional">Jikan alang Honoruru</exemplarCity>
 			</zone>
 			<zone type="America/Anchorage">
 				<exemplarCity draft="provisional">Jikan alang Ankriji</exemplarCity>

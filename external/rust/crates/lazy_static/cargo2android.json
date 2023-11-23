@@ -1,12 +1,21 @@
 {
   "apex-available": [
     "//apex_available:platform",
+    "com.android.bluetooth",
+    "com.android.compos",
     "com.android.resolv",
+    "com.android.uwb",
     "com.android.virt"
+  ],
+  "dependency-blocklist": [
+    "doc_comment"
   ],
   "device": true,
   "min-sdk-version": "29",
-  "patch": "patches/Android.bp.diff",
   "run": true,
-  "tests": true
+  "test-blocklist": [
+    "tests/no_std.rs"
+  ],
+  "tests": true,
+  "vendor-available": true
 }

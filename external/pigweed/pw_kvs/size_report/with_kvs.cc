@@ -14,7 +14,7 @@
 
 #include <cstring>
 
-#include "pw_assert/assert.h"
+#include "pw_assert/check.h"
 #include "pw_bloat/bloat_this_binary.h"
 #include "pw_kvs/flash_test_partition.h"
 #include "pw_kvs/key_value_store.h"
@@ -49,15 +49,17 @@ int main() {
       std::memset((void*)working_buffer, 0x55, sizeof(working_buffer));
   is_set = (result != nullptr);
 
-  kvs.Init();
+  kvs.Init().IgnoreError();  // TODO(pwbug/387): Handle Status properly
 
   unsigned kvs_value = 42;
-  kvs.Put("example_key", kvs_value);
+  kvs.Put("example_key", kvs_value)
+      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
 
   kvs_entry_count = kvs.size();
 
   unsigned read_value = 0;
-  kvs.Get("example_key", &read_value);
+  kvs.Get("example_key", &read_value)
+      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
 
   return 0;
 }

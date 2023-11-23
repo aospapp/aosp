@@ -23,7 +23,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-
+#include <fcntl.h>
+#include <linux/input.h>
 #include "rmi4update.h"
 
 #define RMI_F34_QUERY_SIZE		7
@@ -58,6 +59,7 @@
 
 #define RMI_F34_ENABLE_WAIT_MS 300
 #define RMI_F34_ERASE_WAIT_MS (5 * 1000)
+#define RMI_F34_ERASE_V8_WAIT_MS (10000)
 #define RMI_F34_IDLE_WAIT_MS 500
 
 /* Most recent device status event */
@@ -66,6 +68,9 @@
 #define RMI_F01_STATUS_BOOTLOADER(status)	(!!((status) & 0x40))
 /* The device has lost its configuration for some reason. */
 #define RMI_F01_STATUS_UNCONFIGURED(status)	(!!((status) & 0x80))
+
+/* Indicates that flash programming is enabled V7(bootloader mode). */
+#define RMI_F01_STATUS_BOOTLOADER_v7(status) (!!((status) & 0x80))
 
 /*
  * Sleep mode controls power management on the device and affects all
@@ -91,7 +96,6 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 	long long int duration_us = 0;
 	int rc;
 	const unsigned char eraseAll = RMI_F34_ERASE_ALL;
-
 	rc = FindUpdateFunctions();
 	if (rc != UPDATE_SUCCESS)
 		return rc;
@@ -119,15 +123,65 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 	rc = ReadF34Queries();
 	if (rc != UPDATE_SUCCESS)
 		return rc;
-
 	rc = m_firmwareImage.VerifyImageMatchesDevice(GetFirmwareSize(), GetConfigSize());
 	if (rc != UPDATE_SUCCESS)
 		return rc;
 
-	rc = EnterFlashProgramming();
-	if (rc != UPDATE_SUCCESS) {
-		fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-		goto reset;
+	if (m_f34.GetFunctionVersion() == 0x02) {
+		fprintf(stdout, "Enable Flash V7+...\n");
+		rc = EnterFlashProgrammingV7();
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			goto reset;
+		}
+		fprintf(stdout, "Enable Flash done V7+...\n");
+
+		if (!m_IsErased){
+			fprintf(stdout, "Erasing FW V7+...\n");
+			rc = EraseFirmwareV7();
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				goto reset;
+			}
+			fprintf(stdout, "Erasing FW done V7+...\n");
+		}
+		if(m_bootloaderID[1] == 8){
+			if (m_firmwareImage.GetFlashConfigData()) {
+				fprintf(stdout, "Writing flash configuration V8...\n");
+				rc = WriteFlashConfigV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Writing flash config done V8...\n");
+			}
+		}
+		if (m_firmwareImage.GetFirmwareData()) {
+			fprintf(stdout, "Writing firmware V7+...\n");
+			rc = WriteFirmwareV7();
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				goto reset;
+			}
+			fprintf(stdout, "Writing firmware done V7+...\n");
+		}
+		if (m_firmwareImage.GetConfigData()) {
+			fprintf(stdout, "Writing core configuration V7+...\n");
+			rc = WriteCoreConfigV7();
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				goto reset;
+			}
+			fprintf(stdout, "Writing core config done V7+...\n");
+			goto reset;
+		}
+		
+	} else {
+		rc = EnterFlashProgramming();
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			goto reset;
+		}
 	}
 
 	if (performLockdown && m_unlocked) {
@@ -151,7 +205,6 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
 			goto reset;
 		}
-		
 	}
 
 	rc = WriteBootloaderID();
@@ -208,7 +261,24 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 
 reset:
 	m_device.Reset();
+rebind:
 	m_device.RebindDriver();
+	if(!m_device.CheckABSEvent())
+	{
+		goto rebind;
+	}
+
+	// In order to print out new PR
+	rc = FindUpdateFunctions();
+	if (rc != UPDATE_SUCCESS)
+		return rc;
+
+	rc = m_device.QueryBasicProperties();
+	if (rc < 0)
+		return UPDATE_FAIL_QUERY_BASIC_PROPERTIES;
+	fprintf(stdout, "Device Properties:\n");
+	m_device.PrintProperties();
+
 	return rc;
 
 }
@@ -239,6 +309,204 @@ int RMI4Update::FindUpdateFunctions()
 	return UPDATE_SUCCESS;
 }
 
+int RMI4Update::rmi4update_poll()
+{
+	unsigned char f34_status;
+	unsigned short dataAddr = m_f34.GetDataBase();
+	int rc;
+
+	rc = m_device.Read(dataAddr, &f34_status, sizeof(unsigned char));
+	if (rc != sizeof(unsigned char))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	m_flashStatus = f34_status & 0x1F;
+	m_inBLmode = f34_status & 0x80;
+	if(!m_flashStatus)
+		rc = m_device.Read(dataAddr + 4, &m_flashCmd, sizeof(unsigned char));
+
+	return 0;
+}
+
+int RMI4Update::ReadFlashConfig()
+{
+	int rc;
+	int transaction_count, remain_block;
+	unsigned char *flash_cfg;
+	int transfer_leng = 0;
+	int read_leng = 0;
+	int offset = 0;
+	unsigned char trans_leng_buf[2];
+	unsigned char cmd_buf[1];
+	unsigned char off[2] = {0, 0};
+	unsigned char partition_id = FLASH_CONFIG_PARTITION;
+	unsigned short dataAddr = m_f34.GetDataBase();
+	int i;
+	int retry = 0;
+	unsigned char *data_temp;
+	struct partition_tbl *partition_temp;
+
+	flash_cfg = (unsigned char *)malloc(m_blockSize * m_flashConfigLength);
+	memset(flash_cfg, 0, m_blockSize * m_flashConfigLength);
+	partition_temp = (partition_tbl *)malloc(sizeof(struct partition_tbl));
+	memset(partition_temp, 0, sizeof(struct partition_tbl));
+	/* calculate the count */
+	remain_block = (m_flashConfigLength % m_payloadLength);
+	transaction_count = (m_flashConfigLength / m_payloadLength);
+
+	if (remain_block > 0)
+		transaction_count++;
+
+	/* set partition id for bootloader 7 */
+	rc = m_device.Write(dataAddr + 1, &partition_id, sizeof(partition_id));
+	if (rc != sizeof(partition_id))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	for (i = 0; i < transaction_count; i++)
+	{
+		if ((i == (transaction_count -1)) && (remain_block > 0))
+			transfer_leng = remain_block;
+		else
+			transfer_leng = m_payloadLength;
+
+		// Set Transfer Length
+		trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+		trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+		rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+		if (rc != sizeof(trans_leng_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		// Set Command to Read
+		cmd_buf[0] = (unsigned char)CMD_V7_READ;
+		rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+		if (rc != sizeof(cmd_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		//Wait for completion
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+			}
+			retry++;
+		} while(retry < 20);
+
+		read_leng = transfer_leng * m_blockSize;
+		data_temp = (unsigned char *) malloc(sizeof(char) * read_leng);
+		rc = m_device.Read(dataAddr + 5, data_temp, sizeof(char) * read_leng);
+		if (rc != ((ssize_t)sizeof(char) * read_leng))
+			return UPDATE_FAIL_READ_F34_QUERIES;
+
+		memcpy(flash_cfg + offset, data_temp, sizeof(char) * read_leng);
+		offset += read_leng;
+		free(data_temp);
+	}
+
+	// Initialize as NULL here to avoid segmentation fault.
+	m_partitionConfig = NULL;
+	m_partitionCore = NULL;
+	m_partitionGuest = NULL;
+
+	/* parse the config length */
+	for (i = 2; i < m_blockSize * m_flashConfigLength; i = i + 8)
+	{
+		memcpy(partition_temp->data ,flash_cfg + i, sizeof(struct partition_tbl));
+		if (partition_temp->partition_id == CORE_CONFIG_PARTITION)
+		{
+			m_partitionConfig = (partition_tbl *) malloc(sizeof(struct partition_tbl));
+			memcpy(m_partitionConfig ,partition_temp, sizeof(struct partition_tbl));
+			memset(partition_temp, 0, sizeof(struct partition_tbl));
+			fprintf(stdout, "CORE_CONFIG_PARTITION is found\n");
+		}
+		else if (partition_temp->partition_id == CORE_CODE_PARTITION)
+		{
+			m_partitionCore = (partition_tbl *) malloc(sizeof(struct partition_tbl));
+			memcpy(m_partitionCore ,partition_temp, sizeof(struct partition_tbl));
+			memset(partition_temp, 0, sizeof(struct partition_tbl));
+			fprintf(stdout, "CORE_CODE_PARTITION is found\n");
+		}
+		else if (partition_temp->partition_id == GUEST_CODE_PARTITION)
+		{
+			m_partitionGuest = (partition_tbl *) malloc(sizeof(struct partition_tbl));
+			memcpy(m_partitionGuest ,partition_temp, sizeof(struct partition_tbl));
+			memset(partition_temp, 0, sizeof(struct partition_tbl));
+			fprintf(stdout, "GUEST_CODE_PARTITION is found\n");
+		}
+		else if (partition_temp->partition_id == NONE_PARTITION)
+			break;
+	}
+
+	if (flash_cfg)
+		free(flash_cfg);
+
+	if (partition_temp)
+		free(partition_temp);
+
+	m_fwBlockCount = m_partitionCore ? m_partitionCore->partition_len : 0;
+	m_configBlockCount = m_partitionConfig ? m_partitionConfig->partition_len : 0;
+	m_guestBlockCount = m_partitionGuest ? m_partitionGuest->partition_len : 0;
+	fprintf(stdout, "F34 fw blocks:     %d\n", m_fwBlockCount);
+	fprintf(stdout, "F34 config blocks: %d\n", m_configBlockCount);
+	fprintf(stdout, "F34 guest blocks:     %d\n", m_guestBlockCount);
+	fprintf(stdout, "\n");
+
+	m_guestData = (unsigned char *) malloc(m_guestBlockCount * m_blockSize);
+	memset(m_guestData, 0, m_guestBlockCount * m_blockSize);
+	memset(m_guestData + m_guestBlockCount * m_blockSize -4, 0, 4);
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::ReadF34QueriesV7()
+{
+	int rc;
+	struct f34_v7_query_0 query_0;
+	struct f34_v7_query_1_7 query_1_7;
+	unsigned char idStr[3];
+	unsigned short queryAddr = m_f34.GetQueryBase();
+	unsigned char offset;
+
+	rc = m_device.Read(queryAddr, query_0.data, sizeof(query_0.data));
+	if (rc != sizeof(query_0.data))
+		return UPDATE_FAIL_READ_BOOTLOADER_ID;
+
+	offset = query_0.subpacket_1_size + 1;
+	rc = m_device.Read(queryAddr + offset, query_1_7.data, sizeof(query_1_7.data));
+	if (rc != sizeof(query_1_7.data))
+		return UPDATE_FAIL_READ_BOOTLOADER_ID;
+
+	m_bootloaderID[0] = query_1_7.bl_minor_revision;
+	m_bootloaderID[1] = query_1_7.bl_major_revision;
+	m_hasConfigID = query_0.has_config_id;
+	m_blockSize = query_1_7.block_size_15_8 << 8 |
+			query_1_7.block_size_7_0;
+	m_flashConfigLength = query_1_7.flash_config_length_15_8 << 8 |
+				query_1_7.flash_config_length_7_0;
+	m_payloadLength = query_1_7.payload_length_15_8 << 8 |
+			query_1_7.payload_length_7_0;
+	m_buildID = query_1_7.bl_fw_id_7_0 |
+			query_1_7.bl_fw_id_15_8 << 8 |
+			query_1_7.bl_fw_id_23_16 << 16 |
+			query_1_7.bl_fw_id_31_24 << 24;
+
+	idStr[0] = m_bootloaderID[0];
+	idStr[1] = m_bootloaderID[1];
+	idStr[2] = 0;
+
+	fprintf(stdout, "F34 bootloader id: %s (%#04x %#04x)\n", idStr, m_bootloaderID[0],
+		m_bootloaderID[1]);
+	fprintf(stdout, "F34 has config id: %d\n", m_hasConfigID);
+	fprintf(stdout, "F34 unlocked:      %d\n", m_unlocked);
+	fprintf(stdout, "F34 block size:    %d\n", m_blockSize);
+	fprintf(stdout, "F34 flash cfg leng:%d\n", m_flashConfigLength);
+	fprintf(stdout, "F34 payload length:%d\n", m_payloadLength);
+	fprintf(stdout, "F34 build id:      %lu\n", m_buildID);
+
+	return ReadFlashConfig();
+}
+
 int RMI4Update::ReadF34Queries()
 {
 	int rc;
@@ -248,7 +516,9 @@ int RMI4Update::ReadF34Queries()
 	unsigned short f34Version = m_f34.GetFunctionVersion();
 	unsigned short querySize;
 
-	if (f34Version == 0x1)
+	if (f34Version == 0x2)
+		return ReadF34QueriesV7();
+	else if (f34Version == 0x1)
 		querySize = 8;
 	else
 		querySize = 2;
@@ -365,6 +635,530 @@ int RMI4Update::WriteBootloaderID()
 	return UPDATE_SUCCESS;
 }
 
+int RMI4Update::WriteFirmwareV7()
+{
+	int transaction_count, remain_block;
+	int transfer_leng = 0;
+	int offset = 0;
+	unsigned char trans_leng_buf[2];
+	unsigned char cmd_buf[1];
+	unsigned char off[2] = {0, 0};
+	unsigned char partition_id;
+	int i;
+	int retry = 0;
+	unsigned char *data_temp;
+	int rc;
+	unsigned short left_bytes;
+	unsigned short write_size;
+	unsigned short max_write_size;
+	unsigned short dataAddr = m_f34.GetDataBase();
+
+	/* calculate the count */
+	partition_id = CORE_CODE_PARTITION;
+	remain_block = (m_fwBlockCount % m_payloadLength);
+	transaction_count = (m_fwBlockCount / m_payloadLength);
+	if (remain_block > 0)
+		transaction_count++;
+
+	/* set partition id for bootloader 7 */
+	rc = m_device.Write(dataAddr + 1, &partition_id, sizeof(partition_id));
+	if (rc != sizeof(partition_id))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	for (i = 0; i < transaction_count; i++)
+	{
+		if ((i == (transaction_count -1)) && (remain_block > 0))
+			transfer_leng = remain_block;
+		else
+			transfer_leng = m_payloadLength;
+
+		// Set Transfer Length
+		trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+		trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+
+		rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+		if (rc != sizeof(trans_leng_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		// Set Command to Write
+		cmd_buf[0] = (unsigned char)CMD_V7_WRITE;
+		rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+		if (rc != sizeof(cmd_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		max_write_size = 16;
+		if (max_write_size >= transfer_leng * m_blockSize)
+			max_write_size = transfer_leng * m_blockSize;
+		else if (max_write_size > m_blockSize)
+			max_write_size -= max_write_size % m_blockSize;
+		else
+			max_write_size = m_blockSize;
+
+		left_bytes = transfer_leng * m_blockSize;
+		do {
+			if (left_bytes / max_write_size)
+				write_size = max_write_size;
+			else
+				write_size = left_bytes;
+
+			data_temp = (unsigned char *) malloc(sizeof(unsigned char) * write_size);
+			memcpy(data_temp, m_firmwareImage.GetFirmwareData() + offset, sizeof(char) * write_size);
+			rc = m_device.Write(dataAddr + 5, data_temp, sizeof(char) * write_size);
+			if (rc != ((ssize_t)sizeof(char) * write_size)) {
+				fprintf(stdout, "err write_size = %d; rc = %d\n", write_size, rc);
+				return UPDATE_FAIL_READ_F34_QUERIES;
+			}
+
+			offset += write_size;
+			left_bytes -= write_size;
+			free(data_temp);
+		} while (left_bytes);
+
+		// Sleep 100 ms and wait for attention.
+		Sleep(100);
+		rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		}
+
+		//Wait for completion
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+
+	}
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::WriteCoreConfigV7()
+{
+	int transaction_count, remain_block;
+	int transfer_leng = 0;
+	int offset = 0;
+	unsigned char trans_leng_buf[2];
+	unsigned char cmd_buf[1];
+	unsigned char off[2] = {0, 0};
+	unsigned char partition_id;
+	unsigned short dataAddr = m_f34.GetDataBase();
+	unsigned short left_bytes;
+	unsigned short write_size;
+	unsigned short max_write_size;
+	int rc;
+	int i;
+	int retry = 0;
+	unsigned char *data_temp;
+
+	/* calculate the count */
+	partition_id = CORE_CONFIG_PARTITION;
+	remain_block = (m_configBlockCount % m_payloadLength);
+	transaction_count = (m_configBlockCount / m_payloadLength);
+	if (remain_block > 0)
+		transaction_count++;
+
+	/* set partition id for bootloader 7 */
+	rc = m_device.Write(dataAddr + 1, &partition_id, sizeof(partition_id));
+	if (rc != sizeof(partition_id))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	for (i = 0; i < transaction_count; i++)
+	{
+		if ((i == (transaction_count -1)) && (remain_block > 0))
+			transfer_leng = remain_block;
+		else
+			transfer_leng = m_payloadLength;
+
+		// Set Transfer Length
+		trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+		trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+
+		rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+		if (rc != sizeof(trans_leng_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		// Set Command to Write
+		cmd_buf[0] = (unsigned char)CMD_V7_WRITE;
+		rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+		if (rc != sizeof(cmd_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		max_write_size = 16;
+		if (max_write_size >= transfer_leng * m_blockSize)
+			max_write_size = transfer_leng * m_blockSize;
+		else if (max_write_size > m_blockSize)
+			max_write_size -= max_write_size % m_blockSize;
+		else
+			max_write_size = m_blockSize;
+
+		left_bytes = transfer_leng * m_blockSize;
+
+		do {
+			if (left_bytes / max_write_size)
+				write_size = max_write_size;
+			else
+				write_size = left_bytes;
+
+			data_temp = (unsigned char *) malloc(sizeof(unsigned char) * write_size);
+			memcpy(data_temp, m_firmwareImage.GetConfigData() + offset, sizeof(char) * write_size);
+			rc = m_device.Write(dataAddr + 5, data_temp, sizeof(char) * write_size);
+			if (rc != ((ssize_t)sizeof(char) * write_size)) {
+				return UPDATE_FAIL_READ_F34_QUERIES;
+			}
+
+			offset += write_size;
+			left_bytes -= write_size;
+			free(data_temp);
+		} while (left_bytes);
+
+		// Wait for attention.
+		rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		}
+
+		//Wait for completion
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+
+	}
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::WriteFlashConfigV7()
+{
+	int transaction_count, remain_block;
+	int transfer_leng = 0;
+	int offset = 0;
+	unsigned char trans_leng_buf[2];
+	unsigned char cmd_buf[1];
+	unsigned char off[2] = {0, 0};
+	unsigned char partition_id;
+	unsigned short dataAddr = m_f34.GetDataBase();
+	unsigned short left_bytes;
+	unsigned short write_size;
+	unsigned short max_write_size;
+	int rc;
+	int i;
+	int retry = 0;
+	unsigned char *data_temp;
+	unsigned short FlashConfigBlockCount;
+
+	/* calculate the count */
+	partition_id = FLASH_CONFIG_PARTITION;
+
+	FlashConfigBlockCount = m_firmwareImage.GetFlashConfigSize() / m_blockSize;
+
+	remain_block = (FlashConfigBlockCount % m_payloadLength);
+	transaction_count = (FlashConfigBlockCount / m_payloadLength);
+	if (remain_block > 0)
+		transaction_count++;
+
+	/* set partition id for bootloader 7 */
+	rc = m_device.Write(dataAddr + 1, &partition_id, sizeof(partition_id));
+	if (rc != sizeof(partition_id))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	for (i = 0; i < transaction_count; i++)
+	{
+		if ((i == (transaction_count -1)) && (remain_block > 0))
+			transfer_leng = remain_block;
+		else
+			transfer_leng = m_payloadLength;
+
+		// Set Transfer Length
+		trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+		trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+
+		rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+		if (rc != sizeof(trans_leng_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		// Set Command to Write
+		cmd_buf[0] = (unsigned char)CMD_V7_WRITE;
+		rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+		if (rc != sizeof(cmd_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		max_write_size = 16;
+		if (max_write_size >= transfer_leng * m_blockSize)
+			max_write_size = transfer_leng * m_blockSize;
+		else if (max_write_size > m_blockSize)
+			max_write_size -= max_write_size % m_blockSize;
+		else
+			max_write_size = m_blockSize;
+
+		left_bytes = transfer_leng * m_blockSize;
+
+		do {
+			if (left_bytes / max_write_size)
+				write_size = max_write_size;
+			else
+				write_size = left_bytes;
+
+			data_temp = (unsigned char *) malloc(sizeof(unsigned char) * write_size);
+			memcpy(data_temp, m_firmwareImage.GetFlashConfigData() + offset, sizeof(char) * write_size);
+			rc = m_device.Write(dataAddr + 5, data_temp, sizeof(char) * write_size);
+			if (rc != ((ssize_t)sizeof(char) * write_size)) {
+				fprintf(stdout, "err write_size = %d; rc = %d\n", write_size, rc);
+				return UPDATE_FAIL_READ_F34_QUERIES;
+			}
+
+			offset += write_size;
+			left_bytes -= write_size;
+			free(data_temp);
+		} while (left_bytes);
+
+		// Wair for attention.
+		rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		}
+
+		//Wait for completion
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+
+	}
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::EraseFirmwareV7()
+{
+	unsigned char erase_cmd[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	int retry = 0;
+	int rc;
+
+	/* set partition id for bootloader 7 */
+	erase_cmd[0] = CORE_CODE_PARTITION;
+	/* write bootloader id */
+	erase_cmd[6] = m_bootloaderID[0];
+	erase_cmd[7] = m_bootloaderID[1];
+	if(m_bootloaderID[1] == 8){
+		/* Set Command to Erase AP for BL8*/
+		erase_cmd[5] = (unsigned char)CMD_V7_ERASE_AP;
+	} else {
+		/* Set Command to Erase AP for BL7*/
+		erase_cmd[5] = (unsigned char)CMD_V7_ERASE;
+	}
+	
+	fprintf(stdout, "Erase command : ");
+	for(int i = 0 ;i<8;i++){
+		fprintf(stdout, "%d ", erase_cmd[i]);
+	}
+	fprintf(stdout, "\n");
+
+	rmi4update_poll();
+	if (!m_inBLmode)
+		return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+	if(m_bootloaderID[1] == 8){
+		// For BL8 device, we need hold 1 seconds after querying
+		// F34 status to avoid not get attention by following giving 
+		// erase command.
+		Sleep(1000);
+	}
+
+	rc = m_device.Write(m_f34.GetDataBase() + 1, erase_cmd, sizeof(erase_cmd));
+	if (rc != sizeof(erase_cmd))
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+
+	Sleep(100);
+
+	//Wait from ATTN
+	if(m_bootloaderID[1] == 8){
+		// Wait for attention for BL8 device.
+		rc = WaitForIdle(RMI_F34_ERASE_V8_WAIT_MS, false);
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		}
+	}
+	do {
+		Sleep(20);
+		rmi4update_poll();
+		if (m_flashStatus == SUCCESS){
+			break;
+		}
+		retry++;
+	} while(retry < 20);
+
+	if (m_flashStatus != SUCCESS) {
+		fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+	}
+ 
+	if(m_bootloaderID[1] == 7){
+		// For BL7, we need erase config partition.
+		fprintf(stdout, "Start to erase config\n");
+		erase_cmd[0] = CORE_CONFIG_PARTITION;
+		erase_cmd[6] = m_bootloaderID[0];
+		erase_cmd[7] = m_bootloaderID[1];
+		erase_cmd[5] = (unsigned char)CMD_V7_ERASE;
+
+		Sleep(100);
+		rmi4update_poll();
+		if (!m_inBLmode)
+		  return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+
+		rc = m_device.Write(m_f34.GetDataBase() + 1, erase_cmd, sizeof(erase_cmd));
+		if (rc != sizeof(erase_cmd))
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+
+		//Wait from ATTN
+		Sleep(100);
+
+		rc = WaitForIdle(RMI_F34_ERASE_WAIT_MS, true);
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		}
+
+
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+	}
+
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::EnterFlashProgrammingV7()
+{
+	int rc;
+	unsigned char f34_status;
+	rc = m_device.Read(m_f34.GetDataBase(), &f34_status, sizeof(unsigned char));
+	m_inBLmode = f34_status & 0x80;
+	if(!m_inBLmode){
+		fprintf(stdout, "Not in BL mode, going to BL mode...\n");
+		unsigned char EnterCmd[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+		int retry = 0;
+
+		/* set partition id for bootloader 7 */
+		EnterCmd[0] = BOOTLOADER_PARTITION;
+
+		/* write bootloader id */
+		EnterCmd[6] = m_bootloaderID[0];
+		EnterCmd[7] = m_bootloaderID[1];
+
+		// Set Command to EnterBL
+		EnterCmd[5] = (unsigned char)CMD_V7_ENTER_BL;
+
+		rc = m_device.Write(m_f34.GetDataBase() + 1, EnterCmd, sizeof(EnterCmd));
+		if (rc != sizeof(EnterCmd))
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+
+		rc = WaitForIdle(RMI_F34_ENABLE_WAIT_MS, false);
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		}
+
+		//Wait from ATTN
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+
+		Sleep(RMI_F34_ENABLE_WAIT_MS);
+
+		fprintf(stdout, "%s\n", __func__);
+		rmi4update_poll();
+		if (!m_inBLmode)
+			return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+
+	} else
+		fprintf(stdout, "Already in BL mode, skip...\n");
+
+	if(m_device.GetDeviceType() != RMI_DEVICE_TYPE_TOUCHPAD) {
+		// workaround for touchscreen only
+		fprintf(stdout, "Erase in BL mode\n");
+		rc = EraseFirmwareV7();
+		if (rc != UPDATE_SUCCESS) {
+			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			return UPDATE_FAIL_ERASE_ALL;
+		}
+		fprintf(stdout, "Erase in BL mode end\n");
+		m_device.RebindDriver();
+	}
+
+	Sleep(RMI_F34_ENABLE_WAIT_MS);
+
+	rc = FindUpdateFunctions();
+	if (rc != UPDATE_SUCCESS)
+		return rc;
+
+	rc = ReadF34Queries();
+	if (rc != UPDATE_SUCCESS)
+		return rc;
+
+	return UPDATE_SUCCESS;
+}
+
 int RMI4Update::EnterFlashProgramming()
 {
 	int rc;
@@ -381,7 +1175,10 @@ int RMI4Update::EnterFlashProgramming()
 		return UPDATE_FAIL_ENABLE_FLASH_PROGRAMMING;
 
 	Sleep(RMI_F34_ENABLE_WAIT_MS);
-	m_device.RebindDriver();
+	if(m_device.GetDeviceType() != RMI_DEVICE_TYPE_TOUCHPAD) {
+		fprintf(stdout, "not TouchPad, rebind driver here\n");
+		m_device.RebindDriver();
+	}
 	rc = WaitForIdle(0);
 	if (rc != UPDATE_SUCCESS)
 		return UPDATE_FAIL_NOT_IN_IDLE_STATE;
@@ -398,8 +1195,15 @@ int RMI4Update::EnterFlashProgramming()
 	if (rc != 1)
 		return UPDATE_FAIL_READ_DEVICE_STATUS;
 
-	if (!RMI_F01_STATUS_BOOTLOADER(m_deviceStatus))
-		return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+	if(m_f34.GetFunctionVersion() > 0x1){
+		if (!RMI_F01_STATUS_BOOTLOADER_v7(m_deviceStatus))
+			return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+		fprintf(stdout, "Already in BL mode V7\n");
+	} else {
+		if (!RMI_F01_STATUS_BOOTLOADER(m_deviceStatus))
+			return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+		fprintf(stdout, "Already in BL mode\n");
+	}
 
 	rc = ReadF34Queries();
 	if (rc != UPDATE_SUCCESS)
@@ -487,7 +1291,7 @@ int RMI4Update::WaitForIdle(int timeout_ms, bool readF34OnSucess)
 		tv.tv_usec = (timeout_ms % 1000) * 1000;
 
 		rc = m_device.WaitForAttention(&tv, m_f34.GetInterruptMask());
-		if (rc == -ETIMEDOUT)
+		if (rc == -ETIMEDOUT){
 			/*
 			 * If for some reason we are not getting attention reports for HID devices
 			 * then we can still continue after the timeout and read F34 status
@@ -495,7 +1299,8 @@ int RMI4Update::WaitForIdle(int timeout_ms, bool readF34OnSucess)
 			 * will be slow. If this message shows up a lot then something is wrong
 			 * with receiving attention reports and that should be fixed.
 			 */
-			fprintf(stderr, "Timed out waiting for attn report\n");
+			fprintf(stderr, "RMI4Update::WaitForIdle Timed out waiting for attn report\n");
+		}
 	}
 
 	if (rc <= 0 || readF34OnSucess) {
@@ -505,18 +1310,18 @@ int RMI4Update::WaitForIdle(int timeout_ms, bool readF34OnSucess)
 
 		if (!m_f34Status && !m_f34Command) {
 			if (!m_programEnabled) {
-				fprintf(stderr, "Bootloader is idle but program_enabled bit isn't set.\n");
+				fprintf(stderr, "RMI4Update::WaitForIdle Bootloader is idle but program_enabled bit isn't set.\n");
 				return UPDATE_FAIL_PROGRAMMING_NOT_ENABLED;
 			} else {
 				return UPDATE_SUCCESS;
 			}
 		}
-
-		fprintf(stderr, "ERROR: Waiting for idle status.\n");
-		fprintf(stderr, "Command: %#04x\n", m_f34Command);
-		fprintf(stderr, "Status:  %#04x\n", m_f34Status);
-		fprintf(stderr, "Enabled: %d\n", m_programEnabled);
-		fprintf(stderr, "Idle:    %d\n", !m_f34Command && !m_f34Status);
+		fprintf(stderr, "RMI4Update::WaitForIdle\n");
+		fprintf(stderr, "  ERROR: Waiting for idle status.\n");
+		fprintf(stderr, "  Command: %#04x\n", m_f34Command);
+		fprintf(stderr, "  Status:  %#04x\n", m_f34Status);
+		fprintf(stderr, "  Enabled: %d\n", m_programEnabled);
+		fprintf(stderr, "  Idle:    %d\n", !m_f34Command && !m_f34Status);
 
 		return UPDATE_FAIL_NOT_IN_IDLE_STATE;
 	}

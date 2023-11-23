@@ -91,6 +91,14 @@ message StringIndexingConfig {
 
       // Tokenization for plain text.
       PLAIN = 1;
+
+      // Tokenizes text in verbatim. This means no normalization or segmentation
+      // is applied to string values that are tokenized using this type.
+      // Therefore, the output token is equivalent to the raw string text. For
+      // example, "Hello, world!" would be tokenized as "Hello, world!"
+      // preserving punctuation and capitalization, and not creating separate
+      // tokens between the space.
+      VERBATIM = 2;
     }
   }
   optional TokenizerType.Code tokenizer_type = 2;

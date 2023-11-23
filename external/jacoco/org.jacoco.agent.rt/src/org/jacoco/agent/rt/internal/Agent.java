@@ -1,13 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
- *    
+ *
  *******************************************************************************/
 package org.jacoco.agent.rt.internal;
 
@@ -34,17 +35,16 @@ import org.jacoco.core.runtime.RuntimeData;
  */
 public class Agent implements IAgent {
 
-	private static Agent singleton;
-
 	/**
 	 * Returns a global instance which is already started. If the method is
 	 * called the first time the instance is created with the given options.
-	 * 
+	 *
 	 * @param options
 	 *            options to configure the instance
 	 * @return global instance
 	 */
-	public static synchronized Agent getInstance(final AgentOptions options) {
+	public static synchronized Agent getInstance(final AgentOptions options)
+			throws Exception {
 		// BEGIN android-change
 		return getInstance(options, new RuntimeData());
 		// END android-change
@@ -62,19 +62,17 @@ public class Agent implements IAgent {
 	 *            the runtime data to reuse
 	 * @return global instance
 	 */
-	public static synchronized Agent getInstance(final AgentOptions options, RuntimeData data) {
-		if (singleton == null) {
-			final Agent agent = new Agent(options, IExceptionLogger.SYSTEM_ERR, data);
-			agent.startup();
-			Runtime.getRuntime().addShutdownHook(new Thread() {
-				@Override
-				public void run() {
-					agent.shutdown();
-				}
-			});
-			singleton = agent;
-		}
-		return singleton;
+	public static synchronized Agent getInstance(final AgentOptions options, RuntimeData data)
+			throws Exception {
+		final Agent agent = new Agent(options, IExceptionLogger.SYSTEM_ERR, data);
+		agent.startup();
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				agent.shutdown();
+			}
+		});
+		return agent;
 	}
 	// END android-change
 
@@ -91,13 +89,10 @@ public class Agent implements IAgent {
 	 */
 	// END android-change
 	public static synchronized Agent getInstance() throws IllegalStateException {
-		if (singleton == null) {
-			// BEGIN android-change
-			// throw new IllegalStateException("JaCoCo agent not started.");
-			singleton = Offline.createAgent();
-			// END android-change
-		}
-		return singleton;
+		// BEGIN android-change
+		// throw new IllegalStateException("JaCoCo agent not started.");
+		return Offline.createAgent();
+		// END android-change
 	}
 
 	private final AgentOptions options;
@@ -112,7 +107,7 @@ public class Agent implements IAgent {
 
 	/**
 	 * Creates a new agent with the given agent options.
-	 * 
+	 *
 	 * @param options
 	 *            agent options
 	 * @param logger
@@ -144,7 +139,7 @@ public class Agent implements IAgent {
 
 	/**
 	 * Returns the runtime data object created by this agent
-	 * 
+	 *
 	 * @return runtime data for this agent instance
 	 */
 	public RuntimeData getData() {
@@ -153,9 +148,11 @@ public class Agent implements IAgent {
 
 	/**
 	 * Initializes this agent.
-	 * 
+	 *
+	 * @throws Exception
+	 *             in case something cannot be initialized
 	 */
-	public void startup() {
+	public void startup() throws Exception {
 		try {
 			String sessionId = options.getSessionId();
 			if (sessionId == null) {
@@ -171,6 +168,7 @@ public class Agent implements IAgent {
 			}
 		} catch (final Exception e) {
 			logger.logExeption(e);
+			throw e;
 		}
 	}
 
@@ -193,7 +191,7 @@ public class Agent implements IAgent {
 
 	/**
 	 * Create output implementation as given by the agent options.
-	 * 
+	 *
 	 * @return configured controller implementation
 	 */
 	IAgentOutput createAgentOutput() {

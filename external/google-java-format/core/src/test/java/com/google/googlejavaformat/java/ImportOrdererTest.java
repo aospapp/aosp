@@ -313,7 +313,7 @@ public class ImportOrdererTest {
             "",
             "import java.util.List;",
             "",
-            "import javax.annotations.Nullable;",
+            "import javax.annotation.Nullable;",
             "",
             "import static org.junit.Assert.fail;",
             "import static com.google.truth.Truth.assertThat;",
@@ -329,7 +329,7 @@ public class ImportOrdererTest {
             "",
             "import com.google.common.base.Preconditions;",
             "import java.util.List;",
-            "import javax.annotations.Nullable;",
+            "import javax.annotation.Nullable;",
             "import org.junit.runner.RunWith;",
             "import org.junit.runners.JUnit4;",
             "",
@@ -527,6 +527,27 @@ public class ImportOrdererTest {
             "class Test {}",
           }
         },
+        {
+          {
+            "package p;",
+            "",
+            "import java.lang.Bar;",
+            "import java.lang.Baz;",
+            ";",
+            "import java.lang.Foo;",
+            "",
+            "interface Test {}",
+          },
+          {
+            "package p;",
+            "",
+            "import java.lang.Bar;",
+            "import java.lang.Baz;",
+            "import java.lang.Foo;",
+            "",
+            "interface Test {}",
+          }
+        }
       };
 
       ImmutableList.Builder<Object[]> builder = ImmutableList.builder();
@@ -799,7 +820,7 @@ public class ImportOrdererTest {
             "",
             "public class Blim {}",
           },
-        },
+        }
       };
       ImmutableList.Builder<Object[]> builder = ImmutableList.builder();
       Arrays.stream(inputsOutputs).forEach(input -> builder.add(createRow(input)));

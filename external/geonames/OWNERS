@@ -1,3 +1,2 @@
-nfuller@google.com
-vichang@google.com
-android-libcore-team+review@google.com
+# Component ID: 847766
+include platform/packages/modules/GeoTZ:/OWNERS

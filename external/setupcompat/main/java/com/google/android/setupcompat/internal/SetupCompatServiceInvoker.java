@@ -54,9 +54,20 @@ public class SetupCompatServiceInvoker {
 
   public void bindBack(String screenName, Bundle bundle) {
     try {
-      setupCompatExecutor.execute(() -> invokeBindBack(screenName, bundle));
+      loggingExecutor.execute(() -> invokeBindBack(screenName, bundle));
     } catch (RejectedExecutionException e) {
       LOG.e(String.format("Screen %s bind back fail.", screenName), e);
+    }
+  }
+
+  /**
+   * Help invoke the {@link ISetupCompatService#onFocusStatusChanged} using {@code loggingExecutor}.
+   */
+  public void onFocusStatusChanged(String screenName, Bundle bundle) {
+    try {
+      loggingExecutor.execute(() -> invokeOnWindowFocusChanged(screenName, bundle));
+    } catch (RejectedExecutionException e) {
+      LOG.e(String.format("Screen %s report focus changed failed.", screenName), e);
     }
   }
 
@@ -73,6 +84,29 @@ public class SetupCompatServiceInvoker {
       }
     } catch (InterruptedException | TimeoutException | RemoteException | IllegalStateException e) {
       LOG.e(String.format("Exception occurred while trying to log metric = [%s]", args), e);
+    }
+  }
+
+  private void invokeOnWindowFocusChanged(String screenName, Bundle bundle) {
+    try {
+      ISetupCompatService setupCompatService =
+          SetupCompatServiceProvider.get(
+              context, waitTimeInMillisForServiceConnection, TimeUnit.MILLISECONDS);
+      if (setupCompatService != null) {
+        setupCompatService.onFocusStatusChanged(bundle);
+      } else {
+        LOG.w(
+            "Report focusChange failed since service reference is null. Are the permission valid?");
+      }
+    } catch (InterruptedException
+        | TimeoutException
+        | RemoteException
+        | UnsupportedOperationException e) {
+      LOG.e(
+          String.format(
+              "Exception occurred while %s trying report windowFocusChange to SetupWizard.",
+              screenName),
+          e);
     }
   }
 
@@ -96,14 +130,12 @@ public class SetupCompatServiceInvoker {
   private SetupCompatServiceInvoker(Context context) {
     this.context = context;
     this.loggingExecutor = ExecutorProvider.setupCompatServiceInvoker.get();
-    this.setupCompatExecutor = ExecutorProvider.setupCompatExecutor.get();
     this.waitTimeInMillisForServiceConnection = MAX_WAIT_TIME_FOR_CONNECTION_MS;
   }
 
   private final Context context;
 
   private final ExecutorService loggingExecutor;
-  private final ExecutorService setupCompatExecutor;
   private final long waitTimeInMillisForServiceConnection;
 
   public static synchronized SetupCompatServiceInvoker get(Context context) {

@@ -25,6 +25,20 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <algorithm>
+
+#ifdef OS_WINDOWS
+#include <basetsd.h>
+
+#define ssize_t SSIZE_T
+#endif // OS_WINDOWS
+
+#ifdef TRUE
+#undef TRUE
+#endif // TRUE
+#ifdef FALSE
+#undef FALSE
+#endif // FALSE
 
 namespace cppbor {
 
@@ -128,6 +142,11 @@ class Item {
     const Bstr* asBstr() const { return const_cast<Item*>(this)->asBstr(); }
     virtual Simple* asSimple() { return nullptr; }
     const Simple* asSimple() const { return const_cast<Item*>(this)->asSimple(); }
+    virtual Bool* asBool() { return nullptr; }
+    const Bool* asBool() const { return const_cast<Item*>(this)->asBool(); }
+    virtual Null* asNull() { return nullptr; }
+    const Null* asNull() const { return const_cast<Item*>(this)->asNull(); }
+
     virtual Map* asMap() { return nullptr; }
     const Map* asMap() const { return const_cast<Item*>(this)->asMap(); }
     virtual Array* asArray() { return nullptr; }
@@ -598,6 +617,13 @@ class Array : public Item {
     Array(Args&&... args);
 
     /**
+     * The above variadic constructor is disabled if sizeof(Args) != 1, so special
+     * case an explicit Array constructor for creating an Array with one Item.
+     */
+    template <typename T, typename Enable>
+    explicit Array(T&& v);
+
+    /**
      * Append a single element to the Array, of any compatible type.
      */
     template <typename T>
@@ -698,7 +724,7 @@ class Map : public Item {
      *
      * If the searched-for `key` is not present, returns `nullptr`.
      *
-     * Note that if the map is canonicalized (sorted), Map::get() peforms a binary search.  If your
+     * Note that if the map is canonicalized (sorted), Map::get() performs a binary search.  If your
      * map is large and you're searching in it many times, it may be worthwhile to canonicalize it
      * to make Map::get() faster.  Any use of a method that might modify the map disables the
      * speedup.
@@ -838,9 +864,6 @@ class Simple : public Item {
     MajorType type() const override { return kMajorType; }
 
     Simple* asSimple() override { return this; }
-
-    virtual const Bool* asBool() const { return nullptr; };
-    virtual const Null* asNull() const { return nullptr; };
 };
 
 /**
@@ -856,7 +879,7 @@ class Bool : public Simple {
     bool operator==(const Bool& other) const& { return mValue == other.mValue; }
 
     SimpleType simpleType() const override { return kSimpleType; }
-    const Bool* asBool() const override { return this; }
+    Bool* asBool() override { return this; }
 
     size_t encodedSize() const override { return 1; }
 
@@ -886,7 +909,7 @@ class Null : public Simple {
     explicit Null() {}
 
     SimpleType simpleType() const override { return kSimpleType; }
-    const Null* asNull() const override { return this; }
+    Null* asNull() override { return this; }
 
     size_t encodedSize() const override { return 1; }
 
@@ -912,7 +935,7 @@ class Null : public Simple {
  * for unit tests.
  */
 std::string prettyPrint(const Item* item, size_t maxBStrSize = 32,
-                        const std::vector<std::string>& mapKeysNotToPrint = {});
+                        const std::vector<std::string>& mapKeysToNotPrint = {});
 
 /**
  * Returns pretty-printed CBOR for |value|.
@@ -927,7 +950,7 @@ std::string prettyPrint(const Item* item, size_t maxBStrSize = 32,
  * for unit tests.
  */
 std::string prettyPrint(const std::vector<uint8_t>& encodedCbor, size_t maxBStrSize = 32,
-                        const std::vector<std::string>& mapKeysNotToPrint = {});
+                        const std::vector<std::string>& mapKeysToNotPrint = {});
 
 /**
  * Details. Mostly you shouldn't have to look below, except perhaps at the docstring for makeItem.
@@ -1039,12 +1062,19 @@ inline void map_helper(Map& map, Key&& key, Value&& value, Rest&&... rest) {
 }  // namespace details
 
 template <typename... Args,
-          /* Prevent use as copy ctor */ typename = std::enable_if_t<
-                  (sizeof...(Args)) != 1 ||
-                  !(std::is_same_v<Array, std::remove_cv_t<std::remove_reference_t<Args>>> || ...)>>
+         /* Prevent implicit construction with a single argument. */
+         typename = std::enable_if_t<(sizeof...(Args)) != 1>>
 Array::Array(Args&&... args) {
     mEntries.reserve(sizeof...(args));
     (mEntries.push_back(details::makeItem(std::forward<Args>(args))), ...);
+}
+
+template <typename T,
+         /* Prevent use as copy constructor. */
+         typename = std::enable_if_t<
+            !std::is_same_v<Array, std::remove_cv_t<std::remove_reference_t<T>>>>>
+Array::Array(T&& v) {
+    mEntries.push_back(details::makeItem(std::forward<T>(v)));
 }
 
 template <typename T>

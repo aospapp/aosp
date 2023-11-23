@@ -58,6 +58,11 @@ TfLiteStatus CopyValuesToTensorAndPadOrTruncate(
                   out->data.i32 + output_offset + from_this_element,
                   in.data.i32[value_index]);
       } break;
+      case kTfLiteInt64: {
+        std::fill(out->data.i64 + output_offset,
+                  out->data.i64 + output_offset + from_this_element,
+                  in.data.i64[value_index]);
+      } break;
       case kTfLiteFloat32: {
         std::fill(out->data.f + output_offset,
                   out->data.f + output_offset + from_this_element,
@@ -76,6 +81,12 @@ TfLiteStatus CopyValuesToTensorAndPadOrTruncate(
       const int32_t value =
           (output_offset > 0) ? out->data.i32[output_offset - 1] : 0;
       std::fill(out->data.i32 + output_offset, out->data.i32 + output_size,
+                value);
+    } break;
+    case kTfLiteInt64: {
+      const int64_t value =
+          (output_offset > 0) ? out->data.i64[output_offset - 1] : 0;
+      std::fill(out->data.i64 + output_offset, out->data.i64 + output_size,
                 value);
     } break;
     case kTfLiteFloat32: {

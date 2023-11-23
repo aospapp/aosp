@@ -12,7 +12,7 @@ Runs PROGRAM inside a sandbox.
 Run using the alternate syscall table named \fItable\fR. Only available on kernels
 and architectures that support the \fBPR_ALT_SYSCALL\fR option of \fBprctl\fR(2).
 .TP
-\fB-b <src>[,[dest][,<writeable>]]
+\fB-b <src>[,[dest][,<writeable>]]\fR, \fB--bind-mount=<src>[,[dest][,<writeable>]]\fR
 Bind-mount \fIsrc\fR into the chroot directory at \fIdest\fR, optionally writeable.
 The \fIsrc\fR path must be an absolute path.
 
@@ -116,7 +116,7 @@ make sure the \fIprogram\fR continues to work as expected.
 the first minijail process outside of the pid namespace while the \fB-I\fR
 option controls the minijail process inside of the pid namespace.
 .TP
-\fB-k <src>,<dest>,<type>[,<flags>[,<data>]]\fR
+\fB-k <src>,<dest>,<type>[,<flags>[,<data>]]\fR, \fB--mount=<src>,<dest>,<type>[,<flags>[,<data>]]\fR
 Mount \fIsrc\fR, a \fItype\fR filesystem, at \fIdest\fR.  If a chroot or pivot
 root is active, \fIdest\fR will automatically be placed below that path.
 
@@ -257,7 +257,7 @@ Change users to the specified \fIuser\fR name, or numeric user ID \fIuid\fR.
 \fB-U\fR
 Enter a new user namespace (implies \fB-p\fR).
 .TP
-\fB-v\fR
+\fB-v\fR, \fB--ns-mount\fR
 Run inside a new VFS namespace. This option prevents mounts performed by the
 program from affecting the rest of the system (but see \fB-K\fR).
 .TP
@@ -288,6 +288,16 @@ capability-dumb binaries.  See \fBcapabilities\fR(7).
 \fB--uts[=hostname]\fR
 Create a new UTS/hostname namespace, and optionally set the hostname in the new
 namespace to \fIhostname\fR.
+.TP
+\fB--env-reset\fR
+Clear the current environment instead of having the program inherit the active
+environment. This is often used to start the program with a minimal
+sanitized environment.
+.TP
+\fB--env-add <NAME=value>\fR
+Adds or replace the specified environment variable \fINAME\fR in the program's
+environment before starting it, and set it to the specified \fIvalue\fR.
+This option can be used several times to set any number of environment variables.
 .TP
 \fB--logging=<system>\fR
 Use \fIsystem\fR as the logging system. \fIsystem\fR must be one of
@@ -327,6 +337,11 @@ this option unless you know what you're doing.
 
 See the kernel documentation \fIDocumentation/userspace-api/spec_ctrl.rst\fR
 and \fIDocumentation/admin-guide/hw-vuln/spectre.rst\fR for more information.
+.TP
+\fB--config <file path>\fR
+Use a Minijail configuration file to set options, through
+commandline-option-equivalent key-value pairs.
+See \fBminijail0\fR(5) for more details on the format of the configuration file.
 .SH SANDBOXING PROFILES
 The following sandboxing profiles are supported:
 .TP

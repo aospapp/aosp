@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "rustversion"
-version = "1.0.4"
+version = "1.0.5"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 build = "build/build.rs"
 description = "Conditional compilation according to rustc compiler version"

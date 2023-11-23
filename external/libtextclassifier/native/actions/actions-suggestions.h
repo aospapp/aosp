@@ -43,6 +43,7 @@
 #include "utils/utf8/unilib.h"
 #include "utils/variant.h"
 #include "utils/zlib/zlib.h"
+#include "absl/container/flat_hash_set.h"
 
 namespace libtextclassifier3 {
 
@@ -176,7 +177,8 @@ class ActionsSuggestions {
 
   void PopulateTextReplies(const tflite::Interpreter* interpreter,
                            int suggestion_index, int score_index,
-                           const std::string& type,
+                           const std::string& type, float priority_score,
+                           const absl::flat_hash_set<std::string>& blocklist,
                            ActionsSuggestionsResponse* response) const;
 
   void PopulateIntentTriggering(const tflite::Interpreter* interpreter,

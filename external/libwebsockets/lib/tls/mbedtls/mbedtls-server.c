@@ -24,6 +24,7 @@
 
 #include "private-lib-core.h"
 #include <mbedtls/x509_csr.h>
+#include <errno.h>
 
 int
 lws_tls_server_client_cert_verify_config(struct lws_vhost *vh)
@@ -37,15 +38,7 @@ lws_tls_server_client_cert_verify_config(struct lws_vhost *vh)
 		return 0;
 	}
 
-	/*
-	 * The wrapper has this messed-up mapping:
-	 *
-	 * 	   else if (ctx->verify_mode == SSL_VERIFY_FAIL_IF_NO_PEER_CERT)
-	 *     mode = MBEDTLS_SSL_VERIFY_OPTIONAL;
-	 *
-	 * ie the meaning is inverted.  So where we should test for ! we don't
-	 */
-	if (lws_check_opt(vh->options, LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED))
+	if (!lws_check_opt(vh->options, LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED))
 		verify_options = SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
 	lwsl_notice("%s: vh %s requires client cert %d\n", __func__, vh->name,
@@ -124,7 +117,7 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 		return 0;
 	}
 
-	n = lws_tls_generic_cert_checks(vhost, cert, private_key);
+	n = (int)lws_tls_generic_cert_checks(vhost, cert, private_key);
 
 	if (n == LWS_TLS_EXTANT_NO && (!mem_cert || !mem_privkey))
 		return 0;
@@ -152,9 +145,6 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 		 */
 		cert = NULL;
 		private_key = NULL;
-
-		if (!mem_cert)
-			return 1;
 	}
 	if (lws_tls_alloc_pem_to_der_file(vhost->context, cert, mem_cert,
 					  mem_cert_len, &p, &flen)) {
@@ -163,7 +153,7 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 		return 1;
 	}
 
-	err = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx, flen, p);
+	err = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx, (int)flen, p);
 	lws_free_set_NULL(p);
 	if (!err) {
 		lwsl_err("Problem loading cert\n");
@@ -178,18 +168,10 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 		return 1;
 	}
 
-	err = SSL_CTX_use_PrivateKey_ASN1(0, vhost->tls.ssl_ctx, p, flen);
+	err = SSL_CTX_use_PrivateKey_ASN1(0, vhost->tls.ssl_ctx, p, (long)flen);
 	lws_free_set_NULL(p);
 	if (!err) {
 		lwsl_err("Problem loading key\n");
-
-		return 1;
-	}
-
-	if (!private_key && !mem_privkey && vhost->protocols[0].callback(wsi,
-			LWS_CALLBACK_OPENSSL_CONTEXT_REQUIRES_PRIVATE_KEY,
-			vhost->tls.ssl_ctx, NULL, 0)) {
-		lwsl_err("ssl private key not set\n");
 
 		return 1;
 	}
@@ -208,7 +190,7 @@ lws_tls_server_vhost_backend_init(const struct lws_context_creation_info *info,
 	lws_filepos_t flen;
 	int n;
 
-	vhost->tls.ssl_ctx = SSL_CTX_new(method);	/* create context */
+	vhost->tls.ssl_ctx = SSL_CTX_new(method, &vhost->context->mcdc);	/* create context */
 	if (!vhost->tls.ssl_ctx) {
 		lwsl_err("problem creating ssl context\n");
 		return 1;
@@ -264,7 +246,7 @@ int
 lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 {
 	errno = 0;
-	wsi->tls.ssl = SSL_new(wsi->vhost->tls.ssl_ctx);
+	wsi->tls.ssl = SSL_new(wsi->a.vhost->tls.ssl_ctx);
 	if (wsi->tls.ssl == NULL) {
 		lwsl_err("SSL_new failed: errno %d\n", errno);
 
@@ -272,12 +254,12 @@ lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 		return 1;
 	}
 
-	SSL_set_fd(wsi->tls.ssl, accept_fd);
+	SSL_set_fd(wsi->tls.ssl, (int)accept_fd);
 
-	if (wsi->vhost->tls.ssl_info_event_mask)
+	if (wsi->a.vhost->tls.ssl_info_event_mask)
 		SSL_set_info_callback(wsi->tls.ssl, lws_ssl_info_callback);
 
-	SSL_set_sni_callback(wsi->tls.ssl, lws_mbedtls_sni_cb, wsi->context);
+	SSL_set_sni_callback(wsi->tls.ssl, lws_mbedtls_sni_cb, wsi->a.context);
 
 	return 0;
 }
@@ -289,7 +271,9 @@ int
 #endif
 lws_tls_server_abort_connection(struct lws *wsi)
 {
-	__lws_tls_shutdown(wsi);
+	if (wsi->tls.use_ssl)
+		__lws_tls_shutdown(wsi);
+	
 	SSL_free(wsi->tls.ssl);
 
 	return 0;
@@ -306,7 +290,7 @@ lws_tls_server_accept(struct lws *wsi)
 	wsi->skip_fallback = 1;
 	if (n == 1) {
 
-		if (strstr(wsi->vhost->name, ".invalid")) {
+		if (strstr(wsi->a.vhost->name, ".invalid")) {
 			lwsl_notice("%s: vhost has .invalid, "
 				    "rejecting accept\n", __func__);
 
@@ -325,12 +309,17 @@ lws_tls_server_accept(struct lws *wsi)
 	}
 
 	m = SSL_get_error(wsi->tls.ssl, n);
-	lwsl_debug("%s: %p: accept SSL_get_error %d errno %d\n", __func__,
-		   wsi, m, errno);
+	lwsl_debug("%s: %s: accept SSL_get_error %d errno %d\n", __func__,
+		    lws_wsi_tag(wsi), m, errno);
 
 	// mbedtls wrapper only
 	if (m == SSL_ERROR_SYSCALL && errno == 11)
 		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+
+#if defined(__APPLE__)
+	if (m == SSL_ERROR_SYSCALL && errno == 35)
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+#endif
 
 #if defined(WIN32)
 	if (m == SSL_ERROR_SYSCALL && errno == 0)
@@ -469,7 +458,7 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 			     const char *san_b)
 {
 	int buflen = 0x560;
-	uint8_t *buf = lws_malloc(buflen, "tmp cert buf"), *p = buf, *pkey_asn1;
+	uint8_t *buf = lws_malloc((unsigned int)buflen, "tmp cert buf"), *p = buf, *pkey_asn1;
 	struct lws_genrsa_ctx ctx;
 	struct lws_gencrypto_keyelem el[LWS_GENCRYPTO_RSA_KEYEL_COUNT];
 	uint8_t digest[32];
@@ -488,31 +477,31 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 	}
 
 	n = sizeof(ss_cert_leadin);
-	memcpy(p, ss_cert_leadin, n);
+	memcpy(p, ss_cert_leadin, (unsigned int)n);
 	p += n;
 
 	adj = (0x0556 - 0x401) + (keybits / 4) + 1;
-	buf[2] = adj >> 8;
-	buf[3] = adj & 0xff;
+	buf[2] = (uint8_t)(adj >> 8);
+	buf[3] = (uint8_t)(adj & 0xff);
 
 	adj = (0x033e - 0x201) + (keybits / 8) + 1;
-	buf[6] = adj >> 8;
-	buf[7] = adj & 0xff;
+	buf[6] = (uint8_t)(adj >> 8);
+	buf[7] = (uint8_t)(adj & 0xff);
 
 	adj = (0x0222 - 0x201) + (keybits / 8) + 1;
-	buf[0xc3] = adj >> 8;
-	buf[0xc4] = adj & 0xff;
+	buf[0xc3] = (uint8_t)(adj >> 8);
+	buf[0xc4] = (uint8_t)(adj & 0xff);
 
 	adj = (0x020f - 0x201) + (keybits / 8) + 1;
-	buf[0xd6] = adj >> 8;
-	buf[0xd7] = adj & 0xff;
+	buf[0xd6] = (uint8_t)(adj >> 8);
+	buf[0xd7] = (uint8_t)(adj & 0xff);
 
 	adj = (0x020a - 0x201) + (keybits / 8) + 1;
-	buf[0xdb] = adj >> 8;
-	buf[0xdc] = adj & 0xff;
+	buf[0xdb] = (uint8_t)(adj >> 8);
+	buf[0xdc] = (uint8_t)(adj & 0xff);
 
-	*p++ = ((keybits / 8) + 1) >> 8;
-	*p++ = ((keybits / 8) + 1) & 0xff;
+	*p++ = (uint8_t)(((keybits / 8) + 1) >> 8);
+	*p++ = (uint8_t)(((keybits / 8) + 1) & 0xff);
 
 	/* we need to drop 1 + (keybits / 8) bytes of n in here, 00 + key */
 
@@ -529,8 +518,8 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 	p += SAN_A_LENGTH;
 	memcpy(p, ss_cert_sig_leadin, sizeof(ss_cert_sig_leadin));
 
-	p[17] = ((keybits / 8) + 1) >> 8;
-	p[18] = ((keybits / 8) + 1) & 0xff;
+	p[17] = (uint8_t)(((keybits / 8) + 1) >> 8);
+	p[18] = (uint8_t)(((keybits / 8) + 1) & 0xff);
 
 	p += sizeof(ss_cert_sig_leadin);
 
@@ -539,7 +528,7 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 	if (lws_genhash_init(&hash_ctx, LWS_GENHASH_TYPE_SHA256))
 		goto bail2;
 
-	if (lws_genhash_update(&hash_ctx, buf, lws_ptr_diff(p, buf))) {
+	if (lws_genhash_update(&hash_ctx, buf, lws_ptr_diff_size_t(p, buf))) {
 		lws_genhash_destroy(&hash_ctx, NULL);
 
 		goto bail2;
@@ -550,16 +539,16 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 	/* sign the hash */
 
 	n = lws_genrsa_hash_sign(&ctx, digest, LWS_GENHASH_TYPE_SHA256, p,
-				 buflen - lws_ptr_diff(p, buf));
+				 (size_t)((size_t)buflen - lws_ptr_diff_size_t(p, buf)));
 	if (n < 0)
 		goto bail2;
 	p += n;
 
-	pkey_asn1 = lws_malloc(pkey_asn1_len, "mbed crt tmp");
+	pkey_asn1 = lws_malloc((unsigned int)pkey_asn1_len, "mbed crt tmp");
 	if (!pkey_asn1)
 		goto bail2;
 
-	m = lws_genrsa_render_pkey_asn1(&ctx, 1, pkey_asn1, pkey_asn1_len);
+	m = lws_genrsa_render_pkey_asn1(&ctx, 1, pkey_asn1, (size_t)pkey_asn1_len);
 	if (m < 0) {
 		lws_free(pkey_asn1);
 		goto bail2;
@@ -632,7 +621,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 	mbedtls_pk_context mpk;
 	int buf_size = 4096, n;
 	char subject[200], *p = subject, *end = p + sizeof(subject) - 1;
-	uint8_t *buf = malloc(buf_size); /* malloc because given to user code */
+	uint8_t *buf = malloc((unsigned int)buf_size); /* malloc because given to user code */
 
 	if (!buf)
 		return -1;
@@ -646,7 +635,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 	}
 
 	n = mbedtls_rsa_gen_key(mbedtls_pk_rsa(mpk), _rngf, context,
-				lws_plat_recommended_rsa_bits(), 65537);
+				(unsigned int)lws_plat_recommended_rsa_bits(), 65537);
 	if (n) {
 		lwsl_notice("%s: failed to generate keys\n", __func__);
 
@@ -659,7 +648,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 		if (p != subject)
 			*p++ = ',';
 		if (elements[n])
-			p += lws_snprintf(p, end - p, "%s=%s", x5[n],
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "%s=%s", x5[n],
 					  elements[n]);
 	}
 
@@ -674,7 +663,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 	 * return value to determine where you should start
 	 * using the buffer
 	 */
-	n = mbedtls_x509write_csr_der(&csr, buf, buf_size, _rngf, context);
+	n = mbedtls_x509write_csr_der(&csr, buf, (size_t)buf_size, _rngf, context);
 	if (n < 0) {
 		lwsl_notice("%s: write csr der failed\n", __func__);
 		goto fail1;
@@ -682,7 +671,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 
 	/* we have it in DER, we need it in b64URL */
 
-	n = lws_jws_base64_enc((char *)(buf + buf_size) - n, n,
+	n = lws_jws_base64_enc((char *)(buf + buf_size) - n, (size_t)n,
 			       (char *)dcsr, csr_len);
 	if (n < 0)
 		goto fail1;
@@ -693,7 +682,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 	 * one step
 	 */
 
-	if (mbedtls_pk_write_key_pem(&mpk, buf, buf_size)) {
+	if (mbedtls_pk_write_key_pem(&mpk, buf, (size_t)buf_size)) {
 		lwsl_notice("write key pem failed\n");
 		goto fail1;
 	}

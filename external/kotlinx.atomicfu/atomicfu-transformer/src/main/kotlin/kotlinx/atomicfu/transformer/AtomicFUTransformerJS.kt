@@ -12,13 +12,23 @@ import org.mozilla.javascript.Token
 import java.util.regex.*
 
 private const val ATOMIC_CONSTRUCTOR = """(atomic\$(ref|int|long|boolean)\$|Atomic(Ref|Int|Long|Boolean))"""
-private const val ATOMIC_ARRAY_CONSTRUCTOR = """Atomic(Ref|Int|Long|Boolean)Array\$(ref|int|long|boolean|ofNulls)"""
+private const val ATOMIC_CONSTRUCTOR_BINARY_COMPATIBILITY = """(atomic\$(ref|int|long|boolean)\$1)""" // mangled names for declarations left for binary compatibility
+private const val ATOMIC_ARRAY_CONSTRUCTOR = """(atomicfu)\$(Atomic(Ref|Int|Long|Boolean)Array)\$(ref|int|long|boolean|ofNulls)"""
 private const val MANGLED_VALUE_PROP = "kotlinx\$atomicfu\$value"
 
-private const val RECEIVER = "\$receiver"
+private const val TRACE_CONSTRUCTOR = "atomicfu\\\$Trace"
+private const val TRACE_BASE_CLASS = "atomicfu\\\$TraceBase"
+private const val TRACE_APPEND = """(atomicfu)\$(Trace)\$(append)\$([1234])""" // [1234] is the number of arguments in the append overload
+private const val TRACE_NAMED = "atomicfu\\\$Trace\\\$named"
+private const val TRACE_FORMAT = "TraceFormat"
+private const val TRACE_FORMAT_CONSTRUCTOR = "atomicfu\\\$$TRACE_FORMAT"
+private const val TRACE_FORMAT_FORMAT = "atomicfu\\\$$TRACE_FORMAT\\\$format"
+
+private const val RECEIVER = """(\$(receiver)(_\d+)?)"""
 private const val SCOPE = "scope"
 private const val FACTORY = "factory"
 private const val REQUIRE = "require"
+private const val PROTOTYPE = "prototype"
 private const val KOTLINX_ATOMICFU = "'kotlinx-atomicfu'"
 private const val KOTLINX_ATOMICFU_PACKAGE = "kotlinx.atomicfu"
 private const val KOTLIN_TYPE_CHECK = "Kotlin.isType"
@@ -26,9 +36,12 @@ private const val ATOMIC_REF = "AtomicRef"
 private const val MODULE_KOTLINX_ATOMICFU = "\\\$module\\\$kotlinx_atomicfu"
 private const val ARRAY = "Array"
 private const val FILL = "fill"
-private const val GET_ELEMENT = "get\\\$atomicfu"
+private const val GET_ELEMENT = "atomicfu\\\$get"
+private const val ARRAY_SIZE = "atomicfu\$size"
+private const val LENGTH = "length"
 private const val LOCKS = "locks"
-private const val REENTRANT_LOCK_ATOMICFU_SINGLETON = "$LOCKS.reentrantLock\\\$atomicfu"
+private const val REENTRANT_LOCK_ATOMICFU_SINGLETON = "$LOCKS.atomicfu\\\$reentrantLock"
+
 
 private val MANGLE_VALUE_REGEX = Regex(".${Pattern.quote(MANGLED_VALUE_PROP)}")
 // matches index until the first occurence of ')', parenthesised index expressions not supported
@@ -39,7 +52,11 @@ class AtomicFUTransformerJS(
     outputDir: File
 ) : AtomicFUTransformerBase(inputDir, outputDir) {
     private val atomicConstructors = mutableSetOf<String>()
+    private val fieldDelegates = mutableMapOf<String, String>()
+    private val delegatedProperties = mutableMapOf<String, String>()
     private val atomicArrayConstructors = mutableMapOf<String, String?>()
+    private val traceConstructors = mutableSetOf<String>()
+    private val traceFormatObjects = mutableSetOf<String>()
 
     override fun transform() {
         info("Transforming to $outputDir")
@@ -62,6 +79,8 @@ class AtomicFUTransformerJS(
         val root = p.parse(FileReader(file), null, 0)
         root.visit(DependencyEraser())
         root.visit(AtomicConstructorDetector())
+        root.visit(FieldDelegatesVisitor())
+        root.visit(DelegatedPropertyAccessorsVisitor())
         root.visit(TransformVisitor())
         root.visit(AtomicOperationsInliner())
         return root.eraseGetValue().toByteArray()
@@ -118,10 +137,10 @@ class AtomicFUTransformerJS(
                     }
                 }
                 Token.FUNCTION -> {
-                    // erasing 'kotlinx-atomicfu' module passed as parameter
                     if (node is FunctionNode) {
                         val it = node.params.listIterator()
                         while (it.hasNext()) {
+                            // erasing 'kotlinx-atomicfu' module passed as parameter
                             if (isAtomicfuModule(it.next())) {
                                 it.remove()
                             }
@@ -198,14 +217,24 @@ class AtomicFUTransformerJS(
                         val varInit = stmt.variables[0] as VariableInitializer
                         if (varInit.initializer is PropertyGet) {
                             val initializer = varInit.initializer.toSource()
-                            if (initializer.matches(Regex(kotlinxAtomicfuModuleName(ATOMIC_CONSTRUCTOR)))) {
+                            if (initializer.matches(Regex(kotlinxAtomicfuModuleName("""($ATOMIC_CONSTRUCTOR|$ATOMIC_CONSTRUCTOR_BINARY_COMPATIBILITY)""")))) {
                                 atomicConstructors.add(varInit.target.toSource())
                                 node.replaceChild(stmt, EmptyLine())
-                            } else if (initializer.matches(Regex(kotlinxAtomicfuModuleName(LOCKS)))){
+                            } else if (initializer.matches(Regex(kotlinxAtomicfuModuleName(TRACE_CONSTRUCTOR)))) {
+                                traceConstructors.add(varInit.target.toSource())
+                                node.replaceChild(stmt, EmptyLine())
+                            } else if (initializer.matches(Regex(kotlinxAtomicfuModuleName("""($LOCKS|$TRACE_FORMAT_CONSTRUCTOR|$TRACE_BASE_CLASS|$TRACE_NAMED)""")))) {
                                 node.replaceChild(stmt, EmptyLine())
                             }
                         }
                     }
+                }
+            }
+            if (node is PropertyGet && node.property.toSource().matches(Regex(TRACE_FORMAT_FORMAT))) {
+                val target = node.target
+                node.property = Name().also { it.identifier = "emptyProperty" }
+                if (target is PropertyGet && target.property.toSource().matches(Regex(PROTOTYPE))) {
+                    traceFormatObjects.add(target.target.toSource())
                 }
             }
             if (node is VariableInitializer && node.initializer is PropertyGet) {
@@ -213,7 +242,7 @@ class AtomicFUTransformerJS(
                 if (initializer.matches(Regex(REENTRANT_LOCK_ATOMICFU_SINGLETON))) {
                     node.initializer = null
                 }
-                if (initializer.matches(Regex(kotlinxAtomicfuModuleName(ATOMIC_CONSTRUCTOR)))) {
+                if (initializer.matches(Regex(kotlinxAtomicfuModuleName("""($ATOMIC_CONSTRUCTOR|$ATOMIC_CONSTRUCTOR_BINARY_COMPATIBILITY)""")))) {
                     atomicConstructors.add(node.target.toSource())
                     node.initializer = null
                 }
@@ -239,6 +268,62 @@ class AtomicFUTransformerJS(
         }
     }
 
+    inner class FieldDelegatesVisitor : NodeVisitor {
+        override fun visit(node: AstNode?): Boolean {
+            if (node is FunctionCall) {
+                val functionName = node.target.toSource()
+                if (atomicConstructors.contains(functionName)) {
+                    if (node.parent is Assignment) {
+                        val assignment = node.parent as Assignment
+                        val atomicField = assignment.left
+                        val constructorBlock = ((node.parent.parent as? ExpressionStatement)?.parent as? Block)
+                                ?: abort("Incorrect tree structure of the constructor block initializing ${node.parent.toSource()}")
+                        // check if there is a delegate field initialized by the reference to this atomic
+                        for (stmt in constructorBlock) {
+                            if (stmt is ExpressionStatement) {
+                                if (stmt.expression is Assignment) {
+                                    val delegateAssignment = stmt.expression as Assignment
+                                    if (delegateAssignment.right is PropertyGet) {
+                                        val initializer = delegateAssignment.right as PropertyGet
+                                        if (initializer.toSource() == atomicField.toSource()) {
+                                            // register field delegate and the original atomic field
+                                            fieldDelegates[(delegateAssignment.left as PropertyGet).property.toSource()] =
+                                                    (atomicField as PropertyGet).property.toSource()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return true
+        }
+    }
+
+    inner class DelegatedPropertyAccessorsVisitor : NodeVisitor {
+        override fun visit(node: AstNode?): Boolean {
+            if (node is PropertyGet) {
+                if (node.target is PropertyGet) {
+                    if ((node.target as PropertyGet).property.toSource() in fieldDelegates && node.property.toSource() == MANGLED_VALUE_PROP) {
+                        if (node.parent is ReturnStatement) {
+                            val getter = ((((node.parent.parent as? Block)?.parent as? FunctionNode)?.parent as? ObjectProperty)?.parent as? ObjectLiteral)
+                                    ?: abort("Incorrect tree structure of the accessor for the property delegated " +
+                                            "to the atomic field ${fieldDelegates[node.target.toSource()]}")
+                            val definePropertyCall = getter.parent as FunctionCall
+                            val stringLiteral = definePropertyCall.arguments[1] as? StringLiteral
+                                    ?: abort ("Object.defineProperty invocation should take a property name as the second argument")
+                            val delegatedProperty = stringLiteral.value.toString()
+                            delegatedProperties[delegatedProperty] = (node.target as PropertyGet).property.toSource()
+                        }
+                    }
+                }
+
+            }
+            return true
+        }
+    }
+
     inner class TransformVisitor : NodeVisitor {
         override fun visit(node: AstNode): Boolean {
             // remove atomic constructors from classes fields
@@ -247,7 +332,7 @@ class AtomicFUTransformerJS(
                 if (atomicConstructors.contains(functionName)) {
                     if (node.parent is Assignment) {
                         val valueNode = node.arguments[0]
-                        (node.parent as InfixExpression).right = valueNode
+                        (node.parent as Assignment).right = valueNode
                     }
                     return true
                 } else if (atomicArrayConstructors.contains(functionName)) {
@@ -296,10 +381,73 @@ class AtomicFUTransformerJS(
                         node.setLeftAndRight(targetNode, clearProperety)
                     }
                     // other cases with $receiver.kotlinx$atomicfu$value in inline functions
-                    else if (node.target.toSource() == RECEIVER) {
-                        val rr = ReceiverResolver()
+                    else if (node.target.toSource().matches(Regex(RECEIVER))) {
+                        val receiverName = node.target.toSource() // $receiver_i
+                        val rr = ReceiverResolver(receiverName)
                         node.enclosingFunction.visit(rr)
                         rr.receiver?.let { node.target = it }
+                    }
+                }
+                if (node.property.toSource() in delegatedProperties) {
+                    // replace delegated property name with the name of the original atomic field
+                    val fieldDelegate = delegatedProperties[node.property.toSource()]
+                    val originalField = fieldDelegates[fieldDelegate]!!
+                    node.property = Name().apply { identifier = originalField }
+                }
+                // replace Atomic*Array.size call with `length` property on the pure type js array
+                if (node.property.toSource() == ARRAY_SIZE) {
+                    node.property = Name().also { it.identifier = LENGTH }
+                }
+            }
+            if (node is Block) {
+                for (stmt in node) {
+                    if (stmt is ExpressionStatement) {
+                        if (stmt.expression is Assignment) {
+                            // erase field initialisation
+                            val assignment = stmt.expression as Assignment
+                            if (assignment.right is FunctionCall) {
+                                val functionName = (assignment.right as FunctionCall).target.toSource()
+                                if (traceConstructors.contains(functionName)) {
+                                    node.replaceChild(stmt, EmptyLine())
+                                }
+                            }
+                        }
+                        if (stmt.expression is FunctionCall) {
+                            // erase append(text) call
+                            val funcNode = (stmt.expression as FunctionCall).target
+                            if (funcNode is PropertyGet && funcNode.property.toSource().matches(Regex(TRACE_APPEND))) {
+                                node.replaceChild(stmt, EmptyLine())
+                            }
+                        }
+                    }
+                }
+            }
+            if (node is Assignment && node.left is PropertyGet) {
+                val left = node.left as PropertyGet
+                if (traceFormatObjects.contains(left.target.toSource())) {
+                    if (node.right is FunctionCall) {
+                        // TraceFormatObject initialization
+                        (node.right as FunctionCall).arguments = listOf(Name().also { it.identifier = "null" })
+                    }
+                }
+            }
+            // remove TraceFormatObject constructor definition
+            if (node is FunctionNode && traceFormatObjects.contains(node.name)) {
+                val body  = node.body
+                for (stmt in body) { body.replaceChild(stmt, EmptyLine()) }
+            }
+            // remove TraceFormat from TraceFormatObject interfaces
+            if (node is Assignment && node.left is PropertyGet && node.right is ObjectLiteral) {
+                val left = node.left as PropertyGet
+                val metadata = node.right as ObjectLiteral
+                if (traceFormatObjects.contains(left.target.toSource())) {
+                    for (e in metadata.elements) {
+                        if (e.right is ArrayLiteral) {
+                            val array = (e.right as ArrayLiteral).toSource()
+                            if (array.contains(TRACE_FORMAT)) {
+                                (e.right as ArrayLiteral).elements = emptyList()
+                            }
+                        }
                     }
                 }
             }
@@ -328,11 +476,11 @@ class AtomicFUTransformerJS(
 
 
     // receiver data flow
-    inner class ReceiverResolver : NodeVisitor {
+    inner class ReceiverResolver(private val receiverName: String) : NodeVisitor {
         var receiver: AstNode? = null
         override fun visit(node: AstNode): Boolean {
             if (node is VariableInitializer) {
-                if (node.target.toSource() == RECEIVER) {
+                if (node.target.toSource() == receiverName) {
                     receiver = node.initializer
                     return false
                 }
@@ -348,8 +496,9 @@ class AtomicFUTransformerJS(
                 if (node.target is PropertyGet) {
                     val funcName = (node.target as PropertyGet).property
                     var field = (node.target as PropertyGet).target
-                    if (field.toSource() == RECEIVER) {
-                        val rr = ReceiverResolver()
+                    if (field.toSource().matches(Regex(RECEIVER))) {
+                        val receiverName = field.toSource() // $receiver_i
+                        val rr = ReceiverResolver(receiverName)
                         node.enclosingFunction.visit(rr)
                         if (rr.receiver != null) {
                             field = rr.receiver
@@ -431,65 +580,65 @@ class AtomicFUTransformerJS(
     ): Boolean {
         val f = field.scopedSource()
         val code = when (funcName) {
-            "getAndSet\$atomicfu" -> {
+            "atomicfu\$getAndSet" -> {
                 val arg = args[0].toSource()
                 "(function($SCOPE) {var oldValue = $f; $f = $arg; return oldValue;})()"
             }
-            "compareAndSet\$atomicfu" -> {
+            "atomicfu\$compareAndSet" -> {
                 val expected = args[0].scopedSource()
                 val updated = args[1].scopedSource()
                 val equals = if (expected == "null") "==" else "==="
                 "(function($SCOPE) {return $f $equals $expected ? function() { $f = $updated; return true }() : false})()"
             }
-            "getAndIncrement\$atomicfu" -> {
+            "atomicfu\$getAndIncrement" -> {
                 "(function($SCOPE) {return $f++;})()"
             }
 
-            "getAndIncrement\$atomicfu\$long" -> {
+            "atomicfu\$getAndIncrement\$long" -> {
                 "(function($SCOPE) {var oldValue = $f; $f = $f.inc(); return oldValue;})()"
             }
 
-            "getAndDecrement\$atomicfu" -> {
+            "atomicfu\$getAndDecrement" -> {
                 "(function($SCOPE) {return $f--;})()"
             }
 
-            "getAndDecrement\$atomicfu\$long" -> {
+            "atomicfu\$getAndDecrement\$long" -> {
                 "(function($SCOPE) {var oldValue = $f; $f = $f.dec(); return oldValue;})()"
             }
 
-            "getAndAdd\$atomicfu" -> {
+            "atomicfu\$getAndAdd" -> {
                 val arg = args[0].scopedSource()
                 "(function($SCOPE) {var oldValue = $f; $f += $arg; return oldValue;})()"
             }
 
-            "getAndAdd\$atomicfu\$long" -> {
+            "atomicfu\$getAndAdd\$long" -> {
                 val arg = args[0].scopedSource()
                 "(function($SCOPE) {var oldValue = $f; $f = $f.add($arg); return oldValue;})()"
             }
 
-            "addAndGet\$atomicfu" -> {
+            "atomicfu\$addAndGet" -> {
                 val arg = args[0].scopedSource()
                 "(function($SCOPE) {$f += $arg; return $f;})()"
             }
 
-            "addAndGet\$atomicfu\$long" -> {
+            "atomicfu\$addAndGet\$long" -> {
                 val arg = args[0].scopedSource()
                 "(function($SCOPE) {$f = $f.add($arg); return $f;})()"
             }
 
-            "incrementAndGet\$atomicfu" -> {
+            "atomicfu\$incrementAndGet" -> {
                 "(function($SCOPE) {return ++$f;})()"
             }
 
-            "incrementAndGet\$atomicfu\$long" -> {
+            "atomicfu\$incrementAndGet\$long" -> {
                 "(function($SCOPE) {return $f = $f.inc();})()"
             }
 
-            "decrementAndGet\$atomicfu" -> {
+            "atomicfu\$decrementAndGet" -> {
                 "(function($SCOPE) {return --$f;})()"
             }
 
-            "decrementAndGet\$atomicfu\$long" -> {
+            "atomicfu\$decrementAndGet\$long" -> {
                 "(function($SCOPE) {return $f = $f.dec();})()"
             }
             else -> null
@@ -513,7 +662,7 @@ class AtomicFUTransformerJS(
     }
 }
 
-private class EmptyLine: EmptyExpression() {
+private class EmptyLine : EmptyExpression() {
     override fun toSource(depth: Int) = "\n"
 }
 

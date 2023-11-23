@@ -93,11 +93,11 @@ test_print_cmsg(sctp_cmsg_t type, sctp_cmsg_data_t *data)
 
 /* This function prints the message. */
 void
-test_print_message(int sk, struct msghdr *msg, size_t msg_len)
+test_print_message(int sk LTP_ATTRIBUTE_UNUSED, struct msghdr *msg, size_t msg_len)
 {
 	sctp_cmsg_data_t *data;
 	struct cmsghdr *cmsg;
-	int i;
+	unsigned int i;
 	int done = 0;
 	char save;
 	union sctp_notification *sn;
@@ -114,10 +114,10 @@ test_print_message(int sk, struct msghdr *msg, size_t msg_len)
 		/* Make sure that everything is printable and that we
 		 * are NUL terminated...
 		 */
-		printf("DATA(%d):  ", msg_len);
+		printf("DATA(%ld):  ", msg_len);
 		while ( msg_len > 0 ) {
 			char *text;
-			int len;
+			unsigned int len;
 
 			text = msg->msg_iov[index].iov_base;
 			len = msg->msg_iov[index].iov_len;
@@ -231,7 +231,7 @@ test_check_msg_notification(struct msghdr *msg, int datalen,
  * stream and ppid.
  */
 void
-test_check_buf_data(void *buf, int datalen, int msg_flags,
+test_check_buf_data(void *buf LTP_ATTRIBUTE_UNUSED, int datalen, int msg_flags,
 		    struct sctp_sndrcvinfo *sinfo, int expected_datalen,
 		    int expected_msg_flags, uint16_t expected_stream,
 		    uint32_t expected_ppid)
@@ -248,7 +248,7 @@ test_check_buf_data(void *buf, int datalen, int msg_flags,
 			 "Got a datamsg of unexpected length:%d, expected length:%d",
 			  datalen, expected_datalen);
 
-	if ((msg_flags & ~0x80000000) != expected_msg_flags)
+	if (((int)(msg_flags & ~0x80000000)) != expected_msg_flags)
 		tst_brkm(TBROK, tst_exit,
 			 "Unexpected msg_flags:0x%x expecting:0x%x",
 			  msg_flags, expected_msg_flags);

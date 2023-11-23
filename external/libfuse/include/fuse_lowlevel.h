@@ -14,7 +14,7 @@
  * Low level API
  *
  * IMPORTANT: you should define FUSE_USE_VERSION before including this
- * header.  To use the newest API define it to 31 (recommended for any
+ * header.  To use the newest API define it to 35 (recommended for any
  * new application).
  */
 
@@ -98,6 +98,10 @@ struct fuse_entry_param {
 	    that come through the kernel, this should be set to a very
 	    large value. */
 	double entry_timeout;
+        uint64_t        backing_action;
+        uint64_t        backing_fd;
+        uint64_t        bpf_action;
+        uint64_t        bpf_fd;
 };
 
 /**
@@ -709,7 +713,7 @@ struct fuse_lowlevel_ops {
 	 * values that was previously returned by readdir() for the same
 	 * directory handle. In this case, readdir() should skip over entries
 	 * coming before the position defined by the off_t value. If entries
-	 * are added or removed while the directory handle is open, they filesystem
+	 * are added or removed while the directory handle is open, the filesystem
 	 * may still include the entries that have been removed, and may not
 	 * report the entries that have been created. However, addition or
 	 * removal of entries must never cause readdir() to skip over unrelated
@@ -1002,6 +1006,11 @@ struct fuse_lowlevel_ops {
 	void (*bmap) (fuse_req_t req, fuse_ino_t ino, size_t blocksize,
 		      uint64_t idx);
 
+#if FUSE_USE_VERSION < 35
+	void (*ioctl) (fuse_req_t req, fuse_ino_t ino, int cmd,
+		       void *arg, struct fuse_file_info *fi, unsigned flags,
+		       const void *in_buf, size_t in_bufsz, size_t out_bufsz);
+#else
 	/**
 	 * Ioctl
 	 *
@@ -1033,6 +1042,7 @@ struct fuse_lowlevel_ops {
 	void (*ioctl) (fuse_req_t req, fuse_ino_t ino, unsigned int cmd,
 		       void *arg, struct fuse_file_info *fi, unsigned flags,
 		       const void *in_buf, size_t in_bufsz, size_t out_bufsz);
+#endif
 
 	/**
 	 * Poll for IO readiness
@@ -1257,9 +1267,9 @@ struct fuse_lowlevel_ops {
  * Reply with an error code or success.
  *
  * Possible requests:
- *   all except forget
+ *   all except forget, forget_multi, retrieve_reply
  *
- * Whereever possible, error codes should be chosen from the list of
+ * Wherever possible, error codes should be chosen from the list of
  * documented error conditions in the corresponding system calls
  * manpage.
  *
@@ -1987,6 +1997,11 @@ int fuse_session_mount(struct fuse_session *se, const char *mountpoint);
  */
 int fuse_session_loop(struct fuse_session *se);
 
+#if FUSE_USE_VERSION < 32
+int fuse_session_loop_mt_31(struct fuse_session *se, int clone_fd);
+#define fuse_session_loop_mt(se, clone_fd) fuse_session_loop_mt_31(se, clone_fd)
+#else
+#if (!defined(__UCLIBC__) && !defined(__APPLE__))
 /**
  * Enter a multi-threaded event loop.
  *
@@ -1998,11 +2013,11 @@ int fuse_session_loop(struct fuse_session *se);
  * @param config session loop configuration 
  * @return see fuse_session_loop()
  */
-#if FUSE_USE_VERSION < 32
-int fuse_session_loop_mt_31(struct fuse_session *se, int clone_fd);
-#define fuse_session_loop_mt(se, clone_fd) fuse_session_loop_mt_31(se, clone_fd)
-#else
 int fuse_session_loop_mt(struct fuse_session *se, struct fuse_loop_config *config);
+#else
+int fuse_session_loop_mt_32(struct fuse_session *se, struct fuse_loop_config *config);
+#define fuse_session_loop_mt(se, config) fuse_session_loop_mt_32(se, config)
+#endif
 #endif
 
 /**

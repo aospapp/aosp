@@ -18,7 +18,6 @@
 #define SRC_TRACE_PROCESSOR_IMPORTERS_FTRACE_FTRACE_MODULE_IMPL_H_
 
 #include "perfetto/base/build_config.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/importers/ftrace/ftrace_module.h"
 #include "src/trace_processor/importers/ftrace/ftrace_parser.h"
 #include "src/trace_processor/importers/ftrace/ftrace_tokenizer.h"
@@ -29,6 +28,8 @@
 
 namespace perfetto {
 namespace trace_processor {
+
+class TraceBlobView;
 
 class FtraceModuleImpl : public FtraceModule {
  public:

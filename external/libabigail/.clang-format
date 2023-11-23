@@ -2,17 +2,24 @@
 ---
 BasedOnStyle: GNU
 Standard: c++11
-AlignConsecutiveDeclarations: true
+AlignConsecutiveDeclarations: false
+AllowShortBlocksOnASingleLine: Always
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortLambdasOnASingleLine: All
 AlwaysBreakAfterReturnType: All
 BreakConstructorInitializers: BeforeColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 2
+Cpp11BracedListStyle: true
 IndentWidth: 2
 AlignAfterOpenBracket: Align
+BinPackArguments: false
 BinPackParameters: false
 BreakStringLiterals: false
 PointerAlignment: Left
 SortUsingDeclarations: false
+SpaceAfterCStyleCast: true
 SpaceBeforeParens: ControlStatements
 TabWidth: 8
 UseTab: Always

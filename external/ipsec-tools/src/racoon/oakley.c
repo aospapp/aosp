@@ -1846,7 +1846,7 @@ static vchar_t* keystore_sign(vchar_t* src, const char* path) {
 	}
 
 	if (EVP_PKEY_id(evp) == EVP_PKEY_RSA) {
-		sig = eay_rsa_sign(src, evp->pkey.rsa);
+		sig = eay_rsa_sign(src, EVP_PKEY_get0_RSA(evp));
 	}
 
 out:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -65,8 +65,8 @@
 #define FAIL_CONTROL_NS_SECURE			U(0)
 #define FAIL_CONTROL_NS_NONSECURE		U(1)
 #define FAIL_CONTROL_PRIV_SHIFT			20
-#define FAIL_CONTROL_PRIV_PRIV			U(0)
-#define FAIL_CONTROL_PRIV_UNPRIV		U(1)
+#define FAIL_CONTROL_PRIV_UNPRIV		U(0)
+#define FAIL_CONTROL_PRIV_PRIV			U(1)
 
 /*
  * FAIL_ID_ID_MASK depends on AID_WIDTH which is platform specific.
@@ -80,11 +80,8 @@
 
 /* Filter enable bits in a TZC */
 #define TZC_400_REGION_ATTR_F_EN_MASK		U(0xf)
-#define TZC_400_REGION_ATTR_FILTER_BIT(x)				\
-				((U(1) << (x)) << TZC_REGION_ATTR_F_EN_SHIFT)
-#define TZC_400_REGION_ATTR_FILTER_BIT_ALL				\
-				(TZC_400_REGION_ATTR_F_EN_MASK <<	\
-				TZC_REGION_ATTR_F_EN_SHIFT)
+#define TZC_400_REGION_ATTR_FILTER_BIT(x)	(U(1) << (x))
+#define TZC_400_REGION_ATTR_FILTER_BIT_ALL	TZC_400_REGION_ATTR_F_EN_MASK
 
 /*
  * All TZC region configuration registers are placed one after another. It
@@ -92,6 +89,8 @@
  */
 #define TZC_400_REGION_SIZE			U(0x20)
 #define TZC_400_ACTION_OFF			U(0x4)
+
+#define FILTER_OFFSET				U(0x10)
 
 #ifndef __ASSEMBLER__
 
@@ -113,6 +112,7 @@ void tzc400_configure_region(unsigned int filters,
 void tzc400_set_action(unsigned int action);
 void tzc400_enable_filters(void);
 void tzc400_disable_filters(void);
+int tzc400_it_handler(void);
 
 static inline void tzc_init(uintptr_t base)
 {

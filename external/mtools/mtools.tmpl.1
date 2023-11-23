@@ -1,5 +1,5 @@
 '\" t
-.TH mtools 1 "28Nov20" mtools-4.0.26
+.TH mtools 1 "08Jan22" mtools-4.0.37
 .SH Name
 mtools - utilities to access DOS disks in Unix.
 '\" t
@@ -36,7 +36,7 @@ Mtools can be found at the following places (and their mirrors):
 .nf
 .ft 3
 .in +0.3i
-http://ftp.gnu.org/gnu/mtools/mtools-4.0.26.tar.gz
+http://ftp.gnu.org/gnu/mtools/mtools-4.0.37.tar.gz
 .fi
 .in -0.3i
 .ft R
@@ -82,13 +82,17 @@ All options use the \fR\&\f(CW-\fR (minus) as their first character, not
 Most mtools commands allow multiple filename parameters, which
 doesn't follow MS-DOS conventions, but which is more user-friendly.
 .PP
-Most mtools commands allow options that instruct them how to handle file
-name clashes. See section name clashes, for more details on these. All
-commands accept the \fR\&\f(CW-V\fR flags which prints the version, and most
-accept the \fR\&\f(CW-v\fR flag, which switches on verbose mode. In verbose
-mode, these commands print out the name of the MS-DOS files upon which
-they act, unless stated otherwise. See section Commands, for a description of
-the options which are specific to each command.
+Most mtools commands allow options that instruct them how to handle
+file name clashes. See section name clashes, for more details on these.
+.PP
+All commands accept the \fR\&\f(CW-i\fR flag which allows to specify an
+image file (See section drive letters).
+.PP
+All commands accept the \fR\&\f(CW-V\fR flag which prints the version, and
+most accept the \fR\&\f(CW-v\fR flag, which switches on verbose mode. In
+verbose mode, these commands print out the name of the MS-DOS files
+upon which they act, unless stated otherwise. See section Commands, for a
+description of the options which are specific to each command.
 .PP
 .SS Drive\ letters
 .PP
@@ -479,7 +483,6 @@ floppyd_installtest
 mattrib
 mbadblocks
 mcd
-mclasserase
 mcopy
 mdel
 mdeltree

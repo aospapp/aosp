@@ -21,6 +21,7 @@ from __future__ import print_function
 import sys
 import time
 
+from absl import app
 import numpy as np
 
 from tensorflow.core.protobuf import config_pb2
@@ -40,7 +41,6 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import sparse_ops
 import tensorflow.python.ops.nn_grad  # pylint: disable=unused-import
-from tensorflow.python.platform import app
 from tensorflow.python.platform import test
 
 
@@ -392,6 +392,6 @@ def main(_):
 if __name__ == "__main__":
   if "--benchmarks" in sys.argv:
     sys.argv.remove("--benchmarks")
-    app.run()
+    app.run()  # pylint: disable=no-value-for-parameter
   else:
     test.main()

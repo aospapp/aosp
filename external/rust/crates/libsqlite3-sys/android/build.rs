@@ -20,14 +20,14 @@ fn main() {
         builder = builder
             .parse_callbacks(Box::new(SqliteTypeChooser))
             .rustfmt_bindings(true)
-            .blacklist_function("sqlite3_vmprintf")
-            .blacklist_function("sqlite3_vsnprintf")
-            .blacklist_function("sqlite3_str_vappendf")
-            .blacklist_type("va_list")
-            .blacklist_type("__builtin_va_list")
-            .blacklist_type("__gnuc_va_list")
-            .blacklist_type("__va_list_tag")
-            .blacklist_item("__GNUC_VA_LIST");
+            .blocklist_function("sqlite3_vmprintf")
+            .blocklist_function("sqlite3_vsnprintf")
+            .blocklist_function("sqlite3_str_vappendf")
+            .blocklist_type("va_list")
+            .blocklist_type("__builtin_va_list")
+            .blocklist_type("__gnuc_va_list")
+            .blocklist_type("__va_list_tag")
+            .blocklist_item("__GNUC_VA_LIST");
  
         if cfg!(feature = "unlock_notify") {
             builder = builder.clang_arg("-DSQLITE_ENABLE_UNLOCK_NOTIFY");

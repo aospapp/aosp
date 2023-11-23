@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -34,13 +35,14 @@
 
 #include "hiddevice.h"
 
-#define RMI4UPDATE_GETOPTS      "hp:ir:w:foambde"
+#define RMI4UPDATE_GETOPTS      "hp:ir:w:foambd:ecnt:"
 
  enum rmihidtool_cmd {
 	RMIHIDTOOL_CMD_INTERACTIVE,
 	RMIHIDTOOL_CMD_READ,
 	RMIHIDTOOL_CMD_WRITE,
 	RMIHIDTOOL_CMD_FW_ID,
+	RMIHIDTOOL_CMD_CF_ID,
 	RMIHIDTOOL_CMD_PROPS,
 	RMIHIDTOOL_CMD_ATTN,
 	RMIHIDTOOL_CMD_PRINT_FUNCTIONS,
@@ -56,17 +58,20 @@ void print_help(const char *prog_name)
 {
 	fprintf(stdout, "Usage: %s [OPTIONS] DEVICEFILE\n", prog_name);
 	fprintf(stdout, "\t-h, --help\t\t\t\tPrint this message\n");
+	fprintf(stdout, "\t-d, --device\t\t\t\thidraw device file associated with the device.\n");
 	fprintf(stdout, "\t-p, --protocol [protocol]\t\tSet which transport prototocl to use.\n");
 	fprintf(stdout, "\t-i, --interactive\t\t\tRun in interactive mode.\n");
 	fprintf(stdout, "\t-r, --read [address] [length]\t\tRead registers starting at the address.\n");
-	fprintf(stdout, "\t-r, --write [address] [length] [data]\tWrite registers starting at the address.\n");
+	fprintf(stdout, "\t-w, --write [address] [length] [data]\tWrite registers starting at the address.\n");
 	fprintf(stdout, "\t-f, --firmware-id\t\t\tPrint the firmware id\n");
+	fprintf(stdout, "\t-c, --config-id\t\t\t\tPrint the config id\n");
 	fprintf(stdout, "\t-o, --props\t\t\t\tPrint device properties\n");
 	fprintf(stdout, "\t-a, --attention\t\t\t\tPrint attention reports until control + c\n");
 	fprintf(stdout, "\t-m, --print-functions\t\t\tPrint RMI4 functions for the device.\n");
 	fprintf(stdout, "\t-b, --rebind-driver\t\t\tRebind the driver to force an update of device properties.\n");
-	fprintf(stdout, "\t-d, --device-info\t\t\tPrint protocol specific information about the device.\n");
+	fprintf(stdout, "\t-n, --device-info\t\t\tPrint protocol specific information about the device.\n");
 	fprintf(stdout, "\t-e, --reset-device\t\t\tReset the device.\n");
+	fprintf(stdout, "\t-t, --device-type\t\t\tFilter by device type [touchpad or touchscreen].\n");
 }
 
 void print_cmd_usage()
@@ -116,6 +121,8 @@ void interactive(RMIDevice * device, unsigned char *report)
 	int rc;
 
 	for (;;) {
+		fprintf(stdout, "\n");
+		device->PrintDeviceInfo();
 		fprintf(stdout, "\n");
 		print_cmd_usage();
 		char input[256];
@@ -201,23 +208,28 @@ int main(int argc, char ** argv)
 	struct sigaction sig_cleanup_action;
 	int opt;
 	int index;
+	char *deviceName = NULL;
 	RMIDevice *device;
 	const char *protocol = "HID";
 	unsigned char report[256];
 	char token[256];
+	enum RMIDeviceType deviceType = RMI_DEVICE_TYPE_ANY;
 	static struct option long_options[] = {
 		{"help", 0, NULL, 'h'},
+		{"device", 1, NULL, 'd'},
 		{"protocol", 1, NULL, 'p'},
 		{"interactive", 0, NULL, 'i'},
 		{"read", 1, NULL, 'r'},
 		{"write", 1, NULL, 'w'},
 		{"firmware-id", 0, NULL, 'f'},
+		{"config-id", 0, NULL, 'c'},
 		{"props", 0, NULL, 'o'},
 		{"attention", 0, NULL, 'a'},
 		{"print-functions", 0, NULL, 'm'},
 		{"rebind-driver", 0, NULL, 'b'},
-		{"device-info", 0, NULL, 'd'},
+		{"device-info", 0, NULL, 'n'},
 		{"reset-device", 0, NULL, 'e'},
+		{"device-type", 1, NULL, 't'},
 		{0, 0, 0, 0},
 	};
 	enum rmihidtool_cmd cmd = RMIHIDTOOL_CMD_INTERACTIVE;
@@ -241,6 +253,9 @@ int main(int argc, char ** argv)
 			case 'p':
 				protocol = optarg;
 				break;
+			case 'd':
+				deviceName = optarg;
+				break;
 			case 'i':
 				cmd = RMIHIDTOOL_CMD_INTERACTIVE;
 				break;
@@ -257,6 +272,9 @@ int main(int argc, char ** argv)
 			case 'f':
 				cmd = RMIHIDTOOL_CMD_FW_ID;
 				break;
+			case 'c':
+				cmd = RMIHIDTOOL_CMD_CF_ID;
+				break;
 			case 'o':
 				cmd = RMIHIDTOOL_CMD_PROPS;
 				break;
@@ -269,11 +287,17 @@ int main(int argc, char ** argv)
 			case 'b':
 				cmd = RMIHIDTOOL_CMD_REBIND_DRIVER;
 				break;
-			case 'd':
+			case 'n':
 				cmd = RMIHIDTOOL_CMD_PRINT_DEVICE_INFO;
 				break;
 			case 'e':
 				cmd = RMIHIDTOOL_CMD_RESET_DEVICE;
+				break;
+			case 't':
+				if (!strcasecmp(optarg, "touchpad"))
+					deviceType = RMI_DEVICE_TYPE_TOUCHPAD;
+				else if (!strcasecmp(optarg, "touchscreen"))
+					deviceType = RMI_DEVICE_TYPE_TOUCHSCREEN;
 				break;
 			default:
 				print_help(argv[0]);
@@ -290,16 +314,21 @@ int main(int argc, char ** argv)
 		return -1;
 	}
 
-	if (optind >= argc) {
+	if (optind != argc) {
 		print_help(argv[0]);
 		return -1;
 	}
 
-	rc = device->Open(argv[optind++]);
-	if (rc) {
-		fprintf(stderr, "%s: failed to initialize rmi device (%d): %s\n", argv[0], errno,
-			strerror(errno));
-		return 1;
+	if (deviceName) {
+		rc = device->Open(deviceName);
+		if (rc) {
+			fprintf(stderr, "%s: failed to initialize rmi device (%d): %s\n", argv[0], errno,
+				strerror(errno));
+			return 1;
+		}
+	} else {
+		if (!device->FindDevice(deviceType))
+			return -1;
 	}
 
 	g_device = device;
@@ -332,6 +361,11 @@ int main(int argc, char ** argv)
 			device->ScanPDT();
 			device->QueryBasicProperties();
 			fprintf(stdout, "firmware id: %lu\n", device->GetFirmwareID());
+			break;
+		case RMIHIDTOOL_CMD_CF_ID:
+			device->ScanPDT();
+			device->QueryBasicProperties();
+			fprintf(stdout, "config id: %08lx\n", device->GetConfigID());
 			break;
 		case RMIHIDTOOL_CMD_PROPS:
 			device->ScanPDT();

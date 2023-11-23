@@ -13,7 +13,7 @@ load(
 
 package(
     default_visibility = ["//tensorflow:__subpackages__"],
-    licenses = ["notice"],  # Apache 2.0
+    licenses = ["notice"],
 )
 
 tpu_module = [
@@ -21,6 +21,11 @@ tpu_module = [
     "distribute.tpu_strategy",
     "distribute.cluster_resolver.tpu",
     "distribute.cluster_resolver.tpu_oss",
+]
+
+keras_module = [
+    # TODO(scottzhu): Move the Keras docstring test to Keras repo.
+    "keras.",
 ]
 
 # tf.distribute docstring often uses GPU, so they're only covered in
@@ -33,6 +38,10 @@ py_library(
     name = "tf_doctest_lib",
     srcs = ["tf_doctest_lib.py"],
     srcs_version = "PY3",
+    visibility = [
+        "//tensorflow:__subpackages__",
+        "//tensorflow_text/google:__pkg__",
+    ],
     deps = [
         "//third_party/py/numpy",
     ],
@@ -41,13 +50,12 @@ py_library(
 py_test(
     name = "tf_doctest",
     srcs = ["tf_doctest.py"],
-    args = ["--module_prefix_skip=" + ",".join(tpu_module + distribute_module)],
+    args = ["--module_prefix_skip=" + ",".join(tpu_module + distribute_module + keras_module)],
     python_version = "PY3",
     tags = [
         "no_oss_py2",
         "no_pip",
         "no_rocm",  # No need to rerun this test for ROCm config.
-        "no_tfrt",  # TODO(b/179308349)
         "no_windows",  # numpy prints differently on windows.
         "noasan",
         "nomsan",
@@ -67,6 +75,7 @@ tpu_py_test(
     srcs = ["tf_doctest.py"],
     args = ["--module=" + ",".join(tpu_module)],
     disable_experimental = True,
+    disable_tfrt = True,
     disable_v3 = True,
     main = "tf_doctest.py",
     python_version = "PY3",

@@ -41,6 +41,14 @@ module_prebuilt := testcases/data/ld01/f1.c
 module_src_files := testcases/commands/ld/datafiles/f1.c
 include $(ltp_build_prebuilt)
 
+module_prebuilt := testcases/data/rpc01/file.1
+module_src_files := testcases/network/rpc/basic_tests/rpc01/datafiles/file.1
+include $(ltp_build_prebuilt)
+
+module_prebuilt := testcases/data/rpc01/file.2
+module_src_files := testcases/network/rpc/basic_tests/rpc01/datafiles/file.2
+include $(ltp_build_prebuilt)
+
 module_prebuilt := testcases/data/binfmt_misc02/file.extension
 module_src_files := testcases/kernel/fs/binfmt_misc/datafiles/file.extension
 include $(ltp_build_prebuilt)
@@ -145,16 +153,24 @@ module_prebuilt := testcases/data/file01/in.zip
 module_src_files := testcases/commands/file/datafiles/in.zip
 include $(ltp_build_prebuilt)
 
+module_prebuilt := testcases/data/ima_kexec/kexec.policy
+module_src_files := testcases/kernel/security/integrity/ima/datafiles/ima_kexec/kexec.policy
+include $(ltp_build_prebuilt)
+
+module_prebuilt := testcases/data/ima_keys/keycheck.policy
+module_src_files := testcases/kernel/security/integrity/ima/datafiles/ima_keys/keycheck.policy
+include $(ltp_build_prebuilt)
+
 module_prebuilt := testcases/data/ld01/main.c
 module_src_files := testcases/commands/ld/datafiles/main.c
 include $(ltp_build_prebuilt)
 
 module_prebuilt := testcases/data/ima_policy/measure.policy
-module_src_files := testcases/kernel/security/integrity/ima/datafiles/measure.policy
+module_src_files := testcases/kernel/security/integrity/ima/datafiles/ima_policy/measure.policy
 include $(ltp_build_prebuilt)
 
 module_prebuilt := testcases/data/ima_policy/measure.policy-invalid
-module_src_files := testcases/kernel/security/integrity/ima/datafiles/measure.policy-invalid
+module_src_files := testcases/kernel/security/integrity/ima/datafiles/ima_policy/measure.policy-invalid
 include $(ltp_build_prebuilt)
 
 module_prebuilt := testcases/data/ld01/rd1.c
@@ -165,7 +181,19 @@ module_prebuilt := testcases/data/ld01/rf1.c
 module_src_files := testcases/commands/ld/datafiles/rf1.c
 include $(ltp_build_prebuilt)
 
+module_prebuilt := testcases/data/lvm/runfile.tpl
+module_src_files := testcases/misc/lvm/datafiles/runfile.tpl
+include $(ltp_build_prebuilt)
+
+module_prebuilt := testcases/data/ima_selinux/selinux.policy
+module_src_files := testcases/kernel/security/integrity/ima/datafiles/ima_selinux/selinux.policy
+include $(ltp_build_prebuilt)
+
 module_prebuilt := testcases/data/unzip01/test.zip
 module_src_files := testcases/commands/unzip/datafiles/test.zip
+include $(ltp_build_prebuilt)
+
+module_prebuilt := testcases/data/ima_keys/x509_ima.der
+module_src_files := testcases/kernel/security/integrity/ima/datafiles/ima_keys/x509_ima.der
 include $(ltp_build_prebuilt)
 

@@ -6,13 +6,13 @@ third_party {
     value: "https://gitlab.freedesktop.org/drm/igt-gpu-tools"
   }
   version: "357dbe1869d88a2f08bcee4eebceff4ee9014424"
-  # would be NOTICE save for:
-  #   include/drm-uapi/armada_drm.h
-  #   include/drm-uapi/etnaviv_drm.h
-  #   include/drm-uapi/exynos_drm.h
-  #   include/drm-uapi/i810_drm.h
-  #   include/drm-uapi/omap_drm.h
-  #   include/drm-uapi/sync_file.h
+  license_note: "would be NOTICE save for:\n"
+  "   include/drm-uapi/armada_drm.h\n"
+  "   include/drm-uapi/etnaviv_drm.h\n"
+  "   include/drm-uapi/exynos_drm.h\n"
+  "   include/drm-uapi/i810_drm.h\n"
+  "   include/drm-uapi/omap_drm.h\n"
+  "   include/drm-uapi/sync_file.h\n"
   license_type: RESTRICTED
   last_upgrade_date {
     year: 2019

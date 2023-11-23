@@ -27,6 +27,8 @@ namespace builtin {
 TfLiteRegistration* Register_ADD();
 TfLiteRegistration* Register_CONCATENATION();
 TfLiteRegistration* Register_CONV_2D();
+TfLiteRegistration* Register_DEPTHWISE_CONV_2D();
+TfLiteRegistration* Register_AVERAGE_POOL_2D();
 TfLiteRegistration* Register_EQUAL();
 TfLiteRegistration* Register_FULLY_CONNECTED();
 TfLiteRegistration* Register_GREATER_EQUAL();
@@ -78,6 +80,8 @@ TfLiteRegistration* Register_CUMSUM();
 TfLiteRegistration* Register_EXPAND_DIMS();
 TfLiteRegistration* Register_FILL();
 TfLiteRegistration* Register_PADV2();
+TfLiteRegistration* Register_EMBEDDING_LOOKUP();
+TfLiteRegistration* Register_GREATER();
 }  // namespace builtin
 }  // namespace ops
 }  // namespace tflite
@@ -87,7 +91,9 @@ TfLiteRegistration* Register_PADV2();
 #include "utils/tflite/dist_diversification.h"
 #include "utils/tflite/string_projection.h"
 #include "utils/tflite/text_encoder.h"
+#include "utils/tflite/text_encoder3s.h"
 #include "utils/tflite/token_encoder.h"
+
 namespace tflite {
 namespace ops {
 namespace custom {
@@ -112,6 +118,14 @@ void RegisterSelectedOps(tflite::MutableOpResolver* resolver) {
                        tflite::ops::builtin::Register_CONV_2D(),
                        /*min_version=*/1,
                        /*max_version=*/5);
+  resolver->AddBuiltin(tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
+                       tflite::ops::builtin::Register_DEPTHWISE_CONV_2D(),
+                       /*min_version=*/1,
+                       /*max_version=*/6);
+  resolver->AddBuiltin(tflite::BuiltinOperator_AVERAGE_POOL_2D,
+                       tflite::ops::builtin::Register_AVERAGE_POOL_2D(),
+                       /*min_version=*/1,
+                       /*max_version=*/1);
   resolver->AddBuiltin(::tflite::BuiltinOperator_EQUAL,
                        ::tflite::ops::builtin::Register_EQUAL());
 
@@ -252,6 +266,12 @@ void RegisterSelectedOps(tflite::MutableOpResolver* resolver) {
                        ::tflite::ops::builtin::Register_FILL());
   resolver->AddBuiltin(::tflite::BuiltinOperator_PADV2,
                        ::tflite::ops::builtin::Register_PADV2());
+  resolver->AddBuiltin(::tflite::BuiltinOperator_EMBEDDING_LOOKUP,
+                       ::tflite::ops::builtin::Register_EMBEDDING_LOOKUP(),
+                       /* min_version=*/1,
+                       /*max_version=*/3);
+  resolver->AddBuiltin(::tflite::BuiltinOperator_GREATER,
+                       ::tflite::ops::builtin::Register_GREATER());
 }
 #else
 void RegisterSelectedOps(tflite::MutableOpResolver* resolver) {
@@ -281,6 +301,8 @@ std::unique_ptr<tflite::OpResolver> BuildOpResolver(
                       tflite::ops::custom::Register_DISTANCE_DIVERSIFICATION());
   resolver->AddCustom("TextEncoder",
                       tflite::ops::custom::Register_TEXT_ENCODER());
+  resolver->AddCustom("TextEncoder3S",
+                      tflite::ops::custom::Register_TEXT_ENCODER3S());
   resolver->AddCustom("TokenEncoder",
                       tflite::ops::custom::Register_TOKEN_ENCODER());
   resolver->AddCustom(

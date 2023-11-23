@@ -2,7 +2,18 @@
 {
   "presubmit": [
     {
-      "name": "shared_child_device_test_src_lib"
+      "name": "shared_child_test_src_lib"
+    },
+    {
+      "name": "virtualizationservice_device_test"
+    }
+  ],
+  "presubmit-rust": [
+    {
+      "name": "shared_child_test_src_lib"
+    },
+    {
+      "name": "virtualizationservice_device_test"
     }
   ]
 }

@@ -90,6 +90,21 @@ struct virgl_renderer_callbacks {
  */
 #define VIRGL_RENDERER_USE_EXTERNAL_BLOB (1 << 5)
 
+/* Enable venus renderer.
+ */
+#define VIRGL_RENDERER_VENUS         (1 << 6)
+
+/* Disable virgl renderer.
+ */
+#define VIRGL_RENDERER_NO_VIRGL      (1 << 7)
+
+/*
+ * Used in conjonction with VIRGL_RENDERER_THREAD_SYNC;
+ * write_fence callback is executed directly from the polling thread. When enabled,
+ * virgl_renderer_get_poll_fd should not be used to watch for retired fences.
+ */
+#define VIRGL_RENDERER_ASYNC_FENCE_CB (1 << 8)
+
 #endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);

@@ -101,10 +101,10 @@ private:
 		{
 			memset(inner, 0, sizeof(inner));
 			memset(outer, 0, sizeof(outer));
-
-			n_vertices	 = 0;
-			primitive_mode = TESSELLATION_SHADER_PRIMITIVE_MODE_UNKNOWN;
-			vertex_spacing = TESSELLATION_SHADER_VERTEX_SPACING_UNKNOWN;
+			data_cartesian	= 0;
+			n_vertices		= 0;
+			primitive_mode	= TESSELLATION_SHADER_PRIMITIVE_MODE_UNKNOWN;
+			vertex_spacing	= TESSELLATION_SHADER_VERTEX_SPACING_UNKNOWN;
 		}
 	} _run;
 
@@ -279,7 +279,7 @@ private:
 	/** Comparator that is used to compare two tessellation coordinates using FP value
 	 *  equal operator.
 	 */
-	struct _comparator_exact_tess_coordinate_match : public std::unary_function<float, bool>
+	struct _comparator_exact_tess_coordinate_match
 	{
 		/* Constructor.
 		 *

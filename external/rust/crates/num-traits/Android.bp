@@ -41,6 +41,8 @@ rust_library {
     name: "libnum_traits",
     host_supported: true,
     crate_name: "num_traits",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.14",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [
@@ -53,16 +55,27 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
+    min_sdk_version: "29",
 }
 
-rust_defaults {
-    name: "num-traits_defaults",
+rust_test {
+    name: "num-traits_test_src_lib",
+    host_supported: true,
     crate_name: "num_traits",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.14",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2015",
     features: [
         "default",
@@ -74,25 +87,18 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "num-traits_host_test_src_lib",
-    defaults: ["num-traits_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
 rust_test {
-    name: "num-traits_device_test_src_lib",
-    defaults: ["num-traits_defaults"],
-}
-
-rust_defaults {
-    name: "num-traits_defaults_cast",
+    name: "num-traits_test_tests_cast",
+    host_supported: true,
     crate_name: "cast",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.14",
     srcs: ["tests/cast.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2015",
     features: [
         "default",
@@ -106,19 +112,3 @@ rust_defaults {
         "libnum_traits",
     ],
 }
-
-rust_test_host {
-    name: "num-traits_host_test_tests_cast",
-    defaults: ["num-traits_defaults_cast"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "num-traits_device_test_tests_cast",
-    defaults: ["num-traits_defaults_cast"],
-}
-
-// dependent_library ["feature_list"]
-//   autocfg-1.0.1

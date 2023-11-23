@@ -21,13 +21,14 @@ license {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "libldacBT_enc",
     vendor_available: true,
     product_available: true,
     vndk: {
         enabled: true,
     },
+    host_supported: true,
     arch: {
         arm: {
             instruction_set: "arm",
@@ -41,15 +42,26 @@ cc_library_shared {
     // -D_32BIT_FIXED_POINT should be added to cflags for devices without a FPU
     // unit such as ARM Cortex-R series or external 32-bit DSPs.
     cflags: ["-O2", "-Werror", "-Wall", "-Wextra"],
+    min_sdk_version: "Tiramisu",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+    ],
+    visibility: [
+        "//external/oss-fuzz",
+        "//packages/modules/Bluetooth:__subpackages__",
+        "//packages/modules/vndk/apex",
+    ],
 }
 
-cc_library_shared {
+cc_library {
     name: "libldacBT_abr",
     vendor_available: true,
     product_available: true,
     vndk: {
         enabled: true,
     },
+    host_supported: true,
     arch: {
         arm: {
             instruction_set: "arm",
@@ -57,6 +69,15 @@ cc_library_shared {
     },
     export_include_dirs: ["abr/inc"],
     srcs: ["abr/src/ldacBT_abr.c"],
-    shared_libs: ["libldacBT_enc"],
-    cflags: ["-O2", "-Werror", "-Wall", "-Wextra"]
+    static_libs: ["libldacBT_enc"],
+    cflags: ["-O2", "-Werror", "-Wall", "-Wextra"],
+    min_sdk_version: "Tiramisu",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+    ],
+    visibility: [
+        "//packages/modules/Bluetooth:__subpackages__",
+        "//packages/modules/vndk/apex",
+    ],
 }

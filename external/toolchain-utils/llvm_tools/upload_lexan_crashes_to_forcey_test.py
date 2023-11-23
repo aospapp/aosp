@@ -7,6 +7,7 @@
 """Tests for upload_lexan_crashes_to_forcey."""
 
 import datetime
+import os
 import unittest
 import unittest.mock
 
@@ -116,6 +117,29 @@ class Test(unittest.TestCase):
             datetime.date(2020, 1, 4),
         ),
     ])
+
+  @unittest.mock.patch(
+      'upload_lexan_crashes_to_forcey.download_and_unpack_test_case')
+  @unittest.mock.patch('subprocess.run')
+  def test_test_case_submission_functions(self, subprocess_run_mock,
+                                          download_and_unpack_mock):
+    mock_gs_url = 'gs://foo/bar/baz'
+
+    def side_effect(gs_url: str, tempdir: str) -> None:
+      self.assertEqual(gs_url, mock_gs_url)
+
+      with open(os.path.join(tempdir, 'test_case.c'), 'w') as f:
+        # All we need is an empty file here.
+        pass
+
+      with open(
+          os.path.join(tempdir, 'test_case.sh'), 'w', encoding='utf-8') as f:
+        f.write('# Crash reproducer for clang version 9.0.0 (...)\n')
+        f.write('clang something or other\n')
+
+    download_and_unpack_mock.side_effect = side_effect
+    upload_lexan_crashes_to_forcey.submit_test_case(mock_gs_url, '4c')
+    subprocess_run_mock.assert_not_called()
 
 
 if __name__ == '__main__':

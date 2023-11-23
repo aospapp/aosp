@@ -32,7 +32,7 @@ static int thread_state;
 #define ENTERED_THREAD 2
 #define EXITING_THREAD 3
 
-static void *fn_chld(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *fn_chld(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	int rc = 0;
 	thread_state = ENTERED_THREAD;
@@ -53,7 +53,7 @@ static void *fn_chld(void *arg LTP_ATTRIBUTE_UNUSED)
 	return NULL;
 }
 
-void sig_handler()
+static void sig_handler()
 {
 	printf("Interrupted by SIGALRM\n");
 	printf("Test FAILED: main blocked on barrier wait\n");
@@ -139,7 +139,7 @@ int main(void)
 	}
 
 	if (pthread_barrier_destroy(&barrier) != 0) {
-		printf("Error at pthread_barrier_destroy()");
+		printf("Error at pthread_barrier_destroy()\n");
 		return PTS_UNRESOLVED;
 	}
 

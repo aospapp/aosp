@@ -25,20 +25,22 @@ import sys
 import subprocess
 import yaml
 
+# pylint: disable=wrong-import-position,import-error
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import constants
+
 CANARY_PROJECT = 'skcms'
 
 DEFAULT_ARCHITECTURES = ['x86_64']
 DEFAULT_ENGINES = ['afl', 'honggfuzz', 'libfuzzer']
 DEFAULT_SANITIZERS = ['address', 'undefined']
 
-# Languages from project.yaml that have code coverage support.
-LANGUAGES_WITH_COVERAGE_SUPPORT = ['c', 'c++', 'go', 'rust']
-
 
 def get_changed_files_output():
   """Returns the output of a git command that discovers changed files."""
   branch_commit_hash = subprocess.check_output(
-      ['git', 'merge-base', 'FETCH_HEAD', 'origin/HEAD']).strip().decode()
+      ['git', 'merge-base', 'HEAD', 'origin/HEAD']).strip().decode()
 
   return subprocess.check_output(
       ['git', 'diff', '--name-only', branch_commit_hash + '..']).decode()
@@ -112,7 +114,7 @@ def should_build_coverage(project_yaml):
     return False
 
   language = project_yaml.get('language')
-  if language not in LANGUAGES_WITH_COVERAGE_SUPPORT:
+  if language not in constants.LANGUAGES_WITH_COVERAGE_SUPPORT:
     print(('Project is written in "{language}", '
            'coverage is not supported yet.').format(language=language))
     return False
@@ -213,11 +215,16 @@ def build_base_images():
   images = [
       'base-image',
       'base-builder',
+      'base-builder-go',
+      'base-builder-jvm',
+      'base-builder-python',
+      'base-builder-rust',
+      'base-builder-swift',
       'base-runner',
   ]
   for image in images:
     try:
-      execute_helper_command(['build_image', image, '--no-pull'])
+      execute_helper_command(['build_image', image, '--no-pull', '--cache'])
     except subprocess.CalledProcessError:
       return 1
 
@@ -239,6 +246,7 @@ def build_canary_project():
 
 def main():
   """Build modified projects or canary project."""
+  os.environ['OSS_FUZZ_CI'] = '1'
   infra_changed = is_infra_changed()
   if infra_changed:
     print('Pulling and building base images first.')

@@ -1,5 +1,7 @@
 # dEQP-VK
 
+set(DEQP_INL_DIR ${PROJECT_BINARY_DIR}/external/vulkancts/framework/vulkan)
+
 add_subdirectory(api)
 add_subdirectory(pipeline)
 add_subdirectory(binding_model)
@@ -43,6 +45,8 @@ add_subdirectory(ray_tracing)
 add_subdirectory(ray_query)
 add_subdirectory(postmortem)
 add_subdirectory(fragment_shading_rate)
+add_subdirectory(reconvergence)
+add_subdirectory(mesh_shader)
 
 
 include_directories(
@@ -89,6 +93,9 @@ include_directories(
 	ray_tracing
 	ray_query
 	postmortem
+	reconvergence
+	mesh_shader
+	${DEQP_INL_DIR}
 	)
 
 set(DEQP_VK_SRCS
@@ -155,6 +162,8 @@ set(DEQP_VK_LIBS
 	deqp-vk-ray-query
 	deqp-vk-postmortem
 	deqp-vk-fragment-shading-rate
+	deqp-vk-reconvergence
+	deqp-vk-mesh-shader
 	)
 
 if (DE_COMPILER_IS_MSC AND (DE_PTR_SIZE EQUAL 4))
@@ -165,7 +174,19 @@ PCH(DEQP_VK_SRCS pch.cpp)
 
 add_deqp_module(deqp-vk "${DEQP_VK_SRCS}" "${DEQP_VK_LIBS}" vktTestPackageEntry.cpp)
 
-add_data_dir(deqp-vk ../../data/vulkan	vulkan)
+
+add_data_dir(deqp-vk ../../data/vulkan vulkan)
+add_data_dir(deqp-vk ../../mustpass/master/vk-default vk-default)
+
+# add all directories containing android mustpass
+file(GLOB PATHS_MATCHING_PATTERN ${CMAKE_SOURCE_DIR}/android/cts/master/vk-*/)
+FOREACH(FOUND_PATH ${PATHS_MATCHING_PATTERN})
+	IF(IS_DIRECTORY ${FOUND_PATH})
+		SET(LAST_DIRECTORY "")
+		file(RELATIVE_PATH LAST_DIRECTORY ${CMAKE_SOURCE_DIR}/android/cts/master ${FOUND_PATH})
+		add_data_dir(deqp-vk ../../../../android/cts/master/${LAST_DIRECTORY} ${LAST_DIRECTORY})
+	ENDIF()
+ENDFOREACH()
 
 if (DE_OS_IS_WIN32 OR DE_OS_IS_UNIX OR DE_OS_IS_OSX)
 	add_executable(vk-build-programs vktBuildPrograms.cpp)

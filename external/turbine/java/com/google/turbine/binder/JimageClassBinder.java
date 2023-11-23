@@ -17,6 +17,7 @@
 package com.google.turbine.binder;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_HOME;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
@@ -52,7 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Constructs a platform {@link ClassPath} from the current JDK's jimage file using jrtfs. */
 public class JimageClassBinder {
@@ -104,11 +105,13 @@ public class JimageClassBinder {
     this.modulesRoot = modules;
   }
 
+  @Nullable
   Path modulePath(String moduleName) {
     Path path = modulesRoot.resolve(moduleName);
     return Files.exists(path) ? path : null;
   }
 
+  @Nullable
   ModuleInfo module(String moduleName) {
     ModuleInfo result = moduleMap.get(moduleName);
     if (result == null) {
@@ -134,13 +137,14 @@ public class JimageClassBinder {
     Env<ClassSymbol, BytecodeBoundClass> env =
         new Env<ClassSymbol, BytecodeBoundClass>() {
           @Override
-          public BytecodeBoundClass get(ClassSymbol sym) {
+          public @Nullable BytecodeBoundClass get(ClassSymbol sym) {
             return JimageClassBinder.this.env.get(sym);
           }
         };
     for (String moduleName : moduleNames) {
       if (moduleName != null) {
-        Path modulePath = modulePath(moduleName);
+        // TODO(cushon): is this requireNonNull safe?
+        Path modulePath = requireNonNull(modulePath(moduleName), moduleName);
         Path modulePackagePath = modulePath.resolve(packageName);
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(modulePackagePath)) {
           for (Path path : ds) {
@@ -181,9 +185,8 @@ public class JimageClassBinder {
 
     final Scope topLevelScope =
         new Scope() {
-          @Nullable
           @Override
-          public LookupResult lookup(LookupKey lookupKey) {
+          public @Nullable LookupResult lookup(LookupKey lookupKey) {
             // Find the longest prefix of the key that corresponds to a package name.
             // TODO(cushon): SimpleTopLevelIndex uses a prefix map for this, does it matter?
             Scope scope = null;
@@ -213,15 +216,14 @@ public class JimageClassBinder {
     }
 
     @Override
-    public PackageScope lookupPackage(Iterable<String> name) {
+    public @Nullable PackageScope lookupPackage(Iterable<String> name) {
       String packageName = Joiner.on('/').join(name);
       if (!initPackage(packageName)) {
         return null;
       }
       return new PackageScope() {
-        @Nullable
         @Override
-        public LookupResult lookup(LookupKey lookupKey) {
+        public @Nullable LookupResult lookup(LookupKey lookupKey) {
           ClassSymbol sym = packageClassesBySimpleName.get(packageName, lookupKey.first().value());
           return sym != null ? new LookupResult(sym, lookupKey) : null;
         }
@@ -242,7 +244,7 @@ public class JimageClassBinder {
     public Env<ClassSymbol, BytecodeBoundClass> env() {
       return new Env<ClassSymbol, BytecodeBoundClass>() {
         @Override
-        public BytecodeBoundClass get(ClassSymbol sym) {
+        public @Nullable BytecodeBoundClass get(ClassSymbol sym) {
           return initPackage(sym.packageName()) ? env.get(sym) : null;
         }
       };
@@ -252,7 +254,7 @@ public class JimageClassBinder {
     public Env<ModuleSymbol, ModuleInfo> moduleEnv() {
       return new Env<ModuleSymbol, ModuleInfo>() {
         @Override
-        public ModuleInfo get(ModuleSymbol module) {
+        public @Nullable ModuleInfo get(ModuleSymbol module) {
           return module(module.name());
         }
       };
@@ -264,7 +266,7 @@ public class JimageClassBinder {
     }
 
     @Override
-    public Supplier<byte[]> resource(String input) {
+    public @Nullable Supplier<byte[]> resource(String input) {
       return null;
     }
   }

@@ -17,41 +17,67 @@
 #ifndef RESOURCEMANAGER_H
 #define RESOURCEMANAGER_H
 
-#include <string.h>
+#include <cstring>
 
 #include "DrmDevice.h"
+#include "DrmDisplayPipeline.h"
 #include "DrmFbImporter.h"
+#include "UEventListener.h"
 
 namespace android {
 
+class PipelineToFrontendBindingInterface {
+ public:
+  virtual ~PipelineToFrontendBindingInterface() = default;
+  virtual bool BindDisplay(DrmDisplayPipeline *);
+  virtual bool UnbindDisplay(DrmDisplayPipeline *);
+  virtual void FinalizeDisplayBinding();
+};
+
 class ResourceManager {
  public:
-  ResourceManager();
+  explicit ResourceManager(
+      PipelineToFrontendBindingInterface *p2f_bind_interface);
   ResourceManager(const ResourceManager &) = delete;
   ResourceManager &operator=(const ResourceManager &) = delete;
-  int Init();
-  DrmDevice *GetDrmDevice(int display);
-  const gralloc_module_t *gralloc();
-  DrmConnector *AvailableWritebackConnector(int display);
-  const std::vector<std::unique_ptr<DrmDevice>> &getDrmDevices() const {
-    return drms_;
-  }
-  int getDisplayCount() const {
-    return num_displays_;
-  }
-  bool ForcedScalingWithGpu() {
+  ResourceManager(const ResourceManager &&) = delete;
+  ResourceManager &&operator=(const ResourceManager &&) = delete;
+  ~ResourceManager();
+
+  void Init();
+
+  void DeInit();
+
+  bool ForcedScalingWithGpu() const {
     return scale_with_gpu_;
   }
 
- private:
-  int AddDrmDevice(std::string const &path);
-  static bool IsKMSDev(const char *path);
+  auto &GetMainLock() {
+    return main_lock_;
+  }
 
-  int num_displays_;
+  static auto GetTimeMonotonicNs() -> int64_t;
+
+ private:
+  auto AddDrmDevice(std::string const &path) -> int;
+  auto GetOrderedConnectors() -> std::vector<DrmConnector *>;
+  void UpdateFrontendDisplays();
+  void DetachAllFrontendDisplays();
+
   std::vector<std::unique_ptr<DrmDevice>> drms_;
-  const gralloc_module_t *gralloc_;
 
   bool scale_with_gpu_{};
+
+  UEventListener uevent_listener_;
+
+  std::mutex main_lock_;
+
+  std::map<DrmConnector *, std::unique_ptr<DrmDisplayPipeline>>
+      attached_pipelines_;
+
+  PipelineToFrontendBindingInterface *const frontend_interface_;
+
+  bool initialized_{};
 };
 }  // namespace android
 

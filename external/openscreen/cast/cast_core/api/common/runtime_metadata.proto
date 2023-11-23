@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// **** DO NOT EDIT - this .proto was automatically generated. ****
+// **** DO NOT EDIT - this file was automatically generated. ****
 syntax = "proto3";
 
 package cast.common;
@@ -55,9 +55,6 @@ message RuntimeCapabilities {
     // capabilities for NATIVE runtime.
     ApplicationCapabilities native_application_capabilities = 2;
   }
-
-  // Flags if heartbeat is supported.
-  bool heartbeat_supported = 3;
 
   // Flags if metrics recording is supported.
   bool metrics_recorder_supported = 4;

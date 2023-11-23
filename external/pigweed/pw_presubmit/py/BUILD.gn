@@ -17,14 +17,19 @@ import("//build_overrides/pigweed.gni")
 import("$dir_pw_build/python.gni")
 
 pw_python_package("py") {
-  setup = [ "setup.py" ]
+  setup = [
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+  ]
   sources = [
     "pw_presubmit/__init__.py",
     "pw_presubmit/build.py",
     "pw_presubmit/cli.py",
-    "pw_presubmit/environment.py",
+    "pw_presubmit/cpp_checks.py",
     "pw_presubmit/format_code.py",
     "pw_presubmit/git_repo.py",
+    "pw_presubmit/inclusive_language.py",
     "pw_presubmit/install_hook.py",
     "pw_presubmit/pigweed_presubmit.py",
     "pw_presubmit/presubmit.py",

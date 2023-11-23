@@ -21,10 +21,44 @@ package {
     default_applicable_licenses: ["external_icu_icu4c_license"],
 }
 
+// Derive a string like 'icudt 48l.dat' from a path like
+// 'external/icu/icu4c/source/stubdata/icudt 48l.dat'
+dat_file = "icu*.dat"
+
 prebuilt_etc {
     name: "apex_icu.dat",
-    src: "icu*.dat",
+    src: dat_file,
     filename_from_src: true,
     sub_dir: "icu",
     installable: false,
+}
+
+prebuilt_root_host {
+    name: "icu-data_host_i18n_apex",
+    src: dat_file,
+    filename_from_src: true,
+    relative_install_path: "com.android.i18n/etc/icu",
+    visibility: [
+        "//frameworks/layoutlib",
+    ],
+    dist: {
+        targets: ["layoutlib"],
+        dir: "layoutlib_native/icu",
+    },
+}
+
+// Module definition producing ICU .dat prebuilt files in
+// /system/etc/icu for standalone ART testing purposes. This is a
+// temporary change needed until the ART Buildbot and Golem both fully
+// support the ART APEX (see b/121117762). This module should never
+// be shipped by default (i.e. should never be part of
+// `PRODUCT_PACKAGE`.)
+//
+// TODO(b/121117762): Remove this module definition when the ART
+// Buildbot and Golem have full support for the ART APEX.
+prebuilt_etc {
+    name: "icu-data-art-test-i18n",
+    src: dat_file,
+    filename_from_src: true,
+    relative_install_path: "i18n_module/etc/icu",
 }

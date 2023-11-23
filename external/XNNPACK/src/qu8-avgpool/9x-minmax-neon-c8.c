@@ -24,7 +24,7 @@ void xnn_qu8_avgpool_minmax_ukernel_9x__neon_c8(
     uint8_t* output,
     size_t input_increment,
     size_t output_increment,
-    const union xnn_qu8_avgpool_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_qu8_avgpool_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(output_pixels != 0);
   assert(kernel_elements != 0);
@@ -258,11 +258,11 @@ void xnn_qu8_avgpool_minmax_ukernel_9x__neon_c8(
       vout = vmin_u8(vout, voutput_max);
 
       if (c & 4) {
-        vst1_lane_u32(__builtin_assume_aligned(output, 1), vreinterpret_u32_u8(vout), 0); output += 4;
+        vst1_lane_u32((void*) output, vreinterpret_u32_u8(vout), 0); output += 4;
         vout = vext_u8(vout, vout, 4);
       }
       if (c & 2) {
-        vst1_lane_u16(__builtin_assume_aligned(output, 1), vreinterpret_u16_u8(vout), 0); output += 2;
+        vst1_lane_u16((void*) output, vreinterpret_u16_u8(vout), 0); output += 2;
         vout = vext_u8(vout, vout, 2);
       }
       if (c & 1) {

@@ -1,12 +1,11 @@
 [package]
 name = "futures-task"
+version = "0.3.21"
 edition = "2018"
-version = "0.3.13"
-authors = ["Alex Crichton <alex@alexcrichton.com>"]
+rust-version = "1.45"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-lang/futures-rs"
 homepage = "https://rust-lang.github.io/futures-rs"
-documentation = "https://docs.rs/futures-task/0.3"
 description = """
 Tools for working with tasks.
 """
@@ -16,9 +15,8 @@ default = ["std"]
 std = ["alloc"]
 alloc = []
 
-# Unstable features
-# These features are outside of the normal semver guarantees and require the
-# `unstable` feature as an explicit opt-in to unstable API.
+# These features are no longer used.
+# TODO: remove in the next major version.
 unstable = []
 cfg-target-has-atomic = []
 

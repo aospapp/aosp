@@ -1,8 +1,8 @@
 .. _module-pw_log:
 
-------
+======
 pw_log
-------
+======
 Pigweed's logging module provides facilities for applications to log
 information about the execution of their application. The module is split into
 two components:
@@ -10,6 +10,16 @@ two components:
 1. The facade (this module) which is only a macro interface layer
 2. The backend, provided elsewhere, that implements the low level logging
 
+``pw_log`` also defines a logging protobuf, helper utilities, and an RPC
+service for efficiently storing and transmitting log messages. See
+:ref:`module-pw_log-protobuf` for details.
+
+.. toctree::
+  :hidden:
+
+  protobuf
+
+--------------
 Usage examples
 --------------
 Here is a typical usage example, showing setting the module name, and using the
@@ -52,43 +62,17 @@ names and go for shorter log macros. Include ``pw_log/short.h`` or
   }
 
 Layer diagram example: ``stm32f429i-disc1``
--------------------------------------------
+===========================================
 Below is an example diagram showing how the modules connect together for the
 ``stm32f429i-disc1`` target, where the ``pw_log`` backend is ``pw_log_basic``.
 ``pw_log_basic`` uses the ``pw_sys_io`` module to log in plaintext, which in
 turn outputs to the STM32F429 bare metal backend for ``pw_sys_io``, which is
 ``pw_sys_io_baremetal_stm32f429i``.
 
-.. blockdiag::
-
-  blockdiag {
-    default_fontsize = 14;
-    orientation = portrait;
-
-    group {
-      color = "#AAAAAA";
-      label = "Microcontroller"
-
-      app       [label = "App code"];
-      facade    [label = "pw_log"];
-      backend   [label = "pw_log_basic"];
-      sys_io    [label = "pw_sys_io"];
-      sys_io_bm [label = "pw_sys_io_\nstm32f429"];
-      uart      [label = "UART pins"];
-    }
-    ftdi     [label = "FTDI cable"];
-    computer [label = "Minicom"];
-
-    app -> facade -> backend -> sys_io -> sys_io_bm -> uart -> ftdi -> computer;
-
-    //app -> facade [folded];
-    //backend -> sys_io [folded];
-    //uart -> ftdi [folded];
-  }
+.. image:: example_layer_diagram.svg
 
 Logging macros
---------------
-
+==============
 These are the primary macros for logging information about the functioning of a
 system, intended to be used directly.
 
@@ -101,6 +85,8 @@ system, intended to be used directly.
   *flags* - Arbitrary flags the backend can leverage. The semantics of these
   flags are not defined in the facade, but are instead meant as a general
   mechanism for communication bits of information to the logging backend.
+  ``pw_log`` reserves 2 flag bits by default, but log backends may provide for
+  more or fewer flag bits.
 
   Here are some ideas for what a backend might use flags for:
 
@@ -118,7 +104,7 @@ system, intended to be used directly.
 
   .. code-block:: cpp
 
-    PW_LOG(PW_LOG_DEFAULT_FLAGS, PW_LOG_LEVEL_INFO, "Temp is %d degrees", temp);
+    PW_LOG(PW_LOG_FLAGS, PW_LOG_LEVEL_INFO, "Temp is %d degrees", temp);
     PW_LOG(UNRELIABLE_DELIVERY, PW_LOG_LEVEL_ERROR, "It didn't work!");
 
   .. note::
@@ -136,13 +122,41 @@ system, intended to be used directly.
 .. cpp:function:: PW_LOG_ERROR(fmt, ...)
 .. cpp:function:: PW_LOG_CRITICAL(fmt, ...)
 
-  Shorthand for `PW_LOG(PW_LOG_DEFAULT_FLAGS, <level>, fmt, ...)`.
+  Shorthand for `PW_LOG(PW_LOG_FLAGS, <level>, fmt, ...)`.
 
-Option macros
--------------
-This module defines macros that can be overridden to control the behavior of
-``pw_log`` statements. To override these macros, add ``#define`` statements
-for them before including headers.
+--------------------
+Module configuration
+--------------------
+This module has configuration options that globally affect the behavior of
+pw_log via compile-time configuration of this module, see the
+:ref:`module documentation <module-structure-compile-time-configuration>` for
+more details.
+
+.. c:macro:: PW_LOG_LEVEL_DEFAULT
+
+  Controls the default value of ``PW_LOG_LEVEL``. Setting
+  ``PW_LOG_LEVEL_DEFAULT`` will change the behavior of all source files that
+  have not explicitly set ``PW_LOG_LEVEL``. Defaults to ``PW_LOG_LEVEL_DEBUG``.
+
+.. c:macro:: PW_LOG_FLAGS_DEFAULT
+
+  Controls the default value of ``PW_LOG_FLAGS``. Setting
+  ``PW_LOG_FLAGS_DEFAULT`` will change the behavior of all source files that
+  have not explicitly set ``PW_LOG_FLAGS``. Defaults to ``0``.
+
+.. c:macro:: PW_LOG_ENABLE_IF_DEFAULT
+
+  Controls the default value of ``PW_LOG_ENABLE_IF``. Setting
+  ``PW_LOG_ENABLE_IF_DEFAULT`` will change the behavior of all source files that
+  have not explicitly set ``PW_LOG_ENABLE_IF``. Defaults to
+  ``((level) >= PW_LOG_LEVEL)``.
+
+
+Per-source file configuration
+=============================
+This module defines macros that can be overridden to independently control the
+behavior of ``pw_log`` statements for each C or C++ source file. To override
+these macros, add ``#define`` statements for them before including headers.
 
 The option macro definitions must be visibile to ``pw_log/log.h`` the first time
 it is included. To handle potential transitive includes, place these
@@ -173,20 +187,20 @@ source files, not headers. For example:
   ``PW_LOG_MODULE_NAME_DEFINED`` macro is set to ``1`` or ``0`` to indicate
   whether ``PW_LOG_MODULE_NAME`` was overridden.
 
-.. c:macro:: PW_LOG_DEFAULT_FLAGS
+.. c:macro:: PW_LOG_FLAGS
 
   Log flags to use for the ``PW_LOG_<level>`` macros. Different flags may be
   applied when using the ``PW_LOG`` macro directly.
 
   Log backends use flags to change how they handle individual log messages.
   Potential uses include assigning logs priority or marking them as containing
-  personal information. Defaults to ``0``.
+  personal information. Defaults to ``PW_LOG_FLAGS_DEFAULT``.
 
 .. c:macro:: PW_LOG_LEVEL
 
    Filters logs by level. Source files that define ``PW_LOG_LEVEL`` will display
    only logs at or above the chosen level. Log statements below this level will
-   be compiled out of optimized builds. Defaults to ``PW_LOG_LEVEL_DEBUG``.
+   be compiled out of optimized builds. Defaults to ``PW_LOG_LEVEL_DEFAULT``.
 
    Example:
 
@@ -202,11 +216,12 @@ source files, not headers. For example:
        PW_LOG_WARN("This is above INFO level, and will display");
      }
 
-.. c:function:: PW_LOG_ENABLE_IF(level, flags)
+.. c:macro:: PW_LOG_ENABLE_IF(level, flags)
 
    Filters logs by an arbitrary expression based on ``level`` and ``flags``.
    Source files that define ``PW_LOG_ENABLE_IF(level, flags)`` will display if
-   the given expression evaluates true.
+   the given expression evaluates true. Defaults to
+   ``PW_LOG_ENABLE_IF_DEFAULT``.
 
    Example:
 
@@ -244,9 +259,9 @@ source files, not headers. For example:
   At this time, only compile time filtering is supported. In the future, we
   plan to add support for runtime filtering.
 
+------------------
 Logging attributes
 ------------------
-
 The logging facade in Pigweed is designed to facilitate the capture of at least
 the following attributes:
 
@@ -269,11 +284,64 @@ Each backend may decide to capture different attributes to balance the tradeoff
 between call site code size, call site run time, wire format size, logging
 complexity, and more.
 
+.. _module-pw_log-circular-deps:
+
+----------------------------------------------
+Avoiding circular dependencies with ``PW_LOG``
+----------------------------------------------
+Because logs are so widely used, including in low-level libraries, it is
+common for the ``pw_log`` backend to cause circular dependencies. Because of
+this, log backends may avoid declaring explicit dependencies, instead relying
+on include paths to access header files.
+
+In GN, the ``pw_log`` backend's full implementation with true dependencies is
+made available through the ``$dir_pw_log:impl`` group. When ``pw_log_BACKEND``
+is set, ``$dir_pw_log:impl`` must be listed in the ``pw_build_LINK_DEPS``
+variable. See :ref:`module-pw_build-link-deps`.
+
+In the ``pw_log``, the backend's full implementation is placed in the
+``$pw_log_BACKEND.impl`` target. ``$dir_pw_log:impl`` depends on this
+backend target. The ``$pw_log_BACKEND.impl`` target may be an empty group if
+the backend target can use its dependencies directly without causing circular
+dependencies.
+
+In order to break dependency cycles, the ``pw_log_BACKEND`` target may need
+to directly provide dependencies through include paths only, rather than GN
+``public_deps``. In this case, GN header checking can be disabled with
+``check_includes = false``.
+
+----------------------
+Google Logging Adapter
+----------------------
+Pigweed provides a minimal C++ stream-style Google Log set of adapter
+macros around PW_LOG under ``pw_log/glog_adapter.h`` for compatibility with
+non-embedded code. While it is effective for porting server code to
+microcontrollers quickly, we do not advise embedded projects use that approach
+unless absolutely necessary.
+
+Configuration
+==============
+
+.. c:macro:: PW_LOG_CFG_GLOG_BUFFER_SIZE_BYTES
+
+  The size of the stack-allocated buffer used by the Google Logging (glog)
+  macros. This only affects the glog macros provided through pw_log/glog.h.
+
+  Pigweed strongly recommends sticking to printf-style logging instead
+  of C++ stream-style Google Log logging unless absolutely necessary. The glog
+  macros are only provided for compatibility with non-embedded code. See
+  :ref:`module-pw_log-design-discussion` for more details.
+
+  Undersizing this buffer will result in truncated log messages.
+
+-----------------
 Design discussion
 -----------------
 
+.. _module-pw_log-design-discussion:
+
 Why not use C++ style stream logging operators like Google Log?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+===============================================================
 There are multiple reasons to avoid the C++ stream logging style in embedded,
 but the biggest reason is that C++ stream logging defeats log tokenization. By
 having the string literals broken up between ``<<`` operators, tokenization
@@ -319,18 +387,14 @@ because it:
 - is C compatibile
 - has smaller call sites
 
-The Pigweed authors additionally maintain a C++ stream-style embedded logging
-library for compatibility with non-embedded code. While it is effective for
-porting server code to microcontrollers quickly, we do not advise embedded
-projects use that approach unless absolutely necessary.
+See also :ref:`module-pw_log_tokenized` for details on leveraging Pigweed's
+tokenizer module for logging.
 
-- See also :ref:`module-pw_log_tokenized` for details on leveraging Pigweed's
-  tokenizer module for logging.
-- See also :ref:`module-pw_tokenizer` for details on Pigweed's tokenizer,
-  which is useful for more than just logging.
+See also :ref:`module-pw_tokenizer` for details on Pigweed's tokenizer,
+which is useful for more than just logging.
 
 Why does the facade use header redirection instead of C functions?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+==================================================================
 Without header redirection, it is not possible to do sophisticated macro
 transforms in the backend. For example, to apply tokenization to log strings,
 the backend must define the handling macros. Additionally, compile-time
@@ -340,7 +404,7 @@ having the same filtering implementation for all log handling, which is a
 restriction we want to avoid.
 
 Why is the module name done as a preprocessor define rather than an argument?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=============================================================================
 APIs are a balance between power and ease of use. In the practical cases we
 have seen over the years, most translation units only need to log to one
 module, like ``"BLE"``, ``"PWR"``, ``"BAT"`` and so on. Thus, adding the
@@ -348,3 +412,14 @@ argument to each macro call seemed like too much. On the other hand, flags are
 something that are typically added on a per-log-statement basis, and is why the
 flags are added on a per-call basis (though hidden through the high-level
 macros).
+
+--------------
+pw_log in Java
+--------------
+``pw_log`` provides a thin Java logging class that uses Google's `Flogger
+<https://google.github.io/flogger/>`_ API. The purpose of this wrapper is to
+support logging on platforms that do not support Flogger. The main
+implementation in ``pw_log/java/main`` simply wraps a
+``com.google.common.flogger.FluentLogger``. An implementation that logs to
+Android's ``android.util.Log`` instead is provided in
+``pw_log/java/android_main``.

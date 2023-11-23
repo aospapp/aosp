@@ -1,9 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Fabian Mastenbroek - initial API and implementation
@@ -52,6 +53,43 @@ public class KotlinLateinitFilterTest extends FilterTestBase {
 		m.visitLabel(l2);
 		m.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
 				"android/os/PowerManager$WakeLock", "acquire", "", false);
+
+		filter.filter(m, context, output);
+
+		assertIgnored(new Range(expectedFrom, expectedTo));
+	}
+
+	/**
+	 * <pre>
+	 * class Example {
+	 *   private lateinit var x: String
+	 *   fun example() = x
+	 * }
+	 * </pre>
+	 */
+	@Test
+	public void should_filter_Kotlin_1_5() {
+		final MethodNode m = new MethodNode(InstrSupport.ASM_API_VERSION, 0,
+				"example", "()Ljava/lang/String;", null, null);
+		Label label = new Label();
+		m.visitVarInsn(Opcodes.ALOAD, 0);
+		m.visitFieldInsn(Opcodes.GETFIELD, "Example", "x",
+				"Ljava/lang/String;");
+		m.visitVarInsn(Opcodes.ASTORE, 1);
+		m.visitVarInsn(Opcodes.ALOAD, 1);
+		m.visitJumpInsn(Opcodes.IFNONNULL, label);
+		final AbstractInsnNode expectedFrom = m.instructions.getLast();
+		m.visitLdcInsn("x");
+		m.visitMethodInsn(Opcodes.INVOKESTATIC,
+				"kotlin/jvm/internal/Intrinsics",
+				"throwUninitializedPropertyAccessException",
+				"(Ljava/lang/String;)V", false);
+		m.visitInsn(Opcodes.ACONST_NULL);
+		m.visitInsn(Opcodes.ATHROW);
+		final AbstractInsnNode expectedTo = m.instructions.getLast();
+		m.visitLabel(label);
+		m.visitVarInsn(Opcodes.ALOAD, 1);
+		m.visitInsn(Opcodes.ARETURN);
 
 		filter.filter(m, context, output);
 

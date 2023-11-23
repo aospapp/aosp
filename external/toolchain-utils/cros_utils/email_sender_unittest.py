@@ -69,7 +69,7 @@ class Test(unittest.TestCase):
             'subject': 'foo',
             'identifier': 'foo',
             # non-list recipients
-            'well_known_recipients': 'sheriff',
+            'well_known_recipients': 'detective',
             'text_body': 'hi',
         },
     ]
@@ -89,8 +89,8 @@ class Test(unittest.TestCase):
     def actual_write_file(file_path):
       nonlocal written_obj
 
-      self.assertTrue(
-          file_path.startswith(email_sender.X20_PATH + '/'), file_path)
+      self.assertTrue(file_path.startswith(email_sender.X20_PATH + '/'),
+                      file_path)
       f = io.StringIO()
       yield f
       written_obj = json.loads(f.getvalue())
@@ -99,7 +99,7 @@ class Test(unittest.TestCase):
     email_sender.EmailSender().SendX20Email(
         subject='hello',
         identifier='world',
-        well_known_recipients=['sheriff'],
+        well_known_recipients=['detective'],
         direct_recipients=['gbiv@google.com'],
         text_body='text',
         html_body='html',
@@ -109,7 +109,7 @@ class Test(unittest.TestCase):
         written_obj, {
             'subject': 'hello',
             'email_identifier': 'world',
-            'well_known_recipients': ['sheriff'],
+            'well_known_recipients': ['detective'],
             'direct_recipients': ['gbiv@google.com'],
             'body': 'text',
             'html_body': 'html',

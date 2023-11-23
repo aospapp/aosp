@@ -16,21 +16,21 @@
 package com.google.auto.common;
 
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.auto.common.MoreStreams.toImmutableSet;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Collections.unmodifiableMap;
 
 import com.google.common.base.Equivalence;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
@@ -45,20 +45,32 @@ public final class AnnotationMirrors {
       new Equivalence<AnnotationMirror>() {
         @Override
         protected boolean doEquivalent(AnnotationMirror left, AnnotationMirror right) {
-          return MoreTypes.equivalence().equivalent(left.getAnnotationType(),
-              right.getAnnotationType()) && AnnotationValues.equivalence().pairwise().equivalent(
-              getAnnotationValuesWithDefaults(left).values(),
-              getAnnotationValuesWithDefaults(right).values());
+          return MoreTypes.equivalence()
+                  .equivalent(left.getAnnotationType(), right.getAnnotationType())
+              && AnnotationValues.equivalence()
+                  .pairwise()
+                  .equivalent(
+                      getAnnotationValuesWithDefaults(left).values(),
+                      getAnnotationValuesWithDefaults(right).values());
         }
+
         @Override
         protected int doHash(AnnotationMirror annotation) {
           DeclaredType type = annotation.getAnnotationType();
           Iterable<AnnotationValue> annotationValues =
               getAnnotationValuesWithDefaults(annotation).values();
-          return Arrays.hashCode(new int[] {MoreTypes.equivalence().hash(type),
-              AnnotationValues.equivalence().pairwise().hash(annotationValues)});
+          return Arrays.hashCode(
+              new int[] {
+                MoreTypes.equivalence().hash(type),
+                AnnotationValues.equivalence().pairwise().hash(annotationValues)
+              });
         }
-    };
+
+        @Override
+        public String toString() {
+          return "AnnotationMirrors.equivalence()";
+        }
+      };
 
   /**
    * Returns an {@link Equivalence} for {@link AnnotationMirror} as some implementations
@@ -83,8 +95,10 @@ public final class AnnotationMirrors {
   public static ImmutableMap<ExecutableElement, AnnotationValue> getAnnotationValuesWithDefaults(
       AnnotationMirror annotation) {
     ImmutableMap.Builder<ExecutableElement, AnnotationValue> values = ImmutableMap.builder();
-    Map<? extends ExecutableElement, ? extends AnnotationValue> declaredValues =
-        annotation.getElementValues();
+    // Use unmodifiableMap to eliminate wildcards, which cause issues for our nullness checker.
+    @SuppressWarnings("GetElementValues")
+    Map<ExecutableElement, AnnotationValue> declaredValues =
+        unmodifiableMap(annotation.getElementValues());
     for (ExecutableElement method :
         ElementFilter.methodsIn(annotation.getAnnotationType().asElement().getEnclosedElements())) {
       // Must iterate and put in this order, to ensure consistency in generated code.
@@ -95,8 +109,10 @@ public final class AnnotationMirrors {
       } else {
         throw new IllegalStateException(
             "Unset annotation value without default should never happen: "
-            + MoreElements.asType(method.getEnclosingElement()).getQualifiedName()
-            + '.' + method.getSimpleName() + "()");
+                + MoreElements.asType(method.getEnclosingElement()).getQualifiedName()
+                + '.'
+                + method.getSimpleName()
+                + "()");
       }
     }
     return values.build();
@@ -131,25 +147,48 @@ public final class AnnotationMirrors {
         return entry;
       }
     }
-    throw new IllegalArgumentException(String.format("@%s does not define an element %s()",
-        MoreElements.asType(annotationMirror.getAnnotationType().asElement()).getQualifiedName(),
-        elementName));
+    throw new IllegalArgumentException(
+        String.format(
+            "@%s does not define an element %s()",
+            MoreElements.asType(annotationMirror.getAnnotationType().asElement())
+                .getQualifiedName(),
+            elementName));
   }
 
   /**
-   * Returns all {@linkplain AnnotationMirror annotations} that are present on the given
-   * {@link Element} which are themselves annotated with {@code annotationType}.
+   * Returns all {@linkplain AnnotationMirror annotations} that are present on the given {@link
+   * Element} which are themselves annotated with {@code annotationClass}.
    */
-  public static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(Element element,
-      final Class<? extends Annotation> annotationType) {
-    List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
-    return FluentIterable.from(annotations)
-        .filter(new Predicate<AnnotationMirror>() {
-          @Override public boolean apply(AnnotationMirror input) {
-            return isAnnotationPresent(input.getAnnotationType().asElement(), annotationType);
-          }
-        })
-        .toSet();
+  public static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(
+      Element element, Class<? extends Annotation> annotationClass) {
+    String name = annotationClass.getCanonicalName();
+    if (name == null) {
+      return ImmutableSet.of();
+    }
+    return getAnnotatedAnnotations(element, name);
+  }
+
+  /**
+   * Returns all {@linkplain AnnotationMirror annotations} that are present on the given {@link
+   * Element} which are themselves annotated with {@code annotation}.
+   */
+  public static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(
+      Element element, TypeElement annotation) {
+    return element.getAnnotationMirrors().stream()
+        .filter(input -> isAnnotationPresent(input.getAnnotationType().asElement(), annotation))
+        .collect(toImmutableSet());
+  }
+
+  /**
+   * Returns all {@linkplain AnnotationMirror annotations} that are present on the given {@link
+   * Element} which are themselves annotated with an annotation whose type's canonical name is
+   * {@code annotationName}.
+   */
+  public static ImmutableSet<? extends AnnotationMirror> getAnnotatedAnnotations(
+      Element element, String annotationName) {
+    return element.getAnnotationMirrors().stream()
+        .filter(input -> isAnnotationPresent(input.getAnnotationType().asElement(), annotationName))
+        .collect(toImmutableSet());
   }
 
   private AnnotationMirrors() {}

@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -29,6 +29,10 @@
 #include <sys/wait.h>
 #include <sys/times.h>
 #endif
+#endif
+
+#if defined(__OpenBSD__)
+#include <sys/siginfo.h>
 #endif
 
 /** \defgroup misc Miscellaneous APIs
@@ -110,6 +114,47 @@ lws_buflist_linear_copy(struct lws_buflist **head, size_t ofs, uint8_t *buf,
 			size_t len);
 
 /**
+ * lws_buflist_linear_use(): copy and consume from buflist head
+ *
+ * \param head: list head
+ * \param buf: buffer to copy linearly into
+ * \param len: length of buffer available
+ *
+ * Copies a possibly fragmented buflist from the head into the linear output
+ * buffer \p buf for up to length \p len, and consumes the buflist content that
+ * was copied out.
+ *
+ * Since it was consumed, calling again will resume copying out and consuming
+ * from as far as it got the first time.
+ *
+ * Returns the number of bytes written into \p buf.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_buflist_linear_use(struct lws_buflist **head, uint8_t *buf, size_t len);
+
+/**
+ * lws_buflist_fragment_use(): copy and consume <= 1 frag from buflist head
+ *
+ * \param head: list head
+ * \param buf: buffer to copy linearly into
+ * \param len: length of buffer available
+ * \param frag_first: pointer to char written on exit to if this is start of frag
+ * \param frag_fin: pointer to char written on exit to if this is end of frag
+ *
+ * Copies all or part of the fragment at the start of a buflist from the head
+ * into the output buffer \p buf for up to length \p len, and consumes the
+ * buflist content that was copied out.
+ *
+ * Since it was consumed, calling again will resume copying out and consuming
+ * from as far as it got the first time.
+ *
+ * Returns the number of bytes written into \p buf.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_buflist_fragment_use(struct lws_buflist **head, uint8_t *buf,
+			 size_t len, char *frag_first, char *frag_fin);
+
+/**
  * lws_buflist_destroy_all_segments(): free all segments on the list
  *
  * \param head: list head
@@ -144,6 +189,9 @@ lws_buflist_describe(struct lws_buflist **head, void *id, const char *reason);
  */
 #define lws_ptr_diff(head, tail) \
 			((int)((char *)(head) - (char *)(tail)))
+
+#define lws_ptr_diff_size_t(head, tail) \
+			((size_t)(ssize_t)((char *)(head) - (char *)(tail)))
 
 /**
  * lws_snprintf(): snprintf that truncates the returned length too
@@ -181,6 +229,68 @@ lws_strncpy(char *dest, const char *src, size_t size);
 				(size_t)(size1 + 1) : (size_t)(destsize))
 
 /**
+ * lws_nstrstr(): like strstr for length-based strings without terminating NUL
+ *
+ * \param buf: the string to search
+ * \param len: the length of the string to search
+ * \param name: the substring to search for
+ * \param nl: the length of name
+ *
+ * Returns NULL if \p name is not present in \p buf.  Otherwise returns the
+ * address of the first instance of \p name in \p buf.
+ *
+ * Neither buf nor name need to be NUL-terminated.
+ */
+LWS_VISIBLE LWS_EXTERN const char *
+lws_nstrstr(const char *buf, size_t len, const char *name, size_t nl);
+
+/**
+ * lws_json_simple_find(): dumb JSON string parser
+ *
+ * \param buf: the JSON to search
+ * \param len: the length of the JSON to search
+ * \param name: the name field to search the JSON for, eg, "\"myname\":"
+ * \param alen: set to the length of the argument part if non-NULL return
+ *
+ * Either returns NULL if \p name is not present in buf, or returns a pointer
+ * to the argument body of the first instance of \p name, and sets *alen to the
+ * length of the argument body.
+ *
+ * This can cheaply handle fishing out, eg, myarg from {"myname": "myarg"} by
+ * searching for "\"myname\":".  It will return a pointer to myarg and set *alen
+ * to 5.  It equally handles args like "myname": true, or "myname":false, and
+ * null or numbers are all returned as delimited strings.
+ *
+ * Anything more complicated like the value is a subobject or array, you should
+ * parse it using a full parser like lejp.  This is suitable is the JSON is
+ * and will remain short and simple, and contains well-known names amongst other
+ * extensible JSON members.
+ */
+LWS_VISIBLE LWS_EXTERN const char *
+lws_json_simple_find(const char *buf, size_t len, const char *name, size_t *alen);
+
+/**
+ * lws_json_simple_strcmp(): dumb JSON string comparison
+ *
+ * \param buf: the JSON to search
+ * \param len: the length of the JSON to search
+ * \param name: the name field to search the JSON for, eg, "\"myname\":"
+ * \param comp: return a strcmp of this and the discovered argument
+ *
+ * Helper that combines lws_json_simple_find() with strcmp() if it was found.
+ * If the \p name was not found, returns -1.  Otherwise returns a strcmp()
+ * between what was found and \p comp, ie, return 0 if they match or something
+ * else if they don't.
+ *
+ * If the JSON is relatively simple and you want to target constrained
+ * devices, this can be a good choice.  If the JSON may be complex, you
+ * should use a full JSON parser.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_json_simple_strcmp(const char *buf, size_t len, const char *name, const char *comp);
+
+
+/**
  * lws_hex_to_byte_array(): convert hex string like 0123456789ab into byte data
  *
  * \param h: incoming NUL-terminated hex string
@@ -198,6 +308,36 @@ lws_strncpy(char *dest, const char *src, size_t size);
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_hex_to_byte_array(const char *h, uint8_t *dest, int max);
+
+/**
+ * lws_hex_from_byte_array(): render byte array as hex char string
+ *
+ * \param src: incoming binary source array
+ * \param slen: length of src in bytes
+ * \param dest: array to fill with hex chars representing src
+ * \param len: max extent of dest
+ *
+ * This converts binary data of length slen at src, into a hex string at dest
+ * of maximum length len.  Even if truncated, the result will be NUL-terminated.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_hex_from_byte_array(const uint8_t *src, size_t slen, char *dest, size_t len);
+
+/**
+ * lws_hex_random(): generate len - 1 or - 2 characters of random ascii hex
+ *
+ * \param context: the lws_context used to get the random
+ * \param dest: destination for hex ascii chars
+ * \param len: the number of bytes the buffer dest points to can hold
+ *
+ * This creates random ascii-hex strings up to a given length, with a
+ * terminating NUL.
+ *
+ * There will not be any characters produced that are not 0-9, a-f, so it's
+ * safe to go straight into, eg, JSON.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_hex_random(struct lws_context *context, char *dest, size_t len);
 
 /*
  * lws_timingsafe_bcmp(): constant time memcmp
@@ -252,6 +392,15 @@ lws_get_library_version(void);
  */
 LWS_VISIBLE LWS_EXTERN void *
 lws_wsi_user(struct lws *wsi);
+
+/**
+ * lws_wsi_tsi() - get the service thread index the wsi is bound to
+ * \param wsi: lws connection
+ *
+ * Only useful is LWS_MAX_SMP > 1
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_wsi_tsi(struct lws *wsi);
 
 /**
  * lws_set_wsi_user() - set the user data associated with the client connection
@@ -407,7 +556,7 @@ lws_get_child(const struct lws *wsi);
  * and subdir creation / permissions down /var/cache dynamically.
  */
 LWS_VISIBLE LWS_EXTERN void
-lws_get_effective_uid_gid(struct lws_context *context, int *uid, int *gid);
+lws_get_effective_uid_gid(struct lws_context *context, uid_t *uid, gid_t *gid);
 
 /**
  * lws_get_udp() - get wsi's udp struct
@@ -577,6 +726,53 @@ lws_dir_callback_function(const char *dirpath, void *user,
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_dir(const char *dirpath, void *user, lws_dir_callback_function cb);
+
+/**
+ * lws_dir_rm_rf_cb() - callback for lws_dir that performs recursive rm -rf
+ *
+ * \param dirpath: directory we are at in lws_dir
+ * \param user: ignored
+ * \param lde: lws_dir info on the file or directory we are at
+ *
+ * This is a readymade rm -rf callback for use with lws_dir.  It recursively
+ * removes everything below the starting dir and then the starting dir itself.
+ * Works on linux, OSX and Windows at least.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_dir_rm_rf_cb(const char *dirpath, void *user, struct lws_dir_entry *lde);
+
+/*
+ * We pass every file in the base dir through a filter, and call back on the
+ * ones that match.  Directories are ignored.
+ *
+ * The original path filter string may look like, eg, "sai-*.deb" or "*.txt"
+ */
+
+typedef int (*lws_dir_glob_cb_t)(void *data, const char *path);
+
+typedef struct lws_dir_glob {
+	const char		*filter;
+	lws_dir_glob_cb_t	cb;
+	void			*user;
+} lws_dir_glob_t;
+
+/**
+ * lws_dir_glob_cb() - callback for lws_dir that performs filename globbing
+ *
+ * \param dirpath: directory we are at in lws_dir
+ * \param user: pointer to your prepared lws_dir_glob_cb_t
+ * \param lde: lws_dir info on the file or directory we are at
+ *
+ * \p user is prepared with an `lws_dir_glob_t` containing a callback for paths
+ * that pass the filtering, a user pointer to pass to that callback, and a
+ * glob string like "*.txt".  It may not contain directories, the lws_dir musr
+ * be started at the correct dir.
+ *
+ * Only the base path passed to lws_dir is scanned, it does not look in subdirs.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_dir_glob_cb(const char *dirpath, void *user, struct lws_dir_entry *lde);
+
 #endif
 
 /**
@@ -622,6 +818,25 @@ LWS_VISIBLE LWS_EXTERN int
 lws_is_cgi(struct lws *wsi);
 
 /**
+ * lws_tls_jit_trust_blob_queury_skid() - walk jit trust blob for skid
+ *
+ * \param _blob: the start of the blob in memory
+ * \param blen: the length of the blob in memory
+ * \param skid: the SKID we are looking for
+ * \param skid_len: the length of the SKID we are looking for
+ * \param prpder: result pointer to receive a pointer to the matching DER
+ * \param prder_len: result pointer to receive matching DER length
+ *
+ * Helper to scan a JIT Trust blob in memory for a trusted CA cert matching
+ * a given SKID.  Returns 0 if found and *prpder and *prder_len are set, else
+ * nonzero.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_jit_trust_blob_queury_skid(const void *_blob, size_t blen,
+				   const uint8_t *skid, size_t skid_len,
+				   const uint8_t **prpder, size_t *prder_len);
+
+/**
  * lws_open() - platform-specific wrapper for open that prepares the fd
  *
  * \param __file: the filepath to open
@@ -663,9 +878,9 @@ typedef struct lws_humanize_unit {
 	uint64_t factor;
 } lws_humanize_unit_t;
 
-LWS_VISIBLE LWS_EXTERN const lws_humanize_unit_t humanize_schema_si[7];
-LWS_VISIBLE LWS_EXTERN const lws_humanize_unit_t humanize_schema_si_bytes[7];
-LWS_VISIBLE LWS_EXTERN const lws_humanize_unit_t humanize_schema_us[8];
+LWS_VISIBLE extern const lws_humanize_unit_t humanize_schema_si[7];
+LWS_VISIBLE extern const lws_humanize_unit_t humanize_schema_si_bytes[7];
+LWS_VISIBLE extern const lws_humanize_unit_t humanize_schema_us[8];
 
 /**
  * lws_humanize() - Convert possibly large number to human-readable uints
@@ -689,7 +904,7 @@ LWS_VISIBLE LWS_EXTERN const lws_humanize_unit_t humanize_schema_us[8];
  */
 
 LWS_VISIBLE LWS_EXTERN int
-lws_humanize(char *buf, int len, uint64_t value,
+lws_humanize(char *buf, size_t len, uint64_t value,
 	     const lws_humanize_unit_t *schema);
 
 LWS_VISIBLE LWS_EXTERN void
@@ -723,6 +938,13 @@ lws_vbi_decode(const void *buf, uint64_t *value, size_t len);
 /* opaque internal struct */
 struct lws_spawn_piped;
 
+#if defined(WIN32)
+struct _lws_siginfo_t {
+	int retcode;
+};
+typedef struct _lws_siginfo_t siginfo_t;
+#endif
+
 typedef void (*lsp_cb_t)(void *opaque, lws_usec_t *accounting, siginfo_t *si,
 			 int we_killed_him);
 
@@ -750,7 +972,7 @@ struct lws_spawn_piped_info {
 	struct lws			*opt_parent;
 
 	const char * const		*exec_array;
-	char				**env_array;
+	const char			**env_array;
 	const char			*protocol_name;
 	const char			*chroot_path;
 	const char			*wd;
@@ -808,6 +1030,7 @@ lws_spawn_piped_kill_child_process(struct lws_spawn_piped *lsp);
  * lws_spawn_stdwsi_closed() - inform the spawn one of its stdxxx pipes closed
  *
  * \p lsp: the spawn object
+ * \p wsi: the wsi that is closing
  *
  * When you notice one of the spawn stdxxx pipes closed, inform the spawn
  * instance using this api.  When it sees all three have closed, it will
@@ -817,7 +1040,7 @@ lws_spawn_piped_kill_child_process(struct lws_spawn_piped *lsp);
  * has closed.
  */
 LWS_VISIBLE LWS_EXTERN void
-lws_spawn_stdwsi_closed(struct lws_spawn_piped *lsp);
+lws_spawn_stdwsi_closed(struct lws_spawn_piped *lsp, struct lws *wsi);
 
 /**
  * lws_spawn_get_stdfd() - return std channel index for stdwsi

@@ -36,6 +36,7 @@
 #include <sys/mman.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <numa.h>
 #include <numaif.h>
 #include <stdarg.h>
@@ -50,6 +51,7 @@
 
 #define CMD_SUCCESS 0
 #define CMD_ERROR   1
+#define CMDBUFSZ 256
 
 #ifndef __NR_migrate_pages
 #define __NR_migrate_pages 0
@@ -76,6 +78,11 @@ static inline void nodemask_set(nodemask_t * mask, int node)
 }
 
 static char *whitespace = " \t";
+
+inline char *get_next_arg(char *args, char *nextarg)
+{
+	return nextarg ? nextarg + strspn(nextarg, whitespace) : args + strnlen(args, CMDBUFSZ);
+}
 
 /*
  * =========================================================================
@@ -162,7 +169,7 @@ static int get_range(char *args, range_t * range, char **nextarg)
 		range->offset = get_scaled_value(args, "offset");
 		if (range->offset == BOGUS_SIZE)
 			return CMD_ERROR;
-		args = nextarg + strspn(nextarg, whitespace);
+		args = get_next_arg(args, nextarg);
 
 		/*
 		 * <length> ... only if offset specified
@@ -176,7 +183,7 @@ static int get_range(char *args, range_t * range, char **nextarg)
 					return CMD_ERROR;
 			} else
 				range->length = 0;	/* map to end of file */
-			args = nextarg + strspn(nextarg, whitespace);
+			args = get_next_arg(args, nextarg);
 		}
 	}
 
@@ -685,7 +692,7 @@ static int anon_seg(char *args)
 	range.length = get_scaled_value(args, "size");
 	if (range.length == BOGUS_SIZE)
 		return CMD_ERROR;
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	if (*args != '\0') {
 		segflag = get_shared(args);
@@ -715,7 +722,7 @@ static int file_seg(char *args)
 	if (!required_arg(args, "<path-name>"))
 		return CMD_ERROR;
 	pathname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	/*
 	 * offset, length are optional
@@ -733,6 +740,68 @@ static int file_seg(char *args)
 	if (!segment_register(SEGT_FILE, pathname, &range, segflag))
 		return CMD_ERROR;
 
+	return CMD_SUCCESS;
+}
+
+/*
+ * deletefile <file-name>
+ */
+static int delete_file(char *args)
+{
+       glctx_t *gcp = &glctx;
+       char *filename, *nextarg;
+
+       args += strspn(args, whitespace);
+       if (!required_arg(args, "<file-name>"))
+               return CMD_ERROR;
+       filename = strtok_r(args, whitespace, &nextarg);
+
+       if (remove(filename)) {
+               fprintf(stderr, "%s: deletefile failed - %s\n",
+                       gcp->program_name, strerror(errno));
+               return CMD_ERROR;
+       }
+
+       return CMD_SUCCESS;
+}
+
+/*
+ * createfile <file-name> <size>[k|m|g|p]]
+ */
+static int create_file(char *args)
+{
+	glctx_t *gcp = &glctx;
+	char *filename, *nextarg;
+	size_t len;
+	int fd;
+
+	args += strspn(args, whitespace);
+	if (!required_arg(args, "<file-name>"))
+		return CMD_ERROR;
+	filename = strtok_r(args, whitespace, &nextarg);
+	args = nextarg + strspn(nextarg, whitespace);
+
+	if (!required_arg(args, "<size>"))
+		return CMD_ERROR;
+	args = strtok_r(args, whitespace, &nextarg);
+	len = get_scaled_value(args, "size");
+	if (len == BOGUS_SIZE)
+		return CMD_ERROR;
+	args = get_next_arg(args, nextarg);
+
+	fd = open(filename, O_RDWR | O_CREAT, 0600);
+	if (fd < 0) {
+		fprintf(stderr, "%s: createfile failed - %s\n",
+			gcp->program_name, strerror(errno));
+		return CMD_ERROR;
+	}
+
+	if (posix_fallocate(fd, 0, len)) {
+		fprintf(stderr, "%s: createfile failed - %s\n",
+			gcp->program_name, strerror(errno));
+		return CMD_ERROR;
+	}
+	close(fd);
 	return CMD_SUCCESS;
 }
 
@@ -773,7 +842,7 @@ static int touch_seg(char *args)
 	if (!required_arg(args, "<seg-name>"))
 		return CMD_ERROR;
 	segname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	/*
 	 * offset, length are optional
@@ -804,7 +873,7 @@ static int unmap_seg(char *args)
 	if (!required_arg(args, "<seg-name>"))
 		return CMD_ERROR;
 	segname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	if (!segment_unmap(segname))
 		return CMD_ERROR;
@@ -828,7 +897,7 @@ static int map_seg(char *args)
 	if (!required_arg(args, "<seg-name>"))
 		return CMD_ERROR;
 	segname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	/*
 	 * offset, length are optional
@@ -872,7 +941,7 @@ static int mbind_seg(char *args)
 	if (!required_arg(args, "<seg-name>"))
 		return CMD_ERROR;
 	segname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	/*
 	 * offset, length are optional
@@ -887,7 +956,7 @@ static int mbind_seg(char *args)
 	if (policy < 0)
 		return CMD_ERROR;
 
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 	if (*args == '+') {
 		flags = get_mbind_flags(++args, &nextarg);
 		if (flags == -1)
@@ -930,7 +999,7 @@ static int shmem_seg(char *args)
 	if (!required_arg(args, "<seg-name>"))
 		return CMD_ERROR;
 	segname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	if (!required_arg(args, "<size>"))
 		return CMD_ERROR;
@@ -938,7 +1007,7 @@ static int shmem_seg(char *args)
 	range.length = get_scaled_value(args, "size");
 	if (range.length == BOGUS_SIZE)
 		return CMD_ERROR;
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	if (!segment_register(SEGT_SHM, segname, &range, MAP_SHARED))
 		return CMD_ERROR;
@@ -970,7 +1039,7 @@ static int where_seg(char *args)
 	if (!required_arg(args, "<seg-name>"))
 		return CMD_ERROR;
 	segname = strtok_r(args, whitespace, &nextarg);
-	args = nextarg + strspn(nextarg, whitespace);
+	args = get_next_arg(args, nextarg);
 
 	/*
 	 * offset, length are optional
@@ -1040,6 +1109,10 @@ struct command {
 		    "\tspecified offset into the file.  <offset> and <length> may be\n"
 		    "\tomitted and specified on the map command.\n"
 		    "\t<seg-share> := private|shared - default = private\n"}, {
+	.cmd_name = "createfile", .cmd_func = create_file, .cmd_help =
+			"createfile <file-name> <size>[k|m|g|p]]",}, {
+	.cmd_name = "deletefile", .cmd_func = delete_file, .cmd_help =
+			"deletefile <file-name>"}, {
 	.cmd_name = "shm",.cmd_func = shmem_seg,.cmd_help =
 		    "shm <seg-name> <seg-size>[k|m|g|p] - \n"
 		    "\tdefine a shared memory segment of specified size.\n"
@@ -1123,7 +1196,6 @@ static int help_me(char *args)
 /*
  * =========================================================================
  */
-#define CMDBUFSZ 256
 
 static bool unique_abbrev(char *cmd, size_t clen, struct command *cmdp)
 {

@@ -90,6 +90,7 @@ const char * event_to_string(enum wpa_event_type event)
 	E2S(WDS_STA_INTERFACE_STATUS);
 	E2S(UPDATE_DH);
 	E2S(UNPROT_BEACON);
+	E2S(TX_WAIT_EXPIRE);
 	}
 
 	return "UNKNOWN";
@@ -268,7 +269,7 @@ const char * driver_flag_to_string(u64 flag)
 	DF2S(P2P_CAPABLE);
 	DF2S(AP_TEARDOWN_SUPPORT);
 	DF2S(P2P_MGMT_AND_NON_P2P);
-	DF2S(SANE_ERROR_CODES);
+	DF2S(VALID_ERROR_CODES);
 	DF2S(OFFCHANNEL_TX);
 	DF2S(EAPOL_TX_STATUS);
 	DF2S(DEAUTH_TX_STATUS);

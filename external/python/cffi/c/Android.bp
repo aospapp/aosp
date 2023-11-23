@@ -55,6 +55,6 @@ python_library {
 filegroup {
     name: "py-cffi-backend-libffi-files",
     srcs: [
-        ".libs_cffi_backend/libffi-45372312.so.6.0.4",
+        ".libs_cffi_backend/libffi-9c61262e.so.8.1.0",
     ],
 }

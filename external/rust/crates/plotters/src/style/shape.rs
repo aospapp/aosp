@@ -28,8 +28,8 @@ impl ShapeStyle {
     }
 }
 
-impl<'a, T: Color> From<&'a T> for ShapeStyle {
-    fn from(f: &'a T) -> Self {
+impl<T: Color> From<T> for ShapeStyle {
+    fn from(f: T) -> Self {
         ShapeStyle {
             color: f.to_rgba(),
             filled: false,
@@ -40,7 +40,7 @@ impl<'a, T: Color> From<&'a T> for ShapeStyle {
 
 impl BackendStyle for ShapeStyle {
     fn color(&self) -> BackendColor {
-        self.color.color()
+        self.color.to_backend_color()
     }
     fn stroke_width(&self) -> u32 {
         self.stroke_width

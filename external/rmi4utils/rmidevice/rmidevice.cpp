@@ -50,6 +50,7 @@
 #define RMI_DEVICE_F01_QRY43_01_BUILD_ID       (1 << 1)
 
 #define PACKAGE_ID_BYTES			4
+#define CONFIG_ID_BYTES				4
 #define BUILD_ID_BYTES				3
 
 #define RMI_F01_CMD_DEVICE_RESET	1
@@ -75,10 +76,13 @@ int RMIDevice::QueryBasicProperties()
 {
 	int rc;
 	unsigned char basicQuery[RMI_DEVICE_F01_BASIC_QUERY_LEN];
+	unsigned char configid[CONFIG_ID_BYTES];
 	unsigned short queryAddr;
+	unsigned short controlAddr;
 	unsigned char infoBuf[4];
 	unsigned short prodInfoAddr;
 	RMIFunction f01;
+	RMIFunction f34;
 
 	SetRMIPage(0x00);
 
@@ -187,7 +191,28 @@ int RMIDevice::QueryBasicProperties()
 			}
 		}
 	}
+
+	if (GetFunction(f34, 0x34)) {
+		controlAddr = f34.GetControlBase();
+		rc = Read(controlAddr, configid, CONFIG_ID_BYTES);
+		if (rc < 0 || rc < CONFIG_ID_BYTES) {
+			fprintf(stderr, "Failed to read the config id: %s\n", strerror(errno));
+			return rc;
+		}
+		m_configID = (configid[0] << 24 | configid[1] << 16
+				| configid[2] << 8 | configid[3]) & 0xFFFFFFFF;
+	}
+
 	return 0;
+}
+
+void RMIDevice::Close()
+{
+	m_functionList.clear();
+	m_bCancel = false;
+	m_bytesPerReadRequest = 0;
+	m_page = -1;
+	m_deviceType = RMI_DEVICE_TYPE_ANY;
 }
 
 void RMIDevice::PrintProperties()
@@ -320,43 +345,4 @@ bool RMIDevice::InBootloader()
 		return !!(status & 0x40);
 	}
 	return true;
-}
-
-long long diff_time(struct timespec *start, struct timespec *end)
-{
-	long long diff;
-	diff = (end->tv_sec - start->tv_sec) * 1000 * 1000;
-	diff += (end->tv_nsec - start->tv_nsec) / 1000;
-	return diff;
-}
-
-int Sleep(int ms)
-{
-	struct timespec ts;
-	struct timespec rem;
-
-	ts.tv_sec = ms / 1000;
-	ts.tv_nsec = (ms % 1000) * 1000 * 1000;
-	for (;;) {
-		if (nanosleep(&ts, &rem) == 0) {
-			break;
-		} else {
-			if (errno == EINTR) {
-				ts = rem;
-				continue;
-			}
-			return -1;
-		}
-	}
-	return 0;
-}
-
-void print_buffer(const unsigned char *buf, unsigned int len)
-{
-	for (unsigned int i = 0; i < len; ++i) {
-		fprintf(stdout, "0x%02X ", buf[i]);
-		if (i % 8 == 7)
-			fprintf(stdout, "\n");
-	}
-	fprintf(stdout, "\n");
 }

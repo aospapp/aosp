@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 
@@ -27,13 +28,11 @@ using namespace cppbor;
 using namespace std;
 
 using ::testing::_;
-using ::testing::AllOf;
 using ::testing::ByRef;
 using ::testing::InSequence;
 using ::testing::IsNull;
 using ::testing::NotNull;
 using ::testing::Return;
-using ::testing::Truly;
 using ::testing::Unused;
 
 string hexDump(const string& str) {
@@ -254,7 +253,6 @@ TEST(MakeEntryTest, StdStrings) {
               details::makeItem(s2)->toString());  // copy of const string
     EXPECT_EQ("\x65\x68\x65\x6c\x6c\x6f"s,
               details::makeItem(std::move(s1))->toString());  // move string
-    EXPECT_EQ(0U, s1.size());                                 // Prove string was moved, not copied.
 }
 
 TEST(MakeEntryTest, StdStringViews) {
@@ -716,13 +714,15 @@ TEST(EqualityTest, ViewBstr) {
 TEST(ConvertTest, Uint) {
     unique_ptr<Item> item = details::makeItem(10);
 
-    EXPECT_EQ(UINT, item->type());
+    EXPECT_EQ(cppbor::UINT, item->type());
     EXPECT_NE(nullptr, item->asInt());
     EXPECT_NE(nullptr, item->asUint());
     EXPECT_EQ(nullptr, item->asNint());
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -742,6 +742,8 @@ TEST(ConvertTest, Nint) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -761,6 +763,8 @@ TEST(ConvertTest, Tstr) {
     EXPECT_NE(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -780,6 +784,8 @@ TEST(ConvertTest, Bstr) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_NE(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -798,15 +804,20 @@ TEST(ConvertTest, Bool) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_NE(nullptr, item->asSimple());
+    EXPECT_NE(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
     EXPECT_EQ(nullptr, item->asViewBstr());
 
-    EXPECT_EQ(BOOLEAN, item->asSimple()->simpleType());
+    EXPECT_EQ(cppbor::BOOLEAN, item->asSimple()->simpleType());
+    EXPECT_NE(nullptr, item->asBool());
     EXPECT_NE(nullptr, item->asSimple()->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asSimple()->asNull());
 
+    EXPECT_FALSE(item->asBool()->value());
     EXPECT_FALSE(item->asSimple()->asBool()->value());
 }
 
@@ -820,6 +831,8 @@ TEST(ConvertTest, Map) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_NE(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -838,6 +851,8 @@ TEST(ConvertTest, Array) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_NE(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -855,6 +870,8 @@ TEST(ConvertTest, SemanticTag) {
     EXPECT_EQ(nullptr, item->asNint());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -883,6 +900,8 @@ TEST(ConvertTest, NestedSemanticTag) {
     EXPECT_EQ(nullptr, item->asNint());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -914,13 +933,17 @@ TEST(ConvertTest, Null) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_NE(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_NE(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
     EXPECT_EQ(nullptr, item->asViewBstr());
 
     EXPECT_EQ(NULL_T, item->asSimple()->simpleType());
+    EXPECT_EQ(nullptr, item->asBool());
     EXPECT_EQ(nullptr, item->asSimple()->asBool());
+    EXPECT_NE(nullptr, item->asNull());
     EXPECT_NE(nullptr, item->asSimple()->asNull());
 }
 
@@ -934,6 +957,8 @@ TEST(ConvertTest, ViewTstr) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_NE(nullptr, item->asViewTstr());
@@ -944,7 +969,7 @@ TEST(ConvertTest, ViewTstr) {
 
 TEST(ConvertTest, ViewBstr) {
     array<uint8_t, 3> vec{0x23, 0x24, 0x22};
-    basic_string_view sv(vec.data(), vec.size());
+    basic_string_view<uint8_t> sv(vec.data(), vec.size());
     unique_ptr<Item> item = details::makeItem(ViewBstr(sv));
 
     EXPECT_EQ(BSTR, item->type());
@@ -954,6 +979,8 @@ TEST(ConvertTest, ViewBstr) {
     EXPECT_EQ(nullptr, item->asTstr());
     EXPECT_EQ(nullptr, item->asBstr());
     EXPECT_EQ(nullptr, item->asSimple());
+    EXPECT_EQ(nullptr, item->asBool());
+    EXPECT_EQ(nullptr, item->asNull());
     EXPECT_EQ(nullptr, item->asMap());
     EXPECT_EQ(nullptr, item->asArray());
     EXPECT_EQ(nullptr, item->asViewTstr());
@@ -965,7 +992,7 @@ TEST(ConvertTest, ViewBstr) {
 TEST(CloningTest, Uint) {
     Uint item(10);
     auto clone = item.clone();
-    EXPECT_EQ(clone->type(), UINT);
+    EXPECT_EQ(clone->type(), cppbor::UINT);
     EXPECT_NE(clone->asUint(), nullptr);
     EXPECT_EQ(item, *clone->asUint());
     EXPECT_EQ(*clone->asUint(), Uint(10));
@@ -1025,9 +1052,12 @@ TEST(CloningTest, Bool) {
     auto clone = item.clone();
     EXPECT_EQ(clone->type(), SIMPLE);
     EXPECT_NE(clone->asSimple(), nullptr);
-    EXPECT_EQ(clone->asSimple()->simpleType(), BOOLEAN);
+    EXPECT_EQ(clone->asSimple()->simpleType(), cppbor::BOOLEAN);
+    EXPECT_NE(clone->asBool(), nullptr);
     EXPECT_NE(clone->asSimple()->asBool(), nullptr);
+    EXPECT_EQ(item, *clone->asBool());
     EXPECT_EQ(item, *clone->asSimple()->asBool());
+    EXPECT_EQ(*clone->asBool(), Bool(true));
     EXPECT_EQ(*clone->asSimple()->asBool(), Bool(true));
 }
 
@@ -1081,7 +1111,7 @@ TEST(CloningTest, ViewTstr) {
 
 TEST(CloningTest, ViewBstr) {
     array<uint8_t, 5> vec{1, 2, 3, 255, 0};
-    basic_string_view sv(vec.data(), vec.size());
+    basic_string_view<uint8_t> sv(vec.data(), vec.size());
     ViewBstr item(sv);
     auto clone = item.clone();
     EXPECT_EQ(clone->type(), BSTR);
@@ -1707,11 +1737,14 @@ TEST(FullParserTest, ViewTstr) {
 }
 
 TEST(FullParserTest, ViewBstr) {
-    ViewBstr val("\x00\x01\x02"s);
+    const std::string strVal = "\x00\x01\x02"s;
+    const ViewBstr val(strVal);
+    EXPECT_EQ(val.toString(), "\x43\x00\x01\x02"s);
 
     auto enc = val.encode();
     auto [item, pos, message] = parseWithViews(enc.data(), enc.size());
     EXPECT_THAT(item, MatchesItem(val));
+    EXPECT_EQ(hexDump(item->toString()), hexDump(val.toString()));
 }
 
 TEST(FullParserTest, ReservedAdditionalInformation) {

@@ -53,7 +53,7 @@ public interface RangeValueIterator
 
     /**
     * Return result wrapper for android.icu.util.RangeValueIterator.
-    * Stores the start and limit of the continous result range and the
+    * Stores the start and limit of the continuous result range and the
     * common value all integers between [start, limit - 1] has.
     */
     public class Element
@@ -71,7 +71,7 @@ public interface RangeValueIterator
         */
         public int limit;
         /**
-        * Gets the common value of the continous result range
+        * Gets the common value of the continuous result range
         */
         public int value;
 

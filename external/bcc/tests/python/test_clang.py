@@ -1,16 +1,17 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) PLUMgrid, Inc.
 # Licensed under the Apache License, Version 2.0 (the "License")
 
 from bcc import BPF
+from bcc.libbcc import lib
 import ctypes as ct
 from unittest import main, skipUnless, TestCase
+from utils import kernel_version_ge
 import os
 import sys
 import socket
 import struct
 from contextlib import contextmanager
-import distutils.version
 
 @contextmanager
 def redirect_stderr(to):
@@ -23,17 +24,6 @@ def redirect_stderr(to):
         finally:
             sys.stderr.flush()
             os.dup2(copied.fileno(), stderr_fd)
-
-def kernel_version_ge(major, minor):
-    # True if running kernel is >= X.Y
-    version = distutils.version.LooseVersion(os.uname()[2]).version
-    if version[0] > major:
-        return True
-    if version[0] < major:
-        return False
-    if minor and version[1] < minor:
-        return False
-    return True
 
 class TestClang(TestCase):
     def test_complex(self):
@@ -78,9 +68,8 @@ int count_foo(struct pt_regs *ctx, unsigned long a, unsigned long b) {
 
     def test_probe_read3(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <net/tcp.h>
-#define _(P) ({typeof(P) val = 0; bpf_probe_read(&val, sizeof(val), &P); val;})
+#define _(P) ({typeof(P) val = 0; bpf_probe_read_kernel(&val, sizeof(val), &P); val;})
 int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
     return _(TCP_SKB_CB(skb)->tcp_gso_size);
 }
@@ -90,9 +79,8 @@ int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
 
     def test_probe_read4(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <net/tcp.h>
-#define _(P) ({typeof(P) val = 0; bpf_probe_read(&val, sizeof(val), &P); val;})
+#define _(P) ({typeof(P) val = 0; bpf_probe_read_kernel(&val, sizeof(val), &P); val;})
 int test(struct pt_regs *ctx, struct sk_buff *skb) {
     return _(TCP_SKB_CB(skb)->tcp_gso_size) + skb->protocol;
 }
@@ -102,7 +90,6 @@ int test(struct pt_regs *ctx, struct sk_buff *skb) {
 
     def test_probe_read_whitelist1(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <net/tcp.h>
 int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
     // The below define is in net/tcp.h:
@@ -111,7 +98,7 @@ int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
     // failing below statement
     // return TCP_SKB_CB(skb)->tcp_gso_size;
     u16 val = 0;
-    bpf_probe_read(&val, sizeof(val), &(TCP_SKB_CB(skb)->tcp_gso_size));
+    bpf_probe_read_kernel(&val, sizeof(val), &(TCP_SKB_CB(skb)->tcp_gso_size));
     return val;
 }
 """
@@ -120,7 +107,6 @@ int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
 
     def test_probe_read_whitelist2(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <net/tcp.h>
 int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
     // The below define is in net/tcp.h:
@@ -129,7 +115,7 @@ int count_tcp(struct pt_regs *ctx, struct sk_buff *skb) {
     // failing below statement
     // return TCP_SKB_CB(skb)->tcp_gso_size;
     u16 val = 0;
-    bpf_probe_read(&val, sizeof(val), &(TCP_SKB_CB(skb)->tcp_gso_size));
+    bpf_probe_read_kernel(&val, sizeof(val), &(TCP_SKB_CB(skb)->tcp_gso_size));
     return val + skb->protocol;
 }
 """
@@ -158,6 +144,7 @@ int do_completion(struct pt_regs *ctx, struct request *req) {
         b = BPF(text=text, debug=0)
         fns = b.load_funcs(BPF.KPROBE)
 
+    @skipUnless(lib.bpf_module_rw_engine_enabled(), "requires enabled rwengine")
     def test_sscanf(self):
         text = """
 BPF_HASH(stats, int, struct { u64 a; u64 b; u64 c:36; u64 d:28; struct { u32 a; u32 b; } s; }, 10);
@@ -179,6 +166,7 @@ int foo(void *ctx) {
         self.assertEqual(l.s.a, 5)
         self.assertEqual(l.s.b, 6)
 
+    @skipUnless(lib.bpf_module_rw_engine_enabled(), "requires enabled rwengine")
     def test_sscanf_array(self):
         text = """
 BPF_HASH(stats, int, struct { u32 a[3]; u32 b; }, 10);
@@ -195,6 +183,7 @@ BPF_HASH(stats, int, struct { u32 a[3]; u32 b; }, 10);
         self.assertEqual(l.a[2], 3)
         self.assertEqual(l.b, 4)
 
+    @skipUnless(lib.bpf_module_rw_engine_enabled(), "requires enabled rwengine")
     def test_sscanf_string(self):
         text = """
 struct Symbol {
@@ -323,6 +312,16 @@ int kprobe__blk_update_request(struct pt_regs *ctx, struct request *req) {
     return 0;
 }""")
 
+    @skipUnless(kernel_version_ge(5,7), "requires kernel >= 5.7")
+    def test_lsm_probe(self):
+        # Skip if the kernel is not compiled with CONFIG_BPF_LSM
+        if not BPF.support_lsm():
+            return
+        b = BPF(text="""
+LSM_PROBE(bpf, int cmd, union bpf_attr *uattr, unsigned int size) {
+    return 0;
+}""")
+
     def test_probe_read_helper(self):
         b = BPF(text="""
 #include <linux/fs.h>
@@ -396,8 +395,10 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev) {
   key.curr_pid = bpf_get_current_pid_tgid();
   key.prev_pid = prev->pid;
 
-  val = stats.lookup_or_init(&key, &zero);
-  (*val)++;
+  val = stats.lookup_or_try_init(&key, &zero);
+  if (val) {
+    (*val)++;
+  }
   return 0;
 }
 """)
@@ -497,7 +498,34 @@ int test(struct pt_regs *ctx, struct sock *sk) {
         b = BPF(text=text)
         fn = b.load_func("test", BPF.KPROBE)
 
-    def test_probe_read_nested_deref_func(self):
+    def test_probe_read_nested_deref3(self):
+        text = """
+#include <net/inet_sock.h>
+int test(struct pt_regs *ctx, struct sock *sk) {
+    struct sock **ptr1, **ptr2 = &sk;
+    ptr1 = &sk;
+    return (*ptr1)->sk_daddr + (*ptr2)->sk_daddr;
+}
+"""
+        b = BPF(text=text)
+        fn = b.load_func("test", BPF.KPROBE)
+
+    def test_probe_read_nested_deref_func1(self):
+        text = """
+#include <net/inet_sock.h>
+static struct sock **subtest(struct sock **sk) {
+    return sk;
+}
+int test(struct pt_regs *ctx, struct sock *sk) {
+    struct sock **ptr1, **ptr2 = subtest(&sk);
+    ptr1 = subtest(&sk);
+    return (*ptr1)->sk_daddr + (*ptr2)->sk_daddr;
+}
+"""
+        b = BPF(text=text)
+        fn = b.load_func("test", BPF.KPROBE)
+
+    def test_probe_read_nested_deref_func2(self):
         text = """
 #include <net/inet_sock.h>
 static int subtest(struct sock ***skp) {
@@ -817,7 +845,11 @@ int trace_read_entry(struct pt_regs *ctx, struct file *file) {
 }
         """
         b = BPF(text=text)
-        b.attach_kprobe(event="__vfs_read", fn_name="trace_read_entry")
+        try:
+            b.attach_kprobe(event="__vfs_read", fn_name="trace_read_entry")
+        except Exception:
+            print('Current kernel does not have __vfs_read, try vfs_read instead')
+            b.attach_kprobe(event="vfs_read", fn_name="trace_read_entry")
 
     def test_printk_f(self):
         text = """
@@ -942,6 +974,7 @@ struct a {
 BPF_HASH(drops, struct a);
         """
         b = BPF(text=text)
+        t = b['drops']
 
     def test_int128_types(self):
         text = """
@@ -1042,7 +1075,6 @@ int test(struct __sk_buff *ctx) {
 
     def test_probe_read_return(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <uapi/linux/ptrace.h>
 #include <linux/tcp.h>
 static inline unsigned char *my_skb_transport_header(struct sk_buff *skb) {
@@ -1058,7 +1090,6 @@ int test(struct pt_regs *ctx, struct sock *sk, struct sk_buff *skb) {
 
     def test_probe_read_multiple_return(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <uapi/linux/ptrace.h>
 #include <linux/tcp.h>
 static inline u64 error_function() {
@@ -1079,7 +1110,6 @@ int test(struct pt_regs *ctx, struct sock *sk, struct sk_buff *skb) {
 
     def test_probe_read_return_expr(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <uapi/linux/ptrace.h>
 #include <linux/tcp.h>
 static inline unsigned char *my_skb_transport_header(struct sk_buff *skb) {
@@ -1095,7 +1125,6 @@ int test(struct pt_regs *ctx, struct sock *sk, struct sk_buff *skb) {
 
     def test_probe_read_return_call(self):
         text = """
-#define KBUILD_MODNAME "foo"
 #include <uapi/linux/ptrace.h>
 #include <linux/tcp.h>
 static inline struct tcphdr *my_skb_transport_header(struct sk_buff *skb) {
@@ -1114,7 +1143,7 @@ int test(struct pt_regs *ctx, struct sock *sk, struct sk_buff *skb) {
 #include <net/inet_sock.h>
 static inline int test_help(__be16 *addr) {
     __be16 val = 0;
-    bpf_probe_read(&val, sizeof(val), addr);
+    bpf_probe_read_kernel(&val, sizeof(val), addr);
     return val;
 }
 int test(struct pt_regs *ctx) {
@@ -1218,7 +1247,8 @@ int test(struct pt_regs *ctx, struct mm_struct *mm) {
 struct bpf_map;
 BPF_HASH(map);
 int map_delete(struct pt_regs *ctx, struct bpf_map *bpfmap, u64 *k) {
-    map.increment(42, 10);
+    map.increment(42, 5);
+    map.atomic_increment(42, 5);
     return 0;
 }
 """)
@@ -1249,6 +1279,54 @@ TRACEPOINT_PROBE(kmem, kmalloc) {
             st = b["testing"][ct.c_uint(0)]
             self.assertEqual(st.a, 10)
             self.assertEqual(st.b, 20)
+
+    @skipUnless(kernel_version_ge(4,14), "requires kernel >= 4.14")
+    def test_jump_table(self):
+        text = """
+#include <linux/blk_types.h>
+#include <linux/blkdev.h>
+#include <linux/time64.h>
+
+BPF_PERCPU_ARRAY(rwdf_100ms, u64, 400);
+
+int do_request(struct pt_regs *ctx, struct request *rq) {
+    u32 cmd_flags;
+    u64 base, dur, slot, now = 100000;
+
+    if (!rq->start_time_ns)
+      return 0;
+
+    if (!rq->rq_disk || rq->rq_disk->major != 5 ||
+        rq->rq_disk->first_minor != 6)
+      return 0;
+
+    cmd_flags = rq->cmd_flags;
+    switch (cmd_flags & REQ_OP_MASK) {
+    case REQ_OP_READ:
+      base = 0;
+      break;
+    case REQ_OP_WRITE:
+      base = 100;
+      break;
+    case REQ_OP_DISCARD:
+      base = 200;
+      break;
+    case REQ_OP_FLUSH:
+      base = 300;
+      break;
+    default:
+      return 0;
+    }
+
+    dur = now - rq->start_time_ns;
+    slot = min_t(size_t, div_u64(dur, 100 * NSEC_PER_MSEC), 99);
+    rwdf_100ms.increment(base + slot);
+
+    return 0;
+}
+"""
+        b = BPF(text=text)
+        fns = b.load_funcs(BPF.KPROBE)
 
 if __name__ == "__main__":
     main()

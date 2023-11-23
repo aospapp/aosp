@@ -37,7 +37,7 @@ en_XA{
                 other{"[{0} ŕåðîåñš one two]"}
             }
             revolution{
-                dnam{"[ŕéṽöļûţîöñ one two]"}
+                dnam{"[ŕéṽöļûţîöñš one two]"}
                 one{"[{0} ŕéṽöļûţîöñ one two]"}
                 other{"[{0} ŕéṽöļûţîöñš one two three]"}
             }
@@ -100,16 +100,73 @@ en_XA{
             }
         }
         compound{
+            1024p1{"[ķîƀî{0} one two]"}
+            1024p2{"[ɱéƀî{0} one two]"}
+            1024p3{"[ĝîƀî{0} one two]"}
+            1024p4{"[ţéƀî{0} one two]"}
+            1024p5{"[þéƀî{0} one two]"}
+            1024p6{"[éẋƀî{0} one two]"}
+            1024p7{"[žéƀî{0} one two]"}
+            1024p8{"[ýöƀî{0} one two]"}
+            10p-1{"[ðéçî{0} one two]"}
+            10p-12{"[þîçö{0} one two]"}
+            10p-15{"[ƒéɱţö{0} one two]"}
+            10p-18{"[åţţö{0} one two]"}
+            10p-2{"[çéñţî{0} one two]"}
+            10p-21{"[žéþţö{0} one two]"}
+            10p-24{"[ýöçţö{0} one two]"}
+            10p-3{"[ɱîļļî{0} one two]"}
+            10p-6{"[ɱîçŕö{0} one two]"}
+            10p-9{"[ñåñö{0} one two]"}
+            10p1{"[ðéķå{0} one two]"}
+            10p12{"[ţéŕå{0} one two]"}
+            10p15{"[þéţå{0} one two]"}
+            10p18{"[éẋå{0} one]"}
+            10p2{"[ĥéçţö{0} one two]"}
+            10p21{"[žéţţå{0} one two]"}
+            10p24{"[ýöţţå{0} one two]"}
+            10p3{"[ķîļö{0} one two]"}
+            10p6{"[ɱéĝå{0} one two]"}
+            10p9{"[ĝîĝå{0} one two]"}
             per{"[{0} þéŕ {1} one two]"}
+            power2{
+                one{
+                    _{
+                        _{"[šǫûåŕé {0} one two]"}
+                    }
+                }
+                other{
+                    _{
+                        _{"[šǫûåŕé {0} one two]"}
+                    }
+                }
+            }
+            power3{
+                one{
+                    _{
+                        _{"[çûƀîç {0} one two]"}
+                    }
+                }
+                other{
+                    _{
+                        _{"[çûƀîç {0} one two]"}
+                    }
+                }
+            }
             times{"[{0}‐{1} one two]"}
         }
         concentr{
+            item{
+                dnam{"[îţéɱš one]"}
+                one{"[{0} îţéɱ one two]"}
+                other{"[{0} îţéɱš one two]"}
+            }
             karat{
                 dnam{"[ķåŕåţš one]"}
                 one{"[{0} ķåŕåţ one two]"}
                 other{"[{0} ķåŕåţš one two]"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"[ɱîļļîĝŕåɱš þéŕ ðéçîļîţéŕ one two three]"}
                 one{"[{0} ɱîļļîĝŕåɱ þéŕ ðéçîļîţéŕ one two three four]"}
                 other{"[{0} ɱîļļîĝŕåɱš þéŕ ðéçîļîţéŕ one two three four]"}
@@ -370,6 +427,11 @@ en_XA{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"[ķîļöŵåţţ‐ĥöûŕš þéŕ ①⓪⓪ ķîļöɱéţéŕš one two three four]"}
+                one{"[{0} ķîļöŵåţţ‐ĥöûŕ þéŕ ①⓪⓪ ķîļöɱéţéŕš one two three four]"}
+                other{"[{0} ķîļöŵåţţ‐ĥöûŕš þéŕ ①⓪⓪ ķîļöɱéţéŕš one two three four five]"}
+            }
             newton{
                 dnam{"[ñéŵţöñš one two]"}
                 one{"[{0} ñéŵţöñ one two]"}
@@ -405,9 +467,9 @@ en_XA{
         }
         graphics{
             dot{
-                dnam{"[ðöţ one]"}
+                dnam{"[ðöţš one]"}
                 one{"[{0} ðöţ one two]"}
-                other{"[{0} ðöţ one two]"}
+                other{"[{0} ðöţš one two]"}
             }
             dot-per-centimeter{
                 dnam{"[ðöţš þéŕ çéñţîɱéţéŕ one two three]"}
@@ -420,7 +482,7 @@ en_XA{
                 other{"[{0} ðöţš þéŕ îñçĥ one two three]"}
             }
             em{
-                dnam{"[ţýþöĝŕåþĥîç éɱ one two]"}
+                dnam{"[ţýþöĝŕåþĥîç éɱš one two three]"}
                 one{"[{0} éɱ one]"}
                 other{"[{0} éɱš one two]"}
             }
@@ -517,7 +579,7 @@ en_XA{
                 other{"[{0} ɱîļéš one two]"}
             }
             mile-scandinavian{
-                dnam{"[ɱîļé‐šçåñðîñåṽîåñ one two three]"}
+                dnam{"[ɱîļéš‐šçåñðîñåṽîåñ one two three]"}
                 one{"[{0} ɱîļé‐šçåñðîñåṽîåñ one two three]"}
                 other{"[{0} ɱîļéš‐šçåñðîñåṽîåñ one two three]"}
             }
@@ -601,9 +663,9 @@ en_XA{
                 other{"[{0} Éåŕţĥ ɱåššéš one two three]"}
             }
             grain{
-                dnam{"[ĝŕåîñ one]"}
+                dnam{"[ĝŕåîñš one]"}
                 one{"[{0} ĝŕåîñ one two]"}
-                other{"[{0} ĝŕåîñ one two]"}
+                other{"[{0} ĝŕåîñš one two]"}
             }
             gram{
                 dnam{"[ĝŕåɱš one]"}
@@ -798,7 +860,7 @@ en_XA{
                 other{"[{0} ñéŵţöñ‐ɱéţéŕš one two three]"}
             }
             pound-force-foot{
-                dnam{"[þöûñð‐ƒééţ one two]"}
+                dnam{"[þöûñð‐ƒöŕçé‐ƒééţ one two three]"}
                 one{"[{0} þöûñð‐ƒöŕçé‐ƒööţ one two three]"}
                 other{"[{0} þöûñð‐ƒöŕçé‐ƒééţ one two three]"}
             }
@@ -877,24 +939,24 @@ en_XA{
                 other{"[{0} ðéçîļîţéŕš one two]"}
             }
             dessert-spoon{
-                dnam{"[ðéššéŕţ šþööñ one two]"}
+                dnam{"[ðéššéŕţ šþööñš one two]"}
                 one{"[{0} ðéššéŕţ šþööñ one two three]"}
-                other{"[{0} ðéššéŕţ šþööñ one two three]"}
+                other{"[{0} ðéššéŕţ šþööñš one two three]"}
             }
             dessert-spoon-imperial{
-                dnam{"[Îɱþ· ðéššéŕţ šþööñ one two three]"}
+                dnam{"[Îɱþ· ðéššéŕţ šþööñš one two three]"}
                 one{"[{0} Îɱþ· ðéššéŕţ šþööñ one two three]"}
-                other{"[{0} Îɱþ· ðéššéŕţ šþööñ one two three]"}
+                other{"[{0} Îɱþ· ðéššéŕţ šþööñš one two three]"}
             }
             dram{
-                dnam{"[ðŕåɱ one]"}
+                dnam{"[ðŕåɱš one]"}
                 one{"[{0} ðŕåɱ one two]"}
-                other{"[{0} ðŕåɱ one two]"}
+                other{"[{0} ðŕåɱš one two]"}
             }
             drop{
-                dnam{"[ðŕöþ one]"}
+                dnam{"[ðŕöþš one]"}
                 one{"[{0} ðŕöþ one two]"}
-                other{"[{0} ðŕöþ one two]"}
+                other{"[{0} ðŕöþš one two]"}
             }
             fluid-ounce{
                 dnam{"[ƒļûîð öûñçéš one two]"}
@@ -924,9 +986,9 @@ en_XA{
                 other{"[{0} ĥéçţöļîţéŕš one two three]"}
             }
             jigger{
-                dnam{"[ĵîĝĝéŕ one]"}
+                dnam{"[ĵîĝĝéŕš one two]"}
                 one{"[{0} ĵîĝĝéŕ one two]"}
-                other{"[{0} ĵîĝĝéŕ one two]"}
+                other{"[{0} ĵîĝĝéŕš one two]"}
             }
             liter{
                 dnam{"[ļîţéŕš one]"}
@@ -945,9 +1007,9 @@ en_XA{
                 other{"[{0} ɱîļļîļîţéŕš one two three]"}
             }
             pinch{
-                dnam{"[þîñçĥ one]"}
+                dnam{"[þîñçĥéš one two]"}
                 one{"[{0} þîñçĥ one two]"}
-                other{"[{0} þîñçĥ one two]"}
+                other{"[{0} þîñçĥéš one two]"}
             }
             pint{
                 dnam{"[þîñţš one]"}
@@ -965,9 +1027,9 @@ en_XA{
                 other{"[{0} ǫûåŕţš one two]"}
             }
             quart-imperial{
-                dnam{"[Îɱþ· ǫûåŕţ one two]"}
+                dnam{"[Îɱþ· ǫûåŕţš one two]"}
                 one{"[{0} Îɱþ· ǫûåŕţ one two]"}
-                other{"[{0} Îɱþ· ǫûåŕţ one two]"}
+                other{"[{0} Îɱþ· ǫûåŕţš one two three]"}
             }
             tablespoon{
                 dnam{"[ţåƀļéšþööñš one two]"}
@@ -1082,12 +1144,17 @@ en_XA{
             per{"[{0}⁄{1} one two]"}
         }
         concentr{
+            item{
+                dnam{"[îţéɱ one]"}
+                one{"[{0} îţéɱ one two]"}
+                other{"[{0} îţéɱš one two]"}
+            }
             karat{
                 dnam{"[ķåŕåţš one]"}
                 one{"[{0} ķţ one]"}
                 other{"[{0} ķţ one]"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"[ɱĝ⁄ðĻ one]"}
                 one{"[{0} ɱĝ⁄ðĻ one two]"}
                 other{"[{0} ɱĝ⁄ðĻ one two]"}
@@ -1233,9 +1300,9 @@ en_XA{
                 per{"[{0}⁄ĥ one]"}
             }
             microsecond{
-                dnam{"[µšéçš one]"}
-                one{"[{0} µš one]"}
-                other{"[{0} µš one]"}
+                dnam{"[μšéçš one]"}
+                one{"[{0} μš one]"}
+                other{"[{0} μš one]"}
             }
             millisecond{
                 dnam{"[ɱîļļîšéçš one two]"}
@@ -1348,6 +1415,11 @@ en_XA{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"[ķŴĥ⁄①⓪⓪ķɱ one two]"}
+                one{"[{0} ķŴĥ⁄①⓪⓪ķɱ one two]"}
+                other{"[{0} ķŴĥ⁄①⓪⓪ķɱ one two]"}
+            }
             newton{
                 dnam{"[ñéŵţöñ one]"}
                 one{"[{0} Ñ one]"}
@@ -1382,9 +1454,6 @@ en_XA{
             }
         }
         graphics{
-            dot{
-                other{"[{0} ðöţ one two]"}
-            }
             dot-per-centimeter{
                 dnam{"[ðþçɱ one]"}
                 one{"[{0} ðþçɱ one two]"}
@@ -1478,9 +1547,9 @@ en_XA{
                 per{"[{0}⁄ɱ one]"}
             }
             micrometer{
-                dnam{"[µɱéţéŕš one two]"}
-                one{"[{0} µɱ one]"}
-                other{"[{0} µɱ one]"}
+                dnam{"[μɱéţéŕš one two]"}
+                one{"[{0} μɱ one]"}
+                other{"[{0} μɱ one]"}
             }
             mile{
                 dnam{"[ɱîļéš one]"}
@@ -1582,9 +1651,9 @@ en_XA{
                 other{"[{0} ţ one]"}
             }
             microgram{
-                dnam{"[µĝ one]"}
-                one{"[{0} µĝ one]"}
-                other{"[{0} µĝ one]"}
+                dnam{"[μĝ one]"}
+                one{"[{0} μĝ one]"}
+                other{"[{0} μĝ one]"}
             }
             milligram{
                 dnam{"[ɱĝ one]"}

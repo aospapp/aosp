@@ -10,16 +10,23 @@ package {
     default_applicable_licenses: ["external_crosvm_license"],
 }
 
-rust_defaults {
-    name: "arch_test_defaults",
+rust_test {
+    name: "arch_test_src_lib",
     defaults: ["crosvm_defaults"],
+    host_supported: true,
     crate_name: "arch",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2018",
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2021",
     rustlibs: [
         "libacpi_tables",
+        "libanyhow",
         "libbase_rust",
         "libdevices",
         "libhypervisor",
@@ -33,16 +40,9 @@ rust_defaults {
         "libvm_control",
         "libvm_memory",
     ],
-}
-
-rust_test_host {
-    name: "arch_host_test_src_lib",
-    defaults: ["arch_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
+    proc_macros: ["libremain"],
     target: {
-        linux_glibc_x86_64: {
+        host_linux: {
             features: [
                 "gdb",
             ],
@@ -51,21 +51,7 @@ rust_test_host {
             ],
         },
     },
-}
 
-rust_test {
-    name: "arch_device_test_src_lib",
-    defaults: ["arch_test_defaults"],
-    target: {
-        linux_glibc_x86_64: {
-            features: [
-                "gdb",
-            ],
-            rustlibs: [
-                "libgdbstub_arch",
-            ],
-        },
-    },
 }
 
 rust_library {
@@ -73,10 +59,13 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "arch",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libacpi_tables",
+        "libanyhow",
         "libbase_rust",
         "libdevices",
         "libhypervisor",
@@ -90,8 +79,9 @@ rust_library {
         "libvm_control",
         "libvm_memory",
     ],
+    proc_macros: ["libremain"],
     target: {
-        linux_glibc_x86_64: {
+        host_linux: {
             features: [
                 "gdb",
             ],
@@ -100,4 +90,5 @@ rust_library {
             ],
         },
     },
+
 }

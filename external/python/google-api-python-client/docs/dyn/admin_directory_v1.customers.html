@@ -72,165 +72,190 @@ h1, h2, h3 {
 
 </style>
 
-<h1><a href="admin_directory_v1.html">Admin Directory API</a> . <a href="admin_directory_v1.customers.html">customers</a></h1>
+<h1><a href="admin_directory_v1.html">Admin SDK API</a> . <a href="admin_directory_v1.customers.html">customers</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#get">get(customerKey)</a></code></p>
+  <code><a href="admin_directory_v1.customers.chrome.html">chrome()</a></code>
+</p>
+<p class="firstline">Returns the chrome Resource.</p>
+
+<p class="toc_element">
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
+<p class="toc_element">
+  <code><a href="#get">get(customerKey, x__xgafv=None)</a></code></p>
 <p class="firstline">Retrieves a customer.</p>
 <p class="toc_element">
-  <code><a href="#patch">patch(customerKey, body)</a></code></p>
-<p class="firstline">Updates a customer. This method supports patch semantics.</p>
+  <code><a href="#patch">patch(customerKey, body=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Patches a customer.</p>
 <p class="toc_element">
-  <code><a href="#update">update(customerKey, body)</a></code></p>
+  <code><a href="#update">update(customerKey, body=None, x__xgafv=None)</a></code></p>
 <p class="firstline">Updates a customer.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="get">get(customerKey)</code>
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="get">get(customerKey, x__xgafv=None)</code>
   <pre>Retrieves a customer.
 
 Args:
   customerKey: string, Id of the customer to be retrieved (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # JSON template for Customer Resource object in Directory API.
-      "customerDomain": "A String", # The customer's primary domain name string. Do not include the www prefix when creating a new customer.
-      "language": "A String", # The customer's ISO 639-2 language code. The default value is en-US
-      "alternateEmail": "A String", # The customer's secondary contact email address. This email address cannot be on the same domain as the customerDomain
-      "customerCreationTime": "A String", # The customer's creation time (Readonly)
-      "kind": "admin#directory#customer", # Identifies the resource as a customer. Value: admin#directory#customer
-      "etag": "A String", # ETag of the resource.
-      "phoneNumber": "A String", # The customer's contact phone number in E.164 format.
-      "postalAddress": { # JSON template for postal address of a customer. # The customer's postal address information.
-        "organizationName": "A String", # The company or company division name.
-        "countryCode": "A String", # This is a required property. For countryCode information see the ISO 3166 country code elements.
-        "locality": "A String", # Name of the locality. An example of a locality value is the city of San Francisco.
-        "region": "A String", # Name of the region. An example of a region value is NY for the state of New York.
-        "addressLine2": "A String", # Address line 2 of the address.
-        "addressLine3": "A String", # Address line 3 of the address.
-        "contactName": "A String", # The customer contact's name.
-        "addressLine1": "A String", # A customer's physical address. The address can be composed of one to three lines.
-        "postalCode": "A String", # The postal code. A postalCode example is a postal zip code such as 10009. This is in accordance with - http://portablecontacts.net/draft-spec.html#address_element.
-      },
-      "id": "A String", # The unique ID for the customer's G Suite account. (Readonly)
-    }</pre>
+    {
+  &quot;alternateEmail&quot;: &quot;A String&quot;, # The customer&#x27;s secondary contact email address. This email address cannot be on the same domain as the `customerDomain`
+  &quot;customerCreationTime&quot;: &quot;A String&quot;, # The customer&#x27;s creation time (Readonly)
+  &quot;customerDomain&quot;: &quot;A String&quot;, # The customer&#x27;s primary domain name string. Do not include the `www` prefix when creating a new customer.
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The unique ID for the customer&#x27;s Google Workspace account. (Readonly)
+  &quot;kind&quot;: &quot;admin#directory#customer&quot;, # Identifies the resource as a customer. Value: `admin#directory#customer`
+  &quot;language&quot;: &quot;A String&quot;, # The customer&#x27;s ISO 639-2 language code. See the [Language Codes](/admin-sdk/directory/v1/languages) page for the list of supported codes. Valid language codes outside the supported set will be accepted by the API but may lead to unexpected behavior. The default value is `en`.
+  &quot;phoneNumber&quot;: &quot;A String&quot;, # The customer&#x27;s contact phone number in [E.164](https://en.wikipedia.org/wiki/E.164) format.
+  &quot;postalAddress&quot;: { # The customer&#x27;s postal address information.
+    &quot;addressLine1&quot;: &quot;A String&quot;, # A customer&#x27;s physical address. The address can be composed of one to three lines.
+    &quot;addressLine2&quot;: &quot;A String&quot;, # Address line 2 of the address.
+    &quot;addressLine3&quot;: &quot;A String&quot;, # Address line 3 of the address.
+    &quot;contactName&quot;: &quot;A String&quot;, # The customer contact&#x27;s name.
+    &quot;countryCode&quot;: &quot;A String&quot;, # This is a required property. For `countryCode` information see the [ISO 3166 country code elements](https://www.iso.org/iso/country_codes.htm).
+    &quot;locality&quot;: &quot;A String&quot;, # Name of the locality. An example of a locality value is the city of `San Francisco`.
+    &quot;organizationName&quot;: &quot;A String&quot;, # The company or company division name.
+    &quot;postalCode&quot;: &quot;A String&quot;, # The postal code. A postalCode example is a postal zip code such as `10009`. This is in accordance with - http: //portablecontacts.net/draft-spec.html#address_element.
+    &quot;region&quot;: &quot;A String&quot;, # Name of the region. An example of a region value is `NY` for the state of New York.
+  },
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="patch">patch(customerKey, body)</code>
-  <pre>Updates a customer. This method supports patch semantics.
+    <code class="details" id="patch">patch(customerKey, body=None, x__xgafv=None)</code>
+  <pre>Patches a customer.
 
 Args:
   customerKey: string, Id of the customer to be updated (required)
-  body: object, The request body. (required)
+  body: object, The request body.
     The object takes the form of:
 
-{ # JSON template for Customer Resource object in Directory API.
-    "customerDomain": "A String", # The customer's primary domain name string. Do not include the www prefix when creating a new customer.
-    "language": "A String", # The customer's ISO 639-2 language code. The default value is en-US
-    "alternateEmail": "A String", # The customer's secondary contact email address. This email address cannot be on the same domain as the customerDomain
-    "customerCreationTime": "A String", # The customer's creation time (Readonly)
-    "kind": "admin#directory#customer", # Identifies the resource as a customer. Value: admin#directory#customer
-    "etag": "A String", # ETag of the resource.
-    "phoneNumber": "A String", # The customer's contact phone number in E.164 format.
-    "postalAddress": { # JSON template for postal address of a customer. # The customer's postal address information.
-      "organizationName": "A String", # The company or company division name.
-      "countryCode": "A String", # This is a required property. For countryCode information see the ISO 3166 country code elements.
-      "locality": "A String", # Name of the locality. An example of a locality value is the city of San Francisco.
-      "region": "A String", # Name of the region. An example of a region value is NY for the state of New York.
-      "addressLine2": "A String", # Address line 2 of the address.
-      "addressLine3": "A String", # Address line 3 of the address.
-      "contactName": "A String", # The customer contact's name.
-      "addressLine1": "A String", # A customer's physical address. The address can be composed of one to three lines.
-      "postalCode": "A String", # The postal code. A postalCode example is a postal zip code such as 10009. This is in accordance with - http://portablecontacts.net/draft-spec.html#address_element.
-    },
-    "id": "A String", # The unique ID for the customer's G Suite account. (Readonly)
-  }
+{
+  &quot;alternateEmail&quot;: &quot;A String&quot;, # The customer&#x27;s secondary contact email address. This email address cannot be on the same domain as the `customerDomain`
+  &quot;customerCreationTime&quot;: &quot;A String&quot;, # The customer&#x27;s creation time (Readonly)
+  &quot;customerDomain&quot;: &quot;A String&quot;, # The customer&#x27;s primary domain name string. Do not include the `www` prefix when creating a new customer.
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The unique ID for the customer&#x27;s Google Workspace account. (Readonly)
+  &quot;kind&quot;: &quot;admin#directory#customer&quot;, # Identifies the resource as a customer. Value: `admin#directory#customer`
+  &quot;language&quot;: &quot;A String&quot;, # The customer&#x27;s ISO 639-2 language code. See the [Language Codes](/admin-sdk/directory/v1/languages) page for the list of supported codes. Valid language codes outside the supported set will be accepted by the API but may lead to unexpected behavior. The default value is `en`.
+  &quot;phoneNumber&quot;: &quot;A String&quot;, # The customer&#x27;s contact phone number in [E.164](https://en.wikipedia.org/wiki/E.164) format.
+  &quot;postalAddress&quot;: { # The customer&#x27;s postal address information.
+    &quot;addressLine1&quot;: &quot;A String&quot;, # A customer&#x27;s physical address. The address can be composed of one to three lines.
+    &quot;addressLine2&quot;: &quot;A String&quot;, # Address line 2 of the address.
+    &quot;addressLine3&quot;: &quot;A String&quot;, # Address line 3 of the address.
+    &quot;contactName&quot;: &quot;A String&quot;, # The customer contact&#x27;s name.
+    &quot;countryCode&quot;: &quot;A String&quot;, # This is a required property. For `countryCode` information see the [ISO 3166 country code elements](https://www.iso.org/iso/country_codes.htm).
+    &quot;locality&quot;: &quot;A String&quot;, # Name of the locality. An example of a locality value is the city of `San Francisco`.
+    &quot;organizationName&quot;: &quot;A String&quot;, # The company or company division name.
+    &quot;postalCode&quot;: &quot;A String&quot;, # The postal code. A postalCode example is a postal zip code such as `10009`. This is in accordance with - http: //portablecontacts.net/draft-spec.html#address_element.
+    &quot;region&quot;: &quot;A String&quot;, # Name of the region. An example of a region value is `NY` for the state of New York.
+  },
+}
 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # JSON template for Customer Resource object in Directory API.
-      "customerDomain": "A String", # The customer's primary domain name string. Do not include the www prefix when creating a new customer.
-      "language": "A String", # The customer's ISO 639-2 language code. The default value is en-US
-      "alternateEmail": "A String", # The customer's secondary contact email address. This email address cannot be on the same domain as the customerDomain
-      "customerCreationTime": "A String", # The customer's creation time (Readonly)
-      "kind": "admin#directory#customer", # Identifies the resource as a customer. Value: admin#directory#customer
-      "etag": "A String", # ETag of the resource.
-      "phoneNumber": "A String", # The customer's contact phone number in E.164 format.
-      "postalAddress": { # JSON template for postal address of a customer. # The customer's postal address information.
-        "organizationName": "A String", # The company or company division name.
-        "countryCode": "A String", # This is a required property. For countryCode information see the ISO 3166 country code elements.
-        "locality": "A String", # Name of the locality. An example of a locality value is the city of San Francisco.
-        "region": "A String", # Name of the region. An example of a region value is NY for the state of New York.
-        "addressLine2": "A String", # Address line 2 of the address.
-        "addressLine3": "A String", # Address line 3 of the address.
-        "contactName": "A String", # The customer contact's name.
-        "addressLine1": "A String", # A customer's physical address. The address can be composed of one to three lines.
-        "postalCode": "A String", # The postal code. A postalCode example is a postal zip code such as 10009. This is in accordance with - http://portablecontacts.net/draft-spec.html#address_element.
-      },
-      "id": "A String", # The unique ID for the customer's G Suite account. (Readonly)
-    }</pre>
+    {
+  &quot;alternateEmail&quot;: &quot;A String&quot;, # The customer&#x27;s secondary contact email address. This email address cannot be on the same domain as the `customerDomain`
+  &quot;customerCreationTime&quot;: &quot;A String&quot;, # The customer&#x27;s creation time (Readonly)
+  &quot;customerDomain&quot;: &quot;A String&quot;, # The customer&#x27;s primary domain name string. Do not include the `www` prefix when creating a new customer.
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The unique ID for the customer&#x27;s Google Workspace account. (Readonly)
+  &quot;kind&quot;: &quot;admin#directory#customer&quot;, # Identifies the resource as a customer. Value: `admin#directory#customer`
+  &quot;language&quot;: &quot;A String&quot;, # The customer&#x27;s ISO 639-2 language code. See the [Language Codes](/admin-sdk/directory/v1/languages) page for the list of supported codes. Valid language codes outside the supported set will be accepted by the API but may lead to unexpected behavior. The default value is `en`.
+  &quot;phoneNumber&quot;: &quot;A String&quot;, # The customer&#x27;s contact phone number in [E.164](https://en.wikipedia.org/wiki/E.164) format.
+  &quot;postalAddress&quot;: { # The customer&#x27;s postal address information.
+    &quot;addressLine1&quot;: &quot;A String&quot;, # A customer&#x27;s physical address. The address can be composed of one to three lines.
+    &quot;addressLine2&quot;: &quot;A String&quot;, # Address line 2 of the address.
+    &quot;addressLine3&quot;: &quot;A String&quot;, # Address line 3 of the address.
+    &quot;contactName&quot;: &quot;A String&quot;, # The customer contact&#x27;s name.
+    &quot;countryCode&quot;: &quot;A String&quot;, # This is a required property. For `countryCode` information see the [ISO 3166 country code elements](https://www.iso.org/iso/country_codes.htm).
+    &quot;locality&quot;: &quot;A String&quot;, # Name of the locality. An example of a locality value is the city of `San Francisco`.
+    &quot;organizationName&quot;: &quot;A String&quot;, # The company or company division name.
+    &quot;postalCode&quot;: &quot;A String&quot;, # The postal code. A postalCode example is a postal zip code such as `10009`. This is in accordance with - http: //portablecontacts.net/draft-spec.html#address_element.
+    &quot;region&quot;: &quot;A String&quot;, # Name of the region. An example of a region value is `NY` for the state of New York.
+  },
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="update">update(customerKey, body)</code>
+    <code class="details" id="update">update(customerKey, body=None, x__xgafv=None)</code>
   <pre>Updates a customer.
 
 Args:
   customerKey: string, Id of the customer to be updated (required)
-  body: object, The request body. (required)
+  body: object, The request body.
     The object takes the form of:
 
-{ # JSON template for Customer Resource object in Directory API.
-    "customerDomain": "A String", # The customer's primary domain name string. Do not include the www prefix when creating a new customer.
-    "language": "A String", # The customer's ISO 639-2 language code. The default value is en-US
-    "alternateEmail": "A String", # The customer's secondary contact email address. This email address cannot be on the same domain as the customerDomain
-    "customerCreationTime": "A String", # The customer's creation time (Readonly)
-    "kind": "admin#directory#customer", # Identifies the resource as a customer. Value: admin#directory#customer
-    "etag": "A String", # ETag of the resource.
-    "phoneNumber": "A String", # The customer's contact phone number in E.164 format.
-    "postalAddress": { # JSON template for postal address of a customer. # The customer's postal address information.
-      "organizationName": "A String", # The company or company division name.
-      "countryCode": "A String", # This is a required property. For countryCode information see the ISO 3166 country code elements.
-      "locality": "A String", # Name of the locality. An example of a locality value is the city of San Francisco.
-      "region": "A String", # Name of the region. An example of a region value is NY for the state of New York.
-      "addressLine2": "A String", # Address line 2 of the address.
-      "addressLine3": "A String", # Address line 3 of the address.
-      "contactName": "A String", # The customer contact's name.
-      "addressLine1": "A String", # A customer's physical address. The address can be composed of one to three lines.
-      "postalCode": "A String", # The postal code. A postalCode example is a postal zip code such as 10009. This is in accordance with - http://portablecontacts.net/draft-spec.html#address_element.
-    },
-    "id": "A String", # The unique ID for the customer's G Suite account. (Readonly)
-  }
+{
+  &quot;alternateEmail&quot;: &quot;A String&quot;, # The customer&#x27;s secondary contact email address. This email address cannot be on the same domain as the `customerDomain`
+  &quot;customerCreationTime&quot;: &quot;A String&quot;, # The customer&#x27;s creation time (Readonly)
+  &quot;customerDomain&quot;: &quot;A String&quot;, # The customer&#x27;s primary domain name string. Do not include the `www` prefix when creating a new customer.
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The unique ID for the customer&#x27;s Google Workspace account. (Readonly)
+  &quot;kind&quot;: &quot;admin#directory#customer&quot;, # Identifies the resource as a customer. Value: `admin#directory#customer`
+  &quot;language&quot;: &quot;A String&quot;, # The customer&#x27;s ISO 639-2 language code. See the [Language Codes](/admin-sdk/directory/v1/languages) page for the list of supported codes. Valid language codes outside the supported set will be accepted by the API but may lead to unexpected behavior. The default value is `en`.
+  &quot;phoneNumber&quot;: &quot;A String&quot;, # The customer&#x27;s contact phone number in [E.164](https://en.wikipedia.org/wiki/E.164) format.
+  &quot;postalAddress&quot;: { # The customer&#x27;s postal address information.
+    &quot;addressLine1&quot;: &quot;A String&quot;, # A customer&#x27;s physical address. The address can be composed of one to three lines.
+    &quot;addressLine2&quot;: &quot;A String&quot;, # Address line 2 of the address.
+    &quot;addressLine3&quot;: &quot;A String&quot;, # Address line 3 of the address.
+    &quot;contactName&quot;: &quot;A String&quot;, # The customer contact&#x27;s name.
+    &quot;countryCode&quot;: &quot;A String&quot;, # This is a required property. For `countryCode` information see the [ISO 3166 country code elements](https://www.iso.org/iso/country_codes.htm).
+    &quot;locality&quot;: &quot;A String&quot;, # Name of the locality. An example of a locality value is the city of `San Francisco`.
+    &quot;organizationName&quot;: &quot;A String&quot;, # The company or company division name.
+    &quot;postalCode&quot;: &quot;A String&quot;, # The postal code. A postalCode example is a postal zip code such as `10009`. This is in accordance with - http: //portablecontacts.net/draft-spec.html#address_element.
+    &quot;region&quot;: &quot;A String&quot;, # Name of the region. An example of a region value is `NY` for the state of New York.
+  },
+}
 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # JSON template for Customer Resource object in Directory API.
-      "customerDomain": "A String", # The customer's primary domain name string. Do not include the www prefix when creating a new customer.
-      "language": "A String", # The customer's ISO 639-2 language code. The default value is en-US
-      "alternateEmail": "A String", # The customer's secondary contact email address. This email address cannot be on the same domain as the customerDomain
-      "customerCreationTime": "A String", # The customer's creation time (Readonly)
-      "kind": "admin#directory#customer", # Identifies the resource as a customer. Value: admin#directory#customer
-      "etag": "A String", # ETag of the resource.
-      "phoneNumber": "A String", # The customer's contact phone number in E.164 format.
-      "postalAddress": { # JSON template for postal address of a customer. # The customer's postal address information.
-        "organizationName": "A String", # The company or company division name.
-        "countryCode": "A String", # This is a required property. For countryCode information see the ISO 3166 country code elements.
-        "locality": "A String", # Name of the locality. An example of a locality value is the city of San Francisco.
-        "region": "A String", # Name of the region. An example of a region value is NY for the state of New York.
-        "addressLine2": "A String", # Address line 2 of the address.
-        "addressLine3": "A String", # Address line 3 of the address.
-        "contactName": "A String", # The customer contact's name.
-        "addressLine1": "A String", # A customer's physical address. The address can be composed of one to three lines.
-        "postalCode": "A String", # The postal code. A postalCode example is a postal zip code such as 10009. This is in accordance with - http://portablecontacts.net/draft-spec.html#address_element.
-      },
-      "id": "A String", # The unique ID for the customer's G Suite account. (Readonly)
-    }</pre>
+    {
+  &quot;alternateEmail&quot;: &quot;A String&quot;, # The customer&#x27;s secondary contact email address. This email address cannot be on the same domain as the `customerDomain`
+  &quot;customerCreationTime&quot;: &quot;A String&quot;, # The customer&#x27;s creation time (Readonly)
+  &quot;customerDomain&quot;: &quot;A String&quot;, # The customer&#x27;s primary domain name string. Do not include the `www` prefix when creating a new customer.
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;id&quot;: &quot;A String&quot;, # The unique ID for the customer&#x27;s Google Workspace account. (Readonly)
+  &quot;kind&quot;: &quot;admin#directory#customer&quot;, # Identifies the resource as a customer. Value: `admin#directory#customer`
+  &quot;language&quot;: &quot;A String&quot;, # The customer&#x27;s ISO 639-2 language code. See the [Language Codes](/admin-sdk/directory/v1/languages) page for the list of supported codes. Valid language codes outside the supported set will be accepted by the API but may lead to unexpected behavior. The default value is `en`.
+  &quot;phoneNumber&quot;: &quot;A String&quot;, # The customer&#x27;s contact phone number in [E.164](https://en.wikipedia.org/wiki/E.164) format.
+  &quot;postalAddress&quot;: { # The customer&#x27;s postal address information.
+    &quot;addressLine1&quot;: &quot;A String&quot;, # A customer&#x27;s physical address. The address can be composed of one to three lines.
+    &quot;addressLine2&quot;: &quot;A String&quot;, # Address line 2 of the address.
+    &quot;addressLine3&quot;: &quot;A String&quot;, # Address line 3 of the address.
+    &quot;contactName&quot;: &quot;A String&quot;, # The customer contact&#x27;s name.
+    &quot;countryCode&quot;: &quot;A String&quot;, # This is a required property. For `countryCode` information see the [ISO 3166 country code elements](https://www.iso.org/iso/country_codes.htm).
+    &quot;locality&quot;: &quot;A String&quot;, # Name of the locality. An example of a locality value is the city of `San Francisco`.
+    &quot;organizationName&quot;: &quot;A String&quot;, # The company or company division name.
+    &quot;postalCode&quot;: &quot;A String&quot;, # The postal code. A postalCode example is a postal zip code such as `10009`. This is in accordance with - http: //portablecontacts.net/draft-spec.html#address_element.
+    &quot;region&quot;: &quot;A String&quot;, # Name of the region. An example of a region value is `NY` for the state of New York.
+  },
+}</pre>
 </div>
 
 </body></html>

@@ -117,6 +117,11 @@ genrule {
 
 java_library_static {
     name: "guice",
+    visibility: [
+       "//external/testng:__pkg__",
+       "//platform_testing/libraries/audio-test-harness/server:__pkg__",
+       "//tools/tradefederation/core:__pkg__",
+    ],
     host_supported: true,
     hostdex: true,
     sdk_version: "core_current",

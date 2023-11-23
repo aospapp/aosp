@@ -22,7 +22,7 @@ void xnn_f32_prelu_ukernel__neon_1x8(
     size_t input_stride,
     const float*restrict weights,
     float*restrict output,
-    size_t output_stride) XNN_DISABLE_TSAN
+    size_t output_stride) XNN_OOB_READS
 {
   assert(rows != 0);
   assert(channels != 0);
@@ -35,6 +35,7 @@ void xnn_f32_prelu_ukernel__neon_1x8(
   const size_t output_increment = output_stride * 1 - channels;
 
   do {
+
     const float* w = weights;
     size_t c = channels;
     for (; c >= 8 * sizeof(float); c -= 8 * sizeof(float)) {

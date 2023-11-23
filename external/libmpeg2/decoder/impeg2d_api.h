@@ -49,11 +49,17 @@
 
 
 
+#ifdef KEEP_THREADS_ACTIVE
+#define THREADS_ACTIVE_MEM_RECORDS (2 * MAX_THREADS)
+#else
+#define THREADS_ACTIVE_MEM_RECORDS 0
+#endif
 
-#define NUM_MEM_RECORDS                 4 * MAX_THREADS + NUM_INT_FRAME_BUFFERS + 5 + 2 + 1
+#define NUM_MEM_RECORDS                 (4 * MAX_THREADS + NUM_INT_FRAME_BUFFERS + \
+                                         5 + 2 + 1 + THREADS_ACTIVE_MEM_RECORDS)
 
 
-#define SETBIT(a,i)   ((a) |= (1 << i))
+#define SETBIT(a,i)   ((a) |= (1 << (i)))
 
 
 /*********************/

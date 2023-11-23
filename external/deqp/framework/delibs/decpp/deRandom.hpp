@@ -51,6 +51,7 @@ public:
 
 	deInt64			getInt64			(void)			{ deUint32 upper = getUint32(); return static_cast<deInt64>((deUint64)upper << 32ull | (deUint64)getUint32() ); }
 	deUint64		getUint64			(void)			{ deUint32 upper = getUint32(); return (deUint64)upper << 32ull | (deUint64)getUint32(); }
+	deInt32			getInt32			(void)			{ return static_cast<deInt32>(getUint32());		}
 	deUint32		getUint32			(void)			{ return deRandom_getUint32(&m_rnd);			}
 	deUint16		getUint16			(void)			{ return (deUint16)deRandom_getUint32(&m_rnd);	}
 	deUint8			getUint8			(void)			{ return (deUint8)deRandom_getUint32(&m_rnd);	}
@@ -95,7 +96,7 @@ inline int Random::getInt (int min, int max)
 	if (min == (int)0x80000000 && max == (int)0x7fffffff)
 		return (int)getUint32();
 	else
-		return min + (int)(getUint32() % (deUint32)(max-min+1));
+		return min + (int)(getUint32() % ((deUint32)max - (deUint32)min + 1u));
 }
 
 // Template implementations

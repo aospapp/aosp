@@ -1,26 +1,38 @@
 // Copyright 2015 Nicholas Allegra (comex).
-// Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
-// the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
+// Licensed under the Apache License, Version 2.0 <https://www.apache.org/licenses/LICENSE-2.0> or
+// the MIT license <https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
 //! Same idea as (but implementation not directly based on) the Python shlex module.  However, this
 //! implementation does not support any of the Python module's customization because it makes
 //! parsing slower and is fairly useless.  You only get the default settings of shlex.split, which
 //! mimic the POSIX shell:
-//! http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
+//! <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html>
 //!
-//! This implementation also deviates from the Python version in not treating \r specially, which I
-//! believe is more compliant.
+//! This implementation also deviates from the Python version in not treating `\r` specially, which
+//! I believe is more compliant.
 //!
 //! The algorithms in this crate are oblivious to UTF-8 high bytes, so they iterate over the bytes
 //! directly as a micro-optimization.
+//!
+//! Disabling the `std` feature (which is enabled by default) will allow the crate to work in
+//! `no_std` environments, where the `alloc` crate, and a global allocator, are available.
 
-use std::borrow::Cow;
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+use alloc::vec::Vec;
+use alloc::borrow::Cow;
+use alloc::string::String;
+#[cfg(test)]
+use alloc::vec;
+#[cfg(test)]
+use alloc::borrow::ToOwned;
 
 /// An iterator that takes an input string and splits it into the words using the same syntax as
 /// the POSIX shell.
 pub struct Shlex<'a> {
-    in_iter: std::str::Bytes<'a>,
+    in_iter: core::str::Bytes<'a>,
     /// The number of newlines read so far, plus one.
     pub line_no: usize,
     /// An input string is erroneous if it ends while inside a quotation or right after an

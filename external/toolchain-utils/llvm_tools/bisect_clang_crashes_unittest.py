@@ -6,7 +6,6 @@
 
 """Tests for bisect_clang_crashes."""
 
-# pylint: disable=cros-logging-import
 import glob
 import logging
 import os.path

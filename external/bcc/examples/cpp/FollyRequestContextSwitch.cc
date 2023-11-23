@@ -93,13 +93,13 @@ int main(int argc, char** argv) {
   ebpf::BPF* bpf = new ebpf::BPF();
 
   auto init_res = bpf->init(BPF_PROGRAM, {}, {u});
-  if (init_res.code() != 0) {
+  if (!init_res.ok()) {
     std::cerr << init_res.msg() << std::endl;
     return 1;
   }
 
-  auto attach_res = bpf->attach_usdt(u);
-  if (attach_res.code() != 0) {
+  auto attach_res = bpf->attach_usdt_all();
+  if (!attach_res.ok()) {
     std::cerr << attach_res.msg() << std::endl;
     return 1;
   } else {
@@ -107,14 +107,14 @@ int main(int argc, char** argv) {
   }
 
   auto open_res = bpf->open_perf_buffer("events", &handle_output);
-  if (open_res.code() != 0) {
+  if (!open_res.ok()) {
     std::cerr << open_res.msg() << std::endl;
     return 1;
   }
 
   shutdown_handler = [&](int s) {
     std::cerr << "Terminating..." << std::endl;
-    bpf->detach_usdt(u);
+    bpf->detach_usdt_all();
     delete bpf;
     exit(0);
   };

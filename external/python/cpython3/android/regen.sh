@@ -24,8 +24,10 @@ DIR=`uname | tr 'A-Z' 'a-z'`_x86_64
 mkdir -p $DIR/pyconfig
 cd $DIR
 
+export CLANG_VERSION=$(cd $ANDROID_BUILD_TOP; build/soong/scripts/get_clang_version.py)
+
 if [ $DIR == "linux_x86_64" ]; then
-  export CC="$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-r399163b/bin/clang"
+  export CC="$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/$CLANG_VERSION/bin/clang"
   export CFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot"
   export LDFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot -B$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/lib/gcc/x86_64-linux/4.8.3 -L$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/lib/gcc/x86_64-linux/4.8.3 -L$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/x86_64-linux/lib64"
 fi
@@ -39,19 +41,10 @@ cd tmp
 ../../../configure
 
 if [ $DIR == "darwin_x86_64" ]; then
-  # getentropy is not safe on <10.12, which we still target
-  sed -ibak "s%#define HAVE_GETENTROPY 1%/* #undef HAVE_GETENTROPY */%" pyconfig.h
-  # utimensat and futimens are not safe on <10.13, which we still target
-  sed -ibak "s%#define HAVE_UTIMENSAT 1%/* #undef HAVE_UTIMENSAT */%" pyconfig.h
-  sed -ibak "s%#define HAVE_FUTIMENS 1%/* #undef HAVE_FUTIMENS */%" pyconfig.h
   # preadv and pwritev are not safe on <11, which we still target
   sed -ibak "s%#define HAVE_PREADV 1%/* #undef HAVE_PREADV */%" pyconfig.h
   sed -ibak "s%#define HAVE_PWRITEV 1%/* #undef HAVE_PWRITEV */%" pyconfig.h
-  # _dyld_shared_cache_contains_path is not safe on <11, which we still target
-  sed -ibak "s%#define HAVE_DYLD_SHARED_CACHE_CONTAINS_PATH 1%/* #undef HAVE_DYLD_SHARED_CACHE_CONTAINS_PATH */%" pyconfig.h
 fi
-
-cp pyconfig.h ../pyconfig/
 
 if [ $DIR == "linux_x86_64" ]; then
   mkdir -p ../../bionic/pyconfig
@@ -75,7 +68,12 @@ if [ $DIR == "linux_x86_64" ]; then
   sed -i 's%#define SIZEOF_TIME_T .*%#define SIZEOF_TIME_T SIZEOF_LONG%' $bionic_pyconfig
   sed -i 's%#define SIZEOF_UINTPTR_T .*%#define SIZEOF_UINTPTR_T SIZEOF_LONG%' $bionic_pyconfig
   sed -i 's%#define SIZEOF_VOID_P .*%#define SIZEOF_VOID_P SIZEOF_LONG%' $bionic_pyconfig
+
+  # Changes to support musl
+  sed -i "s%#define HAVE_DECL_RTLD_DEEPBIND 1%#ifdef __GLIBC__\n#define HAVE_DECL_RTLD_DEEPBIND 1\n#endif%" pyconfig.h
 fi
+
+cp pyconfig.h ../pyconfig/
 
 function generate_srcs() {
   #

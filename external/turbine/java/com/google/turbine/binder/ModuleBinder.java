@@ -16,8 +16,6 @@
 
 package com.google.turbine.binder;
 
-import static com.google.common.base.Verify.verifyNotNull;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -139,16 +137,16 @@ public class ModuleBinder {
       }
     }
     if (!requiresJavaBase) {
-      // everything requires java.base, either explicitly or implicitly
+      // Everything requires java.base, either explicitly or implicitly.
       ModuleInfo javaBaseModule = moduleEnv.get(ModuleSymbol.JAVA_BASE);
-      verifyNotNull(javaBaseModule, ModuleSymbol.JAVA_BASE.name());
+      // Tolerate a missing java.base module, e.g. when compiling a module against a non-modular
+      // bootclasspath, and just omit the version below.
+      String javaBaseVersion = javaBaseModule != null ? javaBaseModule.version() : null;
       requires =
           ImmutableList.<RequireInfo>builder()
               .add(
                   new RequireInfo(
-                      ModuleSymbol.JAVA_BASE.name(),
-                      TurbineFlag.ACC_MANDATED,
-                      javaBaseModule.version()))
+                      ModuleSymbol.JAVA_BASE.name(), TurbineFlag.ACC_MANDATED, javaBaseVersion))
               .addAll(requires.build());
     }
 
@@ -216,11 +214,12 @@ public class ModuleBinder {
     }
     ClassSymbol sym = (ClassSymbol) result.sym();
     for (Tree.Ident name : result.remaining()) {
-      sym = Resolve.resolve(env, /* origin= */ null, sym, name);
-      if (sym == null) {
+      ClassSymbol next = Resolve.resolve(env, /* origin= */ null, sym, name);
+      if (next == null) {
         throw error(
             ErrorKind.SYMBOL_NOT_FOUND, pos, new ClassSymbol(sym.binaryName() + '$' + name));
       }
+      sym = next;
     }
     return sym;
   }

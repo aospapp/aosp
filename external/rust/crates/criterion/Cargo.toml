@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "criterion"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["Jorge Aparicio <japaricious@gmail.com>", "Brook Heisler <brookheisler@gmail.com>"]
 exclude = ["book/*"]
 description = "Statistics-driven micro-benchmarking library"
@@ -47,7 +47,7 @@ version = "2.33"
 default-features = false
 
 [dependencies.criterion-plot]
-version = "0.4.3"
+version = "0.4.4"
 
 [dependencies.csv]
 version = "1.1"
@@ -71,7 +71,7 @@ default-features = false
 version = "11.1"
 
 [dependencies.plotters]
-version = "^0.3.0"
+version = "^0.3.1"
 features = ["svg_backend", "area_series", "line_series"]
 default-features = false
 
@@ -112,7 +112,7 @@ default-features = false
 [dependencies.walkdir]
 version = "2.3"
 [dev-dependencies.approx]
-version = "0.4"
+version = "0.5.0"
 
 [dev-dependencies.futures]
 version = "0.3"
@@ -120,14 +120,14 @@ features = ["executor"]
 default_features = false
 
 [dev-dependencies.quickcheck]
-version = "0.9"
+version = "1.0"
 default-features = false
 
 [dev-dependencies.rand]
 version = "0.8"
 
 [dev-dependencies.tempfile]
-version = "3.1"
+version = "3.2.0"
 
 [features]
 async = ["futures"]
@@ -140,12 +140,6 @@ csv_output = []
 default = ["cargo_bench_support"]
 html_reports = []
 real_blackbox = []
-[badges.appveyor]
-id = "4255ads9ctpupcl2"
-repository = "bheisler/criterion.rs"
-
+stable = ["async_futures", "async_smol", "async_tokio", "async_std"]
 [badges.maintenance]
 status = "passively-maintained"
-
-[badges.travis-ci]
-repository = "bheisler/criterion.rs"

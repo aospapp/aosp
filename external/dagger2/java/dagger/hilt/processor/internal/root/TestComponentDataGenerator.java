@@ -20,6 +20,7 @@ import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PROTECTED;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.util.ElementFilter.constructorsIn;
@@ -45,24 +46,28 @@ public final class TestComponentDataGenerator {
   private final ProcessingEnvironment processingEnv;
   private final RootMetadata rootMetadata;
   private final ClassName name;
+  private final ComponentNames componentNames;
 
   public TestComponentDataGenerator(
       ProcessingEnvironment processingEnv,
-      RootMetadata rootMetadata) {
+      RootMetadata rootMetadata,
+      ComponentNames componentNames) {
     this.processingEnv = processingEnv;
     this.rootMetadata = rootMetadata;
+    this.componentNames = componentNames;
     this.name =
         Processors.append(
             Processors.getEnclosedClassName(rootMetadata.testRootMetadata().testName()),
-            "_ComponentDataHolder");
+            "_TestComponentDataSupplier");
   }
 
   /**
    *
    *
    * <pre><code>{@code
-   * public final class FooTest_ComponentDataHolder {
-   *   public static TestComponentData get() {
+   * public final class FooTest_TestComponentDataSupplier extends TestComponentDataSupplier {
+   *   @Override
+   *   protected TestComponentData get() {
    *     return new TestComponentData(
    *         false, // waitForBindValue
    *         testInstance -> injectInternal(($1T) testInstance),
@@ -83,15 +88,15 @@ public final class TestComponentDataGenerator {
   public void generate() throws IOException {
     TypeSpec.Builder generator =
         TypeSpec.classBuilder(name)
+            .superclass(ClassNames.TEST_COMPONENT_DATA_SUPPLIER)
             .addModifiers(PUBLIC, FINAL)
-            .addMethod(MethodSpec.constructorBuilder().addModifiers(PRIVATE).build())
             .addMethod(getMethod())
             .addMethod(getTestInjectInternalMethod());
 
     Processors.addGeneratedAnnotation(
         generator, processingEnv, ClassNames.ROOT_PROCESSOR.toString());
 
-    JavaFile.builder(rootMetadata.testRootMetadata().testName().packageName(), generator.build())
+    JavaFile.builder(name.packageName(), generator.build())
         .build()
         .writeTo(processingEnv.getFiler());
   }
@@ -99,8 +104,11 @@ public final class TestComponentDataGenerator {
   private MethodSpec getMethod() {
     TypeElement testElement = rootMetadata.testRootMetadata().testElement();
     ClassName component =
-        ComponentNames.generatedComponent(
-            ClassName.get(testElement), ClassNames.SINGLETON_COMPONENT);
+        componentNames.generatedComponent(
+            rootMetadata.canShareTestComponents()
+                ? ClassNames.DEFAULT_ROOT
+                : ClassName.get(testElement),
+            ClassNames.SINGLETON_COMPONENT);
     ImmutableSet<TypeElement> daggerRequiredModules =
         rootMetadata.modulesThatDaggerCannotConstruct(ClassNames.SINGLETON_COMPONENT);
     ImmutableSet<TypeElement> hiltRequiredModules =
@@ -109,7 +117,7 @@ public final class TestComponentDataGenerator {
             .collect(toImmutableSet());
 
     return MethodSpec.methodBuilder("get")
-        .addModifiers(PUBLIC, STATIC)
+        .addModifiers(PROTECTED)
         .returns(ClassNames.TEST_COMPONENT_DATA)
         .addStatement(
             "return new $T($L, $L, $L, $L, $L)",
@@ -202,14 +210,14 @@ public final class TestComponentDataGenerator {
             AnnotationSpec.builder(SuppressWarnings.class)
                 .addMember("value", "$S", "unchecked")
                 .build())
-        .addStatement("$L.injectTest(testInstance)", getInjector(testElement))
+        .addStatement(callInjectTest(testElement))
         .build();
   }
 
-  private static CodeBlock getInjector(TypeElement testElement) {
+  private CodeBlock callInjectTest(TypeElement testElement) {
     return CodeBlock.of(
-        "(($T) (($T) $T.getApplicationContext()).generatedComponent())",
-        ClassNames.TEST_INJECTOR,
+        "(($T) (($T) $T.getApplicationContext()).generatedComponent()).injectTest(testInstance)",
+        rootMetadata.testRootMetadata().testInjectorName(),
         ClassNames.GENERATED_COMPONENT_MANAGER,
         ClassNames.APPLICATION_PROVIDER);
   }

@@ -1,4 +1,7 @@
-include_directories(..)
+include_directories(
+  ..
+  ${DEQP_INL_DIR}
+  )
 
 set(DEQP_VK_SUBGROUPS_SRCS
   vktSubgroupsTests.cpp
@@ -37,14 +40,21 @@ set(DEQP_VK_SUBGROUPS_SRCS
   vktSubgroupsBallotMasksTests.hpp
   vktSubgroupsSizeControlTests.cpp
   vktSubgroupsSizeControlTests.hpp
+  vktSubgroupUniformControlFlowTests.cpp
+  vktSubgroupUniformControlFlowTests.hpp
+  vktSubgroupsMultipleDispatchesUniformSubgroupSizeTests.cpp
+  vktSubgroupsMultipleDispatchesUniformSubgroupSizeTests.hpp
   )
 
 set(DEQP_VK_SUBGROUPS_LIBS
+  libamber
   tcutil
   vkutil
   )
 
 PCH(DEQP_VK_SUBGROUPS_SRCS ../pch.cpp)
+include_directories("../amber")
+include_directories("../../../../amber/src/include")
 
 add_library(deqp-vk-subgroups STATIC ${DEQP_VK_SUBGROUPS_SRCS})
 target_link_libraries(deqp-vk-subgroups ${DEQP_VK_SUBGROUPS_LIBS})

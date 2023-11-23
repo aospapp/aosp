@@ -27,10 +27,17 @@
 
 #define RMI_INTERUPT_SOURCES_ALL_MASK	0xFFFFFFFF
 
+enum RMIDeviceType {
+	RMI_DEVICE_TYPE_ANY             = 0,
+	RMI_DEVICE_TYPE_TOUCHPAD,
+	RMI_DEVICE_TYPE_TOUCHSCREEN,
+};
+
 class RMIDevice
 {
 public:
-	RMIDevice() : m_functionList(), m_sensorID(0), m_bCancel(false), m_bytesPerReadRequest(0), m_page(-1)
+	RMIDevice() : m_functionList(), m_sensorID(0), m_bCancel(false), m_bytesPerReadRequest(0), m_page(-1),
+		      m_deviceType(RMI_DEVICE_TYPE_ANY)
 	{}
 	virtual ~RMIDevice() {}
 	virtual int Open(const char * filename) = 0;
@@ -44,11 +51,13 @@ public:
 	virtual int GetAttentionReport(struct timeval * timeout, unsigned int source_mask,
 					unsigned char *buf, unsigned int *len)
 	{ return -1; /* Unsupported */ }
-	virtual void Close() = 0;
+	virtual void Close();
 	virtual void Cancel() { m_bCancel = true; }
 	virtual void RebindDriver() = 0;
+	virtual bool CheckABSEvent() = 0;
 
 	unsigned long GetFirmwareID() { return m_buildID; }
+	unsigned long GetConfigID() { return m_configID; }
 	int GetFirmwareVersionMajor() { return m_firmwareVersionMajor; }
 	int GetFirmwareVersionMinor() { return m_firmwareVersionMinor; }
 	virtual int QueryBasicProperties();
@@ -69,6 +78,9 @@ public:
 
 	unsigned int GetNumInterruptRegs() { return m_numInterruptRegs; }
 
+	virtual bool FindDevice(enum RMIDeviceType type = RMI_DEVICE_TYPE_ANY) = 0;
+	enum RMIDeviceType GetDeviceType() { return m_deviceType; }
+
 protected:
 	std::vector<RMIFunction> m_functionList;
 	unsigned char m_manufacturerID;
@@ -82,6 +94,7 @@ protected:
 	unsigned short m_packageID;
 	unsigned short m_packageRev;
 	unsigned long m_buildID;
+	unsigned long m_configID;
 	unsigned char m_sensorID;
 	unsigned long m_boardID;
 
@@ -101,10 +114,15 @@ protected:
 	int m_page;
 
 	unsigned int m_numInterruptRegs;
- };
+
+	enum RMIDeviceType m_deviceType;
+};
 
 /* Utility Functions */
 long long diff_time(struct timespec *start, struct timespec *end);
 int Sleep(int ms);
 void print_buffer(const unsigned char *buf, unsigned int len);
+unsigned long extract_long(const unsigned char *data);
+unsigned short extract_short(const unsigned char *data);
+const char * StripPath(const char * path, ssize_t size);
 #endif /* _RMIDEVICE_H_ */

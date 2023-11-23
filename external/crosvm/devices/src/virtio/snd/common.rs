@@ -3,18 +3,20 @@
 // found in the LICENSE file.
 
 use audio_streams::SampleFormat;
+use remain::sorted;
 use thiserror::Error as ThisError;
 
 use crate::virtio::snd::constants::*;
 
+#[sorted]
 #[derive(ThisError, Debug)]
 pub enum Error {
+    #[error("Unsupported frame rate: {0}")]
+    UnsupportedFrameRate(u32),
     #[error("Unsupported virtio frame rate: {0}")]
     UnsupportedVirtioFrameRate(u8),
     #[error("Unsupported virtio pcm format: {0}")]
     UnsupportedVirtioPcmFormat(u8),
-    #[error("Unsupported frame rate: {0}")]
-    UnsupportedFrameRate(u32),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -97,6 +99,14 @@ pub fn get_virtio_snd_r_pcm_cmd_name(cmd_code: u32) -> &'static str {
         VIRTIO_SND_R_PCM_START => "VIRTIO_SND_R_PCM_START",
         VIRTIO_SND_R_PCM_STOP => "VIRTIO_SND_R_PCM_STOP",
         VIRTIO_SND_R_PCM_RELEASE => "VIRTIO_SND_R_PCM_RELEASE",
+        _ => unreachable!(),
+    }
+}
+
+pub fn get_virtio_direction_name(dir: u8) -> &'static str {
+    match dir {
+        VIRTIO_SND_D_OUTPUT => "VIRTIO_SND_D_OUTPUT",
+        VIRTIO_SND_D_INPUT => "VIRTIO_SND_D_INPUT",
         _ => unreachable!(),
     }
 }

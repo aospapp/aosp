@@ -48,6 +48,15 @@ cc_defaults {
     ],
     host_supported: true,
     vendor_available: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+    ],
+    shared_libs: [
+        "libz",
+    ],
+    stl: "libc++",
+    min_sdk_version: "30"
 }
 
 cc_library_host_static {
@@ -957,7 +966,6 @@ cc_library_static {
     ],
     whole_static_libs: [
         "libgrpc_trace",
-        "libz",
     ],
     shared_libs: [
         "liblog",

@@ -30,6 +30,7 @@ import com.google.turbine.binder.bound.TypeBoundClass;
 import com.google.turbine.binder.bound.TypeBoundClass.FieldInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.MethodInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.ParamInfo;
+import com.google.turbine.binder.bound.TypeBoundClass.RecordComponentInfo;
 import com.google.turbine.binder.env.Env;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.diag.TurbineError;
@@ -65,14 +66,16 @@ import java.util.Map;
  * constant binding is done, read the {@code @Target} meta-annotation for each ambiguous annotation,
  * and move it to the appropriate location.
  */
-public class DisambiguateTypeAnnotations {
+public final class DisambiguateTypeAnnotations {
   public static SourceTypeBoundClass bind(
       SourceTypeBoundClass base, Env<ClassSymbol, TypeBoundClass> env) {
     return new SourceTypeBoundClass(
         base.interfaceTypes(),
+        base.permits(),
         base.superClassType(),
         base.typeParameterTypes(),
         base.access(),
+        bindComponents(env, base.components(), TurbineElementType.RECORD_COMPONENT),
         bindMethods(env, base.methods()),
         bindFields(env, base.fields()),
         base.owner(),
@@ -112,34 +115,56 @@ public class DisambiguateTypeAnnotations {
         base.sym(),
         base.tyParams(),
         returnType,
-        bindParameters(env, base.parameters()),
+        bindParameters(env, base.parameters(), TurbineElementType.PARAMETER),
         base.exceptions(),
         base.access(),
         base.defaultValue(),
         base.decl(),
         declarationAnnotations.build(),
-        base.receiver() != null ? bindParam(env, base.receiver()) : null);
+        base.receiver() != null
+            ? bindParam(env, base.receiver(), TurbineElementType.PARAMETER)
+            : null);
   }
 
   private static ImmutableList<ParamInfo> bindParameters(
-      Env<ClassSymbol, TypeBoundClass> env, ImmutableList<ParamInfo> params) {
+      Env<ClassSymbol, TypeBoundClass> env,
+      ImmutableList<ParamInfo> params,
+      TurbineElementType declarationTarget) {
     ImmutableList.Builder<ParamInfo> result = ImmutableList.builder();
     for (ParamInfo param : params) {
-      result.add(bindParam(env, param));
+      result.add(bindParam(env, param, declarationTarget));
     }
     return result.build();
   }
 
-  private static ParamInfo bindParam(Env<ClassSymbol, TypeBoundClass> env, ParamInfo base) {
+  private static ParamInfo bindParam(
+      Env<ClassSymbol, TypeBoundClass> env, ParamInfo base, TurbineElementType declarationTarget) {
     ImmutableList.Builder<AnnoInfo> declarationAnnotations = ImmutableList.builder();
     Type type =
         disambiguate(
-            env,
-            TurbineElementType.PARAMETER,
-            base.type(),
-            base.annotations(),
-            declarationAnnotations);
+            env, declarationTarget, base.type(), base.annotations(), declarationAnnotations);
     return new ParamInfo(base.sym(), type, declarationAnnotations.build(), base.access());
+  }
+
+  private static ImmutableList<RecordComponentInfo> bindComponents(
+      Env<ClassSymbol, TypeBoundClass> env,
+      ImmutableList<RecordComponentInfo> components,
+      TurbineElementType declarationTarget) {
+    ImmutableList.Builder<RecordComponentInfo> result = ImmutableList.builder();
+    for (RecordComponentInfo component : components) {
+      ImmutableList.Builder<AnnoInfo> declarationAnnotations = ImmutableList.builder();
+      Type type =
+          disambiguate(
+              env,
+              declarationTarget,
+              component.type(),
+              component.annotations(),
+              declarationAnnotations);
+      result.add(
+          new RecordComponentInfo(
+              component.sym(), type, declarationAnnotations.build(), component.access()));
+    }
+    return result.build();
   }
 
   /**
@@ -317,4 +342,6 @@ public class DisambiguateTypeAnnotations {
     }
     return false;
   }
+
+  private DisambiguateTypeAnnotations() {}
 }

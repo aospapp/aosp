@@ -55,6 +55,72 @@ extern "C" {
 #define attribute_printf(format_idx, check_idx) \
 	__attribute__((__format__(__printf__, format_idx, check_idx)))
 
+#ifndef __cplusplus
+/* If writing C++, use std::unique_ptr with a destructor instead. */
+
+/*
+ * Mark a local variable for automatic cleanup when exiting its scope.
+ * See attribute_cleanup_fp as an example below.
+ * Make sure any variable using this is always initialized to something.
+ * @func The function to call on (a pointer to) the variable.
+ */
+#define attribute_cleanup(func) \
+	__attribute__((__cleanup__(func)))
+
+/*
+ * Automatically close a FILE* when exiting its scope.
+ * Make sure the pointer is always initialized.
+ * Some examples:
+ *   attribute_cleanup_fp FILE *fp = fopen(...);
+ *   attribute_cleanup_fp FILE *fp = NULL;
+ *   ...
+ *   fp = fopen(...);
+ *
+ * NB: This will automatically close the underlying fd, so do not use this
+ * with fdopen calls if the fd should be left open.
+ */
+#define attribute_cleanup_fp attribute_cleanup(_cleanup_fp)
+static inline void _cleanup_fp(FILE **fp)
+{
+	if (*fp)
+		fclose(*fp);
+}
+
+/*
+ * Automatically close a fd when exiting its scope.
+ * Make sure the fd is always initialized.
+ * Some examples:
+ *   attribute_cleanup_fd int fd = open(...);
+ *   attribute_cleanup_fd int fd = -1;
+ *   ...
+ *   fd = open(...);
+ *
+ * NB: Be careful when using this with attribute_cleanup_fp and fdopen.
+ */
+#define attribute_cleanup_fd attribute_cleanup(_cleanup_fd)
+static inline void _cleanup_fd(int *fd)
+{
+	if (*fd >= 0)
+		close(*fd);
+}
+
+/*
+ * Automatically free a heap allocation when exiting its scope.
+ * Make sure the pointer is always initialized.
+ * Some examples:
+ *   attribute_cleanup_str char *s = strdup(...);
+ *   attribute_cleanup_str char *s = NULL;
+ *   ...
+ *   s = strdup(...);
+ */
+#define attribute_cleanup_str attribute_cleanup(_cleanup_str)
+static inline void _cleanup_str(char **ptr)
+{
+	free(*ptr);
+}
+
+#endif /* __cplusplus */
+
 /* clang-format off */
 #define die(_msg, ...) \
 	do_fatal_log(LOG_ERR, "libminijail[%d]: " _msg, getpid(), ## __VA_ARGS__)
@@ -74,7 +140,7 @@ extern "C" {
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 /* clang-format on */
 
-extern const char *log_syscalls[];
+extern const char *const log_syscalls[];
 extern const size_t log_syscalls_len;
 
 enum logging_system_t {
@@ -136,8 +202,18 @@ static inline bool running_with_asan(void)
 	return compiled_with_asan() || &__asan_init != 0 || &__hwasan_init != 0;
 }
 
-static inline bool debug_logging_allowed(void) {
+static inline bool debug_logging_allowed(void)
+{
 #if defined(ALLOW_DEBUG_LOGGING)
+	return true;
+#else
+	return false;
+#endif
+}
+
+static inline bool seccomp_default_ret_log(void)
+{
+#if defined(SECCOMP_DEFAULT_RET_LOG)
 	return true;
 #else
 	return false;
@@ -198,7 +274,7 @@ char *consumestr(char **buf, size_t *buflength);
  * @fd           The file descriptor to log into. Ignored unless
  *               @logger = LOG_TO_FD.
  * @min_priority The minimum priority to display. Corresponds to syslog's
-                 priority parameter. Ignored unless @logger = LOG_TO_FD.
+ *               priority parameter. Ignored unless @logger = LOG_TO_FD.
  */
 void init_logging(enum logging_system_t logger, int fd, int min_priority);
 
@@ -241,6 +317,45 @@ char **minijail_copy_env(char *const *env);
  */
 int minijail_setenv(char ***env, const char *name, const char *value,
 		    int overwrite);
+
+/*
+ * getmultiline: This is like getline() but supports line wrapping with \.
+ *
+ * @lineptr    Address of a buffer that a mutli-line is stored.
+ * @n          Number of bytes stored in *lineptr.
+ * @stream     Input stream to read from.
+ *
+ * Returns number of bytes read or -1 on failure to read (including EOF).
+ */
+ssize_t getmultiline(char **lineptr, size_t *n, FILE *stream);
+
+/*
+ * minjail_getenv: Get an environment variable from @envp. Semantics match the
+ * standard getenv() function, but this operates on @envp, not the global
+ * environment (usually referred to as `extern char **environ`).
+ *
+ * @env       Address of the environment to read from.
+ * @name      Name of the key to get.
+ *
+ * Returns a pointer to the corresponding environment value. The caller must
+ * take care not to modify the pointed value, as this points directly to memory
+ * pointed to by @envp.
+ * If the environment variable name is not found, returns NULL.
+ */
+char *minijail_getenv(char **env, const char *name);
+
+/*
+ * minjail_unsetenv: Clear the environment variable @name from the @envp array
+ * of pointers to strings that have the KEY=VALUE format. If the operation is
+ * successful, the array will contain one item less than before the call.
+ * Only the first occurence is removed.
+ *
+ * @envp      Address of the environment to clear the variable from.
+ * @name      Name of the variable to clear.
+ *
+ * Returns false and modifies *@envp on success, returns true otherwise.
+ */
+bool minijail_unsetenv(char **envp, const char *name);
 
 #ifdef __cplusplus
 }; /* extern "C" */

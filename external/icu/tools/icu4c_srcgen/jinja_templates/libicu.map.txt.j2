@@ -1,5 +1,5 @@
 # GENERATED SOURCE. DO NOT MODIFY.
-# Run external/icu/tools/icu4c_srcgen/generate_libandroidicu.py to regenerate
+# Run external/icu/tools/icu4c_srcgen/generate_ndk.py to regenerate
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -16,12 +16,19 @@
 # limitations under the License.
 LIBICU_31 { # introduced=31
   global:
-{% for func in shim_functions %}
-    {{ func.name }};
+{% for symbol, api_level in exported_symbol_map.items() %}
+    {% if '31' == api_level %}
+    {{     symbol }};
+    {% endif %}
 {% endfor %}
-{% for extra_func_name in extra_function_names %}
-    {{ extra_func_name }};
-{% endfor %}
-  local:
-    *;
 };
+
+
+LIBICU_T { # introduced=Tiramisu
+  global:
+{% for symbol, api_level in exported_symbol_map.items() %}
+    {% if 'T' == api_level %}
+    {{     symbol }};
+    {% endif %}
+{% endfor %}
+} LIBICU_31;

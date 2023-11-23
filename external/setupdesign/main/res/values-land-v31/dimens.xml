@@ -24,4 +24,11 @@
     <dimen name="sud_glif_margin_start">32dp</dimen>
     <dimen name="sud_glif_margin_end">32dp</dimen>
 
+    <dimen name="sud_glif_header_title_margin_top">24dp</dimen>
+    <dimen name="sud_glif_header_title_margin_bottom">0dp</dimen>
+    <dimen name="sud_glif_description_margin_top">8dp</dimen>
+    <dimen name="sud_glif_icon_margin_top">32dp</dimen>
+    <dimen name="sud_glif_footer_bar_min_height">52dp</dimen>
+    <dimen name="sud_glif_content_padding_top">32dp</dimen>
+
 </resources>

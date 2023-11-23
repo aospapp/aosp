@@ -1,4 +1,2 @@
-# This project does not seem be updated for 4 years.
-# Please update this list if you find better candidates.
-jeffbailey@google.com
-rtenneti@google.com
+set noparent
+file:platform/packages/modules/Connectivity:master:/OWNERS_core_networking

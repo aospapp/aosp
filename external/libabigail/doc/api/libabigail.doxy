@@ -683,7 +683,11 @@ WARN_LOGFILE           = LIBABIGAIL_OUTPUT/doc/api/doxygen-warnings.txt
 # directories like "/usr/src/myproject". Separate the files or directories
 # with spaces.
 
-INPUT                  =  LIBABIGAIL_INPUT/src LIBABIGAIL_INPUT/include/
+INPUT                  =  LIBABIGAIL_INPUT/src \
+                          LIBABIGAIL_INPUT/include \
+                          LIBABIGAIL_INPUT/tests/test-read-common.cc \
+                          LIBABIGAIL_INPUT/tests/test-read-common.h
+
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is

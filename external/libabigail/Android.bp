@@ -16,28 +16,7 @@ package {
     default_applicable_licenses: ["external_libabigail_license"],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-//
-// large-scale-change included anything that looked like it might be a license
-// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
-//
-// Please consider removing redundant or irrelevant files from 'license_text:'.
-//
-// large-scale-change filtered out the below license kinds as false-positives:
-//   SPDX-license-identifier-LGPL-3.0
-// See: http://go/android-license-faq
+// http://go/android-license-faq
 license {
     name: "external_libabigail_license",
     visibility: [":__subpackages__"],
@@ -45,11 +24,9 @@ license {
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-BSL-1.0",
         "SPDX-license-identifier-MIT",
-        "legacy_unencumbered",
     ],
     license_text: [
-        "LICENSE.txt",
-        "license-change-2020.txt",
+        "LICENSE",
     ],
 }
 
@@ -57,13 +34,13 @@ cc_defaults {
     name: "libabigail_defaults",
     cflags: [
         "-DABIGAIL_ROOT_SYSTEM_LIBDIR=\"lib\"",
+        "-DUSE_ANDROID_BUILD_NUMBER",
         "-fexceptions",
         "-Wno-implicit-fallthrough",
     ],
 
     local_include_dirs: [
         "src",
-        "include",
     ],
 
     static_libs: [
@@ -72,18 +49,20 @@ cc_defaults {
         "libicuuc",
         "libicuuc_stubdata",
         "libxml2",
+        "libbuildversion",
         "libz",
     ],
 
-    generated_headers: ["android_build_version"],
-
     visibility: [
-        "//visibility:private",
+        "//external/stg",
     ],
     compile_multilib: "64",
     target: {
         darwin: {
             enabled: false,
+        },
+        musl: {
+            static_libs: ["libfts"],
         },
     },
 }
@@ -95,7 +74,18 @@ cc_library_host_static {
         "src/*.cc",
     ],
     exclude_srcs: [
+        "src/abg-ctf-reader.cc",
         "src/abg-viz-*",
+    ],
+    export_include_dirs: ["include"],
+}
+
+cc_library_headers {
+    name: "libabigail_src_headers",
+    host_supported: true,
+    visibility: ["//external/stg"],
+    export_include_dirs: [
+        "src",
     ],
 }
 
@@ -121,14 +111,13 @@ cc_binary_host {
     ],
 }
 
-genrule {
-    name: "android_build_version",
-    cmd: "$(location) $(location .) $(out)",
-    out: [
-        "android_build_version.h",
+cc_binary_host {
+    name: "abitidy",
+    defaults: ["libabigail_defaults"],
+    srcs: [
+        "tools/abitidy.cc",
     ],
-    srcs : ["."],
-    tool_files: [
-        "android_build_version.sh"
-    ]
+    static_libs: [
+        "libabigail",
+    ],
 }

@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "criterion-plot"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Jorge Aparicio <japaricious@gmail.com>", "Brook Heisler <brookheisler@gmail.com>"]
 description = "Criterion's plotting library"
 readme = "README.md"
@@ -25,7 +25,7 @@ repository = "https://github.com/bheisler/criterion.rs"
 version = "0.2"
 
 [dependencies.itertools]
-version = "0.9"
+version = "0.10"
 [dev-dependencies.itertools-num]
 version = "0.1"
 

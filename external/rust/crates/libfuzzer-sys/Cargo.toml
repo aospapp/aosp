@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "libfuzzer-sys"
-version = "0.4.0"
+version = "0.4.2"
 authors = ["The rust-fuzz Project Developers"]
 description = "A wrapper around LLVM's libFuzzer runtime."
 readme = "./README.md"
@@ -21,6 +21,14 @@ license = "MIT/Apache-2.0/NCSA"
 repository = "https://github.com/rust-fuzz/libfuzzer"
 [dependencies.arbitrary]
 version = "1"
+
+[dependencies.once_cell]
+version = "1"
+[dev-dependencies.flate2]
+version = "1.0.20"
+
+[dev-dependencies.rand]
+version = "0.8.3"
 [build-dependencies.cc]
 version = "1.0"
 

@@ -331,10 +331,9 @@ public final class FileClientSessionCache {
      * @throws IOException if the file exists and is not a directory or if
      *  creating the directories fails
      */
-    @android.compat.annotation
-            .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
-            public static synchronized SSLClientSessionCache usingDirectory(File directory)
+    @android.compat.annotation.UnsupportedAppUsage
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public static synchronized SSLClientSessionCache usingDirectory(File directory)
             throws IOException {
         FileClientSessionCache.Impl cache = caches.get(directory);
         if (cache == null) {

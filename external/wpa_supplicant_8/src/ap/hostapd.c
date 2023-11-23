@@ -1,6 +1,6 @@
 /*
  * hostapd / Initialization and configuration
- * Copyright (c) 2002-2019, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2021, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -107,7 +107,8 @@ static void hostapd_reload_bss(struct hostapd_data *hapd)
 		return;
 
 	if (hapd->conf->wmm_enabled < 0)
-		hapd->conf->wmm_enabled = hapd->iconf->ieee80211n;
+		hapd->conf->wmm_enabled = hapd->iconf->ieee80211n |
+			hapd->iconf->ieee80211ax;
 
 #ifndef CONFIG_NO_RADIUS
 	radius_client_reconfig(hapd->radius, hapd->conf->radius);
@@ -392,6 +393,7 @@ void hostapd_free_hapd_data(struct hostapd_data *hapd)
 #ifdef CONFIG_DPP
 	hostapd_dpp_deinit(hapd);
 	gas_query_ap_deinit(hapd->gas);
+	hapd->gas = NULL;
 #endif /* CONFIG_DPP */
 
 	authsrv_deinit(hapd);
@@ -414,6 +416,7 @@ void hostapd_free_hapd_data(struct hostapd_data *hapd)
 	}
 
 	wpabuf_free(hapd->time_adv);
+	hapd->time_adv = NULL;
 
 #ifdef CONFIG_INTERWORKING
 	gas_serv_deinit(hapd);
@@ -429,6 +432,7 @@ void hostapd_free_hapd_data(struct hostapd_data *hapd)
 		       hapd->tmp_eap_user.identity_len);
 	bin_clear_free(hapd->tmp_eap_user.password,
 		       hapd->tmp_eap_user.password_len);
+	os_memset(&hapd->tmp_eap_user, 0, sizeof(hapd->tmp_eap_user));
 #endif /* CONFIG_SQLITE */
 
 #ifdef CONFIG_MESH
@@ -1170,7 +1174,8 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 	}
 
 	if (conf->wmm_enabled < 0)
-		conf->wmm_enabled = hapd->iconf->ieee80211n;
+		conf->wmm_enabled = hapd->iconf->ieee80211n |
+			hapd->iconf->ieee80211ax;
 
 #ifdef CONFIG_IEEE80211R_AP
 	if (is_zero_ether_addr(conf->r1_key_holder))
@@ -1669,6 +1674,26 @@ static int configured_fixed_chan_to_freq(struct hostapd_iface *iface)
 }
 
 
+static void hostapd_set_6ghz_sec_chan(struct hostapd_iface *iface)
+{
+	int bw, seg0;
+
+	if (!is_6ghz_op_class(iface->conf->op_class))
+		return;
+
+	seg0 = hostapd_get_oper_centr_freq_seg0_idx(iface->conf);
+	bw = center_idx_to_bw_6ghz(seg0);
+	/* Assign the secondary channel if absent in config for
+	 * bandwidths > 20 MHz */
+	if (bw > 20 && !iface->conf->secondary_channel) {
+		if (((iface->conf->channel - 1) / 4) % 2)
+			iface->conf->secondary_channel = -1;
+		else
+			iface->conf->secondary_channel = 1;
+	}
+}
+
+
 static int setup_interface2(struct hostapd_iface *iface)
 {
 	iface->wait_channel_update = 0;
@@ -1688,6 +1713,7 @@ static int setup_interface2(struct hostapd_iface *iface)
 
 			ch_width = op_class_to_ch_width(iface->conf->op_class);
 			hostapd_set_oper_chwidth(iface->conf, ch_width);
+			hostapd_set_6ghz_sec_chan(iface);
 		}
 
 		ret = hostapd_select_hw_mode(iface);
@@ -2308,10 +2334,12 @@ int hostapd_setup_interface(struct hostapd_iface *iface)
 {
 	int ret;
 
+	if (!iface->conf)
+		return -1;
 	ret = setup_interface(iface);
 	if (ret) {
 		wpa_printf(MSG_ERROR, "%s: Unable to setup interface.",
-			   iface->conf ? iface->conf->bss[0]->iface : "N/A");
+			   iface->conf->bss[0]->iface);
 		return -1;
 	}
 
@@ -3436,6 +3464,20 @@ static int hostapd_change_config_freq(struct hostapd_data *hapd,
 	switch (params->bandwidth) {
 	case 0:
 	case 20:
+		conf->ht_capab &= ~HT_CAP_INFO_SUPP_CHANNEL_WIDTH_SET;
+		break;
+	case 40:
+	case 80:
+	case 160:
+		conf->ht_capab |= HT_CAP_INFO_SUPP_CHANNEL_WIDTH_SET;
+		break;
+	default:
+		return -1;
+	}
+
+	switch (params->bandwidth) {
+	case 0:
+	case 20:
 	case 40:
 		hostapd_set_oper_chwidth(conf, CHANWIDTH_USE_HT);
 		break;
@@ -3454,6 +3496,7 @@ static int hostapd_change_config_freq(struct hostapd_data *hapd,
 
 	conf->channel = channel;
 	conf->ieee80211n = params->ht_enabled;
+	conf->ieee80211ac = params->vht_enabled;
 	conf->secondary_channel = params->sec_channel_offset;
 	ieee80211_freq_to_chan(params->center_freq1,
 			       &seg0);

@@ -2,49 +2,36 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::fmt::{self, Display};
 use std::io;
 
 use libc::EINVAL;
+use remain::sorted;
+use thiserror::Error;
 
 use crate::qcow::qcow_raw_file::QcowRawFile;
 use crate::qcow::vec_cache::{CacheMap, Cacheable, VecCache};
 
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 pub enum Error {
     /// `EvictingCache` - Error writing a refblock from the cache to disk.
+    #[error("failed to write a refblock from the cache to disk: {0}")]
     EvictingRefCounts(io::Error),
     /// `InvalidIndex` - Address requested isn't within the range of the disk.
+    #[error("address requested is not within the range of the disk")]
     InvalidIndex,
     /// `NeedCluster` - Handle this error by reading the cluster and calling the function again.
+    #[error("cluster with addr={0} needs to be read")]
     NeedCluster(u64),
     /// `NeedNewCluster` - Handle this error by allocating a cluster and calling the function again.
+    #[error("new cluster needs to be allocated for refcounts")]
     NeedNewCluster,
     /// `ReadingRefCounts` - Error reading the file in to the refcount cache.
+    #[error("failed to read the file into the refcount cache: {0}")]
     ReadingRefCounts(io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        match self {
-            EvictingRefCounts(e) => write!(
-                f,
-                "failed to write a refblock from the cache to disk: {}",
-                e
-            ),
-            InvalidIndex => write!(f, "address requested is not within the range of the disk"),
-            NeedCluster(addr) => write!(f, "cluster with addr={} needs to be read", addr),
-            NeedNewCluster => write!(f, "new cluster needs to be allocated for refcounts"),
-            ReadingRefCounts(e) => {
-                write!(f, "failed to read the file into the refcount cache: {}", e)
-            }
-        }
-    }
-}
 
 /// Represents the refcount entries for an open qcow file.
 #[derive(Debug)]
@@ -171,7 +158,7 @@ impl RefCount {
         if self.ref_table.dirty() {
             raw_file.write_pointer_table(
                 self.refcount_table_offset,
-                &self.ref_table.get_values(),
+                self.ref_table.get_values(),
                 0,
             )?;
             self.ref_table.mark_clean();
@@ -206,41 +193,6 @@ impl RefCount {
                 .map_err(Error::EvictingRefCounts)?;
         }
         Ok(self.refblock_cache.get(&table_index).unwrap()[block_index])
-    }
-
-    /// Returns the refcount table for this file. This is only useful for debugging.
-    pub fn ref_table(&self) -> &[u64] {
-        &self.ref_table.get_values()
-    }
-
-    /// Returns the refcounts stored in the given block.
-    pub fn refcount_block(
-        &mut self,
-        raw_file: &mut QcowRawFile,
-        table_index: usize,
-    ) -> Result<Option<&[u16]>> {
-        let block_addr_disk = *self.ref_table.get(table_index).ok_or(Error::InvalidIndex)?;
-        if block_addr_disk == 0 {
-            return Ok(None);
-        }
-        if !self.refblock_cache.contains_key(&table_index) {
-            let table = VecCache::from_vec(
-                raw_file
-                    .read_refcount_block(block_addr_disk)
-                    .map_err(Error::ReadingRefCounts)?,
-            );
-            // TODO(dgreid) - closure needs to return an error.
-            let ref_table = &self.ref_table;
-            self.refblock_cache
-                .insert(table_index, table, |index, evicted| {
-                    raw_file.write_refcount_block(ref_table[index], evicted.get_values())
-                })
-                .map_err(Error::EvictingRefCounts)?;
-        }
-        // The index must exist as it was just inserted if it didn't already.
-        Ok(Some(
-            self.refblock_cache.get(&table_index).unwrap().get_values(),
-        ))
     }
 
     // Gets the address of the refcount block and the index into the block for the given address.

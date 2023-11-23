@@ -58,10 +58,7 @@ license {
 
 cc_defaults {
     name: "libbpf_defaults",
-    cpp_std: "c++17",
     cflags: [
-        "-Wall",
-        "-Werror",
         "-Wnullable-to-nonnull-conversion",
         "-Wthread-safety",
         "-Wunused-parameter",
@@ -77,8 +74,8 @@ cc_defaults {
 }
 
 cc_library_headers {
-    name: "libbpf_headers",
-    vendor_available: false,
+    name: "libbpf_bcc_headers",
+    vendor_available: true,
     host_supported: false,
     native_bridge_supported: true,
     export_include_dirs: ["src/cc/includes/"],
@@ -90,8 +87,8 @@ cc_library_headers {
 }
 
 cc_library {
-    name: "libbpf",
-    vendor_available: false,
+    name: "libbpf_bcc",
+    vendor_available: true,
     host_supported: false,
     native_bridge_supported: true,
     target: {
@@ -105,17 +102,23 @@ cc_library {
             },
         },
     },
+    shared_libs: ["libbpf_minimal"],
 
     header_libs: [
-        "libbpf_headers"
+        "libbpf_bcc_headers",
     ],
-    export_header_lib_headers: ["libbpf_headers"],
+    export_header_lib_headers: ["libbpf_bcc_headers"],
     local_include_dirs: ["src/cc"],
 
     defaults: ["bpf_defaults"],
     cflags: [
+        "-DHAVE_EXTERNAL_LIBBPF",
+        "-DMINIMAL_LIBBPF",
         "-Werror",
         "-Wall",
         "-Wextra",
+        "-Wno-sign-compare",
+        "-Wno-typedef-redefinition",
+        "-Wno-unused-parameter",
     ],
 }

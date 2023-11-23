@@ -24,13 +24,13 @@
 
 typedef struct bounded_string {
 	char *data; /* storage of converted string, including final null byte */
-	size_t len; /* max length of converted string, including final null 
+	size_t len; /* max length of converted string, including final null
 		     * byte */
 } bounded_string;
 
 typedef struct MainParam_t {
 	/* stuff needing to be initialised by the caller */
-	int (*loop)(Stream_t *Dir, struct MainParam_t *mp, 
+	int (*loop)(Stream_t *Dir, struct MainParam_t *mp,
 		    const char *filename);
 	int (*dirCallback)(direntry_t *, struct MainParam_t *);
 	int (*callback)(direntry_t *, struct MainParam_t *);
@@ -44,9 +44,9 @@ typedef struct MainParam_t {
 	int fast_quit; /* for commands manipulating multiple files, quit
 			* as soon as even _one_ file has a problem */
 
-	bounded_string shortname; /* where to put the short name of the 
+	bounded_string shortname; /* where to put the short name of the
 				   * matched file */
-	bounded_string longname; /* where to put the long name of the 
+	bounded_string longname; /* where to put the long name of the
 				  * matched file */
 	/* out parameters */
 	Stream_t *File;
@@ -79,7 +79,7 @@ int main_loop(MainParam_t *MainParam, char **argv, int argc);
 
 int target_lookup(MainParam_t *mp, const char *arg);
 
-Stream_t *open_root_dir(unsigned char drivename, int flags, int *isRop);
+Stream_t *open_root_dir(char drivename, int flags, int *isRop);
 
 const char *mpGetBasename(MainParam_t *mp); /* statically allocated
 					     * string */

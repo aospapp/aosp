@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines.flow
@@ -33,7 +33,7 @@ import kotlin.native.concurrent.*
  *
  * [SharedFlow] is useful for broadcasting events that happen inside an application to subscribers that can come and go.
  * For example, the following class encapsulates an event bus that distributes events to all subscribers
- * in a _rendezvous_ manner, suspending until all subscribers process each event:
+ * in a _rendezvous_ manner, suspending until all subscribers receive emitted event:
  *
  * ```
  * class EventBus {
@@ -68,10 +68,26 @@ import kotlin.native.concurrent.*
  * the `onBufferOverflow` parameter, which is equal to one of the entries of the [BufferOverflow] enum. When a strategy other
  * than [SUSPENDED][BufferOverflow.SUSPEND] is configured, emissions to the shared flow never suspend.
  *
+ * **Buffer overflow condition can happen only when there is at least one subscriber that is not ready to accept
+ * the new value.**  In the absence of subscribers only the most recent `replay` values are stored and the buffer
+ * overflow behavior is never triggered and has no effect. In particular, in the absence of subscribers emitter never
+ * suspends despite [BufferOverflow.SUSPEND] option and [BufferOverflow.DROP_LATEST] option does not have effect either.
+ * Essentially, the behavior in the absence of subscribers is always similar to [BufferOverflow.DROP_OLDEST],
+ * but the buffer is just of `replay` size (without any `extraBufferCapacity`).
+ *
+ * ### Unbuffered shared flow
+ *
+ * A default implementation of a shared flow that is created with `MutableSharedFlow()` constructor function
+ * without parameters has no replay cache nor additional buffer.
+ * [emit][MutableSharedFlow.emit] call to such a shared flow suspends until all subscribers receive the emitted value
+ * and returns immediately if there are no subscribers.
+ * Thus, [tryEmit][MutableSharedFlow.tryEmit] call succeeds and returns `true` only if
+ * there are no subscribers (in which case the emitted value is immediately lost).
+ *
  * ### SharedFlow vs BroadcastChannel
  *
  * Conceptually shared flow is similar to [BroadcastChannel][BroadcastChannel]
- * and is designed to completely replace `BroadcastChannel` in the future.
+ * and is designed to completely replace it.
  * It has the following important differences:
  *
  * * `SharedFlow` is simpler, because it does not have to implement all the [Channel] APIs, which allows
@@ -83,7 +99,7 @@ import kotlin.native.concurrent.*
  *
  * To migrate [BroadcastChannel] usage to [SharedFlow], start by replacing usages of the `BroadcastChannel(capacity)`
  * constructor with `MutableSharedFlow(0, extraBufferCapacity=capacity)` (broadcast channel does not replay
- * values to new subscribers). Replace [send][BroadcastChannel.send] and [offer][BroadcastChannel.offer] calls
+ * values to new subscribers). Replace [send][BroadcastChannel.send] and [trySend][BroadcastChannel.trySend] calls
  * with [emit][MutableStateFlow.emit] and [tryEmit][MutableStateFlow.tryEmit], and convert subscribers' code to flow operators.
  *
  * ### Concurrency
@@ -139,6 +155,17 @@ public interface SharedFlow<out T> : Flow<T> {
  */
 public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
     /**
+     * Emits a [value] to this shared flow, suspending on buffer overflow if the shared flow was created
+     * with the default [BufferOverflow.SUSPEND] strategy.
+     *
+     * See [tryEmit] for a non-suspending variant of this function.
+     *
+     * This method is **thread-safe** and can be safely invoked from concurrent coroutines without
+     * external synchronization.
+     */
+    override suspend fun emit(value: T)
+
+    /**
      * Tries to emit a [value] to this shared flow without suspending. It returns `true` if the value was
      * emitted successfully. When this function returns `false`, it means that the call to a plain [emit]
      * function will suspend until there is a buffer space available.
@@ -146,6 +173,9 @@ public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
      * A shared flow configured with a [BufferOverflow] strategy other than [SUSPEND][BufferOverflow.SUSPEND]
      * (either [DROP_OLDEST][BufferOverflow.DROP_OLDEST] or [DROP_LATEST][BufferOverflow.DROP_LATEST]) never
      * suspends on [emit], and thus `tryEmit` to such a shared flow always returns `true`.
+     *
+     * This method is **thread-safe** and can be safely invoked from concurrent coroutines without
+     * external synchronization.
      */
     public fun tryEmit(value: T): Boolean
 
@@ -181,6 +211,9 @@ public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
      * supported, and throws an [UnsupportedOperationException]. To reset a [MutableStateFlow]
      * to an initial value, just update its [value][MutableStateFlow.value].
      *
+     * This method is **thread-safe** and can be safely invoked from concurrent coroutines without
+     * external synchronization.
+     *
      * **Note: This is an experimental api.** This function may be removed or renamed in the future.
      */
     @ExperimentalCoroutinesApi
@@ -195,9 +228,12 @@ public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
  * @param replay the number of values replayed to new subscribers (cannot be negative, defaults to zero).
  * @param extraBufferCapacity the number of values buffered in addition to `replay`.
  *   [emit][MutableSharedFlow.emit] does not suspend while there is a buffer space remaining (optional, cannot be negative, defaults to zero).
- * @param onBufferOverflow configures an action on buffer overflow (optional, defaults to
- *   [suspending][BufferOverflow.SUSPEND] attempts to [emit][MutableSharedFlow.emit] a value,
- *   supported only when `replay > 0` or `extraBufferCapacity > 0`).
+ * @param onBufferOverflow configures an [emit][MutableSharedFlow.emit] action on buffer overflow. Optional, defaults to
+ *   [suspending][BufferOverflow.SUSPEND] attempts to emit a value.
+ *   Values other than [BufferOverflow.SUSPEND] are supported only when `replay > 0` or `extraBufferCapacity > 0`.
+ *   **Buffer overflow can happen only when there is at least one subscriber that is not ready to accept
+ *   the new value.** In the absence of subscribers only the most recent [replay] values are stored and
+ *   the buffer overflow behavior is never triggered and has no effect.
  */
 @Suppress("FunctionName", "UNCHECKED_CAST")
 public fun <T> MutableSharedFlow(
@@ -433,7 +469,7 @@ private class SharedFlowImpl<T>(
         // outside of the lock: register dispose on cancellation
         emitter?.let { cont.disposeOnCancellation(it) }
         // outside of the lock: resume slots if needed
-        for (cont in resumes) cont?.resume(Unit)
+        for (r in resumes) r?.resume(Unit)
     }
 
     private fun cancelEmitter(emitter: Emitter) = synchronized(this) {

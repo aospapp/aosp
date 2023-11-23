@@ -119,7 +119,7 @@ class CharsetHZ extends CharsetICU {
                              * - If any of the non-initial bytes could be the start of a character,
                              *   we stop the illegal sequence before the first one of those.
                              */
-                            isEmptySegment = false; /* different error here, reset this to avoid spurious furture error */
+                            isEmptySegment = false; /* different error here, reset this to avoid spurious future error */
                             err = CoderResult.malformedForLength(1);
                             toUBytesArray[0] = UCNV_TILDE;
                             if (isStateDBCS ? (0x21 <= mySourceChar && mySourceChar <= 0x7e) : mySourceChar <= 0x7f) {
@@ -158,7 +158,7 @@ class CharsetHZ extends CharsetICU {
                              *   we stop the illegal sequence before the first one of those
                              *
                              * In HZ DBCS, if the second byte is in the 21..7e range,
-                             * we report ony the first byte as the illegal sequence.
+                             * we report only the first byte as the illegal sequence.
                              * Otherwise we convert of report the pair of bytes.
                              */
                             leadIsOk = (short)(UConverterConstants.UNSIGNED_BYTE_MASK & (leadByte - 0x21)) <= (0x7d - 0x21);
@@ -342,7 +342,7 @@ class CharsetHZ extends CharsetICU {
                         /* Handle surrogates */
                         /* check if the char is a First surrogate */
 
-                        if (UTF16.isSurrogate((char) mySourceChar)) {
+                        if (UTF16.isSurrogate(mySourceChar)) {
                             // use that handy handleSurrogates method everyone's been talking about!
                             CoderResult cr = handleSurrogates(source, (char) mySourceChar);
                             return (cr != null) ? cr : CoderResult.unmappableForLength(2);

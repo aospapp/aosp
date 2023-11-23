@@ -1,13 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
- *    
+ *
  *******************************************************************************/
 package org.jacoco.core.internal.analysis;
 
@@ -21,6 +22,7 @@ import org.jacoco.core.internal.flow.ClassProbesVisitor;
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
 import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.MethodNode;
@@ -37,13 +39,15 @@ public class ClassAnalyzer extends ClassProbesVisitor
 
 	private final Set<String> classAnnotations = new HashSet<String>();
 
+	private final Set<String> classAttributes = new HashSet<String>();
+
 	private String sourceDebugExtension;
 
 	private final IFilter filter;
 
 	/**
 	 * Creates a new analyzer that builds coverage data for a class.
-	 * 
+	 *
 	 * @param coverage
 	 *            coverage node for the analyzed class data
 	 * @param probes
@@ -73,6 +77,11 @@ public class ClassAnalyzer extends ClassProbesVisitor
 			final boolean visible) {
 		classAnnotations.add(desc);
 		return super.visitAnnotation(desc, visible);
+	}
+
+	@Override
+	public void visitAttribute(final Attribute attribute) {
+		classAttributes.add(attribute.type);
 	}
 
 	@Override
@@ -144,6 +153,10 @@ public class ClassAnalyzer extends ClassProbesVisitor
 
 	public Set<String> getClassAnnotations() {
 		return classAnnotations;
+	}
+
+	public Set<String> getClassAttributes() {
+		return classAttributes;
 	}
 
 	public String getSourceFileName() {

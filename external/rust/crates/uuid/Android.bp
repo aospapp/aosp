@@ -42,6 +42,8 @@ rust_library {
     name: "libuuid",
     host_supported: true,
     crate_name: "uuid",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.8.2",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -60,9 +62,3 @@ rust_library {
         "com.android.virt",
     ],
 }
-
-// dependent_library ["feature_list"]
-//   cfg-if-1.0.0
-//   getrandom-0.2.3
-//   libc-0.2.97
-//   serde-1.0.126 "default,std"

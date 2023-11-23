@@ -46,6 +46,11 @@ additional levels of "trace" messages will be logged when the following GN arg i
 angle_enable_trace = true
 ```
 
+To log all GLES and EGL commands submitted by an application, including the following flag:
+```
+angle_enable_trace_events = true
+```
+
 ## Debug Angle on Android
 
 Android is built as an Android APK, which makes it more difficult to debug an APK that is using ANGLE.  The following information can allow you to debug ANGLE with LLDB.
@@ -251,6 +256,7 @@ echo "Done."
 ```
 
 ### Android
+#### Linux
 
 If you are on Linux, make sure not to use the build done in the previous section.  The GL renderer
 disabled in the previous section is actually needed in this section.
@@ -294,7 +300,7 @@ this to gn args:
 angle_libs_suffix = "_ANGLE_DEV"
 ```
 
-Next, you need to install an ANGLE test apk.  When you build the test, a test launcher is generated,
+Next, you need to install an ANGLE test APK.  When you build the test, a test launcher is generated,
 for example, `./out/Release/bin/run_angle_end2end_tests`. The best way to install the APK is to run
 this test launcher once.
 
@@ -309,6 +315,131 @@ Note that in the above, only a single command line argument is supported with Re
 dEQP on a non-default platform, the easiest way would be to modify `GetDefaultAPIName()` in
 `src/tests/deqp_support/angle_deqp_gtest.cpp` (and avoid `--use-angle=X`).
 
+
+#### Windows
+You should be able to download the latest [RenderDoc on Windows](https://renderdoc.org/builds) and follow the
+[RenderDoc Official Documentation](https://renderdoc.org/docs/how/how_android_capture.html) for instructions on how to
+use RenderDoc on Android. If you would like to build RenderDoc for Android on Windows yourself, you can follow the
+[RenderDoc Officual Documentation](https://github.com/baldurk/renderdoc/blob/v1.x/docs/CONTRIBUTING/Compiling.md#android).
+We listed more detailed instructions below on how to set up the build on Windows.
+
+##### Install Android Dependencies
+
+On windows, we need to install dependencies to build android, as described in
+[RenderDoc Official Documentation](https://github.com/baldurk/renderdoc/blob/v1.x/docs/CONTRIBUTING/Dependencies.md#android)
+1. Install [Android SDK](https://developer.android.com/about/versions/12/setup-sdk#install-sdk).
+
+   Add a new system variable:
+
+   Variable: ANDROID_SDK
+
+   Value: path_to_sdk_directory (e.g. C:\Users\test\Appdata\Local\Android\Sdk)
+2. Install [Android NDK](https://developer.android.com/studio/projects/install-ndk).
+
+   Add a new system variable:
+
+   Variable: ANDROID_NDK
+
+   Value: path_to_ndk_directory (e.g. C:\Users\test\Appdata\Local\Android\Sdk\ndk\23.1.7779620)
+
+3. Install [Java 8](https://www.oracle.com/java/technologies/downloads/#java8).
+
+   Add a new system variable:
+
+   Variable: JAVA_HOME
+
+   Value: path_to_jdk1.8_directory (e.g. C:\Program Files\Java\jdk1.8.0_311)
+
+5. Install [Android Debug Bridge](https://developer.android.com/studio/releases/platform-tools).
+
+   Append android_sdk_platform-tools_directory to the Path system variable.
+
+   e.g. C:\Users\Test\AppData\Local\Android\Sdk\platform-tools
+
+
+##### Install Build Tools
+
+1. Install a bash shell. Git Bash comes with Git installation on Windows should work.
+2. Install [make](http://gnuwin32.sourceforge.net/packages/make.htm).
+   Add the path to bin folder of GnuWin32 to the Path system variable.
+
+
+##### Build RenderDoc Android APK on Windows
+
+If you are using the Git Bash that comes with MinGW generator, you can run below commands to build Android APK
+```
+mkdir build-android-arm32
+cd build-android-arm32/
+cmake -DBUILD_ANDROID=On -DANDROID_ABI=armeabi-v7a -G "MinGW Makefiles" ..
+make -j
+cd ../
+
+mkdir build-android-arm64
+cd build-android-arm64/
+cmake -DBUILD_ANDROID=On -DANDROID_ABI=arm64-v8a -G "MinGW Makefiles" ..
+make -j
+cd ../
+```
+If the generator type of the bash shell you are using is different from MinGW, replace the "MinGW" in the above cmake
+command with the generator
+type you are using, as described in
+[RenderDoc Official Documentation](https://github.com/baldurk/renderdoc/blob/v1.x/docs/CONTRIBUTING/Compiling.md#android).
+
+
+##### Build Errors And Resolutions
+
+* **cmake command errors**
+
+```
+Error: Failed to run MSBuild command:
+C:/Program Files (x86)/Microsoft Visual Studio/2019/Professional/MSBuild/Current/Bin/MSBuild.exe to get the value of
+VCTargetsPath:
+error : The BaseOutputPath/OutputPath property is not set for project 'VCTargetsPath.vcxproj'.
+Please check to make sure that you have specified a valid combination of Configuration and Platform for this project.
+Configuration='Debug'  Platform='x64'.
+```
+
+This is due to the cmake command is using Visual Studio as the generator type. Run the cmake command with the
+generator type "MinGW Makefiles" or "MSYS Makefiles".
+
+```Error: Does not match the generator used previously```
+
+
+
+Delete the CMakeCache file in build directories build-android-arm64/ or build-android-arm32/.
+
+
+* **make command errors**
+
+```
+-Djava.ext.dirs is not supported.
+Error: Could not create the Java Virtual Machine.
+Error: A fatal exception has occurred. Program will exit.
+
+```
+
+Downgrade Java JDK version to [Java 8](https://www.oracle.com/java/technologies/downloads/#java8).
+
+
+##### Steps to use the RenderDoc you just built
+1. Build arm32 and arm64 android packages. See [instructions](#build-renderdoc-android-apk-on-windows) in the above
+section.
+
+2. Uninstall the renderdoc package.
+
+This step is required if you have installed / used RenderDoc on the same Android device before. RenderDoc only pushes
+the renderdoccmd APK to the Android device if it finds the version of the existing APK on the device is different from
+the version of the APK we are going to install, and the version is dictated by the git hash it was built from. Therefore
+any local modifications in the RenderDoc codebase would not get picked up if we don't uninstall the old APK first.
+
+```
+adb uninstall org.renderdoc.renderdoccmd.arm64
+adb uninstall org.renderdoc.renderdoccmd.arm32
+```
+3. Build renderdoc on windows desktop by clicking "build solution" in visual studio.
+4. Launch renderdoc from visual studio, and push the android packages to android device by selecting the connected
+device at the bottom left corner.
+
 ## Testing with Chrome Canary
 
 Many of ANGLE's OpenGL ES entry points are exposed in Chromium as WebGL 1.0 and WebGL 2.0 APIs that
@@ -321,29 +452,33 @@ Canary.
 
 1. Download and install [Google Chrome Canary](https://www.google.com/chrome/canary/).
 2. Build ANGLE x64, Release.
-3. Run `python scripts\update_canary_angle.py` to replace Canary's ANGLE with your custom ANGLE
-(note: Canary must be closed).
+3. Run `python scripts\update_chrome_angle.py` to replace Canary's ANGLE with your custom ANGLE
+   (note: Canary must be closed).
+
+#### Linux
+
+1. Install Google Chrome Dev (via apt, or otherwise).  Expected installation directory is
+   `/opt/google/chrome-unstable`.
+2. Build ANGLE for the running platform.  `is_component_build = false` is suggested in the GN args.
+3. Run `python scripts/update_chrome_angle.py` to replace Dev's ANGLE with your custom ANGLE
+4. Add ANGLE's build path to the `LD_LIBRARY_PATH` environment variable.
 
 #### macOS
 
 1. Download and install [Google Chrome Canary](https://www.google.com/chrome/canary/).
-2. Clear all attributes.
-   ```
-   % xattr -cr /Applications/Google\ Chrome\ Canary.app
-   ```
-3. Build ANGLE x64 or arm64, Release.
-4. Replace ANGLE libraries, adjusting paths if needed.
-   ```
-   % cp angle/out/Release/{libEGL.dylib,libGLESv2.dylib} /Applications/Google\ Chrome\ Canary.app/Contents/Frameworks/Google\ Chrome\ Framework.framework/Libraries
-   ```
-5. Re-sign the application bundle.
-   ```
-   % codesign --force --sign - --deep /Applications/Google\ Chrome\ Canary.app
-   ```
+2. Build ANGLE for the running platform; GN args should contain `is_debug = false`.
+3. Run `./scripts/update_chrome_angle.py` to replace Canary's ANGLE with your custom ANGLE.
 
 ### Usage
 
-Run `%LOCALAPPDATA%\Google\Chrome SxS\chrome.exe` (Windows) or `./Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary` (macOS) with the following command-line options:
+Run Chrome:
+
+- On Windows: `%LOCALAPPDATA%\Google\Chrome SxS\chrome.exe`
+- On Linux: `/opt/google/chrome-unstable/google-chrome-unstable`
+- On macOS: `./Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary`
+
+With the following command-line options:
+
 * `--use-cmd-decoder=passthrough --use-gl=angle` and one of
   * `--use-angle=d3d9` (Direct3D 9 renderer, Windows only)
   * `--use-angle=d3d11` (Direct3D 11 renderer, Windows only)
@@ -353,3 +488,13 @@ Run `%LOCALAPPDATA%\Google\Chrome SxS\chrome.exe` (Windows) or `./Google\ Chrome
   * `--use-angle=vulkan` (Vulkan renderer)
   * `--use-angle=swiftshader` (SwiftShader renderer)
   * `--use-angle=metal` (Metal renderer, macOS only)
+
+Additional useful options:
+
+* `--enable-logging`: To see logs
+* `--disable-gpu-watchdog`: To disable Chromium's watchdog, killing the GPU process when slow (due
+  to a debug build for example)
+* `--disable-gpu-sandbox`: To disable Chromium's sandboxing features, if it's getting in the way of
+  testing.
+* `--disable-gpu-compositing`: To make sure only the WebGL test being debugged is run through ANGLE,
+  not the entirety of Chromium.

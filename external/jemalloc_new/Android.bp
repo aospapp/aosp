@@ -122,7 +122,6 @@ android_product_variables = {
 
 cc_defaults {
     name: "jemalloc5_defaults",
-    defaults: ["linux_bionic_supported"],
     host_supported: true,
     native_bridge_supported: true,
     cflags: common_cflags,
@@ -132,7 +131,7 @@ cc_defaults {
             cflags: android_common_cflags,
             product_variables: android_product_variables,
         },
-        linux_glibc: {
+        linux_bionic: {
             enabled: true,
         },
     },
@@ -200,6 +199,11 @@ cc_library {
         linux_bionic: {
             system_shared_libs: [],
             header_libs: ["libc_headers"],
+        },
+        musl: {
+            // Linking against musl uses libjemalloc5 by default, list only
+            // libc_musl here to avoid a circular dependency.
+            system_shared_libs: ["libc_musl"],
         },
     },
 }
@@ -333,8 +337,10 @@ cc_test {
     test_per_src: true,
 
     target: {
-        linux_glibc: {
+        linux_bionic: {
             enabled: true,
+        },
+        linux_glibc: {
             // The sanitizer does not work for these tests on the host.
             sanitize: {
                 never: true,
@@ -354,6 +360,7 @@ cc_library_static {
     cflags: [
         "-U_FORTIFY_SOURCE",
         "-DJEMALLOC_INTEGRATION_TEST",
+        "-DJEMALLOC_NO_RENAME",
     ],
 
     local_include_dirs: [
@@ -390,6 +397,7 @@ cc_test {
 
     cflags: common_cflags + [
         "-DJEMALLOC_INTEGRATION_TEST",
+        "-DJEMALLOC_NO_RENAME",
     ],
 
     local_include_dirs: common_c_local_includes + [

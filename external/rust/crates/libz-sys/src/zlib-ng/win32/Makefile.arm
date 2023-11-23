@@ -36,7 +36,8 @@ RCFLAGS = /dARM /r
 DEFFILE = zlib.def
 RCFILE = zlib1.rc
 RESFILE = zlib1.res
-WITH_GZFILEOP =
+WITH_GZFILEOP = yes
+ZLIB_COMPAT =
 WITH_ACLE =
 WITH_NEON =
 WITH_VFPV3 =
@@ -50,6 +51,7 @@ OBJS = \
 	compare258.obj \
 	compress.obj \
 	crc32.obj \
+	crc32_comb.obj \
 	deflate.obj \
 	deflate_fast.obj \
 	deflate_slow.obj \
@@ -65,9 +67,9 @@ OBJS = \
 	uncompr.obj \
 	zutil.obj \
 	#
-!if "$(WITH_GZFILEOP)" != ""
-WFLAGS = $(WFLAGS) -DWITH_GZFILEOP
-OBJS = $(OBJS) gzclose.obj gzlib.obj gzread.obj gzwrite.obj
+!if "$(ZLIB_COMPAT)" != ""
+WITH_GZFILEOP = yes
+WFLAGS = $(WFLAGS) -DZLIB_COMPAT
 DEFFILE = zlibcompat.def
 !else
 STATICLIB = zlib-ng.lib
@@ -78,6 +80,12 @@ RCFILE = zlib-ng1.rc
 RESFILE = zlib-ng1.res
 SUFFIX = -ng
 !endif
+
+!if "$(WITH_GZFILEOP)" != ""
+WFLAGS = $(WFLAGS) -DWITH_GZFILEOP
+OBJS = $(OBJS) gzlib.obj gzread.obj gzwrite.obj
+!endif
+
 !if "$(WITH_ACLE)" != ""
 WFLAGS = $(WFLAGS) -DARM_ACLE_CRC_HASH
 OBJS = $(OBJS) crc32_acle.obj insert_string_acle.obj
@@ -115,31 +123,28 @@ $(SHAREDLIB): zconf $(TOP)/win32/$(DEFFILE) $(OBJS) $(RESFILE)
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;2
 
-example.exe: example.obj gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
-	$(LD) $(LDFLAGS) example.obj gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
+example.exe: example.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
+	$(LD) $(LDFLAGS) example.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;1
 
-minigzip.exe: minigzip.obj gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
-	$(LD) $(LDFLAGS) minigzip.obj  gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
+minigzip.exe: minigzip.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
+	$(LD) $(LDFLAGS) minigzip.obj gzlib2.obj gzread2.obj gzwrite2.obj $(STATICLIB)
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;1
 
-example_d.exe: example.obj gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
-	$(LD) $(LDFLAGS) -out:$@ example.obj  gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
+example_d.exe: example.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
+	$(LD) $(LDFLAGS) -out:$@ example.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;1
 
-minigzip_d.exe: minigzip.obj gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
-	$(LD) $(LDFLAGS) -out:$@ minigzip.obj  gzclose2.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
+minigzip_d.exe: minigzip.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
+	$(LD) $(LDFLAGS) -out:$@ minigzip.obj gzlib2.obj gzread2.obj gzwrite2.obj $(IMPLIB)
 	if exist $@.manifest \
 	  mt -nologo -manifest $@.manifest -outputresource:$@;1
 
 {$(TOP)}.c.obj:
 	$(CC) -c $(WFLAGS) $(CFLAGS) $<
-
-gzclose2.obj: gzclose.c
-	$(CC) -c $(WFLAGS) $(CFLAGS) -DWITH_GZFILEOP -Fogzclose2.obj gzclose.c
 
 gzlib2.obj: gzlib.c
 	$(CC) -c $(WFLAGS) $(CFLAGS) -DWITH_GZFILEOP -Fogzlib2.obj gzlib.c
@@ -162,14 +167,14 @@ SRCDIR = $(TOP)
 # Keep the dependences in sync with top-level Makefile.in
 adler32.obj: $(SRCDIR)/adler32.c $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h $(SRCDIR)/functable.h $(SRCDIR)/adler32_p.h
 functable.obj: $(SRCDIR)/functable.c $(SRCDIR)/zbuild.h $(SRCDIR)/functable.h $(SRCDIR)/deflate.h $(SRCDIR)/deflate_p.h $(SRCDIR)/zendian.h $(SRCDIR)/arch/x86/x86.h
-gzclose.obj: $(SRCDIR)/gzclose.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h
-gzlib.obj: $(SRCDIR)/gzlib.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h
-gzread.obj: $(SRCDIR)/gzread.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h
-gzwrite.obj: $(SRCDIR)/gzwrite.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h
+gzlib.obj: $(SRCDIR)/gzlib.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h $(SRCDIR)/zutil_p.h
+gzread.obj: $(SRCDIR)/gzread.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h $(SRCDIR)/zutil_p.h
+gzwrite.obj: $(SRCDIR)/gzwrite.c $(SRCDIR)/zbuild.h $(SRCDIR)/gzguts.h $(SRCDIR)/zutil_p.h
 compress.obj: $(SRCDIR)/compress.c $(SRCDIR)/zbuild.h $(SRCDIR)/zlib$(SUFFIX).h
 uncompr.obj: $(SRCDIR)/uncompr.c $(SRCDIR)/zbuild.h $(SRCDIR)/zlib$(SUFFIX).h
 chunkset.obj: $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h
 crc32.obj: $(SRCDIR)/crc32.c $(SRCDIR)/zbuild.h $(SRCDIR)/zendian.h $(SRCDIR)/deflate.h $(SRCDIR)/functable.h $(SRCDIR)/crc32_tbl.h
+crc32_comb.obj: $(SRCDIR)/crc32_comb.c $(SRCDIR)/zbuild.h $(SRCDIR)/deflate.h $(SRCDIR)/crc32_comb_tbl.h
 deflate.obj: $(SRCDIR)/deflate.c $(SRCDIR)/zbuild.h $(SRCDIR)/deflate.h $(SRCDIR)/deflate_p.h $(SRCDIR)/functable.h
 deflate_fast.obj: $(SRCDIR)/deflate_fast.c $(SRCDIR)/zbuild.h $(SRCDIR)/deflate.h $(SRCDIR)/deflate_p.h $(SRCDIR)/functable.h
 deflate_medium.obj: $(SRCDIR)/deflate_medium.c $(SRCDIR)/zbuild.h $(SRCDIR)/deflate.h $(SRCDIR)/deflate_p.h $(SRCDIR)/functable.h
@@ -180,7 +185,7 @@ inffast.obj: $(SRCDIR)/inffast.c $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h $(SRCDIR)/
 inflate.obj: $(SRCDIR)/inflate.c $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h $(SRCDIR)/inftrees.h $(SRCDIR)/inflate.h $(SRCDIR)/inffast.h $(SRCDIR)/functable.h $(SRCDIR)/functable.h
 inftrees.obj: $(SRCDIR)/inftrees.c $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h $(SRCDIR)/inftrees.h
 trees.obj: $(SRCDIR)/zbuild.h $(SRCDIR)/deflate.h $(SRCDIR)/trees_tbl.h
-zutil.obj: $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h $(SRCDIR)/gzguts.h
+zutil.obj: $(SRCDIR)/zbuild.h $(SRCDIR)/zutil.h $(SRCDIR)/zutil_p.h
 
 example.obj: $(TOP)/test/example.c $(TOP)/zbuild.h $(TOP)/zlib$(SUFFIX).h
 

@@ -15,6 +15,7 @@ print <<EOF
  */
 
 #include "aom/aom_integer.h"
+#include "aom_dsp/odintrin.h"
 #include "aom_dsp/txfm_common.h"
 #include "av1/common/common.h"
 #include "av1/common/enums.h"
@@ -22,7 +23,6 @@ print <<EOF
 #include "av1/common/filter.h"
 #include "av1/common/convolve.h"
 #include "av1/common/av1_txfm.h"
-#include "av1/common/odintrin.h"
 #include "av1/common/restoration.h"
 
 struct macroblockd;
@@ -103,15 +103,15 @@ specialize qw/av1_wiener_convolve_add_src sse2 avx2 neon/;
 
 # directional intra predictor functions
 add_proto qw/void av1_dr_prediction_z1/, "uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int dx, int dy";
-specialize qw/av1_dr_prediction_z1 avx2/;
+specialize qw/av1_dr_prediction_z1 avx2 neon/;
 add_proto qw/void av1_dr_prediction_z2/, "uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int upsample_left, int dx, int dy";
-specialize qw/av1_dr_prediction_z2 avx2/;
+specialize qw/av1_dr_prediction_z2 avx2 neon/;
 add_proto qw/void av1_dr_prediction_z3/, "uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_left, int dx, int dy";
-specialize qw/av1_dr_prediction_z3 avx2/;
+specialize qw/av1_dr_prediction_z3 avx2 neon/;
 
 # FILTER_INTRA predictor functions
 add_proto qw/void av1_filter_intra_predictor/, "uint8_t *dst, ptrdiff_t stride, TX_SIZE tx_size, const uint8_t *above, const uint8_t *left, int mode";
-specialize qw/av1_filter_intra_predictor sse4_1/;
+specialize qw/av1_filter_intra_predictor sse4_1 neon/;
 
 # High bitdepth functions
 
@@ -136,23 +136,85 @@ add_proto qw/void av1_inv_txfm_add/, "const tran_low_t *dqcoeff, uint8_t *dst, i
 specialize qw/av1_inv_txfm_add ssse3 avx2 neon/;
 
 add_proto qw/void av1_highbd_inv_txfm_add/, "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add sse4_1 avx2/;
+specialize qw/av1_highbd_inv_txfm_add sse4_1 avx2 neon/;
 
 add_proto qw/void av1_highbd_inv_txfm_add_4x4/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add_4x4 sse4_1/;
+specialize qw/av1_highbd_inv_txfm_add_4x4 sse4_1 neon/;
 add_proto qw/void av1_highbd_inv_txfm_add_8x8/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add_8x8 sse4_1/;
+specialize qw/av1_highbd_inv_txfm_add_8x8 sse4_1 neon/;
 add_proto qw/void av1_highbd_inv_txfm_add_4x8/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add_4x8 sse4_1/;
+specialize qw/av1_highbd_inv_txfm_add_4x8 sse4_1 neon/;
 add_proto qw/void av1_highbd_inv_txfm_add_8x4/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add_8x4 sse4_1/;
+specialize qw/av1_highbd_inv_txfm_add_8x4 sse4_1 neon/;
 add_proto qw/void av1_highbd_inv_txfm_add_4x16/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add_4x16 sse4_1/;
+specialize qw/av1_highbd_inv_txfm_add_4x16 sse4_1 neon/;
 add_proto qw/void av1_highbd_inv_txfm_add_16x4/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
-specialize qw/av1_highbd_inv_txfm_add_16x4 sse4_1/;
+specialize qw/av1_highbd_inv_txfm_add_16x4 sse4_1 neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_8x16/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_8x16  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_16x8/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_16x8  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_16x32/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_16x32  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_32x16/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_32x16  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_32x32/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_32x32  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_32x64/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_32x64  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_64x32/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_64x32  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_64x64/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_64x64  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_8x32/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_32x32  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_32x8/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_32x64  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_16x64/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_64x32  neon/;
+add_proto qw/void av1_highbd_inv_txfm_add_64x16/,  "const tran_low_t *input, uint8_t *dest, int stride, const TxfmParam *txfm_param";
+specialize qw/av1_highbd_inv_txfm_add_64x64  neon/;
+
+add_proto qw/void av1_inv_txfm2d_add_4x4/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_4x4 neon/;
+add_proto qw/void av1_inv_txfm2d_add_8x8/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_8x8 neon/;
+add_proto qw/void av1_inv_txfm2d_add_4x8/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_4x8 neon/;
+add_proto qw/void av1_inv_txfm2d_add_8x4/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_8x4 neon/;
+add_proto qw/void av1_inv_txfm2d_add_4x16/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_4x16 neon/;
+add_proto qw/void av1_inv_txfm2d_add_16x4/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_16x4 neon/;
+add_proto qw/void av1_inv_txfm2d_add_8x16/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_8x16  neon/;
+add_proto qw/void av1_inv_txfm2d_add_16x8/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_16x8  neon/;
+add_proto qw/void av1_inv_txfm2d_add_16x32/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_16x32  neon/;
+add_proto qw/void av1_inv_txfm2d_add_32x16/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_32x16  neon/;
+add_proto qw/void av1_inv_txfm2d_add_32x32/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_32x32  neon/;
+add_proto qw/void av1_inv_txfm2d_add_32x64/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_32x64  neon/;
+add_proto qw/void av1_inv_txfm2d_add_64x32/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_64x32  neon/;
+add_proto qw/void av1_inv_txfm2d_add_64x64/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_64x64  neon/;
+add_proto qw/void av1_inv_txfm2d_add_8x32/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_8x32  neon/;
+add_proto qw/void av1_inv_txfm2d_add_32x8/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_32x8  neon/;
+add_proto qw/void av1_inv_txfm2d_add_16x64/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_16x64  neon/;
+add_proto qw/void av1_inv_txfm2d_add_64x16/,  "const tran_low_t *input, uint8_t *dest, int stride, TX_TYPE tx_type, const int bd";
+specialize qw/av1_inv_txfm2d_add_64x16  neon/;
 
 add_proto qw/void av1_highbd_iwht4x4_1_add/, "const tran_low_t *input, uint8_t *dest, int dest_stride, int bd";
 add_proto qw/void av1_highbd_iwht4x4_16_add/, "const tran_low_t *input, uint8_t *dest, int dest_stride, int bd";
+specialize qw/av1_highbd_iwht4x4_16_add  sse4_1/;
 
 add_proto qw/void av1_inv_txfm2d_add_4x8/, "const int32_t *input, uint16_t *output, int stride, TX_TYPE tx_type, int bd";
 add_proto qw/void av1_inv_txfm2d_add_8x4/, "const int32_t *input, uint16_t *output, int stride, TX_TYPE tx_type, int bd";
@@ -183,6 +245,7 @@ if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
   add_proto qw/void av1_highbd_dr_prediction_z1/, "uint16_t *dst, ptrdiff_t stride, int bw, int bh, const uint16_t *above, const uint16_t *left, int upsample_above, int dx, int dy, int bd";
   specialize qw/av1_highbd_dr_prediction_z1 avx2/;
   add_proto qw/void av1_highbd_dr_prediction_z2/, "uint16_t *dst, ptrdiff_t stride, int bw, int bh, const uint16_t *above, const uint16_t *left, int upsample_above, int upsample_left, int dx, int dy, int bd";
+
   specialize qw/av1_highbd_dr_prediction_z2 avx2/;
   add_proto qw/void av1_highbd_dr_prediction_z3/, "uint16_t *dst, ptrdiff_t stride, int bw, int bh, const uint16_t *above, const uint16_t *left, int upsample_left, int dx, int dy, int bd";
   specialize qw/av1_highbd_dr_prediction_z3 avx2/;
@@ -202,12 +265,59 @@ specialize qw/av1_build_compound_diffwtd_mask_d16 sse4_1 avx2 neon/;
 add_proto qw/void av1_round_shift_array/, "int32_t *arr, int size, int bit";
 specialize "av1_round_shift_array", qw/sse4_1 neon/;
 
+# Resize functions.
+add_proto qw/void av1_resize_and_extend_frame/, "const YV12_BUFFER_CONFIG *src, YV12_BUFFER_CONFIG *dst, const InterpFilter filter, const int phase, const int num_planes";
+specialize qw/av1_resize_and_extend_frame ssse3 neon/;
+
 #
 # Encoder functions below this point.
 #
 if (aom_config("CONFIG_AV1_ENCODER") eq "yes") {
 
   # ENCODEMB INVOKE
+  add_proto qw/void aom_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                          const MV *const mv, uint8_t *comp_pred, int width, int height, int subpel_x_q3,
+                                          int subpel_y_q3, const uint8_t *ref, int ref_stride, int subpel_search";
+  specialize qw/aom_upsampled_pred sse2/;
+  #
+  #
+  #
+  add_proto qw/void aom_comp_avg_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                                   const MV *const mv, uint8_t *comp_pred, const uint8_t *pred, int width,
+                                                   int height, int subpel_x_q3, int subpel_y_q3, const uint8_t *ref,
+                                                   int ref_stride, int subpel_search";
+  specialize qw/aom_comp_avg_upsampled_pred sse2/;
+
+  add_proto qw/void aom_dist_wtd_comp_avg_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                                       const MV *const mv, uint8_t *comp_pred, const uint8_t *pred, int width,
+                                                       int height, int subpel_x_q3, int subpel_y_q3, const uint8_t *ref,
+                                                       int ref_stride, const DIST_WTD_COMP_PARAMS *jcp_param, int subpel_search";
+  specialize qw/aom_dist_wtd_comp_avg_upsampled_pred ssse3/;
+
+  add_proto qw/void aom_comp_mask_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                                       const MV *const mv, uint8_t *comp_pred, const uint8_t *pred, int width,
+                                                       int height, int subpel_x_q3, int subpel_y_q3, const uint8_t *ref,
+                                                       int ref_stride, const uint8_t *mask, int mask_stride, int invert_mask,
+                                                       int subpel_search";
+  specialize qw/aom_comp_mask_upsampled_pred sse2/;
+
+  if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
+    add_proto qw/void aom_highbd_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                                   const MV *const mv, uint8_t *comp_pred8, int width, int height, int subpel_x_q3,
+                                                   int subpel_y_q3, const uint8_t *ref8, int ref_stride, int bd, int subpel_search";
+    specialize qw/aom_highbd_upsampled_pred sse2/;
+
+    add_proto qw/void aom_highbd_comp_avg_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                                            const MV *const mv, uint8_t *comp_pred8, const uint8_t *pred8, int width,
+                                                            int height, int subpel_x_q3, int subpel_y_q3, const uint8_t *ref8, int ref_stride, int bd, int subpel_search";
+    specialize qw/aom_highbd_comp_avg_upsampled_pred sse2/;
+
+    add_proto qw/void aom_highbd_dist_wtd_comp_avg_upsampled_pred/, "MACROBLOCKD *xd, const struct AV1Common *const cm, int mi_row, int mi_col,
+                                                                const MV *const mv, uint8_t *comp_pred8, const uint8_t *pred8, int width,
+                                                                int height, int subpel_x_q3, int subpel_y_q3, const uint8_t *ref8,
+                                                                int ref_stride, int bd, const DIST_WTD_COMP_PARAMS *jcp_param, int subpel_search";
+    specialize qw/aom_highbd_dist_wtd_comp_avg_upsampled_pred sse2/;
+  }
 
   # the transform coefficients are held in 32-bit
   # values, so the assembler code for  av1_block_error can no longer be used.
@@ -220,79 +330,89 @@ if (aom_config("CONFIG_AV1_ENCODER") eq "yes") {
   add_proto qw/void av1_quantize_fp/, "const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan";
   specialize qw/av1_quantize_fp sse2 avx2 neon/;
 
-  add_proto qw/void av1_quantize_lp/, "const int16_t *coeff_ptr, intptr_t n_coeffs, const int16_t *round_ptr, const int16_t *quant_ptr, int16_t *qcoeff_ptr, int16_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan";
+  add_proto qw/void av1_quantize_lp/, "const int16_t *coeff_ptr, intptr_t n_coeffs, const int16_t *round_ptr, const int16_t *quant_ptr, int16_t *qcoeff_ptr, int16_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan";
   specialize qw/av1_quantize_lp avx2 neon/;
 
-
   add_proto qw/void av1_quantize_fp_32x32/, "const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan";
-  specialize qw/av1_quantize_fp_32x32 avx2/;
+  specialize qw/av1_quantize_fp_32x32 neon avx2/;
 
   add_proto qw/void av1_quantize_fp_64x64/, "const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan";
-  specialize qw/av1_quantize_fp_64x64 avx2/;
+  specialize qw/av1_quantize_fp_64x64 neon avx2/;
+
+  add_proto qw/void aom_quantize_b_helper/, "const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const qm_val_t *qm_ptr, const qm_val_t *iqm_ptr, const int log_scale";
+  specialize qw/aom_quantize_b_helper neon/;
 
   # fdct functions
 
   add_proto qw/void av1_fwht4x4/, "const int16_t *input, tran_low_t *output, int stride";
+  specialize qw/av1_fwht4x4 sse4_1 neon/;
 
   #fwd txfm
   add_proto qw/void av1_lowbd_fwd_txfm/, "const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param";
-  specialize qw/av1_lowbd_fwd_txfm sse2 sse4_1 avx2/;
+  specialize qw/av1_lowbd_fwd_txfm sse2 sse4_1 avx2 neon/;
 
   add_proto qw/void av1_fwd_txfm2d_4x8/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_4x8 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_4x8 sse4_1 neon/;
   add_proto qw/void av1_fwd_txfm2d_8x4/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_8x4 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_8x4 sse4_1 neon/;
   add_proto qw/void av1_fwd_txfm2d_8x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_8x16 sse4_1 avx2/;
+  specialize qw/av1_fwd_txfm2d_8x16 sse4_1 avx2 neon/;
   add_proto qw/void av1_fwd_txfm2d_16x8/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_16x8 sse4_1 avx2/;
+  specialize qw/av1_fwd_txfm2d_16x8 sse4_1 avx2 neon/;
   add_proto qw/void av1_fwd_txfm2d_16x32/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_16x32 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_16x32 sse4_1 neon/;
   add_proto qw/void av1_fwd_txfm2d_32x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_32x16 sse4_1/;
-  add_proto qw/void av1_fwd_txfm2d_4x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_4x16 sse4_1/;
-  add_proto qw/void av1_fwd_txfm2d_16x4/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_16x4 sse4_1/;
-  add_proto qw/void av1_fwd_txfm2d_8x32/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_8x32 sse4_1/;
-  add_proto qw/void av1_fwd_txfm2d_32x8/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_32x8 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_32x16 sse4_1 neon/;
+
   add_proto qw/void av1_fwd_txfm2d_4x4/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_4x4 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_4x4 sse4_1 neon/;
   add_proto qw/void av1_fwd_txfm2d_8x8/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_8x8 sse4_1 avx2/;
+  specialize qw/av1_fwd_txfm2d_8x8 sse4_1 avx2 neon/;
   add_proto qw/void av1_fwd_txfm2d_16x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_16x16 sse4_1 avx2/;
+  specialize qw/av1_fwd_txfm2d_16x16 sse4_1 avx2 neon/;
   add_proto qw/void av1_fwd_txfm2d_32x32/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_32x32 sse4_1 avx2/;
+  specialize qw/av1_fwd_txfm2d_32x32 sse4_1 avx2 neon/;
 
   add_proto qw/void av1_fwd_txfm2d_64x64/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_64x64 sse4_1 avx2/;
+  specialize qw/av1_fwd_txfm2d_64x64 sse4_1 avx2 neon/;
   add_proto qw/void av1_fwd_txfm2d_32x64/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_32x64 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_32x64 sse4_1 neon/;
   add_proto qw/void av1_fwd_txfm2d_64x32/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_64x32 sse4_1/;
-  add_proto qw/void av1_fwd_txfm2d_16x64/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_16x64 sse4_1/;
-  add_proto qw/void av1_fwd_txfm2d_64x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
-  specialize qw/av1_fwd_txfm2d_64x16 sse4_1/;
+  specialize qw/av1_fwd_txfm2d_64x32 sse4_1 neon/;
+  add_proto qw/void av1_fwd_txfm2d_16x4/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
+  specialize qw/av1_fwd_txfm2d_16x4 sse4_1 neon/;
 
+  if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
+    add_proto qw/void av1_fwd_txfm2d_4x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
+    specialize qw/av1_fwd_txfm2d_4x16 sse4_1 neon/;
+    add_proto qw/void av1_fwd_txfm2d_8x32/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
+    specialize qw/av1_fwd_txfm2d_8x32 sse4_1 neon/;
+    add_proto qw/void av1_fwd_txfm2d_32x8/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
+    specialize qw/av1_fwd_txfm2d_32x8 sse4_1 neon/;
+    add_proto qw/void av1_fwd_txfm2d_16x64/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
+    specialize qw/av1_fwd_txfm2d_16x64 sse4_1 neon/;
+    add_proto qw/void av1_fwd_txfm2d_64x16/, "const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd";
+    specialize qw/av1_fwd_txfm2d_64x16 sse4_1 neon/;
+  }
   #
   # Motion search
   #
-  add_proto qw/int av1_full_range_search/, "const struct macroblock *x, const struct search_site_config *cfg, MV *ref_mv, MV *best_mv, int search_param, int sad_per_bit, int *num00, const struct aom_variance_vtable *fn_ptr, const MV *center_mv";
-
   if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
-    add_proto qw/void av1_apply_temporal_filter_yuv/, "const struct yv12_buffer_config *ref_frame, const struct macroblockd *mbd, const BLOCK_SIZE block_size, const int mb_row, const int mb_col, const int num_planes, const int strength, const int use_subblock, const int *subblock_filter_weights, const uint8_t *pred, uint32_t *accum, uint16_t *count";
-    specialize qw/av1_apply_temporal_filter_yuv sse4_1/;
+    add_proto qw/void av1_apply_temporal_filter/, "const struct yv12_buffer_config *ref_frame, const struct macroblockd *mbd, const BLOCK_SIZE block_size, const int mb_row, const int mb_col, const int num_planes, const double *noise_levels, const MV *subblock_mvs, const int *subblock_mses, const int q_factor, const int filter_strength, const uint8_t *pred, uint32_t *accum, uint16_t *count";
+    specialize qw/av1_apply_temporal_filter sse2 avx2/;
+    if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
+    add_proto qw/void av1_highbd_apply_temporal_filter/, "const struct yv12_buffer_config *ref_frame, const struct macroblockd *mbd, const BLOCK_SIZE block_size, const int mb_row, const int mb_col, const int num_planes, const double *noise_levels, const MV *subblock_mvs, const int *subblock_mses, const int q_factor, const int filter_strength, const uint8_t *pred, uint32_t *accum, uint16_t *count";
+    specialize qw/av1_highbd_apply_temporal_filter sse2 avx2/;
   }
-
-  if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
-    add_proto qw/void av1_apply_temporal_filter_planewise/, "const struct yv12_buffer_config *ref_frame, const struct macroblockd *mbd, const BLOCK_SIZE block_size, const int mb_row, const int mb_col, const int num_planes, const double *noise_levels, const int use_subblock, const int block_mse, const int *subblock_mses, const int q_factor, const uint8_t *pred, uint32_t *accum, uint16_t *count";
-    specialize qw/av1_apply_temporal_filter_planewise sse2 avx2/;
   }
   add_proto qw/void av1_quantize_b/, "const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const qm_val_t * qm_ptr, const qm_val_t * iqm_ptr, int log_scale";
+
+add_proto qw/void av1_calc_indices_dim1/, "const int *data, const int *centroids, uint8_t *indices, int n, int k";
+  specialize qw/av1_calc_indices_dim1 sse2 avx2/;
+
+# TODO(any): Disable av1_calc_indices_dim2 sse2 version due to c/SIMD mismatch. Re-enable it after mismatch is fixed.
+add_proto qw/void av1_calc_indices_dim2/, "const int *data, const int *centroids, uint8_t *indices, int n, int k";
+  specialize qw/av1_calc_indices_dim2 avx2/;
 
   # ENCODEMB INVOKE
   if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
@@ -306,14 +426,15 @@ if (aom_config("CONFIG_AV1_ENCODER") eq "yes") {
   }
 
   add_proto qw/void av1_highbd_fwht4x4/, "const int16_t *input, tran_low_t *output, int stride";
+  specialize qw/av1_highbd_fwht4x4 sse4_1 neon/;
 
   # End av1_high encoder functions
 
   # txb
   add_proto qw/void av1_get_nz_map_contexts/, "const uint8_t *const levels, const int16_t *const scan, const uint16_t eob, const TX_SIZE tx_size, const TX_CLASS tx_class, int8_t *const coeff_contexts";
-  specialize qw/av1_get_nz_map_contexts sse2/;
+  specialize qw/av1_get_nz_map_contexts sse2 neon/;
   add_proto qw/void av1_txb_init_levels/, "const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels";
-  specialize qw/av1_txb_init_levels sse4_1 avx2/;
+  specialize qw/av1_txb_init_levels sse4_1 avx2 neon/;
 
   add_proto qw/uint64_t av1_wedge_sse_from_residuals/, "const int16_t *r1, const int16_t *d, const uint8_t *m, int N";
   specialize qw/av1_wedge_sse_from_residuals sse2 avx2/;
@@ -326,40 +447,60 @@ if (aom_config("CONFIG_AV1_ENCODER") eq "yes") {
   add_proto qw/uint32_t av1_get_crc32c_value/, "void *crc_calculator, uint8_t *p, size_t length";
   specialize qw/av1_get_crc32c_value sse4_2/;
 
-  add_proto qw/void av1_compute_stats/,  "int wiener_win, const uint8_t *dgd8, const uint8_t *src8, int h_start, int h_end, int v_start, int v_end, int dgd_stride, int src_stride, int64_t *M, int64_t *H";
-  specialize qw/av1_compute_stats sse4_1 avx2/;
+  if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
+    add_proto qw/void av1_compute_stats/,  "int wiener_win, const uint8_t *dgd8, const uint8_t *src8, int h_start, int h_end, int v_start, int v_end, int dgd_stride, int src_stride, int64_t *M, int64_t *H";
+    # TODO(any): Both sse4_1 and avx2 version cause slight c/SIMD mismatch. Need to check if it can be fixed. Original commit 9042a3cd777a69d8bff9d142df46ed8d2647d7a8
+    if (aom_config("CONFIG_EXCLUDE_SIMD_MISMATCH") ne "yes") {
+      specialize qw/av1_compute_stats sse4_1 avx2/;
+    }
+    add_proto qw/void av1_calc_proj_params/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int64_t H[2][2], int64_t C[2], const sgr_params_type *params";
+    specialize qw/av1_calc_proj_params sse4_1 avx2/;
+    add_proto qw/int64_t av1_lowbd_pixel_proj_error/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int xq[2], const sgr_params_type *params";
+    specialize qw/av1_lowbd_pixel_proj_error sse4_1 avx2 neon/;
 
-  if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
-    add_proto qw/void av1_compute_stats_highbd/,  "int wiener_win, const uint8_t *dgd8, const uint8_t *src8, int h_start, int h_end, int v_start, int v_end, int dgd_stride, int src_stride, int64_t *M, int64_t *H, aom_bit_depth_t bit_depth";
-    specialize qw/av1_compute_stats_highbd sse4_1 avx2/;
+    if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
+      add_proto qw/void av1_calc_proj_params_high_bd/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int64_t H[2][2], int64_t C[2], const sgr_params_type *params";
+      specialize qw/av1_calc_proj_params_high_bd sse4_1 avx2/;
+      add_proto qw/int64_t av1_highbd_pixel_proj_error/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int xq[2], const sgr_params_type *params";
+      specialize qw/av1_highbd_pixel_proj_error sse4_1 avx2/;
+      # TODO(any): av1_compute_stats SIMD version causes mismatch. Need to check HBD version as well.
+      add_proto qw/void av1_compute_stats_highbd/,  "int wiener_win, const uint8_t *dgd8, const uint8_t *src8, int h_start, int h_end, int v_start, int v_end, int dgd_stride, int src_stride, int64_t *M, int64_t *H, aom_bit_depth_t bit_depth";
+      specialize qw/av1_compute_stats_highbd sse4_1 avx2/;
+    }
   }
 
-  add_proto qw/void av1_calc_proj_params/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int64_t H[2][2], int64_t C[2], const sgr_params_type *params";
-  specialize qw/av1_calc_proj_params avx2/;
-
-  add_proto qw/int64_t av1_lowbd_pixel_proj_error/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int xq[2], const sgr_params_type *params";
-  specialize qw/av1_lowbd_pixel_proj_error sse4_1 avx2/;
-
-  if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
-    add_proto qw/int64_t av1_highbd_pixel_proj_error/, " const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int xq[2], const sgr_params_type *params";
-    specialize qw/av1_highbd_pixel_proj_error sse4_1 avx2/;
-  }
   add_proto qw/void av1_get_horver_correlation_full/, " const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr";
-  specialize qw/av1_get_horver_correlation_full sse4_1 avx2/;
+  specialize qw/av1_get_horver_correlation_full sse4_1 avx2 neon/;
 
   add_proto qw/void av1_nn_predict/, " const float *input_nodes, const NN_CONFIG *const nn_config, int reduce_prec, float *const output";
-  specialize qw/av1_nn_predict sse3/;
+
+  add_proto qw/void av1_nn_fast_softmax_16/, " const float *input_nodes, float *output";
+  if (aom_config("CONFIG_EXCLUDE_SIMD_MISMATCH") ne "yes") {
+    specialize qw/av1_nn_predict sse3 neon/;
+    specialize qw/av1_nn_fast_softmax_16 sse3/;
+  }
+
+  # CNN functions
+  if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
+    add_proto qw/void av1_cnn_activate/, " float **input, int channels, int width, int height, int stride, ACTIVATION layer_activation";
+    add_proto qw/void av1_cnn_add/, " float **input, int channels, int width, int height, int stride, const float **add";
+    add_proto qw/void av1_cnn_predict/, " const float **input, int in_width, int in_height, int in_stride, const CNN_CONFIG *cnn_config, const CNN_THREAD_DATA *thread_data, CNN_MULTI_OUT *output_struct";
+    add_proto qw/void av1_cnn_convolve_no_maxpool_padding_valid/, " const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride, int start_idx, int cstep, int channel_step";
+    if (aom_config("CONFIG_EXCLUDE_SIMD_MISMATCH") ne "yes") {
+      specialize qw/av1_cnn_convolve_no_maxpool_padding_valid avx2/;
+    }
+    add_proto qw/void av1_cnn_deconvolve/, " const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride";
+    add_proto qw/void av1_cnn_batchnorm/, "float **image, int channels, int width, int height, int stride, const float *gamma, const float *beta, const float *mean, const float *std";
+  }
+
+  # Temporal Denoiser
+  if (aom_config("CONFIG_AV1_TEMPORAL_DENOISING") eq "yes") {
+    add_proto qw/int av1_denoiser_filter/, "const uint8_t *sig, int sig_stride, const uint8_t *mc_avg, int mc_avg_stride, uint8_t *avg, int avg_stride, int increase_denoising, BLOCK_SIZE bs, int motion_magnitude";
+    specialize qw/av1_denoiser_filter neon sse2/;
+  }
 }
 # end encoder functions
 
-# CNN functions
-
-add_proto qw/void av1_cnn_activate/, " float **input, int channels, int width, int height, int stride, ACTIVATION layer_activation";
-add_proto qw/void av1_cnn_add/, " float **input, int channels, int width, int height, int stride, const float **add";
-add_proto qw/void av1_cnn_predict/, " const float **input, int in_width, int in_height, int in_stride, const CNN_CONFIG *cnn_config, const CNN_THREAD_DATA *thread_data, CNN_MULTI_OUT *output_struct";
-add_proto qw/void av1_cnn_convolve/, " const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride, int start_idx, int step";
-add_proto qw/void av1_cnn_deconvolve/, " const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride";
-add_proto qw/void av1_cnn_batchnorm/, "float **image, int channels, int width, int height, int stride, const float *gamma, const float *beta, const float *mean, const float *std";
 
 # Deringing Functions
 
@@ -380,17 +521,18 @@ if ($opts{config} !~ /libs-x86-win32-vs.*/) {
 }
 
 # WARPED_MOTION / GLOBAL_MOTION functions
-
-add_proto qw/void av1_warp_affine/, "const int32_t *mat, const uint8_t *ref, int width, int height, int stride, uint8_t *pred, int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams *conv_params, int16_t alpha, int16_t beta, int16_t gamma, int16_t delta";
-specialize qw/av1_warp_affine sse4_1 avx2 neon/;
-
-if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
+if (aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes" && aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
   add_proto qw/void av1_highbd_warp_affine/, "const int32_t *mat, const uint16_t *ref, int width, int height, int stride, uint16_t *pred, int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y, int bd, ConvolveParams *conv_params, int16_t alpha, int16_t beta, int16_t gamma, int16_t delta";
-  specialize qw/av1_highbd_warp_affine sse4_1/;
+  specialize qw/av1_highbd_warp_affine sse4_1 avx2/;
 }
 
-add_proto qw/int64_t av1_calc_frame_error/, "const uint8_t *const ref, int stride, const uint8_t *const dst, int p_width, int p_height, int p_stride";
-specialize qw/av1_calc_frame_error sse2 avx2/;
+if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
+  add_proto qw/void av1_warp_affine/, "const int32_t *mat, const uint8_t *ref, int width, int height, int stride, uint8_t *pred, int p_col, int p_row, int p_width, int p_height, int p_stride, int subsampling_x, int subsampling_y, ConvolveParams *conv_params, int16_t alpha, int16_t beta, int16_t gamma, int16_t delta";
+  specialize qw/av1_warp_affine sse4_1 avx2 neon/;
+
+  add_proto qw/int64_t av1_calc_frame_error/, "const uint8_t *const ref, int stride, const uint8_t *const dst, int p_width, int p_height, int p_stride";
+  specialize qw/av1_calc_frame_error sse2 avx2/;
+}
 
 if (aom_config("CONFIG_AV1_ENCODER") eq "yes") {
   add_proto qw/double av1_compute_cross_correlation/, "unsigned char *im1, int stride1, int x1, int y1, unsigned char *im2, int stride2, int x2, int y2";
@@ -398,41 +540,39 @@ if (aom_config("CONFIG_AV1_ENCODER") eq "yes") {
 }
 
 # LOOP_RESTORATION functions
+if (aom_config("CONFIG_REALTIME_ONLY") ne "yes") {
+  add_proto qw/void av1_apply_selfguided_restoration/, "const uint8_t *dat, int width, int height, int stride, int eps, const int *xqd, uint8_t *dst, int dst_stride, int32_t *tmpbuf, int bit_depth, int highbd";
+  specialize qw/av1_apply_selfguided_restoration sse4_1 avx2 neon/;
 
-add_proto qw/void av1_apply_selfguided_restoration/, "const uint8_t *dat, int width, int height, int stride, int eps, const int *xqd, uint8_t *dst, int dst_stride, int32_t *tmpbuf, int bit_depth, int highbd";
-specialize qw/av1_apply_selfguided_restoration sse4_1 avx2 neon/;
-
-add_proto qw/int av1_selfguided_restoration/, "const uint8_t *dgd8, int width, int height,
-                                 int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
-                                 int sgr_params_idx, int bit_depth, int highbd";
-specialize qw/av1_selfguided_restoration sse4_1 avx2 neon/;
+  add_proto qw/int av1_selfguided_restoration/, "const uint8_t *dgd8, int width, int height,
+                                  int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
+                                  int sgr_params_idx, int bit_depth, int highbd";
+  specialize qw/av1_selfguided_restoration sse4_1 avx2 neon/;
+}
 
 # CONVOLVE_ROUND/COMPOUND_ROUND functions
 
 add_proto qw/void av1_convolve_2d_sr/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
-add_proto qw/void av1_convolve_2d_copy_sr/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
-add_proto qw/void av1_convolve_x_sr/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
-add_proto qw/void av1_convolve_y_sr/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
+add_proto qw/void av1_convolve_x_sr/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params";
+add_proto qw/void av1_convolve_y_sr/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn";
 add_proto qw/void av1_dist_wtd_convolve_2d/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
-add_proto qw/void av1_dist_wtd_convolve_2d_copy/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
-add_proto qw/void av1_dist_wtd_convolve_x/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
-add_proto qw/void av1_dist_wtd_convolve_y/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params";
+add_proto qw/void av1_dist_wtd_convolve_2d_copy/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, ConvolveParams *conv_params";
+add_proto qw/void av1_dist_wtd_convolve_x/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params";
+add_proto qw/void av1_dist_wtd_convolve_y/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn, ConvolveParams *conv_params";
 if(aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
-  add_proto qw/void av1_highbd_convolve_2d_copy_sr/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
   add_proto qw/void av1_highbd_convolve_2d_sr/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
-  add_proto qw/void av1_highbd_convolve_x_sr/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
-  add_proto qw/void av1_highbd_convolve_y_sr/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
+  add_proto qw/void av1_highbd_convolve_x_sr/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params, int bd";
+  add_proto qw/void av1_highbd_convolve_y_sr/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn, int bd";
   add_proto qw/void av1_highbd_dist_wtd_convolve_2d/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
-  add_proto qw/void av1_highbd_dist_wtd_convolve_x/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
-  add_proto qw/void av1_highbd_dist_wtd_convolve_y/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
-  add_proto qw/void av1_highbd_dist_wtd_convolve_2d_copy/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
+  add_proto qw/void av1_highbd_dist_wtd_convolve_x/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params, int bd";
+  add_proto qw/void av1_highbd_dist_wtd_convolve_y/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn, ConvolveParams *conv_params, int bd";
+  add_proto qw/void av1_highbd_dist_wtd_convolve_2d_copy/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, ConvolveParams *conv_params, int bd";
   add_proto qw/void av1_highbd_convolve_2d_scale/, "const uint16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int x_step_qn, const int subpel_y_qn, const int y_step_qn, ConvolveParams *conv_params, int bd";
 }
 
   add_proto qw/void av1_convolve_2d_scale/, "const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int x_step_qn, const int subpel_y_qn, const int y_step_qn, ConvolveParams *conv_params";
 
   specialize qw/av1_convolve_2d_sr sse2 avx2 neon/;
-  specialize qw/av1_convolve_2d_copy_sr sse2 avx2 neon/;
   specialize qw/av1_convolve_x_sr sse2 avx2 neon/;
   specialize qw/av1_convolve_y_sr sse2 avx2 neon/;
   specialize qw/av1_convolve_2d_scale sse4_1/;
@@ -445,7 +585,6 @@ if(aom_config("CONFIG_AV1_HIGHBITDEPTH") eq "yes") {
     specialize qw/av1_highbd_dist_wtd_convolve_x sse4_1 avx2/;
     specialize qw/av1_highbd_dist_wtd_convolve_y sse4_1 avx2/;
     specialize qw/av1_highbd_dist_wtd_convolve_2d_copy sse4_1 avx2/;
-    specialize qw/av1_highbd_convolve_2d_copy_sr sse2 avx2/;
     specialize qw/av1_highbd_convolve_2d_sr ssse3 avx2/;
     specialize qw/av1_highbd_convolve_x_sr ssse3 avx2/;
     specialize qw/av1_highbd_convolve_y_sr ssse3 avx2/;

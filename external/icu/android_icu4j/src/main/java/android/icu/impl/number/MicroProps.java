@@ -46,6 +46,10 @@ public class MicroProps implements Cloneable, MicroPropsGenerator {
     public Precision rounder;
     public Grouper grouping;
     public boolean useCurrency;
+    public String gender;
+
+    // Currency symbol to be used as the decimal separator
+    public String currencyAsDecimal;
 
     // Internal fields:
     private final boolean immutable;
@@ -55,9 +59,15 @@ public class MicroProps implements Cloneable, MicroPropsGenerator {
     // play.
     public MeasureUnit outputUnit;
 
-    // In the case of mixed units, this is the set of integer-only units
-    // *preceding* the final unit.
+    /**
+     * Contains all the measures.
+     */
     public List<Measure> mixedMeasures;
+
+    /**
+     * Points to quantity position, -1 if the position is not set yet.
+     */
+    public int indexOfQuantity = -1;
 
     private volatile boolean exhausted;
 

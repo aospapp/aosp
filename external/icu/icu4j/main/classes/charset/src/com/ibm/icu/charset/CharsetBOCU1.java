@@ -403,7 +403,7 @@ class CharsetBOCU1 extends CharsetICU {
                 prev = BOCU1_ASCII_PREV;
             }
 
-            /*sourceIndex ==-1 if the current characte began in the previous buffer*/
+            /*sourceIndex ==-1 if the current character began in the previous buffer*/
             sourceIndex = c == 0 ? 0: -1;
             nextSourceIndex = 0;
 
@@ -473,7 +473,7 @@ class CharsetBOCU1 extends CharsetICU {
                 if(UTF16.isTrailSurrogate(trail)){
                     source.position(source.position()+1);
                     ++nextSourceIndex;
-                    c=UCharacter.getCodePoint((char)c, trail);
+                    c=UCharacter.getCodePoint(c, trail);
                 }
             } else {
                 /*no more input*/
@@ -518,7 +518,7 @@ class CharsetBOCU1 extends CharsetICU {
                             continue;
                         }
 
-                        if(UTF16.isLeadSurrogate((char)c)){
+                        if(UTF16.isLeadSurrogate(c)){
                             getTrail(source, target, offsets);
                             if(checkNegative){
                                 break;

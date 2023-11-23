@@ -11,7 +11,6 @@ _random _randommodule.c
 _bisect _bisectmodule.c
 _heapq _heapqmodule.c
 _pickle _pickle.c
-atexit atexitmodule.c
 _json _json.c
 _lsprof _lsprof.c rotatingtree.c
 unicodedata unicodedata.c
@@ -24,7 +23,6 @@ fcntl fcntlmodule.c
 pwd pwdmodule.c
 grp grpmodule.c
 select selectmodule.c
-parser parsermodule.c
 mmap mmapmodule.c
 syslog syslogmodule.c
 _xxsubinterpreters _xxsubinterpretersmodule.c

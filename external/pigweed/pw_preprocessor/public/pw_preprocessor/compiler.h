@@ -18,6 +18,10 @@
 
 #include <assert.h>
 
+// TODO(pwbug/593): compiler.h should be refactored out of pw_preprocessor as
+// the scope is outside of the module. Perhaps it should be split up and placed
+// under pw_compiler, e.g. pw_compiler/attributes.h & pw_compiler/builtins.h.
+
 // Marks a struct or class as packed.
 #define PW_PACKED(declaration) declaration __attribute__((packed))
 
@@ -59,6 +63,13 @@
 
 #define PW_PRINTF_FORMAT(format_index, parameter_index) \
   __attribute__((format(_PW_PRINTF_FORMAT_TYPE, format_index, parameter_index)))
+
+// Places a variable in the specified linker section.
+#ifdef __APPLE__
+#define PW_PLACE_IN_SECTION(name) __attribute__((section("__DATA," name)))
+#else
+#define PW_PLACE_IN_SECTION(name) __attribute__((section(name)))
+#endif  // __APPLE__
 
 // Places a variable in the specified linker section and directs the compiler
 // to keep the variable, even if it is not used. Depending on the linker
@@ -116,7 +127,17 @@
 #define PW_HAVE_ATTRIBUTE(x) __has_attribute(x)
 #else
 #define PW_HAVE_ATTRIBUTE(x) 0
-#endif
+#endif  // __has_attribute
+
+// A function-like feature checking macro that accepts C++11 style attributes.
+// It's a wrapper around __has_cpp_attribute
+// (https://en.cppreference.com/w/cpp/feature_test), borrowed from
+// ABSL_HAVE_CPP_ATTRIBUTE. If there is no __has_cpp_attribute, evaluates to 0.
+#if defined(__cplusplus) && defined(__has_cpp_attribute)
+#define PW_HAVE_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
+#else
+#define PW_HAVE_CPP_ATTRIBUTE(x) 0
+#endif  // defined(__cplusplus) && defined(__has_cpp_attribute)
 
 #define _PW_REQUIRE_SEMICOLON \
   static_assert(1, "This macro must be terminated with a semicolon")
@@ -151,3 +172,47 @@
 // Expands to a _Pragma with the contents as a string. _Pragma must take a
 // single string literal; this can be used to construct a _Pragma argument.
 #define PW_PRAGMA(contents) _Pragma(#contents)
+
+// Marks a function or object as weak, allowing the definition to be overriden.
+//
+// This can be useful when supporting third-party SDKs which may conditionally
+// compile in code, for example:
+//
+//   PW_WEAK void SysTick_Handler(void) {
+//     // Default interrupt handler that might be overriden.
+//   }
+#define PW_WEAK __attribute__((weak))
+
+// Marks a weak function as an alias to another, allowing the definition to
+// be given a default and overriden.
+//
+// This can be useful when supporting third-party SDKs which may conditionally
+// compile in code, for example:
+//
+//   // Driver handler replaced with default unless overridden.
+//   void USART_DriverHandler(void) PW_ALIAS(DefaultDriverHandler);
+#define PW_ALIAS(aliased_to) __attribute__((weak, alias(#aliased_to)))
+
+// PW_ATTRIBUTE_LIFETIME_BOUND indicates that a resource owned by a function
+// parameter or implicit object parameter is retained by the return value of the
+// annotated function (or, for a parameter of a constructor, in the value of the
+// constructed object). This attribute causes warnings to be produced if a
+// temporary object does not live long enough.
+//
+// When applied to a reference parameter, the referenced object is assumed to be
+// retained by the return value of the function. When applied to a non-reference
+// parameter (for example, a pointer or a class type), all temporaries
+// referenced by the parameter are assumed to be retained by the return value of
+// the function.
+//
+// See also the upstream documentation:
+// https://clang.llvm.org/docs/AttributeReference.html#lifetimebound
+//
+// This is a copy of ABSL_ATTRIBUTE_LIFETIME_BOUND.
+#if PW_HAVE_CPP_ATTRIBUTE(clang::lifetimebound)
+#define PW_ATTRIBUTE_LIFETIME_BOUND [[clang::lifetimebound]]
+#elif PW_HAVE_ATTRIBUTE(lifetimebound)
+#define PW_ATTRIBUTE_LIFETIME_BOUND __attribute__((lifetimebound))
+#else
+#define PW_ATTRIBUTE_LIFETIME_BOUND
+#endif  // PW_ATTRIBUTE_LIFETIME_BOUND

@@ -34,3 +34,11 @@ java_library_host {
         "grpc-netty-shaded-1.16.1-jar",
     ],
 }
+
+java_library {
+    name: "grpc-java-netty-shaded-test",
+    static_libs: [
+        "grpc-netty-shaded-1.16.1-jar",
+    ],
+    visibility: ["//packages/modules/Bluetooth/android/blueberry/server"],
+}

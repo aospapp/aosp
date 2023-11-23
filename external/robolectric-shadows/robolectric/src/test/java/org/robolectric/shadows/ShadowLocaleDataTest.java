@@ -4,6 +4,7 @@ import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.LOLLIPOP_MR1;
 import static android.os.Build.VERSION_CODES.M;
+import static android.os.Build.VERSION_CODES.S;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Build;
@@ -19,6 +20,7 @@ import org.robolectric.util.ReflectionHelpers;
 public class ShadowLocaleDataTest {
 
   @Test
+  @Config(maxSdk = Build.VERSION_CODES.S)
   public void shouldSupportLocaleEn_US() throws Exception {
     LocaleData localeData = LocaleData.get(Locale.US);
 
@@ -40,31 +42,32 @@ public class ShadowLocaleDataTest {
     assertThat(localeData.longStandAloneWeekdayNames).isEqualTo(localeData.longWeekdayNames);
     assertThat(localeData.shortStandAloneWeekdayNames).isEqualTo(localeData.shortWeekdayNames);
 
-    assertThat(localeData.fullTimeFormat).isEqualTo("h:mm:ss a zzzz");
-    assertThat(localeData.longTimeFormat).isEqualTo("h:mm:ss a z");
-    assertThat(localeData.mediumTimeFormat).isEqualTo("h:mm:ss a");
-    assertThat(localeData.shortTimeFormat).isEqualTo("h:mm a");
+    assertThat((String) ReflectionHelpers.getField(localeData, "fullTimeFormat")).isEqualTo("h:mm:ss a zzzz");
+    assertThat((String) ReflectionHelpers.getField(localeData, "longTimeFormat")).isEqualTo("h:mm:ss a z");
+    assertThat((String) ReflectionHelpers.getField(localeData, "mediumTimeFormat")).isEqualTo("h:mm:ss a");
+    assertThat((String) ReflectionHelpers.getField(localeData, "shortTimeFormat")).isEqualTo("h:mm a");
 
-    assertThat(localeData.fullDateFormat).isEqualTo("EEEE, MMMM d, y");
-    assertThat(localeData.longDateFormat).isEqualTo("MMMM d, y");
-    assertThat(localeData.mediumDateFormat).isEqualTo("MMM d, y");
-    assertThat(localeData.shortDateFormat).isEqualTo("M/d/yy");
+    assertThat((String) ReflectionHelpers.getField(localeData, "fullDateFormat")).isEqualTo("EEEE, MMMM d, y");
+    assertThat((String) ReflectionHelpers.getField(localeData, "longDateFormat")).isEqualTo("MMMM d, y");
+    assertThat((String) ReflectionHelpers.getField(localeData, "mediumDateFormat")).isEqualTo("MMM d, y");
+    assertThat((String) ReflectionHelpers.getField(localeData, "shortDateFormat")).isEqualTo("M/d/yy");
 
-    assertThat(localeData.zeroDigit).isEqualTo('0');
-    assertThat(localeData.decimalSeparator).isEqualTo('.');
-    assertThat(localeData.groupingSeparator).isEqualTo(',');
-    assertThat(localeData.patternSeparator).isEqualTo(';');
+    assertThat((char) ReflectionHelpers.getField(localeData, "zeroDigit")).isEqualTo('0');
+    assertThat((char) ReflectionHelpers.getField(localeData, "decimalSeparator")).isEqualTo('.');
+    assertThat((char) ReflectionHelpers.getField(localeData, "groupingSeparator")).isEqualTo(',');
+    assertThat((char) ReflectionHelpers.getField(localeData, "patternSeparator")).isEqualTo(';');
 
-    assertThat(localeData.monetarySeparator).isEqualTo('.');
+    assertThat((char) ReflectionHelpers.getField(localeData, "monetarySeparator")).isEqualTo('.');
+    assertThat((char) ReflectionHelpers.getField(localeData, "perMill")).isEqualTo('‰');
 
-    assertThat(localeData.exponentSeparator).isEqualTo("E");
-    assertThat(localeData.infinity).isEqualTo("∞");
-    assertThat(localeData.NaN).isEqualTo("NaN");
+    assertThat((String) ReflectionHelpers.getField(localeData, "exponentSeparator")).isEqualTo("E");
+    assertThat((String) ReflectionHelpers.getField(localeData, "infinity")).isEqualTo("∞");
+    assertThat((String) ReflectionHelpers.getField(localeData, "NaN")).isEqualTo("NaN");
 
-    assertThat(localeData.numberPattern).isEqualTo("#,##0.###");
-    assertThat(localeData.integerPattern).isEqualTo("#,##0");
-    assertThat(localeData.currencyPattern).isEqualTo("¤#,##0.00;(¤#,##0.00)");
-    assertThat(localeData.percentPattern).isEqualTo("#,##0%");
+    assertThat((String) ReflectionHelpers.getField(localeData, "numberPattern")).isEqualTo("#,##0.###");
+    assertThat((String) ReflectionHelpers.getField(localeData, "integerPattern")).isEqualTo("#,##0");
+    assertThat((String) ReflectionHelpers.getField(localeData, "currencyPattern")).isEqualTo("¤#,##0.00;(¤#,##0.00)");
+    assertThat((String) ReflectionHelpers.getField(localeData, "percentPattern")).isEqualTo("#,##0%");
   }
 
   @Test
@@ -92,25 +95,10 @@ public class ShadowLocaleDataTest {
   }
 
   @Test
-  @Config(maxSdk = Build.VERSION_CODES.O)
-  public void shouldSupportLocaleEn_US_perMill() throws Exception {
-    LocaleData localeData = LocaleData.get(Locale.US);
-    char perMillValue = ReflectionHelpers.getField(localeData, "perMill");
-    assertThat(perMillValue).isEqualTo('‰');
-  }
-
-  @Test
-  @Config(minSdk = Build.VERSION_CODES.P)
-  public void shouldSupportLocaleEn_US_perMillPostP() throws Exception {
-    LocaleData localeData = LocaleData.get(Locale.US);
-    assertThat(localeData.perMill).isEqualTo("‰");
-  }
-
-  @Test
-  @Config(minSdk = LOLLIPOP_MR1)
+  @Config(minSdk = LOLLIPOP_MR1, maxSdk = S)
   public void shouldSupportLocaleEn_US_percentPost22() throws Exception {
     LocaleData localeData = LocaleData.get(Locale.US);
-    assertThat(localeData.percent).isEqualTo("%");
+    assertThat((String) ReflectionHelpers.getField(localeData, "percent")).isEqualTo("%");
   }
 
   @Test
@@ -137,11 +125,11 @@ public class ShadowLocaleDataTest {
   }
 
   @Test
-  @Config(minSdk = LOLLIPOP)
+  @Config(minSdk = LOLLIPOP, maxSdk = S)
   public void shouldSupportLocaleEn_US_since_lollipop() throws Exception {
     LocaleData localeData = LocaleData.get(Locale.US);
 
-    assertThat(localeData.minusSign).isEqualTo("-");
+    assertThat((String) ReflectionHelpers.getField(localeData, "minusSign")).isEqualTo("-");
   }
 
   @Test

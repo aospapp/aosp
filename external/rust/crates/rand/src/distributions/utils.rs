@@ -56,7 +56,6 @@ macro_rules! wmul_impl {
 wmul_impl! { u8, u16, 8 }
 wmul_impl! { u16, u32, 16 }
 wmul_impl! { u32, u64, 32 }
-#[cfg(not(target_os = "emscripten"))]
 wmul_impl! { u64, u128, 64 }
 
 // This code is a translation of the __mulddi3 function in LLVM's
@@ -120,9 +119,6 @@ macro_rules! wmul_impl_large {
         )+
     };
 }
-#[cfg(target_os = "emscripten")]
-wmul_impl_large! { u64, 32 }
-#[cfg(not(target_os = "emscripten"))]
 wmul_impl_large! { u128, 64 }
 
 macro_rules! wmul_impl_usize {
@@ -138,6 +134,8 @@ macro_rules! wmul_impl_usize {
         }
     };
 }
+#[cfg(target_pointer_width = "16")]
+wmul_impl_usize! { u16 }
 #[cfg(target_pointer_width = "32")]
 wmul_impl_usize! { u32 }
 #[cfg(target_pointer_width = "64")]
@@ -235,6 +233,8 @@ pub(crate) trait FloatSIMDUtils {
 
 /// Implement functions available in std builds but missing from core primitives
 #[cfg(not(std))]
+// False positive: We are following `std` here.
+#[allow(clippy::wrong_self_convention)]
 pub(crate) trait Float: Sized {
     fn is_nan(self) -> bool;
     fn is_infinite(self) -> bool;

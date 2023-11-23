@@ -14,13 +14,14 @@
 // NOLINTNEXTLINE(readability-identifier-naming)
 constexpr int PROPERTY_VALUE_MAX = 92;
 
+// NOLINTNEXTLINE(readability-identifier-naming)
 auto inline property_get(const char *name, char *value,
                          const char *default_value) -> int {
+  // NOLINTNEXTLINE (concurrency-mt-unsafe)
   char *prop = std::getenv(name);
-  if (prop == nullptr) {
-    snprintf(value, PROPERTY_VALUE_MAX, "%s", default_value);
-  }
-  return strlen(value);
+  snprintf(value, PROPERTY_VALUE_MAX, "%s",
+           (prop == nullptr) ? default_value : prop);
+  return static_cast<int>(strlen(value));
 }
 
 #endif

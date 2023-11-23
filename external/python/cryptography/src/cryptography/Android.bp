@@ -37,12 +37,12 @@ python_library {
         "hazmat/primitives/ciphers/*.py",
         "hazmat/bindings/*.py",
         "hazmat/bindings/openssl/*.py",
-	"x509/*.py",
+        "x509/*.py",
     ],
     version: {
         py2: {
-            enabled: true,
-        },
+	    enabled: true,
+	},
         py3: {
             enabled: true,
         },
@@ -50,7 +50,6 @@ python_library {
     libs: [
         "py-asn1crypto",
         "py-cffi",
-        "py-enum34",
         "py-ipaddress",
         "py-six",
     ],
@@ -63,7 +62,6 @@ python_library {
 filegroup {
     name: "py-cryptography-libs",
     srcs: [
-        "hazmat/bindings/_constant_time.so",
         "hazmat/bindings/_openssl.so",
         "hazmat/bindings/_padding.so",
     ],

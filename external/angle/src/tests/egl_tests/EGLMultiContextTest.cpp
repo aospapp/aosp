@@ -53,6 +53,56 @@ class EGLMultiContextTest : public ANGLETest
         getEGLWindow()->makeCurrent();
     }
 
+    bool chooseConfig(EGLDisplay dpy, EGLConfig *config) const
+    {
+        bool result          = false;
+        EGLint count         = 0;
+        EGLint clientVersion = EGL_OPENGL_ES3_BIT;
+        EGLint attribs[]     = {EGL_RED_SIZE,
+                            8,
+                            EGL_GREEN_SIZE,
+                            8,
+                            EGL_BLUE_SIZE,
+                            8,
+                            EGL_ALPHA_SIZE,
+                            8,
+                            EGL_RENDERABLE_TYPE,
+                            clientVersion,
+                            EGL_SURFACE_TYPE,
+                            EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+                            EGL_NONE};
+
+        result = eglChooseConfig(dpy, attribs, config, 1, &count);
+        EXPECT_EGL_TRUE(result && (count > 0));
+        return result;
+    }
+
+    bool createContext(EGLDisplay dpy, EGLConfig config, EGLContext *context)
+    {
+        bool result      = false;
+        EGLint attribs[] = {EGL_CONTEXT_MAJOR_VERSION, 3, EGL_NONE};
+
+        *context = eglCreateContext(dpy, config, nullptr, attribs);
+        result   = (*context != EGL_NO_CONTEXT);
+        EXPECT_TRUE(result);
+        return result;
+    }
+
+    bool createPbufferSurface(EGLDisplay dpy,
+                              EGLConfig config,
+                              EGLint width,
+                              EGLint height,
+                              EGLSurface *surface)
+    {
+        bool result      = false;
+        EGLint attribs[] = {EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE};
+
+        *surface = eglCreatePbufferSurface(dpy, config, attribs);
+        result   = (*surface != EGL_NO_SURFACE);
+        EXPECT_TRUE(result);
+        return result;
+    }
+
     EGLContext mContexts[2];
     GLuint mTexture;
 };
@@ -63,8 +113,8 @@ TEST_P(EGLMultiContextTest, TestContextDestroySimple)
     EGLWindow *window = getEGLWindow();
     EGLDisplay dpy    = window->getDisplay();
 
-    EGLContext context1 = window->createContext(EGL_NO_CONTEXT);
-    EGLContext context2 = window->createContext(EGL_NO_CONTEXT);
+    EGLContext context1 = window->createContext(EGL_NO_CONTEXT, nullptr);
+    EGLContext context2 = window->createContext(EGL_NO_CONTEXT, nullptr);
 
     EXPECT_EGL_TRUE(eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, context1));
     EXPECT_EGL_TRUE(eglDestroyContext(dpy, context2));
@@ -74,6 +124,47 @@ TEST_P(EGLMultiContextTest, TestContextDestroySimple)
     EXPECT_EGL_TRUE(eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
     EXPECT_EGL_TRUE(eglDestroyContext(dpy, context1));
     EXPECT_EGL_SUCCESS();
+}
+
+// Test that an error is generated when using EGL objects after calling eglTerminate.
+TEST_P(EGLMultiContextTest, NegativeTestAfterEglTerminate)
+{
+    EGLWindow *window = getEGLWindow();
+    EGLDisplay dpy    = window->getDisplay();
+
+    EGLConfig config = EGL_NO_CONFIG_KHR;
+    EXPECT_TRUE(chooseConfig(dpy, &config));
+
+    EGLContext context = EGL_NO_CONTEXT;
+    EXPECT_TRUE(createContext(dpy, config, &context));
+    ASSERT_EGL_SUCCESS() << "eglCreateContext failed.";
+
+    EGLSurface drawSurface = EGL_NO_SURFACE;
+    EXPECT_TRUE(createPbufferSurface(dpy, config, 2560, 1080, &drawSurface));
+    ASSERT_EGL_SUCCESS() << "eglCreatePbufferSurface failed.";
+
+    EGLSurface readSurface = EGL_NO_SURFACE;
+    EXPECT_TRUE(createPbufferSurface(dpy, config, 2560, 1080, &readSurface));
+    ASSERT_EGL_SUCCESS() << "eglCreatePbufferSurface failed.";
+
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, drawSurface, readSurface, context));
+    EXPECT_EGL_SUCCESS();
+
+    // Terminate the display
+    EXPECT_EGL_TRUE(eglTerminate(dpy));
+    EXPECT_EGL_SUCCESS();
+
+    // Try to use invalid handles
+    EGLint value;
+    eglQuerySurface(dpy, drawSurface, EGL_SWAP_BEHAVIOR, &value);
+    EXPECT_EGL_ERROR(EGL_BAD_SURFACE);
+    eglQuerySurface(dpy, readSurface, EGL_HEIGHT, &value);
+    EXPECT_EGL_ERROR(EGL_BAD_SURFACE);
+
+    // Cleanup
+    EXPECT_EGL_TRUE(eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+    EXPECT_EGL_SUCCESS();
+    window->destroyGL();
 }
 
 // Test that a compute shader running in one thread will still work when rendering is happening in
@@ -101,7 +192,7 @@ TEST_P(EGLMultiContextTest, ComputeShaderOkayWithRendering)
         surface[t] = eglCreatePbufferSurface(dpy, config, pbufferAttributes);
         EXPECT_EGL_SUCCESS();
 
-        ctx[t] = window->createContext(EGL_NO_CONTEXT);
+        ctx[t] = window->createContext(EGL_NO_CONTEXT, nullptr);
         EXPECT_NE(EGL_NO_CONTEXT, ctx[t]);
     }
 
@@ -236,6 +327,59 @@ void main()
     {
         eglDestroySurface(dpy, surface[t]);
         eglDestroyContext(dpy, ctx[t]);
+    }
+}
+
+// Test that repeated EGL init + terminate with improper cleanup doesn't cause an OOM crash.
+// To reproduce the OOM error -
+//     1. Increase the loop count to a large number
+//     2. Run the test without the rest of the code in change 3329273
+TEST_P(EGLMultiContextTest, RepeatedEglInitAndTerminate)
+{
+    // GL and GLES drivers don't seem to perform appropriate cleanup
+    // SwiftShader fails with "Extension not supported" error on the bots
+    ANGLE_SKIP_TEST_IF(!IsVulkan() || isSwiftshader());
+
+    // Release all resources in parent thread
+    getEGLWindow()->destroyGL();
+
+    EGLDisplay dpy;
+    EGLSurface srf;
+    EGLContext ctx;
+    EGLint dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, GetParam().getRenderer(), EGL_NONE};
+
+    for (int i = 0; i < 100; i++)
+    {
+        std::thread thread = std::thread([&]() {
+            dpy = eglGetPlatformDisplayEXT(
+                EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
+            EXPECT_TRUE(dpy != EGL_NO_DISPLAY);
+            EXPECT_EGL_TRUE(eglInitialize(dpy, nullptr, nullptr));
+
+            EGLConfig config = EGL_NO_CONFIG_KHR;
+            EXPECT_TRUE(chooseConfig(dpy, &config));
+
+            EXPECT_TRUE(createPbufferSurface(dpy, config, 2560, 1080, &srf));
+            ASSERT_EGL_SUCCESS() << "eglCreatePbufferSurface failed.";
+
+            EXPECT_TRUE(createContext(dpy, config, &ctx));
+            EXPECT_EGL_TRUE(eglMakeCurrent(dpy, srf, srf, ctx));
+
+            // Clear and read back to make sure thread uses context.
+            glClearColor(1.0, 0.0, 0.0, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT);
+            EXPECT_PIXEL_EQ(0, 0, 255, 0, 0, 255);
+
+            eglTerminate(dpy);
+            EXPECT_EGL_SUCCESS();
+            eglReleaseThread();
+            EXPECT_EGL_SUCCESS();
+            dpy = EGL_NO_DISPLAY;
+            srf = EGL_NO_SURFACE;
+            ctx = EGL_NO_CONTEXT;
+        });
+
+        thread.join();
     }
 }
 }  // anonymous namespace

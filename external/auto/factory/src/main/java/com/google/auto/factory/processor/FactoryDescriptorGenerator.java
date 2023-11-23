@@ -18,6 +18,8 @@ package com.google.auto.factory.processor;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.partitioningBy;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
@@ -26,13 +28,11 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.factory.AutoFactory;
 import com.google.auto.factory.Provided;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimaps;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -54,9 +54,7 @@ final class FactoryDescriptorGenerator {
   private final AutoFactoryDeclaration.Factory declarationFactory;
 
   FactoryDescriptorGenerator(
-      Messager messager,
-      Types types,
-      AutoFactoryDeclaration.Factory declarationFactory) {
+      Messager messager, Types types, AutoFactoryDeclaration.Factory declarationFactory) {
     this.messager = messager;
     this.types = types;
     this.declarationFactory = declarationFactory;
@@ -68,70 +66,75 @@ final class FactoryDescriptorGenerator {
     if (!declaration.isPresent()) {
       return ImmutableSet.of();
     }
-    return element.accept(new ElementKindVisitor6<ImmutableSet<FactoryMethodDescriptor>, Void>() {
-      @Override
-      protected ImmutableSet<FactoryMethodDescriptor> defaultAction(Element e, Void p) {
-        throw new AssertionError("@AutoFactory applied to an impossible element");
-      }
-
-      @Override
-      public ImmutableSet<FactoryMethodDescriptor> visitTypeAsClass(TypeElement type, Void p) {
-        if (type.getModifiers().contains(ABSTRACT)) {
-          // applied to an abstract factory
-          messager.printMessage(ERROR,
-              "Auto-factory doesn't support being applied to abstract classes.", type, mirror);
-          return ImmutableSet.of();
-        } else {
-          // applied to the type to be created
-          ImmutableSet<ExecutableElement> constructors = Elements2.getConstructors(type);
-          if (constructors.isEmpty()) {
-            return generateDescriptorForDefaultConstructor(declaration.get(), type);
-          } else {
-            return FluentIterable.from(constructors)
-                .transform(new Function<ExecutableElement, FactoryMethodDescriptor>() {
-                  @Override public FactoryMethodDescriptor apply(ExecutableElement constructor) {
-                    return generateDescriptorForConstructor(declaration.get(), constructor);
-                  }
-                })
-                .toSet();
+    return element.accept(
+        new ElementKindVisitor6<ImmutableSet<FactoryMethodDescriptor>, Void>() {
+          @Override
+          protected ImmutableSet<FactoryMethodDescriptor> defaultAction(Element e, Void p) {
+            throw new AssertionError("@AutoFactory applied to an impossible element");
           }
-        }
-      }
 
-      @Override
-      public ImmutableSet<FactoryMethodDescriptor> visitTypeAsInterface(TypeElement type, Void p) {
-        // applied to the factory interface
-        messager.printMessage(ERROR,
-            "Auto-factory doesn't support being applied to interfaces.", type, mirror);
-        return ImmutableSet.of();
-      }
+          @Override
+          public ImmutableSet<FactoryMethodDescriptor> visitTypeAsClass(TypeElement type, Void p) {
+            if (type.getModifiers().contains(ABSTRACT)) {
+              // applied to an abstract factory
+              messager.printMessage(
+                  ERROR,
+                  "Auto-factory doesn't support being applied to abstract classes.",
+                  type,
+                  mirror);
+              return ImmutableSet.of();
+            } else {
+              // applied to the type to be created
+              ImmutableSet<ExecutableElement> constructors = Elements2.getConstructors(type);
+              if (constructors.isEmpty()) {
+                return generateDescriptorForDefaultConstructor(declaration.get(), type);
+              } else {
+                return FluentIterable.from(constructors)
+                    .transform(
+                        new Function<ExecutableElement, FactoryMethodDescriptor>() {
+                          @Override
+                          public FactoryMethodDescriptor apply(ExecutableElement constructor) {
+                            return generateDescriptorForConstructor(declaration.get(), constructor);
+                          }
+                        })
+                    .toSet();
+              }
+            }
+          }
 
-      @Override
-      public ImmutableSet<FactoryMethodDescriptor> visitExecutableAsConstructor(ExecutableElement e,
-          Void p) {
-        // applied to a constructor of a type to be created
-        return ImmutableSet.of(generateDescriptorForConstructor(declaration.get(), e));
-      }
-    }, null);
+          @Override
+          public ImmutableSet<FactoryMethodDescriptor> visitTypeAsInterface(
+              TypeElement type, Void p) {
+            // applied to the factory interface
+            messager.printMessage(
+                ERROR, "Auto-factory doesn't support being applied to interfaces.", type, mirror);
+            return ImmutableSet.of();
+          }
+
+          @Override
+          public ImmutableSet<FactoryMethodDescriptor> visitExecutableAsConstructor(
+              ExecutableElement e, Void p) {
+            // applied to a constructor of a type to be created
+            return ImmutableSet.of(generateDescriptorForConstructor(declaration.get(), e));
+          }
+        },
+        null);
   }
 
-  FactoryMethodDescriptor generateDescriptorForConstructor(final AutoFactoryDeclaration declaration,
-      ExecutableElement constructor) {
+  FactoryMethodDescriptor generateDescriptorForConstructor(
+      final AutoFactoryDeclaration declaration, ExecutableElement constructor) {
     checkNotNull(constructor);
     checkArgument(constructor.getKind() == ElementKind.CONSTRUCTOR);
     TypeElement classElement = MoreElements.asType(constructor.getEnclosingElement());
-    ImmutableListMultimap<Boolean, ? extends VariableElement> parameterMap =
-        Multimaps.index(constructor.getParameters(), Functions.forPredicate(
-            new Predicate<VariableElement>() {
-              @Override
-              public boolean apply(VariableElement parameter) {
-                return isAnnotationPresent(parameter, Provided.class);
-              }
-            }));
+    Map<Boolean, List<VariableElement>> parameterMap =
+        constructor.getParameters().stream()
+            .collect(partitioningBy(parameter -> isAnnotationPresent(parameter, Provided.class)));
+    // The map returned by partitioningBy always has entries for both key values but our
+    // null-checker isn't yet smart enough to know that.
     ImmutableSet<Parameter> providedParameters =
-        Parameter.forParameterList(parameterMap.get(true), types);
+        Parameter.forParameterList(requireNonNull(parameterMap.get(true)), types);
     ImmutableSet<Parameter> passedParameters =
-        Parameter.forParameterList(parameterMap.get(false), types);
+        Parameter.forParameterList(requireNonNull(parameterMap.get(false)), types);
     return FactoryMethodDescriptor.builder(declaration)
         .name("create")
         .returnType(classElement.asType())
@@ -140,6 +143,8 @@ final class FactoryDescriptorGenerator {
         .passedParameters(passedParameters)
         .creationParameters(Parameter.forParameterList(constructor.getParameters(), types))
         .isVarArgs(constructor.isVarArgs())
+        .exceptions(constructor.getThrownTypes())
+        .overridingMethod(false)
         .build();
   }
 
@@ -150,9 +155,12 @@ final class FactoryDescriptorGenerator {
             .name("create")
             .returnType(type.asType())
             .publicMethod(type.getModifiers().contains(PUBLIC))
-            .passedParameters(ImmutableSet.<Parameter>of())
-            .creationParameters(ImmutableSet.<Parameter>of())
-            .providedParameters(ImmutableSet.<Parameter>of())
+            .providedParameters(ImmutableSet.of())
+            .passedParameters(ImmutableSet.of())
+            .creationParameters(ImmutableSet.of())
+            .isVarArgs(false)
+            .exceptions(ImmutableSet.of())
+            .overridingMethod(false)
             .build());
   }
 }

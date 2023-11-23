@@ -119,6 +119,38 @@ inline T clamp(T x, MIN min, MAX max)
     return x > min ? (x > max ? max : x) : min;
 }
 
+template <typename T>
+T clampForBitCount(T value, size_t bitCount)
+{
+    static_assert(std::numeric_limits<T>::is_integer, "T must be an integer.");
+
+    if (bitCount == 0)
+    {
+        constexpr T kZero = 0;
+        return kZero;
+    }
+    ASSERT(bitCount <= sizeof(T) * 8);
+
+    constexpr bool kIsSigned = std::numeric_limits<T>::is_signed;
+    ASSERT((bitCount > 1) || !kIsSigned);
+
+    T min = 0;
+    T max = 0;
+    if (bitCount == sizeof(T) * 8)
+    {
+        min = std::numeric_limits<T>::min();
+        max = std::numeric_limits<T>::max();
+    }
+    else
+    {
+        constexpr T kOne = 1;
+        min              = (kIsSigned) ? -1 * (kOne << (bitCount - 1)) : 0;
+        max              = (kIsSigned) ? (kOne << (bitCount - 1)) - 1 : (kOne << bitCount) - 1;
+    }
+
+    return gl::clamp(value, min, max);
+}
+
 inline float clamp01(float x)
 {
     return clamp(x, 0.0f, 1.0f);
@@ -299,6 +331,7 @@ inline unsigned short float32ToFloat11(float fp32)
             // Convert it to a denormalized value.
             const unsigned int shift = (float32ExponentBias - float11ExponentBias) -
                                        (float32Val >> float32ExponentFirstBit);
+            ASSERT(shift < 32);
             float32Val =
                 ((1 << float32ExponentFirstBit) | (float32Val & float32MantissaMask)) >> shift;
         }
@@ -378,6 +411,7 @@ inline unsigned short float32ToFloat10(float fp32)
             // Convert it to a denormalized value.
             const unsigned int shift = (float32ExponentBias - float10ExponentBias) -
                                        (float32Val >> float32ExponentFirstBit);
+            ASSERT(shift < 32);
             float32Val =
                 ((1 << float32ExponentFirstBit) | (float32Val & float32MantissaMask)) >> shift;
         }
@@ -467,9 +501,8 @@ inline float float10ToFloat32(unsigned short fp10)
     }
 }
 
-// Convers to and from float and 16.16 fixed point format.
-
-inline float ConvertFixedToFloat(uint32_t fixedInput)
+// Converts to and from float and 16.16 fixed point format.
+inline float ConvertFixedToFloat(int32_t fixedInput)
 {
     return static_cast<float>(fixedInput) / 65536.0f;
 }
@@ -1375,6 +1408,13 @@ constexpr T roundUpPow2(const T value, const T alignment)
 {
     ASSERT(gl::isPow2(alignment));
     return (value + alignment - 1) & ~(alignment - 1);
+}
+
+template <typename T>
+constexpr T roundDownPow2(const T value, const T alignment)
+{
+    ASSERT(gl::isPow2(alignment));
+    return value & ~(alignment - 1);
 }
 
 template <typename T>

@@ -27,7 +27,6 @@ namespace {
 
 using tiff_directory::Endian;
 using tiff_directory::Rational;
-using tiff_directory::SRational;
 using tiff_directory::SizeOfType;
 using tiff_directory::TIFF_TYPE_LONG;
 using tiff_directory::TIFF_TYPE_UNDEFINED;
@@ -52,20 +51,6 @@ bool GetFullDimension16(const TiffDirectory& tiff_directory,
   *width = static_cast<std::uint16_t>(tmp_width);
   *height = static_cast<std::uint16_t>(tmp_height);
   return true;
-}
-
-bool GetRational(const TiffDirectory::Tag& tag, const TiffDirectory& directory,
-                 const int data_size, PreviewImageData::Rational* data) {
-  std::vector<Rational> value;
-  if (directory.Get(tag, &value) &&
-      value.size() == static_cast<size_t>(data_size)) {
-    for (size_t i = 0; i < value.size(); ++i) {
-      data[i].numerator = value[i].numerator;
-      data[i].denominator = value[i].denominator;
-    }
-    return true;
-  }
-  return false;
 }
 
 void FillGpsPreviewImageData(const TiffDirectory& gps_directory,
@@ -410,8 +395,8 @@ bool GetImageData(const TiffDirectory& tiff_directory, StreamInterface* stream,
       default:
         return false;
     }
-    length = static_cast<std::uint32_t>(
-        std::accumulate(strip_byte_counts.begin(), strip_byte_counts.end(), 0));
+    length = static_cast<std::uint32_t>(std::accumulate(
+        strip_byte_counts.begin(), strip_byte_counts.end(), 0U));
     offset = strip_offsets[0];
   } else if (tiff_directory.Has(kPanaTagJpegImage)) {
     if (!tiff_directory.GetOffsetAndLength(
@@ -460,6 +445,20 @@ bool GetJpegDimensions(const std::uint32_t jpeg_offset, StreamInterface* stream,
   } while (segment != kStartOfScan);
 
   // No width and hight information found.
+  return false;
+}
+
+bool GetRational(const TiffDirectory::Tag& tag, const TiffDirectory& directory,
+                 const int data_size, PreviewImageData::Rational* data) {
+  std::vector<Rational> value;
+  if (directory.Get(tag, &value) &&
+      value.size() == static_cast<size_t>(data_size)) {
+    for (size_t i = 0; i < value.size(); ++i) {
+      data[i].numerator = value[i].numerator;
+      data[i].denominator = value[i].denominator;
+    }
+    return true;
+  }
   return false;
 }
 
@@ -715,14 +714,14 @@ bool TiffParser::Parse(const TagSet& desired_tags,
   return true;
 }
 
-bool TiffParser::ParseIfd(const std::uint32_t offset_to_ifd,
+bool TiffParser::ParseIfd(const std::uint32_t ifd_offset,
                           const TagSet& desired_tags,
                           const std::uint16_t max_number_ifds,
                           IfdVector* tiff_directory) {
   std::uint32_t next_ifd_offset;
   TiffDirectory tiff_ifd(static_cast<Endian>(endian_));
-  if (!ParseDirectory(tiff_offset_, offset_to_ifd, endian_, desired_tags,
-                      stream_, &tiff_ifd, &next_ifd_offset) ||
+  if (!ParseDirectory(tiff_offset_, ifd_offset, endian_, desired_tags, stream_,
+                      &tiff_ifd, &next_ifd_offset) ||
       !ParseSubIfds(tiff_offset_, desired_tags, max_number_ifds, endian_,
                     stream_, &tiff_ifd)) {
     return false;

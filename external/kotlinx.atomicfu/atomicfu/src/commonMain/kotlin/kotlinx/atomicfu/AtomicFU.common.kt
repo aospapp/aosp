@@ -2,14 +2,32 @@
  * Copyright 2017-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
+@file:Suppress("INVISIBLE_REFERENCE", "INVISIBLE_MEMBER")
+
 package kotlinx.atomicfu
 
 import kotlin.js.JsName
+import kotlin.internal.InlineOnly
+import kotlinx.atomicfu.TraceBase.None
+import kotlin.reflect.KProperty
+
+/**
+ * Creates atomic reference with a given [initial] value and a [trace] object to [trace modifications][Trace] of the value.
+ *
+ * It can only be used to initialize a private or internal read-only property, like this:
+ *
+ * ```
+ * private val f = atomic<Type>(initial, trace)
+ * ```
+ */
+public expect fun <T> atomic(initial: T, trace: TraceBase = None): AtomicRef<T>
+
+// Binary compatibility with IR, should be removed with Kotlin 1.5 release
 
 /**
  * Creates atomic reference with a given [initial] value.
  *
- * It can only be used in initialize of private read-only property, like this:
+ * It can only be used to initialize a private or internal read-only property, like this:
  *
  * ```
  * private val f = atomic<Type>(initial)
@@ -18,9 +36,22 @@ import kotlin.js.JsName
 public expect fun <T> atomic(initial: T): AtomicRef<T>
 
 /**
+ * Creates atomic [Int] with a given [initial] value and a [trace] object to [trace modifications][Trace] of the value.
+ *
+ * It can only be used to initialize a private or internal read-only property, like this:
+ *
+ * ```
+ * private val f = atomic(initialInt, trace)
+ * ```
+ */
+public expect fun atomic(initial: Int, trace: TraceBase = None): AtomicInt
+
+// Binary compatibility with IR, should be removed with Kotlin 1.5 release
+
+/**
  * Creates atomic [Int] with a given [initial] value.
  *
- * It can only be used in initialize of private read-only property, like this:
+ * It can only be used to initialize a private or internal read-only property, like this:
  *
  * ```
  * private val f = atomic(initialInt)
@@ -29,9 +60,22 @@ public expect fun <T> atomic(initial: T): AtomicRef<T>
 public expect fun atomic(initial: Int): AtomicInt
 
 /**
+ * Creates atomic [Long] with a given [initial] value and a [trace] object to [trace modifications][Trace] of the value.
+ *
+ * It can only be used to initialize a private or internal read-only property, like this:
+ *
+ * ```
+ * private val f = atomic(initialLong, trace)
+ * ```
+ */
+public expect fun atomic(initial: Long, trace: TraceBase = None): AtomicLong
+
+// Binary compatibility with IR, should be removed with Kotlin 1.5 release
+
+/**
  * Creates atomic [Long] with a given [initial] value.
  *
- * It can only be used in initialize of private read-only property, like this:
+ * It can only be used to initialize a private or internal read-only property, like this:
  *
  * ```
  * private val f = atomic(initialLong)
@@ -40,9 +84,22 @@ public expect fun atomic(initial: Int): AtomicInt
 public expect fun atomic(initial: Long): AtomicLong
 
 /**
+ * Creates atomic [Boolean] with a given [initial] value and a [trace] object to [trace modifications][Trace] of the value.
+ *
+ * It can only be used to initialize a private or internal read-only property, like this:
+ *
+ * ```
+ * private val f = atomic(initialBoolean, trace)
+ * ```
+ */
+public expect fun atomic(initial: Boolean, trace: TraceBase = None): AtomicBoolean
+
+// Binary compatibility with IR, should be removed with Kotlin 1.5 release
+
+/**
  * Creates atomic [Boolean] with a given [initial] value.
  *
- * It can only be used in initialize of private read-only property, like this:
+ * It can only be used to initialize a private or internal read-only property, like this:
  *
  * ```
  * private val f = atomic(initialBoolean)
@@ -53,7 +110,7 @@ public expect fun atomic(initial: Boolean): AtomicBoolean
 /**
  * Creates array of AtomicRef<T> of specified size, where each element is initialised with null value
  */
-@JsName("AtomicLongArray\$ofNulls")
+@JsName(ATOMIC_ARRAY_OF_NULLS)
 public fun <T> atomicArrayOfNulls(size: Int): AtomicArray<T?> = AtomicArray(size)
 
 // ==================================== AtomicRef ====================================
@@ -68,6 +125,12 @@ public expect class AtomicRef<T> {
      * Reading/writing this property maps to read/write of volatile variable.
      */
     public var value: T
+
+    @InlineOnly
+    public inline operator fun getValue(thisRef: Any?, property: KProperty<*>): T
+
+    @InlineOnly
+    public inline operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T)
 
     /**
      * Maps to [AtomicReferenceFieldUpdater.lazySet].
@@ -141,6 +204,12 @@ public expect class AtomicBoolean {
      */
     public var value: Boolean
 
+    @InlineOnly
+    public inline operator fun getValue(thisRef: Any?, property: KProperty<*>): Boolean
+
+    @InlineOnly
+    public inline operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Boolean)
+
     /**
      * Maps to [AtomicIntegerFieldUpdater.lazySet].
      */
@@ -213,6 +282,12 @@ public expect class AtomicInt {
      */
     public var value: Int
 
+    @InlineOnly
+    public inline operator fun getValue(thisRef: Any?, property: KProperty<*>): Int
+
+    @InlineOnly
+    public inline operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Int)
+
     /**
      * Maps to [AtomicIntegerFieldUpdater.lazySet].
      */
@@ -246,7 +321,7 @@ public expect class AtomicInt {
     /**
      * Maps to [AtomicIntegerFieldUpdater.addAndGet].
      */
-    public fun addAndGet(delta: Int): Int 
+    public fun addAndGet(delta: Int): Int
 
     /**
      * Maps to [AtomicIntegerFieldUpdater.incrementAndGet].
@@ -323,6 +398,12 @@ public expect class AtomicLong {
      * Reads/writes of this property maps to read/write of volatile variable.
      */
     public var value: Long
+
+    @InlineOnly
+    public operator fun getValue(thisRef: Any?, property: KProperty<*>): Long
+
+    @InlineOnly
+    public operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Long)
 
     /**
      * Maps to [AtomicLongFieldUpdater.lazySet].
@@ -427,11 +508,15 @@ public inline fun AtomicLong.updateAndGet(function: (Long) -> Long): Long {
 /**
  * Creates a new array of AtomicInt values of the specified size, where each element is initialised with 0
  */
-@JsName("AtomicIntArray\$int")
+@JsName(ATOMIC_INT_ARRAY)
 public class AtomicIntArray(size: Int) {
     private val array = Array(size) { atomic(0) }
 
-    @JsName("get\$atomicfu")
+    @JsName(ARRAY_SIZE)
+    public val size: Int
+        get() = array.size
+
+    @JsName(ARRAY_ELEMENT_GET)
     public operator fun get(index: Int): AtomicInt = array[index]
 }
 
@@ -440,11 +525,15 @@ public class AtomicIntArray(size: Int) {
 /**
  * Creates a new array of AtomicLong values of the specified size, where each element is initialised with 0L
  */
-@JsName("AtomicLongArray\$long")
+@JsName(ATOMIC_LONG_ARRAY)
 public class AtomicLongArray(size: Int) {
     private val array = Array(size) { atomic(0L) }
 
-    @JsName("get\$atomicfu")
+    @JsName(ARRAY_SIZE)
+    public val size: Int
+        get() = array.size
+
+    @JsName(ARRAY_ELEMENT_GET)
     public operator fun get(index: Int): AtomicLong = array[index]
 }
 
@@ -453,21 +542,29 @@ public class AtomicLongArray(size: Int) {
 /**
  * Creates a new array of AtomicBoolean values of the specified size, where each element is initialised with false
  */
-@JsName("AtomicBooleanArray\$boolean")
+@JsName(ATOMIC_BOOLEAN_ARRAY)
 public class AtomicBooleanArray(size: Int) {
     private val array = Array(size) { atomic(false) }
 
-    @JsName("get\$atomicfu")
+    @JsName(ARRAY_SIZE)
+    public val size: Int
+        get() = array.size
+
+    @JsName(ARRAY_ELEMENT_GET)
     public operator fun get(index: Int): AtomicBoolean = array[index]
 }
 
 
 // ==================================== AtomicArray ====================================
 
-@JsName("AtomicRefArray\$ref")
+@JsName(ATOMIC_REF_ARRAY)
 public class AtomicArray<T> internal constructor(size: Int) {
     private val array = Array(size) { atomic<T?>(null) }
 
-    @JsName("get\$atomicfu")
+    @JsName(ARRAY_SIZE)
+    public val size: Int
+        get() = array.size
+
+    @JsName(ARRAY_ELEMENT_GET)
     public operator fun get(index: Int): AtomicRef<T?> = array[index]
 }

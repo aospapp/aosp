@@ -24,9 +24,9 @@
 
 struct tun_data;
 
-#define MAXMTU 1500
+#define MAXMTU 65536
 #define PACKETLEN (MAXMTU + sizeof(struct tun_pi))
-#define CLATD_VERSION "1.4"
+#define CLATD_VERSION "1.5"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -38,16 +38,7 @@ struct tun_data;
 
 extern volatile sig_atomic_t running;
 
-void configure_tun_ip(const struct tun_data *tunnel, const char *v4_addr, int mtu);
-void set_capability(uint64_t target_cap);
-void drop_root_but_keep_caps();
-void open_sockets(struct tun_data *tunnel, uint32_t mark);
 int ipv6_address_changed(const char *interface);
-int configure_clat_ipv6_address(const struct tun_data *tunnel, const char *interface,
-                                const char *src_addr);
-int detect_mtu(const struct in6_addr *plat_subnet, uint32_t plat_suffix, uint32_t mark);
-void configure_interface(const char *uplink_interface, const char *plat_prefix, const char *v4_addr,
-                         const char *v6, struct tun_data *tunnel, uint32_t mark);
 void event_loop(struct tun_data *tunnel);
 
 /* function: parse_int

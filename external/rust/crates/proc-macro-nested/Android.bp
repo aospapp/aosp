@@ -50,6 +50,8 @@ rust_library {
     name: "libproc_macro_nested",
     host_supported: true,
     crate_name: "proc_macro_nested",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.7",
     srcs: [
         "src/lib.rs",
         ":copy_proc-macro-nested_build_out",
@@ -57,31 +59,9 @@ rust_library {
     edition: "2015",
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.resolv",
         "com.android.virt",
     ],
-}
-
-rust_defaults {
-    name: "proc-macro-nested_defaults",
-    crate_name: "proc_macro_nested",
-    srcs: [
-        "src/lib.rs",
-        ":copy_proc-macro-nested_build_out",
-    ],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2015",
-}
-
-rust_test_host {
-    name: "proc-macro-nested_host_test_src_lib",
-    defaults: ["proc-macro-nested_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "proc-macro-nested_device_test_src_lib",
-    defaults: ["proc-macro-nested_defaults"],
+    min_sdk_version: "29",
 }

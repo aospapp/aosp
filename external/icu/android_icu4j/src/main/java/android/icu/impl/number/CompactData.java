@@ -12,6 +12,7 @@ import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.StandardPlural;
 import android.icu.impl.UResource;
 import android.icu.text.CompactDecimalFormat.CompactStyle;
+import android.icu.text.PluralRules;
 import android.icu.util.ICUException;
 import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
@@ -104,10 +105,6 @@ public class CompactData implements MultiplierProducer {
             byte magnitude = (byte) (magnitudeEntry.getKey().length() - 1);
             for (Map.Entry<String, String> pluralEntry : magnitudeEntry.getValue().entrySet()) {
                 String pluralString = pluralEntry.getKey().toString();
-                if ("0".equals(pluralString) || "1".equals(pluralString)) {
-                    // TODO(ICU-21258): Handle this case. For now, skip.
-                    continue;
-                }
                 StandardPlural plural = StandardPlural.fromString(pluralString);
                 String patternString = pluralEntry.getValue().toString();
                 patterns[getIndex(magnitude, plural)] = patternString;
@@ -135,14 +132,27 @@ public class CompactData implements MultiplierProducer {
         return multipliers[magnitude];
     }
 
-    public String getPattern(int magnitude, StandardPlural plural) {
+    public String getPattern(int magnitude, PluralRules rules, DecimalQuantity dq) {
         if (magnitude < 0) {
             return null;
         }
         if (magnitude > largestMagnitude) {
             magnitude = largestMagnitude;
         }
-        String patternString = patterns[getIndex(magnitude, plural)];
+        String patternString = null;
+        if (dq.isHasIntegerValue()) {
+            long i = dq.toLong(true);
+            if (i == 0) {
+                patternString = patterns[getIndex(magnitude, StandardPlural.EQ_0)];
+            } else if (i == 1) {
+                patternString = patterns[getIndex(magnitude, StandardPlural.EQ_1)];
+            }
+            if (patternString != null) {
+                return patternString;
+            }
+        }
+        StandardPlural plural = dq.getStandardPlural(rules);
+        patternString = patterns[getIndex(magnitude, plural)];
         if (patternString == null && plural != StandardPlural.OTHER) {
             // Fall back to "other" plural variant
             patternString = patterns[getIndex(magnitude, StandardPlural.OTHER)];
@@ -186,12 +196,6 @@ public class CompactData implements MultiplierProducer {
                 // Iterate over the plural variants ("one", "other", etc)
                 UResource.Table pluralVariantsTable = value.getTable();
                 for (int i4 = 0; pluralVariantsTable.getKeyAndValue(i4, key, value); ++i4) {
-
-                    if ("0".equals(key.toString()) || "1".equals(key.toString())) {
-                        // TODO(ICU-21258): Handle this case. For now, skip.
-                        continue;
-                    }
-
                     // Skip this magnitude/plural if we already have it from a child locale.
                     // Note: This also skips USE_FALLBACK entries.
                     StandardPlural plural = StandardPlural.fromString(key.toString());

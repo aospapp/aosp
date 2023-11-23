@@ -244,7 +244,7 @@ def check_cros_lint(
   # pylint+golint.
   def try_run_cros_lint(cros_binary: str) -> t.Optional[CheckResult]:
     exit_code, output = run_command_unchecked(
-        [cros_binary, 'lint', '--py3', '--'] + files,
+        [cros_binary, 'lint', '--'] + files,
         toolchain_utils_root,
         env=fixed_env)
 

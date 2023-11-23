@@ -19,8 +19,8 @@ pub use futures_core::stream::{FusedStream, Stream, TryStream};
 mod stream;
 pub use self::stream::{
     Chain, Collect, Concat, Cycle, Enumerate, Filter, FilterMap, FlatMap, Flatten, Fold, ForEach,
-    Fuse, Inspect, Map, Next, Peek, Peekable, Scan, SelectNextSome, Skip, SkipWhile, StreamExt,
-    StreamFuture, Take, TakeUntil, TakeWhile, Then, Unzip, Zip,
+    Fuse, Inspect, Map, Next, NextIf, NextIfEq, Peek, PeekMut, Peekable, Scan, SelectNextSome,
+    Skip, SkipWhile, StreamExt, StreamFuture, Take, TakeUntil, TakeWhile, Then, Unzip, Zip,
 };
 
 #[cfg(feature = "std")]
@@ -36,11 +36,11 @@ pub use self::stream::ReadyChunks;
 #[cfg_attr(docsrs, doc(cfg(feature = "sink")))]
 pub use self::stream::Forward;
 
-#[cfg_attr(feature = "cfg-target-has-atomic", cfg(target_has_atomic = "ptr"))]
+#[cfg(not(futures_no_atomic_cas))]
 #[cfg(feature = "alloc")]
 pub use self::stream::{BufferUnordered, Buffered, ForEachConcurrent};
 
-#[cfg_attr(feature = "cfg-target-has-atomic", cfg(target_has_atomic = "ptr"))]
+#[cfg(not(futures_no_atomic_cas))]
 #[cfg(feature = "sink")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sink")))]
 #[cfg(feature = "alloc")]
@@ -58,9 +58,12 @@ pub use self::try_stream::{
 #[cfg(feature = "std")]
 pub use self::try_stream::IntoAsyncRead;
 
-#[cfg_attr(feature = "cfg-target-has-atomic", cfg(target_has_atomic = "ptr"))]
+#[cfg(not(futures_no_atomic_cas))]
 #[cfg(feature = "alloc")]
 pub use self::try_stream::{TryBufferUnordered, TryBuffered, TryForEachConcurrent};
+
+#[cfg(feature = "alloc")]
+pub use self::try_stream::{TryChunks, TryChunksError};
 
 // Primitive streams
 
@@ -85,29 +88,50 @@ pub use self::pending::{pending, Pending};
 mod poll_fn;
 pub use self::poll_fn::{poll_fn, PollFn};
 
+mod poll_immediate;
+pub use self::poll_immediate::{poll_immediate, PollImmediate};
+
 mod select;
 pub use self::select::{select, Select};
+
+mod select_with_strategy;
+pub use self::select_with_strategy::{select_with_strategy, PollNext, SelectWithStrategy};
 
 mod unfold;
 pub use self::unfold::{unfold, Unfold};
 
-cfg_target_has_atomic! {
-    #[cfg(feature = "alloc")]
-    mod futures_ordered;
-    #[cfg(feature = "alloc")]
-    pub use self::futures_ordered::FuturesOrdered;
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+mod futures_ordered;
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+pub use self::futures_ordered::FuturesOrdered;
 
-    #[cfg(feature = "alloc")]
-    pub mod futures_unordered;
-    #[cfg(feature = "alloc")]
-    #[doc(inline)]
-    pub use self::futures_unordered::FuturesUnordered;
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+pub mod futures_unordered;
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+#[doc(inline)]
+pub use self::futures_unordered::FuturesUnordered;
 
-    #[cfg(feature = "alloc")]
-    mod select_all;
-    #[cfg(feature = "alloc")]
-    pub use self::select_all::{select_all, SelectAll};
-}
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+pub mod select_all;
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+#[doc(inline)]
+pub use self::select_all::{select_all, SelectAll};
+
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+mod abortable;
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+pub use crate::abortable::{AbortHandle, AbortRegistration, Abortable, Aborted};
+#[cfg(not(futures_no_atomic_cas))]
+#[cfg(feature = "alloc")]
+pub use abortable::abortable;
 
 // Just a helper function to ensure the streams we're returning all have the
 // right implementations.

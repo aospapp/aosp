@@ -80,7 +80,7 @@ static int del_entry(direntry_t *entry, MainParam_t *mp)
 				     progname, tmp))
 			return ERROR_ONE;
 	}
-	if (fatFreeWithDirentry(entry)) 
+	if (fatFreeWithDirentry(entry))
 		return ERROR_ONE;
 
 	wipeEntry(entry);
@@ -95,14 +95,14 @@ static int del_file(direntry_t *entry, MainParam_t *mp)
 	Arg_t *arg = (Arg_t *) mp->arg;
 	MainParam_t sonmp;
 	int ret;
-	int r;	
+	int r;
 
 	sonmp = *mp;
 	sonmp.arg = mp->arg;
 
 	r = 0;
 	if (IS_DIR(entry)){
-		/* a directory */		
+		/* a directory */
 		SubDir = OpenFileByDirentry(entry);
 		initializeDirentry(&subEntry, SubDir);
 		ret = 0;
@@ -143,9 +143,9 @@ static int del_file(direntry_t *entry, MainParam_t *mp)
 static void usage(int ret) NORETURN;
 static void usage(int ret)
 {
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Mtools version %s, dated %s\n", mversion, mdate);
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Usage: %s [-v] msdosfile [msdosfiles...]\n", progname);
 	exit(ret);
 }
@@ -205,6 +205,6 @@ void mdel(int argc, char **argv, int deltype)
 		if(l > 1 && argv[i][b+l-1] == '/')
 			argv[i][b+l-1] = '\0';
 	}
-		
+
 	exit(main_loop(&mp, argv + optind, argc - optind));
 }

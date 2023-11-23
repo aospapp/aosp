@@ -366,7 +366,7 @@ public final class CountryTimeZones {
      * otherwise an arbitrary match is returned based on the {@link
      * #getEffectiveTimeZoneMappingsAt(long)} ordering.
      *
-     * @param whenMillis the UTC time to match against
+     * @param whenMillis the Unix epoch time to match against
      * @param bias the time zone to prefer, can be {@code null} to indicate there is no preference
      * @param totalOffsetMillis the offset from UTC at {@code whenMillis}
      * @param isDst the Daylight Savings Time state at {@code whenMillis}. {@code true} means DST,
@@ -386,7 +386,7 @@ public final class CountryTimeZones {
      * otherwise an arbitrary match is returned based on the {@link
      * #getEffectiveTimeZoneMappingsAt(long)} ordering.
      *
-     * @param whenMillis the UTC time to match against
+     * @param whenMillis the Unix epoch time to match against
      * @param bias the time zone to prefer, can be {@code null} to indicate there is no preference
      * @param totalOffsetMillis the offset from UTC at {@code whenMillis}
      * @return an {@link OffsetResult} with information about a matching zone, or {@code null} if
@@ -457,7 +457,7 @@ public final class CountryTimeZones {
      * otherwise an arbitrary match is returned based on the {@link
      * #getEffectiveTimeZoneMappingsAt(long)} ordering.
      *
-     * @param whenMillis the UTC time to match against
+     * @param whenMillis the Unix epoch time to match against
      * @param bias the time zone to prefer, can be {@code null}
      * @param totalOffsetMillis the offset from UTC at {@code whenMillis}
      * @param isDst the Daylight Savings Time state at {@code whenMillis}. {@code true} means DST,

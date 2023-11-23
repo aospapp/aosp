@@ -26,11 +26,11 @@
 #include "config.h"
 #include "tst_test.h"
 #include "tst_capability.h"
-#include "lapi/socket.h"
-#include "lapi/bpf.h"
 #include "bpf_common.h"
 
 #define LOG_SIZE (1024 * 1024)
+
+#define CHECK_BPF_RET(x) ((x) >= 0 || ((x) == -1 && errno != EPERM))
 
 static const char MSG[] = "Ahoj!";
 static char *msg;
@@ -42,7 +42,8 @@ static union bpf_attr *attr;
 
 static int load_prog(int fd)
 {
-	static struct bpf_insn *prog;
+	int ret;
+
 	struct bpf_insn insn[] = {
 		BPF_LD_MAP_FD(BPF_REG_1, fd),
 
@@ -85,31 +86,24 @@ static int load_prog(int fd)
 		BPF_EXIT_INSN()
 	};
 
-	if (!prog)
-		prog = tst_alloc(sizeof(insn));
-	memcpy(prog, insn, sizeof(insn));
+	bpf_init_prog_attr(attr, insn, sizeof(insn), log, LOG_SIZE);
+	ret = TST_RETRY_FUNC(bpf(BPF_PROG_LOAD, attr, sizeof(*attr)),
+		CHECK_BPF_RET);
 
-	memset(attr, 0, sizeof(*attr));
-	attr->prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
-	attr->insns = ptr_to_u64(prog);
-	attr->insn_cnt = ARRAY_SIZE(insn);
-	attr->license = ptr_to_u64("GPL");
-	attr->log_buf = ptr_to_u64(log);
-	attr->log_size = LOG_SIZE;
-	attr->log_level = 1;
+	if (ret < -1)
+		tst_brk(TBROK, "Invalid bpf() return value %d", ret);
 
-	TEST(bpf(BPF_PROG_LOAD, attr, sizeof(*attr)));
-	if (TST_RET == -1) {
-		if (log[0] != 0)
-			tst_res(TPASS | TTERRNO, "Failed verification");
-		else
-			tst_brk(TBROK | TTERRNO, "Failed to load program");
-	} else {
+	if (ret >= 0) {
 		tst_res(TINFO, "Verification log:");
 		fputs(log, stderr);
+		return ret;
 	}
 
-	return TST_RET;
+	if (log[0] == 0)
+		tst_brk(TBROK | TERRNO, "Failed to load program");
+
+	tst_res(TPASS | TERRNO, "Failed verification");
+	return ret;
 }
 
 static void setup(void)
@@ -121,15 +115,8 @@ static void setup(void)
 static void run(void)
 {
 	int map_fd, prog_fd;
-	int sk[2];
 
-	memset(attr, 0, sizeof(*attr));
-	attr->map_type = BPF_MAP_TYPE_ARRAY;
-	attr->key_size = 4;
-	attr->value_size = 8;
-	attr->max_entries = 32;
-
-	map_fd = bpf_map_create(attr);
+	map_fd = bpf_map_array_create(32);
 
 	memset(attr, 0, sizeof(*attr));
 	attr->map_fd = map_fd;
@@ -147,27 +134,12 @@ static void run(void)
 
 	tst_res(TFAIL, "Loaded bad eBPF, now we will run it and maybe crash");
 
-	SAFE_SOCKETPAIR(AF_UNIX, SOCK_DGRAM, 0, sk);
-	SAFE_SETSOCKOPT(sk[1], SOL_SOCKET, SO_ATTACH_BPF,
-			&prog_fd, sizeof(prog_fd));
-
-	SAFE_WRITE(1, sk[0], msg, sizeof(MSG));
-
-	memset(attr, 0, sizeof(*attr));
-	attr->map_fd = map_fd;
-	attr->key = ptr_to_u64(key);
-	attr->value = ptr_to_u64(val);
-	*key = 0;
-
-	TEST(bpf(BPF_MAP_LOOKUP_ELEM, attr, sizeof(*attr)));
-	if (TST_RET == -1)
-		tst_res(TFAIL | TTERRNO, "array map lookup");
-	else
-		tst_res(TINFO, "Pointer offset was 0x%"PRIx64, *val);
-
-	SAFE_CLOSE(sk[0]);
-	SAFE_CLOSE(sk[1]);
+	bpf_run_prog(prog_fd, msg, sizeof(MSG));
 	SAFE_CLOSE(prog_fd);
+
+	*key = 0;
+	bpf_map_array_get(map_fd, key, val);
+	tst_res(TINFO, "Pointer offset was 0x%"PRIx64, *val);
 exit:
 	SAFE_CLOSE(map_fd);
 }

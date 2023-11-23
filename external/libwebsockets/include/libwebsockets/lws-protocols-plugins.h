@@ -68,7 +68,7 @@ struct lws_protocols {
 	 * to the selected protocol.  For example if this protocol was
 	 * called "myprotocol-v2", you might set id to 2, and the user
 	 * code that acts differently according to the version can do so by
-	 * switch (wsi->protocol->id), user code might use some bits as
+	 * switch (wsi->a.protocol->id), user code might use some bits as
 	 * capability flags based on selected protocol version, etc. */
 	void *user; /**< ignored by lws, but user code can pass a pointer
 			here it can later access from the protocol callback */
@@ -85,6 +85,8 @@ struct lws_protocols {
 	/* Add new things just above here ---^
 	 * This is part of the ABI, don't needlessly break compatibility */
 };
+
+#define LWS_PROTOCOL_LIST_TERM { NULL, NULL, 0, 0, 0, NULL, 0 }
 
 /**
  * lws_vhost_name_to_protocol() - get vhost's protocol object from its name
@@ -141,6 +143,41 @@ lws_protocol_vh_priv_get(struct lws_vhost *vhost,
 			 const struct lws_protocols *prot);
 
 /**
+ * lws_vhd_find_by_pvo() - find a partner vhd
+ *
+ *  \param cx: the lws_context
+ *  \param protname: the name of the lws_protocol the vhd belongs to
+ *  \param pvo_name: the name of a pvo that must exist bound to the vhd
+ *  \param pvo_value: the required value of the named pvo
+ *
+ * This allows architectures with multiple protocols bound together to
+ * cleanly discover partner protocol instances even on completely
+ * different vhosts.  For example, a proxy may consist of two protocols
+ * listening on different vhosts, and there may be multiple instances
+ * of the proxy in the same process.  It's desirable that each side of
+ * the proxy is an independent protocol that can be freely bound to any
+ * vhost, eg, allowing Unix Domain to tls / h2 proxying, or each side
+ * bound to different network interfaces for localhost-only visibility
+ * on one side, using existing vhost management.
+ *
+ * That leaves the problem that the two sides have to find each other
+ * and bind at runtime.  This api allows each side to specify the
+ * protocol name, and a common pvo name and pvo value that indicates
+ * the two sides belong together, and search through all the instantiated
+ * vhost-protocols looking for a match.  If found, the private allocation
+ * (aka "vhd" of the match is returned).  NULL is returned on no match.
+ *
+ * Since this can only succeed when called by the last of the two
+ * protocols to be instantiated, both sides should call it and handle
+ * NULL gracefully, since it may mean that they were first and their
+ * partner vhsot-protocol has not been instantiated yet.
+ */
+LWS_VISIBLE LWS_EXTERN void *
+lws_vhd_find_by_pvo(struct lws_context *cx, const char *protname,
+		    const char *pvo_name, const char *pvo_value);
+
+
+/**
  * lws_adjust_protocol_psds - change a vhost protocol's per session data size
  *
  * \param wsi: a connection with the protocol to change
@@ -194,35 +231,152 @@ lws_pvo_get_str(void *in, const char *name, const char **result);
 LWS_VISIBLE LWS_EXTERN int
 lws_protocol_init(struct lws_context *context);
 
-#ifdef LWS_WITH_PLUGINS
+#define LWS_PLUGIN_API_MAGIC 191
 
-/* PLUGINS implies LIBUV */
+/*
+ * Abstract plugin header for any kind of plugin class, always at top of
+ * actual class plugin export type.
+ *
+ * The export type object must be exported with the same name as the plugin
+ * file, eg, libmyplugin.so must export a const one of these as the symbol
+ * "myplugin".
+ *
+ * That is the only expected export from the plugin.
+ */
 
-#define LWS_PLUGIN_API_MAGIC 180
+typedef struct lws_plugin_header {
+	const char *name;
+	const char *_class;
+	const char *lws_build_hash; /* set to LWS_BUILD_HASH */
 
-/** struct lws_plugin_capability - how a plugin introduces itself to lws */
-struct lws_plugin_capability {
-	unsigned int api_magic;	/**< caller fills this in, plugin fills rest */
+	unsigned int api_magic;
+	/* set to LWS_PLUGIN_API_MAGIC at plugin build time */
+
+	/* plugin-class specific superclass data follows */
+} lws_plugin_header_t;
+
+/*
+ * "lws_protocol_plugin" class export, for lws_protocol implementations done
+ * as plugins
+ */
+typedef struct lws_plugin_protocol {
+	lws_plugin_header_t hdr;
+
 	const struct lws_protocols *protocols; /**< array of supported protocols provided by plugin */
-	int count_protocols; /**< how many protocols */
 	const struct lws_extension *extensions; /**< array of extensions provided by plugin */
+	int count_protocols; /**< how many protocols */
 	int count_extensions; /**< how many extensions */
-};
+} lws_plugin_protocol_t;
 
-typedef int (*lws_plugin_init_func)(struct lws_context *,
-				    struct lws_plugin_capability *);
-typedef int (*lws_plugin_destroy_func)(struct lws_context *);
 
-/** struct lws_plugin */
+/*
+ * This is the dynamic, runtime created part of the plugin instantiation.
+ * These are kept in a linked-list and destroyed with the context.
+ */
+
 struct lws_plugin {
 	struct lws_plugin *list; /**< linked list */
+
+	const lws_plugin_header_t *hdr;
+
+	union {
+#if defined(LWS_WITH_LIBUV) && defined(UV_ERRNO_MAP)
 #if (UV_VERSION_MAJOR > 0)
-	uv_lib_t lib; /**< shared library pointer */
+		uv_lib_t lib; /**< shared library pointer */
 #endif
-	void *l; /**< so we can compile on ancient libuv */
-	char name[64]; /**< name of the plugin */
-	struct lws_plugin_capability caps; /**< plugin capabilities */
+#endif
+		void *l; /**<  */
+	} u;
 };
+
+/*
+ * Event lib library plugin type (when LWS_WITH_EVLIB_PLUGINS)
+ * Public so new event libs can equally be supported outside lws itself
+ */
+
+typedef struct lws_plugin_evlib {
+	lws_plugin_header_t hdr;
+	const struct lws_event_loop_ops *ops;
+} lws_plugin_evlib_t;
+
+typedef int (*each_plugin_cb_t)(struct lws_plugin *p, void *user);
+
+/**
+ * lws_plugins_init() - dynamically load plugins of matching class from dirs
+ *
+ * \param pplugin:	pointer to linked-list for this kind of plugin
+ * \param d: array of directory paths to look in
+ * \param _class: class string that plugin must declare
+ * \param filter: NULL, or a string that must appear after the third char of the plugin filename
+ * \param each: NULL, or each_plugin_cb_t callback for each instantiated plugin
+ * \param each_user: pointer passed to each callback
+ *
+ * Allows you to instantiate a class of plugins to a specified linked-list.
+ * The each callback allows you to init each inistantiated callback and pass a
+ * pointer each_user to it.
+ *
+ * To take down the plugins, pass a pointer to the linked-list head to
+ * lws_plugins_destroy.
+ *
+ * This is used for lws protocol plugins but you can define your own plugin
+ * class name like "mypluginclass", declare it in your plugin headers, and load
+ * your own plugins to your own list using this api the same way.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_plugins_init(struct lws_plugin **pplugin, const char * const *d,
+		 const char *_class, const char *filter,
+		 each_plugin_cb_t each, void *each_user);
+
+/**
+ * lws_plugins_destroy() - dynamically unload list of plugins
+ *
+ * \param pplugin:	pointer to linked-list for this kind of plugin
+ * \param each: NULL, or each_plugin_cb_t callback for each instantiated plugin
+ * \param each_user: pointer passed to each callback
+ *
+ * Allows you to destroy a class of plugins from a specified linked-list
+ * created by a call to lws_plugins_init().
+ *
+ * The each callback allows you to deinit each inistantiated callback and pass a
+ * pointer each_user to it, just before its footprint is destroyed.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_plugins_destroy(struct lws_plugin **pplugin, each_plugin_cb_t each,
+		    void *each_user);
+
+#if defined(LWS_WITH_PLUGINS_BUILTIN)
+
+/* provide exports for builtin plugin protocols */
+
+extern const struct lws_protocols post_demo_protocols[1];
+extern const struct lws_protocols lws_raw_proxy_protocols[1];
+extern const struct lws_protocols lws_status_protocols[1];
+extern const struct lws_protocols lws_mirror_protocols[1];
+extern const struct lws_protocols lws_ssh_base_protocols[2];
+extern const struct lws_protocols post_demo_protocols[1];
+extern const struct lws_protocols dumb_increment_protocols[1];
+extern const struct lws_protocols deaddrop_protocols[1];
+extern const struct lws_protocols lws_raw_test_protocols[1];
+extern const struct lws_protocols lws_sshd_demo_protocols[1];
+extern const struct lws_protocols lws_acme_client_protocols[1];
+extern const struct lws_protocols client_loopback_test_protocols[1];
+extern const struct lws_protocols fulltext_demo_protocols[1];
+extern const struct lws_protocols lws_openmetrics_export_protocols[
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_CLIENT) && defined(LWS_ROLE_WS)
+	4
+#else
+#if defined(LWS_WITH_SERVER)
+	3
+#else
+	1
+#endif
+#endif
+	];
+
+#define LWSOMPROIDX_DIRECT_HTTP_SERVER		0
+#define LWSOMPROIDX_PROX_HTTP_SERVER		1
+#define LWSOMPROIDX_PROX_WS_SERVER		2
+#define LWSOMPROIDX_PROX_WS_CLIENT		3
 
 #endif
 

@@ -136,19 +136,22 @@ main(int argc, char **argv)
         goto err;
     }
 
-    printf("Models:\n");
+    printf("models:\n");
     m = rxkb_model_first(ctx);
     assert(m); /* Empty model list is usually a bug or a bad xml file */
     while (m) {
-        printf("- %s:%s:%s\n",
+        const char *vendor = rxkb_model_get_vendor(m);
+        printf("- name: %s\n"
+               "  vendor: %s\n"
+               "  description: %s\n",
                rxkb_model_get_name(m),
-               rxkb_model_get_vendor(m),
+               vendor ? vendor : "''",
                rxkb_model_get_description(m));
         m = rxkb_model_next(m);
     }
 
     printf("\n");
-    printf("Layouts:\n");
+    printf("layouts:\n");
     l = rxkb_layout_first(ctx);
     assert(l); /* Empty layout list is usually a bug or a bad xml file */
     while (l) {
@@ -156,56 +159,63 @@ main(int argc, char **argv)
         struct rxkb_iso3166_code *iso3166;
         const char *variant = rxkb_layout_get_variant(l);
         const char *brief = rxkb_layout_get_brief(l);
-        bool first;
 
-        printf("- %s%s%s%s:%s:%s",
+        printf("- layout: '%s'\n"
+               "  variant: '%s'\n"
+               "  brief: '%s'\n"
+               "  description: %s\n",
                rxkb_layout_get_name(l),
-               variant ? "(" : "",
                variant ? variant : "",
-               variant ? ")" : "",
-               brief ? brief : "",
+               brief ? brief : "''",
                rxkb_layout_get_description(l));
 
+        printf("  iso639: [");
         iso639 = rxkb_layout_get_iso639_first(l);
-        if (iso639)
-            printf(":iso639-");
-        first = true;
-        while (iso639) {
-            printf("%s%s", first ? "" : ",", rxkb_iso639_code_get_code(iso639));
-            iso639 = rxkb_iso639_code_next(iso639);
-            first = false;
+        if (iso639) {
+            const char *sep = "";
+            while (iso639) {
+                printf("%s'%s'", sep, rxkb_iso639_code_get_code(iso639));
+                iso639 = rxkb_iso639_code_next(iso639);
+                sep = ", ";
+            }
         }
+        printf("]\n");
+        printf("  iso3166: [");
         iso3166 = rxkb_layout_get_iso3166_first(l);
-        if (iso3166)
-            printf(":iso3166-");
-        first = true;
-        while (iso3166) {
-            printf("%s%s", first ? "" : ",", rxkb_iso3166_code_get_code(iso3166));
-            iso3166 = rxkb_iso3166_code_next(iso3166);
-            first = false;
+        if (iso3166) {
+            const char *sep = "";
+            while (iso3166) {
+                printf("%s'%s'", sep, rxkb_iso3166_code_get_code(iso3166));
+                iso3166 = rxkb_iso3166_code_next(iso3166);
+                sep = ", ";
+            }
         }
-
-        printf("\n");
+        printf("]\n");
         l = rxkb_layout_next(l);
     }
     printf("\n");
-    printf("Options:\n");
+    printf("option_groups:\n");
     g = rxkb_option_group_first(ctx);
     assert(g); /* Empty option goups list is usually a bug or a bad xml file */
     while (g) {
         struct rxkb_option *o;
 
-        printf("- %s:%s (%s)\n",
+        printf("- name: '%s'\n"
+               "  description: %s\n"
+               "  allows_multiple: %s\n"
+               "  options:\n",
                rxkb_option_group_get_name(g),
                rxkb_option_group_get_description(g),
-               rxkb_option_group_allows_multiple(g) ? "multiple" : "single");
+               rxkb_option_group_allows_multiple(g) ? "true" : "false");
 
         o = rxkb_option_first(g);
         assert(o); /* Empty option list is usually a bug or a bad xml file */
         while (o) {
             const char *brief = rxkb_option_get_brief(o);
 
-            printf("  - %s:%s:%s\n",
+            printf("  - name: '%s'\n"
+                   "    brief: '%s'\n"
+                   "    description: '%s'\n",
                    rxkb_option_get_name(o),
                    brief ? brief : "",
                    rxkb_option_get_description(o));

@@ -1,6 +1,8 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2021 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 #
 # This is a generic ChromeOS package/image test setup script. It is meant to
 # be used for either the object file or package bisection tools. This script
@@ -94,12 +96,29 @@ echo
 
 if [[ "${BISECT_MODE}" == "OBJECT_MODE" ]]; then
   echo "EMERGING ${BISECT_PACKAGE}"
-  echo "sudo rm -rf /build/${BISECT_BOARD}/var/cache/portage/*"
+  set -x
   sudo rm -rf /build/${BISECT_BOARD}/var/cache/portage/*
-  echo "sudo rm -rf /build/${BISECT_BOARD}/tmp/portage/${BISECT_PACKAGE}*"
   sudo rm -rf /build/${BISECT_BOARD}/tmp/portage/${BISECT_PACKAGE}*
+  set +x
+  if [[ ${BISECT_PACKAGE} == *chromeos-chrome ]]; then
+    if [[ ${BISECT_USE_FLAGS} == *chrome_internal* && \
+      ${BISECT_USE_FLAGS} != *-chrome_internal* ]]; then
+      # for the pre-upload check of the length of lines
+      chrome_build_dir="/var/cache/chromeos-chrome/chrome-src-internal/src/"
+      chrome_build_dir+="out_${BISECT_BOARD}"
+    else
+      # for the pre-upload check of the length of lines
+      chrome_build_dir="/var/cache/chromeos-chrome/chrome-src/src/"
+      chrome_build_dir+="out_${BISECT_BOARD}"
+    fi
+    set -x
+    sudo rm -rf ${chrome_build_dir}
+    set +x
+  fi
+  set -x
   CLEAN_DELAY=0 emerge-${BISECT_BOARD} -C ${BISECT_PACKAGE}
-  emerge-${BISECT_BOARD} ${BISECT_PACKAGE}
+  USE="${BISECT_USE_FLAGS}" emerge-${BISECT_BOARD} ${BISECT_PACKAGE}
+  set +x
   emerge_status=$?
 
   if [[ ${emerge_status} -ne 0 ]] ; then
@@ -108,19 +127,42 @@ if [[ "${BISECT_MODE}" == "OBJECT_MODE" ]]; then
   fi
 
   echo
-  echo "DEPLOYING"
+  echo "DEPLOYING TO ${BISECT_REMOTE}"
 
-  if [[ ${BISECT_PACKAGE} == sys-kernel/chromeos-kernel-* ]]; then
-    echo "/mnt/host/source/src/scripts/update_kernel.sh " \
-      "--remote=${BISECT_REMOTE} --board=${BISECT_BOARD}"
+  if [[ ${BISECT_PACKAGE} == *chromeos-kernel-* ]]; then
+    cmd="/mnt/host/source/src/scripts/update_kernel.sh --board=${BISECT_BOARD} --remote=${BISECT_REMOTE}"
+    if [[ ${BISECT_REMOTE} == *:* ]]; then
+      IP=$(echo $1 | cut -d ":" -f1)
+      PORT=$(echo $1 | cut -d ":" -f2)
+      cmd="/mnt/host/source/src/scripts/update_kernel.sh --board=${BISECT_BOARD} --remote=${IP} --ssh_port=${PORT}"
+    fi
+    if [[ ${BISECT_REBOOT_OPTION} == false ]]; then
+      cmd+=" --noreboot"
+    fi
+    set -x
     # exec the command to make sure it always exit after
-    exec /mnt/host/source/src/scripts/update_kernel.sh --remote=${BISECT_REMOTE} --board=${BISECT_BOARD}
+    exec $cmd
+    set +x
   fi
 
-  echo "cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE}"
-  cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE} --log-level=info
-
+  if [[ ${BISECT_PACKAGE} == *chromeos-chrome ]]; then
+    # deploy_chrome needs to run inside chrome source tree
+    pushd ~/chrome_root
+    set -x
+    deploy_chrome --force --build-dir=${chrome_build_dir}/Release \
+      --device=${BISECT_REMOTE}
+    set +x
+    popd
+  else
+    set -x
+    cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE} --log-level=info
+    set +x
+  fi
   deploy_status=$?
+
+  if [[ ${BISECT_REBOOT_OPTION} == false ]]; then
+    exit 0
+  fi
 
   if [[ ${deploy_status} -eq 0 ]] ; then
     echo "Deploy successful. Rebooting device..."
@@ -139,7 +181,8 @@ fi
 
 echo "BUILDING IMAGE"
 pushd ~/trunk/src/scripts
-./build_image test --board=${BISECT_BOARD} --noenable_rootfs_verification --noeclean
+USE="${BISECT_USE_FLAGS}" ./build_image test --board=${BISECT_BOARD} \
+  --noenable_rootfs_verification --noeclean
 build_status=$?
 popd
 

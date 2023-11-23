@@ -286,11 +286,9 @@ static size_t getTotalSystemMemory (ANativeActivity* activity)
 
 	try
 	{
-		const size_t	cddRequiredSize	= getCDDRequiredSystemMemory(activity);
-
-		print("Device has at least %.2f MiB total system memory per Android CDD\n", double(cddRequiredSize) / double(MiB));
-
-		return cddRequiredSize;
+		const size_t totalMemory = getTotalAndroidSystemMemory(activity);
+		print("Device has %.2f MiB of system memory\n", static_cast<double>(totalMemory) / static_cast<double>(MiB));
+		return totalMemory;
 	}
 	catch (const std::exception& e)
 	{
@@ -339,7 +337,20 @@ void Platform::getMemoryLimits (vk::PlatformMemoryLimits& limits) const
 	// Worst-case estimates
 	const size_t	MiB				= (size_t)(1<<20);
 	const size_t	baseMemUsage	= 400*MiB;
+
+#if (DE_PTR_SIZE == 4)
+	// Some tests, such as:
+	//
+	// dEQP-VK.api.object_management.max_concurrent.*
+	// dEQP-VK.memory.allocation.random.*
+	//
+	// when run in succession, can lead to system memory fragmentation. It depends on the allocator, and on some 32-bit
+	// systems can lead to out of memory errors. As a workaround, we use a smaller amount of memory on 32-bit systems,
+	// as this typically avoids out of memory errors caused by fragmentation.
+	const double	safeUsageRatio	= 0.1;
+#else
 	const double	safeUsageRatio	= 0.25;
+#endif
 
 	limits.totalSystemMemory					= de::max((size_t)(double(deInt64(m_totalSystemMemory)-deInt64(baseMemUsage)) * safeUsageRatio), 16*MiB);
 

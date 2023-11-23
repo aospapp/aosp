@@ -79,14 +79,14 @@ int mounted_noatime(const char *path)
 	struct statfs _statfs;
 
 	if (statfs(path, &_statfs) == -1) {
-		printf("statfs for %s failed: %s", path, strerror(errno));
+		printf("statfs for %s failed: %s\n", path, strerror(errno));
 		return -1;
 	}
 
 	return (_statfs.f_flags & MNT_NOATIME);
 }
 #else
-int mounted_noatime(const char *path LTP_ATTRIBUTE_UNUSED)
+int mounted_noatime(const char *path PTS_ATTRIBUTE_UNUSED)
 {
 	return 0;
 }

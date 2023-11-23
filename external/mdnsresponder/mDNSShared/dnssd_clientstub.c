@@ -75,7 +75,7 @@ static int gDaemonErr = kDNSServiceErr_NoError;
 #else
 
 #ifndef __ANDROID__
-	#include <sys/fcntl.h>		// For O_RDWR etc.
+	#include <fcntl.h>		// For O_RDWR etc.
 #else
 	#include <fcntl.h>
 	#define LOG_TAG "libmdns"

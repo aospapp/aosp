@@ -45,7 +45,7 @@ import java.util.Set;
  * Processes compilation units before binding, creating symbols for type declarations and desugaring
  * access modifiers.
  */
-public class CompUnitPreprocessor {
+public final class CompUnitPreprocessor {
 
   /** A pre-processed compilation unit. */
   public static class PreprocessedCompUnit {
@@ -149,7 +149,7 @@ public class CompUnitPreprocessor {
         types.add(new SourceBoundClass(sym, owner, children, access, decl));
       }
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /** Desugars access flags for a class. */
@@ -175,6 +175,9 @@ public class CompUnitPreprocessor {
       case ANNOTATION:
         access |= TurbineFlag.ACC_ABSTRACT | TurbineFlag.ACC_INTERFACE | TurbineFlag.ACC_ANNOTATION;
         break;
+      case RECORD:
+        access |= TurbineFlag.ACC_SUPER | TurbineFlag.ACC_FINAL;
+        break;
     }
     return access;
   }
@@ -195,12 +198,14 @@ public class CompUnitPreprocessor {
       case INTERFACE:
       case ENUM:
       case ANNOTATION:
+      case RECORD:
         access |= TurbineFlag.ACC_STATIC;
         break;
       case CLASS:
         if ((enclosing & (TurbineFlag.ACC_INTERFACE | TurbineFlag.ACC_ANNOTATION)) != 0) {
           access |= TurbineFlag.ACC_STATIC;
         }
+        break;
     }
 
     // propagate strictfp to nested types
@@ -219,7 +224,11 @@ public class CompUnitPreprocessor {
         Optional.empty(),
         ImmutableList.of(),
         ImmutableList.of(),
+        ImmutableList.of(),
+        ImmutableList.of(),
         TurbineTyKind.INTERFACE,
         /* javadoc= */ null);
   }
+
+  private CompUnitPreprocessor() {}
 }

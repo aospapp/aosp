@@ -16,7 +16,7 @@ Status
 This module is currently in development, and is therefore still undergoing
 significant changes.
 
-Future work will add:
+Future work will:
 
 1. Add a more complete API for how to retrieve data from ring_buffer.
 2. Add a Python library to decode the trace data.
@@ -60,7 +60,7 @@ Dependencies
 ---------
 Macro API
 ---------
-All code should use the trace API facade directly, this backend fully
+All code should use the trace API facade directly. This backend fully
 implements all features of the tracing facade.
 
 
@@ -139,7 +139,7 @@ not have a group, use ``PW_TRACE_GROUP_LABEL_DEFAULT``.
 -----------
 Time source
 -----------
-Tracing rquires the platform to provide the time source for tracing, this can
+Tracing requires the platform to provide the time source for tracing, this can
 be done in one of a few ways.
 
 1. Create a file with the default time functions, and provide as build variable
@@ -159,7 +159,7 @@ Buffer
 ------
 The optional trace buffer adds a ring buffer which contains the encoded trace
 data. This is still a work in progress, in particular better methods for
-retireving the data still needs to be added. Currently there is an accessor for
+retrieving the data still need to be added. Currently there is an accessor for
 the underlying ring buffer object, but this is a short term solution.
 
 .. cpp:function:: void ClearBuffer()
@@ -171,6 +171,15 @@ The buffer has two configurable options:
 2. PW_TRACE_BUFFER_MAX_BLOCK_SIZE_BYTES: The maximum single trace object size.
    Including the token, time, and any attached data. Any trace object larger
    then this will be dropped.
+
+.. cpp:function:: ConstByteSpan DeringAndViewRawBuffer()
+
+The DeringAndViewRawBuffer function can be used to get bulk access of the full
+deringed prefixed-ring-buffer data. This might be neccessary for large zero-copy
+bulk transfers. It is the caller's responsibility to disable tracing during
+access to the buffer. The data in the block is defined by the
+prefixed-ring-buffer format without any user-preamble.
+
 
 Added dependencies
 ------------------
@@ -203,6 +212,17 @@ Added dependencies
 ``pw_tokenizer``
 ``pw_varint``
 
+--------------
+Python decoder
+--------------
+The python decoder can be used to convert the binary trace data into json data
+which can be viewed in chrome://tracing.
+
+``get_trace.py`` can be used for retrieveing trace data from devices which are
+using the trace_rpc_server.
+
+``trace_tokenized.py`` can be used to decode a binary file of trace data.
+
 --------
 Examples
 --------
@@ -219,10 +239,10 @@ on the command line.
 Trigger
 -------
 The trigger example demonstrates how a trace event can be used as a trigger to
-start and stop capturing a trace. The examples makes use of `PW_TRACE_REF` and
-`PW_TRACE_REF_DATA` to specify a start and stop event for the capture. This can
-be useful if the trace buffer is small and you wish to capture a specific
-series of events.
+start and stop capturing a trace. The examples makes use of ``PW_TRACE_REF``
+and ``PW_TRACE_REF_DATA`` to specify a start and stop event for the capture.
+This can be useful if the trace buffer is small and you wish to capture a
+specific series of events.
 
 Filter
 ------
@@ -232,3 +252,14 @@ task which don't have traceId equal to 3 are removed. Both the other task traces
 are not removed. This can be a useful feature while debugging as it limits the
 amount of events which get stored to the buffer, and only saves the events of
 interest.
+
+--------------------
+Snapshot integration
+--------------------
+Tokenized trace buffers can be captured to a ``pw.snapshot.Snapshot`` or
+``pw.trace.SnapshotTraceInfo`` proto in the ``trace_data`` field. The expected
+format is a de-ringed raw tokenized trace buffer, which can be retrieved via
+``pw::trace::DeringAndViewRawBuffer()``.
+
+``pw_trace_tokenized`` does not yet have Python tooling integration for
+interpretation of serialized snapshots with a populated ``trace_data`` field.

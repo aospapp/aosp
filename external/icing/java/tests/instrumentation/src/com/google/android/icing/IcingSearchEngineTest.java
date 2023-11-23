@@ -51,7 +51,11 @@ import com.google.android.icing.proto.StatusProto;
 import com.google.android.icing.proto.StorageInfoResultProto;
 import com.google.android.icing.proto.StringIndexingConfig;
 import com.google.android.icing.proto.StringIndexingConfig.TokenizerType;
+import com.google.android.icing.proto.SuggestionResponse;
+import com.google.android.icing.proto.SuggestionSpecProto;
+import com.google.android.icing.proto.SuggestionSpecProto.SuggestionScoringSpecProto;
 import com.google.android.icing.proto.TermMatchType;
+import com.google.android.icing.proto.TermMatchType.Code;
 import com.google.android.icing.proto.UsageReport;
 import com.google.android.icing.IcingSearchEngine;
 import java.io.File;
@@ -621,6 +625,47 @@ public final class IcingSearchEngineTest {
     assertThat(matchEnd).isEqualTo(9);
     String match = content.substring(matchStart, matchEnd);
     assertThat(match).isEqualTo("𐀂𐀃");
+  }
+
+  @Test
+  public void testSearchSuggestions() {
+    assertStatusOk(icingSearchEngine.initialize().getStatus());
+
+    SchemaTypeConfigProto emailTypeConfig = createEmailTypeConfig();
+    SchemaProto schema = SchemaProto.newBuilder().addTypes(emailTypeConfig).build();
+    assertThat(
+            icingSearchEngine
+                .setSchema(schema, /*ignoreErrorsAndDeleteDocuments=*/ false)
+                .getStatus()
+                .getCode())
+        .isEqualTo(StatusProto.Code.OK);
+
+    DocumentProto emailDocument1 =
+        createEmailDocument("namespace", "uri1").toBuilder()
+            .addProperties(PropertyProto.newBuilder().setName("subject").addStringValues("fo"))
+            .build();
+    DocumentProto emailDocument2 =
+        createEmailDocument("namespace", "uri2").toBuilder()
+            .addProperties(PropertyProto.newBuilder().setName("subject").addStringValues("foo"))
+            .build();
+    assertStatusOk(icingSearchEngine.put(emailDocument1).getStatus());
+    assertStatusOk(icingSearchEngine.put(emailDocument2).getStatus());
+
+    SuggestionSpecProto suggestionSpec =
+        SuggestionSpecProto.newBuilder()
+            .setPrefix("f")
+            .setNumToReturn(10)
+            .setScoringSpec(
+                SuggestionScoringSpecProto.newBuilder()
+                    .setScoringMatchType(Code.EXACT_ONLY)
+                    .build())
+            .build();
+
+    SuggestionResponse response = icingSearchEngine.searchSuggestions(suggestionSpec);
+    assertStatusOk(response.getStatus());
+    assertThat(response.getSuggestionsList()).hasSize(2);
+    assertThat(response.getSuggestions(0).getQuery()).isEqualTo("foo");
+    assertThat(response.getSuggestions(1).getQuery()).isEqualTo("fo");
   }
 
   private static void assertStatusOk(StatusProto status) {

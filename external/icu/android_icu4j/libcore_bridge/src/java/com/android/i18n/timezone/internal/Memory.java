@@ -153,12 +153,19 @@ public final class Memory {
     }
     @FastNative
     private static native short peekShortNative(long address);
+    @FastNative
     public static native void peekByteArray(long address, byte[] dst, int dstOffset, int byteCount);
+    @FastNative
     public static native void peekCharArray(long address, char[] dst, int dstOffset, int charCount, boolean swap);
+    @FastNative
     public static native void peekDoubleArray(long address, double[] dst, int dstOffset, int doubleCount, boolean swap);
+    @FastNative
     public static native void peekFloatArray(long address, float[] dst, int dstOffset, int floatCount, boolean swap);
+    @FastNative
     public static native void peekIntArray(long address, int[] dst, int dstOffset, int intCount, boolean swap);
+    @FastNative
     public static native void peekLongArray(long address, long[] dst, int dstOffset, int longCount, boolean swap);
+    @FastNative
     public static native void peekShortArray(long address, short[] dst, int dstOffset, int shortCount, boolean swap);
     @FastNative
     public static native void pokeByte(long address, byte value);

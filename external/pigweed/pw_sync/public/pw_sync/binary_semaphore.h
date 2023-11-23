@@ -47,37 +47,40 @@ class BinarySemaphore {
   BinarySemaphore& operator=(const BinarySemaphore&) = delete;
   BinarySemaphore& operator=(BinarySemaphore&&) = delete;
 
-  // Atomically increments the internal counter by 1 up to max_count.
-  // Any thread(s) waiting for the counter to be greater than 0,
-  // such as due to being blocked in acquire, will subsequently be unblocked.
-  // This is IRQ safe.
+  // Atomically increments the internal counter by 1.
+  // Any thread(s) waiting for the counter to be greater than 0, i.e.
+  // blocked in acquire, will subsequently be unblocked.
+  // This is thread and IRQ safe.
   //
-  // PRECONDITIONS:
-  //   1 <= max() - counter
+  // There exists an overflow risk if one releases more than max() times
+  // between acquires because many RTOS implementations internally
+  // increment the counter past one where it is only cleared when acquired.
+  //
+  // Precondition: 1 <= max() - counter
   void release();
 
   // Decrements the internal counter to 0 or blocks indefinitely until it can.
-  // This is thread safe.
-
-  //   update <= max() - counter
+  // This is thread safe, but not IRQ safe.
   void acquire();
 
-  // Attempts to decrement by the internal counter to 0 without blocking.
+  // Tries to decrement by the internal counter to 0 without blocking.
   // Returns true if the internal counter was reset successfully.
-  // This is IRQ safe.
+  // This is thread and IRQ safe.
   bool try_acquire() noexcept;
 
-  // Attempts to decrement the internal counter to 0 where, if needed, blocking
-  // for at least the specified duration.
+  // Tries to decrement the internal counter to 0. Blocks until the specified
+  // timeout has elapsed or the counter was decremented to 0, whichever comes
+  // first.
   // Returns true if the internal counter was decremented successfully.
-  // This is thread safe.
-  bool try_acquire_for(chrono::SystemClock::duration for_at_least);
+  // This is thread safe, but not IRQ safe.
+  bool try_acquire_for(chrono::SystemClock::duration timeout);
 
-  // Attempts to decrement the internal counter to 0 where, if needed, blocking
-  // until at least the specified time point.
+  // Tries to decrement the internal counter to 0. Blocks until the specified
+  // deadline has been reached or the counter was decremented to 0, whichever
+  // comes first.
   // Returns true if the internal counter was decremented successfully.
-  // This is thread safe.
-  bool try_acquire_until(chrono::SystemClock::time_point until_at_least);
+  // This is thread safe, but not IRQ safe.
+  bool try_acquire_until(chrono::SystemClock::time_point deadline);
 
   static constexpr ptrdiff_t max() noexcept {
     return backend::kBinarySemaphoreMaxValue;
@@ -108,11 +111,10 @@ void pw_sync_BinarySemaphore_Release(pw_sync_BinarySemaphore* semaphore);
 void pw_sync_BinarySemaphore_Acquire(pw_sync_BinarySemaphore* semaphore);
 bool pw_sync_BinarySemaphore_TryAcquire(pw_sync_BinarySemaphore* semaphore);
 bool pw_sync_BinarySemaphore_TryAcquireFor(
-    pw_sync_BinarySemaphore* semaphore,
-    pw_chrono_SystemClock_Duration for_at_least);
+    pw_sync_BinarySemaphore* semaphore, pw_chrono_SystemClock_Duration timeout);
 bool pw_sync_BinarySemaphore_TryAcquireUntil(
     pw_sync_BinarySemaphore* semaphore,
-    pw_chrono_SystemClock_TimePoint until_at_least);
+    pw_chrono_SystemClock_TimePoint deadline);
 ptrdiff_t pw_sync_BinarySemaphore_Max(void);
 
 PW_EXTERN_C_END

@@ -23,6 +23,8 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#include <mutex>
+
 #include "utils/log.h"
 #include "utils/properties.h"
 
@@ -37,13 +39,18 @@ enum chroma_order {
 
 struct DroidYuvFormat {
   /* Lookup keys */
-  int native;                     /* HAL_PIXEL_FORMAT_ */
+  uint32_t native;                /* HAL_PIXEL_FORMAT_ */
   enum chroma_order chroma_order; /* chroma order is {Cb, Cr} or {Cr, Cb} */
-  int chroma_step; /* Distance in bytes between subsequent chroma pixels. */
+  size_t chroma_step; /* Distance in bytes between subsequent chroma pixels. */
 
   /* Result */
   int fourcc; /* DRM_FORMAT_ */
 };
+
+#ifndef DRM_FORMAT_XYUV8888
+#define DRM_FORMAT_XYUV8888 \
+  fourcc_code('X', 'Y', 'U', 'V') /* [31:0] X:Y:Cb:Cr 8:8:8:8 little endian */
+#endif
 
 /* The following table is used to look up a DRI image FourCC based
  * on native format and information contained in android_ycbcr struct. */
@@ -64,18 +71,19 @@ static const struct DroidYuvFormat kDroidYuvFormats[] = {
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
-static int get_fourcc_yuv(int native, enum chroma_order chroma_order,
-                          int chroma_step) {
+static uint32_t get_fourcc_yuv(uint32_t native, enum chroma_order chroma_order,
+                               size_t chroma_step) {
   for (auto droid_yuv_format : kDroidYuvFormats)
     if (droid_yuv_format.native == native &&
         droid_yuv_format.chroma_order == chroma_order &&
         droid_yuv_format.chroma_step == chroma_step)
       return droid_yuv_format.fourcc;
 
-  return -1;
+  return UINT32_MAX;
 }
 
-static bool is_yuv(int native) {
+static bool is_yuv(uint32_t native) {
+  // NOLINTNEXTLINE(readability-use-anyofallof)
   for (auto droid_yuv_format : kDroidYuvFormats)
     if (droid_yuv_format.native == native)
       return true;
@@ -129,7 +137,7 @@ bool BufferInfoLibdrm::GetYuvPlaneInfo(int num_fds, buffer_handle_t handle,
   /* .chroma_step is the byte distance between the same chroma channel
    * values of subsequent pixels, assumed to be the same for Cb and Cr. */
   bo->format = get_fourcc_yuv(bo->hal_format, chroma_order, ycbcr.chroma_step);
-  if (bo->format == -1) {
+  if (bo->format == UINT32_MAX) {
     ALOGW(
         "unsupported YUV format, native = %x, chroma_order = %s, chroma_step = "
         "%d",
@@ -197,6 +205,22 @@ int BufferInfoLibdrm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
     if (bo->format == DRM_FORMAT_INVALID)
       return -EINVAL;
+  }
+
+  return 0;
+}
+
+constexpr char gbm_gralloc_module_name[] = "GBM Memory Allocator";
+constexpr char drm_gralloc_module_name[] = "DRM Memory Allocator";
+
+int BufferInfoLibdrm::ValidateGralloc() {
+  if (strcmp(gralloc_->common.name, drm_gralloc_module_name) != 0 &&
+      strcmp(gralloc_->common.name, gbm_gralloc_module_name) != 0) {
+    ALOGE(
+        "Gralloc name isn't valid: Expected: \"%s\" or \"%s\", Actual: \"%s\"",
+        gbm_gralloc_module_name, drm_gralloc_module_name,
+        gralloc_->common.name);
+    return -EINVAL;
   }
 
   return 0;

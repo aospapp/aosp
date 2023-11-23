@@ -182,7 +182,9 @@ class PatchManagerTest(unittest.TestCase):
     test_patch = {
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_stdout.patch',
-        'end_version': 1000
+        'version_range': {
+            'until': 1000,
+        }
     }
 
     self.assertEqual(
@@ -275,7 +277,9 @@ class PatchManagerTest(unittest.TestCase):
     patch = [{
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 10
+        'version_range': {
+            'from': 10,
+        },
     }]
 
     abs_patch_path = '/abs/path/to/filesdir/PATCHES'
@@ -293,13 +297,17 @@ class PatchManagerTest(unittest.TestCase):
     test_updated_patch_metadata = [{
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 10
+        'version_range': {
+            'from': 10,
+        }
     }]
 
     expected_patch_metadata = {
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 10
+        'version_range': {
+            'from': 10,
+        }
     }
 
     with CreateTemporaryJsonFile() as json_test_file:
@@ -335,7 +343,9 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_metadata = [{
         'comment': 'Redirects output to stdout',
         'rel_patch_path': rel_patch_path,
-        'start_version': 10
+        'version_range': {
+            'from': 10,
+        }
     }]
 
     with CreateTemporaryJsonFile() as json_test_file:
@@ -379,7 +389,9 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_metadata = [{
         'comment': 'Redirects output to stdout',
         'rel_patch_path': rel_patch_path,
-        'start_version': 1000
+        'version_range': {
+            'from': 1000,
+        },
     }]
 
     with CreateTemporaryJsonFile() as json_test_file:
@@ -415,28 +427,36 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_1 = {
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 1000,
-        'end_version': 1250
+        'version_range': {
+            'from': 1000,
+            'until': 1250
+        }
     }
 
     test_patch_2 = {
         'comment': 'Fixes input',
         'rel_patch_path': 'cherry/fixes_input.patch',
-        'start_version': 1000
+        'version_range': {
+            'from': 1000
+        }
     }
 
     test_patch_3 = {
         'comment': 'Adds a warning',
         'rel_patch_path': 'add_warning.patch',
-        'start_version': 750,
-        'end_version': 1500
+        'version_range': {
+            'from': 750,
+            'until': 1500
+        }
     }
 
     test_patch_4 = {
         'comment': 'Adds a helper function',
         'rel_patch_path': 'add_helper.patch',
-        'start_version': 20,
-        'end_version': 900
+        'version_range': {
+            'from': 20,
+            'until': 900
+        }
     }
 
     test_patch_metadata = [
@@ -520,28 +540,36 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_1 = {
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 1000,
-        'end_version': 1190
+        'version_range': {
+            'from': 1000,
+            'until': 1190
+        }
     }
 
     test_patch_2 = {
         'comment': 'Fixes input',
         'rel_patch_path': 'cherry/fixes_input.patch',
-        'start_version': 1000
+        'version_range': {
+            'from': 1000
+        }
     }
 
     test_patch_3 = {
         'comment': 'Adds a warning',
         'rel_patch_path': 'add_warning.patch',
-        'start_version': 750,
-        'end_version': 1500
+        'version_range': {
+            'from': 750,
+            'until': 1500
+        }
     }
 
     test_patch_4 = {
         'comment': 'Adds a helper function',
         'rel_patch_path': 'add_helper.patch',
-        'start_version': 20,
-        'end_version': 2000
+        'version_range': {
+            'from': 20,
+            'until': 2000
+        }
     }
 
     test_patch_metadata = [
@@ -654,8 +682,10 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_1 = {
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 1000,
-        'end_version': 1190
+        'version_range': {
+            'from': 1000,
+            'until': 1190
+        }
     }
 
     # For the 'remove_patches' mode, this patch is expected to be in the
@@ -665,7 +695,9 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_2 = {
         'comment': 'Fixes input',
         'rel_patch_path': 'cherry/fixes_input.patch',
-        'start_version': 1000
+        'version_range': {
+            'from': 1000
+        }
     }
 
     # For the 'remove_patches' mode, this patch is expected to be in the
@@ -674,8 +706,10 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_3 = {
         'comment': 'Adds a warning',
         'rel_patch_path': 'add_warning.patch',
-        'start_version': 750,
-        'end_version': 1500
+        'version_range': {
+            'from': 750,
+            'until': 1500
+        }
     }
 
     # For the 'remove_patches' mode, this patch is expected to be in the
@@ -684,8 +718,10 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_4 = {
         'comment': 'Adds a helper function',
         'rel_patch_path': 'add_helper.patch',
-        'start_version': 20,
-        'end_version': 1400
+        'version_range': {
+            'from': 20,
+            'until': 1400
+        }
     }
 
     test_patch_metadata = [
@@ -786,8 +822,10 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_1 = {
         'comment': 'Redirects output to stdout',
         'rel_patch_path': 'cherry/fixes_output.patch',
-        'start_version': 1000,
-        'end_version': 1190
+        'version_range': {
+            'from': 1000,
+            'until': 1190
+        }
     }
 
     # For the 'remove_patches' mode, this patch is expected to be in the
@@ -797,7 +835,9 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_2 = {
         'comment': 'Fixes input',
         'rel_patch_path': 'cherry/fixes_input.patch',
-        'start_version': 1000
+        'version_range': {
+            'from': 1000,
+        }
     }
 
     # For the 'remove_patches' mode, this patch is expected to be in the
@@ -806,8 +846,10 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_3 = {
         'comment': 'Adds a warning',
         'rel_patch_path': 'add_warning.patch',
-        'start_version': 750,
-        'end_version': 1500
+        'version_range': {
+            'from': 750,
+            'until': 1500
+        }
     }
 
     # For the 'remove_patches' mode, this patch is expected to be in the
@@ -816,8 +858,10 @@ class PatchManagerTest(unittest.TestCase):
     test_patch_4 = {
         'comment': 'Adds a helper function',
         'rel_patch_path': 'add_helper.patch',
-        'start_version': 1600,
-        'end_version': 2000
+        'version_range': {
+            'from': 1600,
+            'until': 2000
+        }
     }
 
     test_patch_metadata = [

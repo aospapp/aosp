@@ -24,6 +24,7 @@
 
 #include "Backend.h"
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define REGISTER_BACKEND(name_str_, backend_)                               \
   static int                                                                \
       backend = BackendManager::GetInstance()                               \
@@ -36,21 +37,21 @@ namespace android {
 
 class BackendManager {
  public:
-  using backend_constructor_t = std::function<std::unique_ptr<Backend>()>;
+  using BackendConstructorT = std::function<std::unique_ptr<Backend>()>;
   static BackendManager &GetInstance();
   int RegisterBackend(const std::string &name,
-                      backend_constructor_t backend_constructor);
-  int SetBackendForDisplay(DrmHwcTwo::HwcDisplay *display);
+                      BackendConstructorT backend_constructor);
+  int SetBackendForDisplay(HwcDisplay *display);
   std::unique_ptr<Backend> GetBackendByName(std::string &name);
-  HWC2::Error ValidateDisplay(DrmHwcTwo::HwcDisplay *display,
-                              uint32_t *num_types, uint32_t *num_requests);
+  HWC2::Error ValidateDisplay(HwcDisplay *display, uint32_t *num_types,
+                              uint32_t *num_requests);
 
  private:
   BackendManager() = default;
 
   static const std::vector<std::string> kClientDevices;
 
-  std::map<std::string, backend_constructor_t> available_backends_;
+  std::map<std::string, BackendConstructorT> available_backends_;
 };
 }  // namespace android
 

@@ -21,6 +21,9 @@ limitations under the License.
 #include "mlir/IR/DialectImplementation.h"  // from @llvm-project
 #include "tensorflow/compiler/mlir/tools/kernel_gen/ir/tf_status.cc.inc"
 
+// Generated dialect definitions.
+#include "tensorflow/compiler/mlir/tools/kernel_gen/ir/tf_framework_dialect.cc.inc"
+
 namespace mlir {
 namespace kernel_gen {
 namespace tf_framework {
@@ -30,7 +33,7 @@ void TFFrameworkDialect::initialize() {
 #define GET_OP_LIST
 #include "tensorflow/compiler/mlir/tools/kernel_gen/ir/tf_framework_ops.cc.inc"
       >();
-  addTypes<OpKernelContextType>();
+  addTypes<JITCallableType, OpKernelContextType>();
 }
 
 /// Parse a type registered to this dialect.
@@ -40,6 +43,9 @@ Type TFFrameworkDialect::parseType(DialectAsmParser &parser) const {
 
   if (keyword == "op_kernel_context") {
     return OpKernelContextType::get(getContext());
+  }
+  if (keyword == "jit_callable") {
+    return JITCallableType::get(getContext());
   }
 
   parser.emitError(parser.getNameLoc(), "unknown TF Framework type: ")
@@ -51,6 +57,10 @@ Type TFFrameworkDialect::parseType(DialectAsmParser &parser) const {
 void TFFrameworkDialect::printType(Type type, DialectAsmPrinter &os) const {
   if (type.isa<OpKernelContextType>()) {
     os << "op_kernel_context";
+    return;
+  }
+  if (type.isa<JITCallableType>()) {
+    os << "jit_callable";
     return;
   }
   llvm_unreachable("unexpected TF Framework type kind");
@@ -116,22 +126,6 @@ LogicalResult Verify<TFAllocOp>(TFAllocOp op) {
     case ErrorCode::DATA_LOSS:
       return Code::DATA_LOSS;
   }
-}
-
-//===----------------------------------------------------------------------===//
-// MinimumBroadcastShapesOp
-//===----------------------------------------------------------------------===//
-template <>
-LogicalResult Verify<MinimumBroadcastShapesOp>(MinimumBroadcastShapesOp op) {
-  // Check that the number of operands matches the number of outputs.
-  unsigned result_shapes_count = op.results().size();
-  unsigned operand_shapes_count = op.shapes().size();
-  if (operand_shapes_count != result_shapes_count) {
-    return op.emitOpError()
-           << "number of operand shapes " << operand_shapes_count
-           << " does not match number of result shapes " << result_shapes_count;
-  }
-  return success();
 }
 
 }  // namespace tf_framework

@@ -47,7 +47,7 @@ static int is_in_range(wchar_t ch, const wchar_t **p, int *reverse) {
 			/* Malformed pattern, range not closed */
 			return 0;
 		if(*(++(*p)) == '-') {
-			last = *(++(*p));				
+			last = *(++(*p));
 			if(last==']') {
 				/* Last "-" in range designates itself */
 				if(ch == first || ch == '-')

@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "SpirvShader.hpp"
+
+#include "SpirvProfiler.hpp"
 #include "SpirvShaderDebug.hpp"
 
 #include "System/Debug.hpp"
@@ -26,19 +28,19 @@
 namespace sw {
 
 SpirvShader::SpirvShader(
-    uint32_t codeSerialID,
     VkShaderStageFlagBits pipelineStage,
     const char *entryPointName,
-    InsnStore const &insns,
+    SpirvBinary const &insns,
     const vk::RenderPass *renderPass,
     uint32_t subpassIndex,
     bool robustBufferAccess,
-    const std::shared_ptr<vk::dbg::Context> &dbgctx)
+    const std::shared_ptr<vk::dbg::Context> &dbgctx,
+    std::shared_ptr<SpirvProfiler> profiler)
     : insns{ insns }
     , inputs{ MAX_INTERFACE_COMPONENTS }
     , outputs{ MAX_INTERFACE_COMPONENTS }
-    , codeSerialID(codeSerialID)
     , robustBufferAccess(robustBufferAccess)
+    , profiler(profiler)
 {
 	ASSERT(insns.size() > 0);
 
@@ -61,8 +63,8 @@ SpirvShader::SpirvShader(
 		}
 	}
 
-	// Simplifying assumptions (to be satisfied by earlier transformations)
-	// - The only input/output OpVariables present are those used by the entrypoint
+	// The identifiers of all OpVariables that define the entry point's IO variables.
+	std::unordered_set<Object::ID> interfaceIds;
 
 	Function::ID currentFunction;
 	Block::ID currentBlock;
@@ -74,25 +76,34 @@ SpirvShader::SpirvShader(
 
 		switch(opcode)
 		{
-			case spv::OpEntryPoint:
+		case spv::OpEntryPoint:
 			{
-				executionModel = spv::ExecutionModel(insn.word(1));
-				auto id = Function::ID(insn.word(2));
-				auto name = insn.string(3);
-				auto stage = executionModelToStage(executionModel);
+				spv::ExecutionModel executionModel = spv::ExecutionModel(insn.word(1));
+				Function::ID entryPoint = Function::ID(insn.word(2));
+				const char *name = insn.string(3);
+				VkShaderStageFlagBits stage = executionModelToStage(executionModel);
+
 				if(stage == pipelineStage && strcmp(name, entryPointName) == 0)
 				{
-					ASSERT_MSG(entryPoint == 0, "Duplicate entry point with name '%s' and stage %d", name, int(stage));
-					entryPoint = id;
+					ASSERT_MSG(this->entryPoint == 0, "Duplicate entry point with name '%s' and stage %d", name, int(stage));
+					this->entryPoint = entryPoint;
+					this->executionModel = executionModel;
+
+					auto interfaceIdsOffset = 3 + insn.stringSizeInWords(3);
+					for(uint32_t i = interfaceIdsOffset; i < insn.wordCount(); i++)
+					{
+						interfaceIds.emplace(insn.word(i));
+					}
 				}
-				break;
 			}
+			break;
 
-			case spv::OpExecutionMode:
-				ProcessExecutionMode(insn);
-				break;
+		case spv::OpExecutionMode:
+		case spv::OpExecutionModeId:
+			ProcessExecutionMode(insn);
+			break;
 
-			case spv::OpDecorate:
+		case spv::OpDecorate:
 			{
 				TypeOrObjectID targetId = insn.word(1);
 				auto decoration = static_cast<spv::Decoration>(insn.word(2));
@@ -102,29 +113,31 @@ SpirvShader::SpirvShader(
 
 				switch(decoration)
 				{
-					case spv::DecorationDescriptorSet:
-						descriptorDecorations[targetId].DescriptorSet = value;
-						break;
-					case spv::DecorationBinding:
-						descriptorDecorations[targetId].Binding = value;
-						break;
-					case spv::DecorationInputAttachmentIndex:
-						descriptorDecorations[targetId].InputAttachmentIndex = value;
-						break;
-					case spv::DecorationSample:
-						modes.ContainsSampleQualifier = true;
-						break;
-					default:
-						// Only handling descriptor decorations here.
-						break;
+				case spv::DecorationDescriptorSet:
+					descriptorDecorations[targetId].DescriptorSet = value;
+					break;
+				case spv::DecorationBinding:
+					descriptorDecorations[targetId].Binding = value;
+					break;
+				case spv::DecorationInputAttachmentIndex:
+					descriptorDecorations[targetId].InputAttachmentIndex = value;
+					break;
+				case spv::DecorationSample:
+					analysis.ContainsSampleQualifier = true;
+					break;
+				default:
+					// Only handling descriptor decorations here.
+					break;
 				}
 
 				if(decoration == spv::DecorationCentroid)
-					modes.NeedsCentroid = true;
-				break;
+				{
+					analysis.NeedsCentroid = true;
+				}
 			}
+			break;
 
-			case spv::OpMemberDecorate:
+		case spv::OpMemberDecorate:
 			{
 				Type::ID targetId = insn.word(1);
 				auto memberIndex = insn.word(2);
@@ -138,11 +151,13 @@ SpirvShader::SpirvShader(
 				d[memberIndex].Apply(decoration, value);
 
 				if(decoration == spv::DecorationCentroid)
-					modes.NeedsCentroid = true;
-				break;
+				{
+					analysis.NeedsCentroid = true;
+				}
 			}
+			break;
 
-			case spv::OpDecorateId:
+		case spv::OpDecorateId:
 			{
 				auto decoration = static_cast<spv::Decoration>(insn.word(2));
 
@@ -151,23 +166,34 @@ SpirvShader::SpirvShader(
 				// by HLSL to build the graphics pipeline with shader reflection. At the driver level,
 				// the CounterBuffer decoration does nothing, so we can safely ignore both decorations.
 				ASSERT(decoration == spv::DecorationUniformId || decoration == spv::DecorationCounterBuffer);
-				break;
 			}
+			break;
 
-			case spv::OpDecorateString:
-			case spv::OpMemberDecorateString:
+		case spv::OpDecorateString:
 			{
-				// We assume these are for HLSL semantics, ignore them.
-				break;
+				auto decoration = static_cast<spv::Decoration>(insn.word(2));
+
+				// We assume these are for HLSL semantics, ignore them (b/214576937).
+				ASSERT(decoration == spv::DecorationUserSemantic || decoration == spv::DecorationUserTypeGOOGLE);
 			}
+			break;
 
-			case spv::OpDecorationGroup:
-				// Nothing to do here. We don't need to record the definition of the group; we'll just have
-				// the bundle of decorations float around. If we were to ever walk the decorations directly,
-				// we might think about introducing this as a real Object.
-				break;
+		case spv::OpMemberDecorateString:
+			{
+				auto decoration = static_cast<spv::Decoration>(insn.word(3));
 
-			case spv::OpGroupDecorate:
+				// We assume these are for HLSL semantics, ignore them (b/214576937).
+				ASSERT(decoration == spv::DecorationUserSemantic || decoration == spv::DecorationUserTypeGOOGLE);
+			}
+			break;
+
+		case spv::OpDecorationGroup:
+			// Nothing to do here. We don't need to record the definition of the group; we'll just have
+			// the bundle of decorations float around. If we were to ever walk the decorations directly,
+			// we might think about introducing this as a real Object.
+			break;
+
+		case spv::OpGroupDecorate:
 			{
 				uint32_t group = insn.word(1);
 				auto const &groupDecorations = decorations[group];
@@ -179,11 +205,10 @@ SpirvShader::SpirvShader(
 					decorations[target].Apply(groupDecorations);
 					descriptorDecorations[target].Apply(descriptorGroupDecorations);
 				}
-
-				break;
 			}
+			break;
 
-			case spv::OpGroupMemberDecorate:
+		case spv::OpGroupMemberDecorate:
 			{
 				auto const &srcDecorations = decorations[insn.word(1)];
 				for(auto i = 2u; i < insn.wordCount(); i += 2)
@@ -195,65 +220,67 @@ SpirvShader::SpirvShader(
 						d.resize(memberIndex + 1);  // on demand resize, see above...
 					d[memberIndex].Apply(srcDecorations);
 				}
-				break;
 			}
+			break;
 
-			case spv::OpLabel:
+		case spv::OpLabel:
 			{
-				ASSERT(currentBlock.value() == 0);
+				ASSERT(currentBlock == 0);
 				currentBlock = Block::ID(insn.word(1));
 				blockStart = insn;
-				break;
 			}
+			break;
 
-			// Branch Instructions (subset of Termination Instructions):
-			case spv::OpBranch:
-			case spv::OpBranchConditional:
-			case spv::OpSwitch:
-			case spv::OpReturn:
-				// [[fallthrough]]
+		// Termination instructions:
+		case spv::OpKill:
+		case spv::OpTerminateInvocation:
+			analysis.ContainsDiscard = true;
+			// [[fallthrough]]
 
-			// Termination instruction:
-			case spv::OpKill:
-			case spv::OpUnreachable:
+		case spv::OpUnreachable:
+
+		// Branch Instructions (subset of Termination Instructions):
+		case spv::OpBranch:
+		case spv::OpBranchConditional:
+		case spv::OpSwitch:
+		case spv::OpReturn:
 			{
-				ASSERT(currentBlock.value() != 0);
-				ASSERT(currentFunction.value() != 0);
+				ASSERT(currentBlock != 0);
+				ASSERT(currentFunction != 0);
 
 				auto blockEnd = insn;
 				blockEnd++;
 				functions[currentFunction].blocks[currentBlock] = Block(blockStart, blockEnd);
 				currentBlock = Block::ID(0);
-
-				if(opcode == spv::OpKill)
-				{
-					modes.ContainsKill = true;
-				}
-				break;
 			}
+			break;
 
-			case spv::OpLoopMerge:
-			case spv::OpSelectionMerge:
-				break;  // Nothing to do in analysis pass.
+		case spv::OpDemoteToHelperInvocation:
+			analysis.ContainsDiscard = true;
+			break;
 
-			case spv::OpTypeVoid:
-			case spv::OpTypeBool:
-			case spv::OpTypeInt:
-			case spv::OpTypeFloat:
-			case spv::OpTypeVector:
-			case spv::OpTypeMatrix:
-			case spv::OpTypeImage:
-			case spv::OpTypeSampler:
-			case spv::OpTypeSampledImage:
-			case spv::OpTypeArray:
-			case spv::OpTypeRuntimeArray:
-			case spv::OpTypeStruct:
-			case spv::OpTypePointer:
-			case spv::OpTypeFunction:
-				DeclareType(insn);
-				break;
+		case spv::OpLoopMerge:
+		case spv::OpSelectionMerge:
+			break;  // Nothing to do in analysis pass.
 
-			case spv::OpVariable:
+		case spv::OpTypeVoid:
+		case spv::OpTypeBool:
+		case spv::OpTypeInt:
+		case spv::OpTypeFloat:
+		case spv::OpTypeVector:
+		case spv::OpTypeMatrix:
+		case spv::OpTypeImage:
+		case spv::OpTypeSampler:
+		case spv::OpTypeSampledImage:
+		case spv::OpTypeArray:
+		case spv::OpTypeRuntimeArray:
+		case spv::OpTypeStruct:
+		case spv::OpTypePointer:
+		case spv::OpTypeFunction:
+			DeclareType(insn);
+			break;
+
+		case spv::OpVariable:
 			{
 				Type::ID typeId = insn.word(1);
 				Object::ID resultId = insn.word(2);
@@ -268,64 +295,67 @@ SpirvShader::SpirvShader(
 
 				switch(storageClass)
 				{
-					case spv::StorageClassInput:
-					case spv::StorageClassOutput:
+				case spv::StorageClassInput:
+				case spv::StorageClassOutput:
+					if(interfaceIds.count(resultId))
+					{
 						ProcessInterfaceVariable(object);
-						break;
+					}
+					break;
 
-					case spv::StorageClassUniform:
-					case spv::StorageClassStorageBuffer:
-						object.kind = Object::Kind::DescriptorSet;
-						break;
+				case spv::StorageClassUniform:
+				case spv::StorageClassStorageBuffer:
+					object.kind = Object::Kind::DescriptorSet;
+					break;
 
-					case spv::StorageClassPushConstant:
-					case spv::StorageClassPrivate:
-					case spv::StorageClassFunction:
-					case spv::StorageClassUniformConstant:
-						break;  // Correctly handled.
+				case spv::StorageClassPushConstant:
+				case spv::StorageClassPrivate:
+				case spv::StorageClassFunction:
+				case spv::StorageClassUniformConstant:
+					break;  // Correctly handled.
 
-					case spv::StorageClassWorkgroup:
+				case spv::StorageClassWorkgroup:
 					{
 						auto &elTy = getType(getType(typeId).element);
 						auto sizeInBytes = elTy.componentCount * static_cast<uint32_t>(sizeof(float));
 						workgroupMemory.allocate(resultId, sizeInBytes);
 						object.kind = Object::Kind::Pointer;
-						break;
 					}
-					case spv::StorageClassAtomicCounter:
-					case spv::StorageClassImage:
-						UNSUPPORTED("StorageClass %d not yet supported", (int)storageClass);
-						break;
+					break;
+				case spv::StorageClassAtomicCounter:
+				case spv::StorageClassImage:
+					UNSUPPORTED("StorageClass %d not yet supported", (int)storageClass);
+					break;
 
-					case spv::StorageClassCrossWorkgroup:
-						UNSUPPORTED("SPIR-V OpenCL Execution Model (StorageClassCrossWorkgroup)");
-						break;
+				case spv::StorageClassCrossWorkgroup:
+					UNSUPPORTED("SPIR-V OpenCL Execution Model (StorageClassCrossWorkgroup)");
+					break;
 
-					case spv::StorageClassGeneric:
-						UNSUPPORTED("SPIR-V GenericPointer Capability (StorageClassGeneric)");
-						break;
+				case spv::StorageClassGeneric:
+					UNSUPPORTED("SPIR-V GenericPointer Capability (StorageClassGeneric)");
+					break;
 
-					default:
-						UNREACHABLE("Unexpected StorageClass %d", storageClass);  // See Appendix A of the Vulkan spec.
-						break;
+				default:
+					UNREACHABLE("Unexpected StorageClass %d", storageClass);  // See Appendix A of the Vulkan spec.
+					break;
 				}
-				break;
 			}
+			break;
 
-			case spv::OpConstant:
-			case spv::OpSpecConstant:
-				CreateConstant(insn).constantValue[0] = insn.word(3);
-				break;
-			case spv::OpConstantFalse:
-			case spv::OpSpecConstantFalse:
-				CreateConstant(insn).constantValue[0] = 0;  // Represent Boolean false as zero.
-				break;
-			case spv::OpConstantTrue:
-			case spv::OpSpecConstantTrue:
-				CreateConstant(insn).constantValue[0] = ~0u;  // Represent Boolean true as all bits set.
-				break;
-			case spv::OpConstantNull:
-			case spv::OpUndef:
+		case spv::OpConstant:
+		case spv::OpSpecConstant:
+			CreateConstant(insn).constantValue[0] = insn.word(3);
+			break;
+		case spv::OpConstantFalse:
+		case spv::OpSpecConstantFalse:
+			CreateConstant(insn).constantValue[0] = 0;  // Represent Boolean false as zero.
+			break;
+		case spv::OpConstantTrue:
+		case spv::OpSpecConstantTrue:
+			CreateConstant(insn).constantValue[0] = ~0u;  // Represent Boolean true as all bits set.
+			break;
+		case spv::OpConstantNull:
+		case spv::OpUndef:
 			{
 				// TODO: consider a real LLVM-level undef. For now, zero is a perfectly good value.
 				// OpConstantNull forms a constant of arbitrary type, all zeros.
@@ -335,10 +365,10 @@ SpirvShader::SpirvShader(
 				{
 					object.constantValue[i] = 0;
 				}
-				break;
 			}
-			case spv::OpConstantComposite:
-			case spv::OpSpecConstantComposite:
+			break;
+		case spv::OpConstantComposite:
+		case spv::OpSpecConstantComposite:
 			{
 				auto &object = CreateConstant(insn);
 				auto offset = 0u;
@@ -366,58 +396,73 @@ SpirvShader::SpirvShader(
 					// The object decorated with WorkgroupSize must be declared
 					// as a three-component vector of 32-bit integers.
 					ASSERT(getType(object).componentCount == 3);
-					modes.WorkgroupSizeX = object.constantValue[0];
-					modes.WorkgroupSizeY = object.constantValue[1];
-					modes.WorkgroupSizeZ = object.constantValue[2];
+					executionModes.WorkgroupSizeX = object.constantValue[0];
+					executionModes.WorkgroupSizeY = object.constantValue[1];
+					executionModes.WorkgroupSizeZ = object.constantValue[2];
+					executionModes.useWorkgroupSizeId = false;
 				}
-				break;
 			}
-			case spv::OpSpecConstantOp:
-				EvalSpecConstantOp(insn);
-				break;
+			break;
+		case spv::OpSpecConstantOp:
+			EvalSpecConstantOp(insn);
+			break;
 
-			case spv::OpCapability:
+		case spv::OpCapability:
 			{
 				auto capability = static_cast<spv::Capability>(insn.word(1));
 				switch(capability)
 				{
-					case spv::CapabilityMatrix: capabilities.Matrix = true; break;
-					case spv::CapabilityShader: capabilities.Shader = true; break;
-					case spv::CapabilityStorageImageMultisample: capabilities.StorageImageMultisample = true; break;
-					case spv::CapabilityClipDistance: capabilities.ClipDistance = true; break;
-					case spv::CapabilityCullDistance: capabilities.CullDistance = true; break;
-					case spv::CapabilityImageCubeArray: capabilities.ImageCubeArray = true; break;
-					case spv::CapabilitySampleRateShading: capabilities.SampleRateShading = true; break;
-					case spv::CapabilityInputAttachment: capabilities.InputAttachment = true; break;
-					case spv::CapabilitySampled1D: capabilities.Sampled1D = true; break;
-					case spv::CapabilityImage1D: capabilities.Image1D = true; break;
-					case spv::CapabilitySampledBuffer: capabilities.SampledBuffer = true; break;
-					case spv::CapabilitySampledCubeArray: capabilities.SampledCubeArray = true; break;
-					case spv::CapabilityImageBuffer: capabilities.ImageBuffer = true; break;
-					case spv::CapabilityImageMSArray: capabilities.ImageMSArray = true; break;
-					case spv::CapabilityStorageImageExtendedFormats: capabilities.StorageImageExtendedFormats = true; break;
-					case spv::CapabilityImageQuery: capabilities.ImageQuery = true; break;
-					case spv::CapabilityDerivativeControl: capabilities.DerivativeControl = true; break;
-					case spv::CapabilityInterpolationFunction: capabilities.InterpolationFunction = true; break;
-					case spv::CapabilityGroupNonUniform: capabilities.GroupNonUniform = true; break;
-					case spv::CapabilityGroupNonUniformVote: capabilities.GroupNonUniformVote = true; break;
-					case spv::CapabilityGroupNonUniformArithmetic: capabilities.GroupNonUniformArithmetic = true; break;
-					case spv::CapabilityGroupNonUniformBallot: capabilities.GroupNonUniformBallot = true; break;
-					case spv::CapabilityGroupNonUniformShuffle: capabilities.GroupNonUniformShuffle = true; break;
-					case spv::CapabilityGroupNonUniformShuffleRelative: capabilities.GroupNonUniformShuffleRelative = true; break;
-					case spv::CapabilityDeviceGroup: capabilities.DeviceGroup = true; break;
-					case spv::CapabilityMultiView: capabilities.MultiView = true; break;
-					case spv::CapabilityStencilExportEXT: capabilities.StencilExportEXT = true; break;
-					default:
-						UNSUPPORTED("Unsupported capability %u", insn.word(1));
+				case spv::CapabilityMatrix: capabilities.Matrix = true; break;
+				case spv::CapabilityShader: capabilities.Shader = true; break;
+				case spv::CapabilityStorageImageMultisample: capabilities.StorageImageMultisample = true; break;
+				case spv::CapabilityClipDistance: capabilities.ClipDistance = true; break;
+				case spv::CapabilityCullDistance: capabilities.CullDistance = true; break;
+				case spv::CapabilityImageCubeArray: capabilities.ImageCubeArray = true; break;
+				case spv::CapabilitySampleRateShading: capabilities.SampleRateShading = true; break;
+				case spv::CapabilityInputAttachment: capabilities.InputAttachment = true; break;
+				case spv::CapabilitySampled1D: capabilities.Sampled1D = true; break;
+				case spv::CapabilityImage1D: capabilities.Image1D = true; break;
+				case spv::CapabilitySampledBuffer: capabilities.SampledBuffer = true; break;
+				case spv::CapabilitySampledCubeArray: capabilities.SampledCubeArray = true; break;
+				case spv::CapabilityImageBuffer: capabilities.ImageBuffer = true; break;
+				case spv::CapabilityImageMSArray: capabilities.ImageMSArray = true; break;
+				case spv::CapabilityStorageImageExtendedFormats: capabilities.StorageImageExtendedFormats = true; break;
+				case spv::CapabilityImageQuery: capabilities.ImageQuery = true; break;
+				case spv::CapabilityDerivativeControl: capabilities.DerivativeControl = true; break;
+				case spv::CapabilityDotProductInputAll: capabilities.DotProductInputAll = true; break;
+				case spv::CapabilityDotProductInput4x8Bit: capabilities.DotProductInput4x8Bit = true; break;
+				case spv::CapabilityDotProductInput4x8BitPacked: capabilities.DotProductInput4x8BitPacked = true; break;
+				case spv::CapabilityDotProduct: capabilities.DotProduct = true; break;
+				case spv::CapabilityInterpolationFunction: capabilities.InterpolationFunction = true; break;
+				case spv::CapabilityStorageImageWriteWithoutFormat: capabilities.StorageImageWriteWithoutFormat = true; break;
+				case spv::CapabilityGroupNonUniform: capabilities.GroupNonUniform = true; break;
+				case spv::CapabilityGroupNonUniformVote: capabilities.GroupNonUniformVote = true; break;
+				case spv::CapabilityGroupNonUniformArithmetic: capabilities.GroupNonUniformArithmetic = true; break;
+				case spv::CapabilityGroupNonUniformBallot: capabilities.GroupNonUniformBallot = true; break;
+				case spv::CapabilityGroupNonUniformShuffle: capabilities.GroupNonUniformShuffle = true; break;
+				case spv::CapabilityGroupNonUniformShuffleRelative: capabilities.GroupNonUniformShuffleRelative = true; break;
+				case spv::CapabilityDeviceGroup: capabilities.DeviceGroup = true; break;
+				case spv::CapabilityMultiView: capabilities.MultiView = true; break;
+				case spv::CapabilityDemoteToHelperInvocation: capabilities.DemoteToHelperInvocation = true; break;
+				case spv::CapabilityStencilExportEXT: capabilities.StencilExportEXT = true; break;
+				case spv::CapabilityVulkanMemoryModel: capabilities.VulkanMemoryModel = true; break;
+				case spv::CapabilityVulkanMemoryModelDeviceScope: capabilities.VulkanMemoryModelDeviceScope = true; break;
+				default:
+					UNSUPPORTED("Unsupported capability %u", insn.word(1));
 				}
-				break;  // Various capabilities will be declared, but none affect our code generation at this point.
+
+				// Various capabilities will be declared, but none affect our code generation at this point.
 			}
+			break;
 
-			case spv::OpMemoryModel:
-				break;  // Memory model does not affect our code generation until we decide to do Vulkan Memory Model support.
+		case spv::OpMemoryModel:
+			{
+				addressingModel = static_cast<spv::AddressingModel>(insn.word(1));
+				memoryModel = static_cast<spv::MemoryModel>(insn.word(2));
+			}
+			break;
 
-			case spv::OpFunction:
+		case spv::OpFunction:
 			{
 				auto functionId = Function::ID(insn.word(2));
 				ASSERT_MSG(currentFunction == 0, "Functions %d and %d overlap", currentFunction.value(), functionId.value());
@@ -435,18 +480,19 @@ SpirvShader::SpirvShader(
 					}
 				}
 				ASSERT_MSG(function.entry != 0, "Function<%d> has no label", currentFunction.value());
-				break;
 			}
+			break;
 
-			case spv::OpFunctionEnd:
-				currentFunction = 0;
-				break;
+		case spv::OpFunctionEnd:
+			currentFunction = 0;
+			break;
 
-			case spv::OpExtInstImport:
+		case spv::OpExtInstImport:
 			{
 				static constexpr std::pair<const char *, Extension::Name> extensionsByName[] = {
 					{ "GLSL.std.450", Extension::GLSLstd450 },
 					{ "OpenCL.DebugInfo.100", Extension::OpenCLDebugInfo100 },
+					{ "NonSemantic.", Extension::NonSemanticInfo },
 				};
 				static constexpr auto extensionCount = sizeof(extensionsByName) / sizeof(extensionsByName[0]);
 
@@ -455,7 +501,7 @@ SpirvShader::SpirvShader(
 				auto ext = Extension{ Extension::Unknown };
 				for(size_t i = 0; i < extensionCount; i++)
 				{
-					if(0 == strcmp(name, extensionsByName[i].first))
+					if(0 == strncmp(name, extensionsByName[i].first, strlen(extensionsByName[i].first)))
 					{
 						ext = Extension{ extensionsByName[i].second };
 						break;
@@ -468,50 +514,50 @@ SpirvShader::SpirvShader(
 				}
 				extensionsByID.emplace(id, ext);
 				extensionsImported.emplace(ext.name);
-				break;
 			}
-			case spv::OpName:
-			case spv::OpMemberName:
-			case spv::OpSource:
-			case spv::OpSourceContinued:
-			case spv::OpSourceExtension:
-			case spv::OpLine:
-			case spv::OpNoLine:
-			case spv::OpModuleProcessed:
-				// No semantic impact
-				break;
+			break;
+		case spv::OpName:
+		case spv::OpMemberName:
+		case spv::OpSource:
+		case spv::OpSourceContinued:
+		case spv::OpSourceExtension:
+		case spv::OpLine:
+		case spv::OpNoLine:
+		case spv::OpModuleProcessed:
+			// No semantic impact
+			break;
 
-			case spv::OpString:
-				strings.emplace(insn.word(1), insn.string(2));
-				break;
+		case spv::OpString:
+			strings.emplace(insn.word(1), insn.string(2));
+			break;
 
-			case spv::OpFunctionParameter:
-				// These should have all been removed by preprocessing passes. If we see them here,
-				// our assumptions are wrong and we will probably generate wrong code.
-				UNREACHABLE("%s should have already been lowered.", OpcodeName(opcode));
-				break;
+		case spv::OpFunctionParameter:
+			// These should have all been removed by preprocessing passes. If we see them here,
+			// our assumptions are wrong and we will probably generate wrong code.
+			UNREACHABLE("%s should have already been lowered.", OpcodeName(opcode));
+			break;
 
-			case spv::OpFunctionCall:
-				// TODO(b/141246700): Add full support for spv::OpFunctionCall
-				break;
+		case spv::OpFunctionCall:
+			// TODO(b/141246700): Add full support for spv::OpFunctionCall
+			break;
 
-			case spv::OpFConvert:
-				UNSUPPORTED("SPIR-V Float16 or Float64 Capability (OpFConvert)");
-				break;
+		case spv::OpFConvert:
+			UNSUPPORTED("SPIR-V Float16 or Float64 Capability (OpFConvert)");
+			break;
 
-			case spv::OpSConvert:
-				UNSUPPORTED("SPIR-V Int16 or Int64 Capability (OpSConvert)");
-				break;
+		case spv::OpSConvert:
+			UNSUPPORTED("SPIR-V Int16 or Int64 Capability (OpSConvert)");
+			break;
 
-			case spv::OpUConvert:
-				UNSUPPORTED("SPIR-V Int16 or Int64 Capability (OpUConvert)");
-				break;
+		case spv::OpUConvert:
+			UNSUPPORTED("SPIR-V Int16 or Int64 Capability (OpUConvert)");
+			break;
 
-			case spv::OpLoad:
-			case spv::OpAccessChain:
-			case spv::OpInBoundsAccessChain:
-			case spv::OpSampledImage:
-			case spv::OpImage:
+		case spv::OpLoad:
+		case spv::OpAccessChain:
+		case spv::OpInBoundsAccessChain:
+		case spv::OpSampledImage:
+		case spv::OpImage:
 			{
 				// Propagate the descriptor decorations to the result.
 				Object::ID resultId = insn.word(2);
@@ -528,7 +574,7 @@ SpirvShader::SpirvShader(
 				if(opcode == spv::OpAccessChain || opcode == spv::OpInBoundsAccessChain)
 				{
 					Decorations dd{};
-					ApplyDecorationsForAccessChain(&dd, &descriptorDecorations[resultId], pointerId, insn.wordCount() - 4, insn.wordPointer(4));
+					ApplyDecorationsForAccessChain(&dd, &descriptorDecorations[resultId], pointerId, Span(insn, 4, insn.wordCount() - 4));
 					// Note: offset is the one thing that does *not* propagate, as the access chain accounts for it.
 					dd.HasOffset = false;
 					decorations[resultId].Apply(dd);
@@ -536,203 +582,215 @@ SpirvShader::SpirvShader(
 			}
 			break;
 
-			case spv::OpCompositeConstruct:
-			case spv::OpCompositeInsert:
-			case spv::OpCompositeExtract:
-			case spv::OpVectorShuffle:
-			case spv::OpVectorTimesScalar:
-			case spv::OpMatrixTimesScalar:
-			case spv::OpMatrixTimesVector:
-			case spv::OpVectorTimesMatrix:
-			case spv::OpMatrixTimesMatrix:
-			case spv::OpOuterProduct:
-			case spv::OpTranspose:
-			case spv::OpVectorExtractDynamic:
-			case spv::OpVectorInsertDynamic:
-			// Unary ops
-			case spv::OpNot:
-			case spv::OpBitFieldInsert:
-			case spv::OpBitFieldSExtract:
-			case spv::OpBitFieldUExtract:
-			case spv::OpBitReverse:
-			case spv::OpBitCount:
-			case spv::OpSNegate:
-			case spv::OpFNegate:
-			case spv::OpLogicalNot:
-			case spv::OpQuantizeToF16:
-			// Binary ops
-			case spv::OpIAdd:
-			case spv::OpISub:
-			case spv::OpIMul:
-			case spv::OpSDiv:
-			case spv::OpUDiv:
-			case spv::OpFAdd:
-			case spv::OpFSub:
-			case spv::OpFMul:
-			case spv::OpFDiv:
-			case spv::OpFMod:
-			case spv::OpFRem:
-			case spv::OpFOrdEqual:
-			case spv::OpFUnordEqual:
-			case spv::OpFOrdNotEqual:
-			case spv::OpFUnordNotEqual:
-			case spv::OpFOrdLessThan:
-			case spv::OpFUnordLessThan:
-			case spv::OpFOrdGreaterThan:
-			case spv::OpFUnordGreaterThan:
-			case spv::OpFOrdLessThanEqual:
-			case spv::OpFUnordLessThanEqual:
-			case spv::OpFOrdGreaterThanEqual:
-			case spv::OpFUnordGreaterThanEqual:
-			case spv::OpSMod:
-			case spv::OpSRem:
-			case spv::OpUMod:
-			case spv::OpIEqual:
-			case spv::OpINotEqual:
-			case spv::OpUGreaterThan:
-			case spv::OpSGreaterThan:
-			case spv::OpUGreaterThanEqual:
-			case spv::OpSGreaterThanEqual:
-			case spv::OpULessThan:
-			case spv::OpSLessThan:
-			case spv::OpULessThanEqual:
-			case spv::OpSLessThanEqual:
-			case spv::OpShiftRightLogical:
-			case spv::OpShiftRightArithmetic:
-			case spv::OpShiftLeftLogical:
-			case spv::OpBitwiseOr:
-			case spv::OpBitwiseXor:
-			case spv::OpBitwiseAnd:
-			case spv::OpLogicalOr:
-			case spv::OpLogicalAnd:
-			case spv::OpLogicalEqual:
-			case spv::OpLogicalNotEqual:
-			case spv::OpUMulExtended:
-			case spv::OpSMulExtended:
-			case spv::OpIAddCarry:
-			case spv::OpISubBorrow:
-			case spv::OpDot:
-			case spv::OpConvertFToU:
-			case spv::OpConvertFToS:
-			case spv::OpConvertSToF:
-			case spv::OpConvertUToF:
-			case spv::OpBitcast:
-			case spv::OpSelect:
-			case spv::OpIsInf:
-			case spv::OpIsNan:
-			case spv::OpAny:
-			case spv::OpAll:
-			case spv::OpDPdx:
-			case spv::OpDPdxCoarse:
-			case spv::OpDPdy:
-			case spv::OpDPdyCoarse:
-			case spv::OpFwidth:
-			case spv::OpFwidthCoarse:
-			case spv::OpDPdxFine:
-			case spv::OpDPdyFine:
-			case spv::OpFwidthFine:
-			case spv::OpAtomicLoad:
-			case spv::OpAtomicIAdd:
-			case spv::OpAtomicISub:
-			case spv::OpAtomicSMin:
-			case spv::OpAtomicSMax:
-			case spv::OpAtomicUMin:
-			case spv::OpAtomicUMax:
-			case spv::OpAtomicAnd:
-			case spv::OpAtomicOr:
-			case spv::OpAtomicXor:
-			case spv::OpAtomicIIncrement:
-			case spv::OpAtomicIDecrement:
-			case spv::OpAtomicExchange:
-			case spv::OpAtomicCompareExchange:
-			case spv::OpPhi:
-			case spv::OpImageSampleImplicitLod:
-			case spv::OpImageSampleExplicitLod:
-			case spv::OpImageSampleDrefImplicitLod:
-			case spv::OpImageSampleDrefExplicitLod:
-			case spv::OpImageSampleProjImplicitLod:
-			case spv::OpImageSampleProjExplicitLod:
-			case spv::OpImageSampleProjDrefImplicitLod:
-			case spv::OpImageSampleProjDrefExplicitLod:
-			case spv::OpImageGather:
-			case spv::OpImageDrefGather:
-			case spv::OpImageFetch:
-			case spv::OpImageQuerySizeLod:
-			case spv::OpImageQuerySize:
-			case spv::OpImageQueryLod:
-			case spv::OpImageQueryLevels:
-			case spv::OpImageQuerySamples:
-			case spv::OpImageRead:
-			case spv::OpImageTexelPointer:
-			case spv::OpGroupNonUniformElect:
-			case spv::OpGroupNonUniformAll:
-			case spv::OpGroupNonUniformAny:
-			case spv::OpGroupNonUniformAllEqual:
-			case spv::OpGroupNonUniformBroadcast:
-			case spv::OpGroupNonUniformBroadcastFirst:
-			case spv::OpGroupNonUniformBallot:
-			case spv::OpGroupNonUniformInverseBallot:
-			case spv::OpGroupNonUniformBallotBitExtract:
-			case spv::OpGroupNonUniformBallotBitCount:
-			case spv::OpGroupNonUniformBallotFindLSB:
-			case spv::OpGroupNonUniformBallotFindMSB:
-			case spv::OpGroupNonUniformShuffle:
-			case spv::OpGroupNonUniformShuffleXor:
-			case spv::OpGroupNonUniformShuffleUp:
-			case spv::OpGroupNonUniformShuffleDown:
-			case spv::OpGroupNonUniformIAdd:
-			case spv::OpGroupNonUniformFAdd:
-			case spv::OpGroupNonUniformIMul:
-			case spv::OpGroupNonUniformFMul:
-			case spv::OpGroupNonUniformSMin:
-			case spv::OpGroupNonUniformUMin:
-			case spv::OpGroupNonUniformFMin:
-			case spv::OpGroupNonUniformSMax:
-			case spv::OpGroupNonUniformUMax:
-			case spv::OpGroupNonUniformFMax:
-			case spv::OpGroupNonUniformBitwiseAnd:
-			case spv::OpGroupNonUniformBitwiseOr:
-			case spv::OpGroupNonUniformBitwiseXor:
-			case spv::OpGroupNonUniformLogicalAnd:
-			case spv::OpGroupNonUniformLogicalOr:
-			case spv::OpGroupNonUniformLogicalXor:
-			case spv::OpCopyObject:
-			case spv::OpCopyLogical:
-			case spv::OpArrayLength:
-				// Instructions that yield an intermediate value or divergent pointer
+		case spv::OpCompositeConstruct:
+		case spv::OpCompositeInsert:
+		case spv::OpCompositeExtract:
+		case spv::OpVectorShuffle:
+		case spv::OpVectorTimesScalar:
+		case spv::OpMatrixTimesScalar:
+		case spv::OpMatrixTimesVector:
+		case spv::OpVectorTimesMatrix:
+		case spv::OpMatrixTimesMatrix:
+		case spv::OpOuterProduct:
+		case spv::OpTranspose:
+		case spv::OpVectorExtractDynamic:
+		case spv::OpVectorInsertDynamic:
+		// Unary ops
+		case spv::OpNot:
+		case spv::OpBitFieldInsert:
+		case spv::OpBitFieldSExtract:
+		case spv::OpBitFieldUExtract:
+		case spv::OpBitReverse:
+		case spv::OpBitCount:
+		case spv::OpSNegate:
+		case spv::OpFNegate:
+		case spv::OpLogicalNot:
+		case spv::OpQuantizeToF16:
+		// Binary ops
+		case spv::OpIAdd:
+		case spv::OpISub:
+		case spv::OpIMul:
+		case spv::OpSDiv:
+		case spv::OpUDiv:
+		case spv::OpFAdd:
+		case spv::OpFSub:
+		case spv::OpFMul:
+		case spv::OpFDiv:
+		case spv::OpFMod:
+		case spv::OpFRem:
+		case spv::OpFOrdEqual:
+		case spv::OpFUnordEqual:
+		case spv::OpFOrdNotEqual:
+		case spv::OpFUnordNotEqual:
+		case spv::OpFOrdLessThan:
+		case spv::OpFUnordLessThan:
+		case spv::OpFOrdGreaterThan:
+		case spv::OpFUnordGreaterThan:
+		case spv::OpFOrdLessThanEqual:
+		case spv::OpFUnordLessThanEqual:
+		case spv::OpFOrdGreaterThanEqual:
+		case spv::OpFUnordGreaterThanEqual:
+		case spv::OpSMod:
+		case spv::OpSRem:
+		case spv::OpUMod:
+		case spv::OpIEqual:
+		case spv::OpINotEqual:
+		case spv::OpUGreaterThan:
+		case spv::OpSGreaterThan:
+		case spv::OpUGreaterThanEqual:
+		case spv::OpSGreaterThanEqual:
+		case spv::OpULessThan:
+		case spv::OpSLessThan:
+		case spv::OpULessThanEqual:
+		case spv::OpSLessThanEqual:
+		case spv::OpShiftRightLogical:
+		case spv::OpShiftRightArithmetic:
+		case spv::OpShiftLeftLogical:
+		case spv::OpBitwiseOr:
+		case spv::OpBitwiseXor:
+		case spv::OpBitwiseAnd:
+		case spv::OpLogicalOr:
+		case spv::OpLogicalAnd:
+		case spv::OpLogicalEqual:
+		case spv::OpLogicalNotEqual:
+		case spv::OpUMulExtended:
+		case spv::OpSMulExtended:
+		case spv::OpIAddCarry:
+		case spv::OpISubBorrow:
+		case spv::OpDot:
+		case spv::OpSDot:
+		case spv::OpUDot:
+		case spv::OpSUDot:
+		case spv::OpSDotAccSat:
+		case spv::OpUDotAccSat:
+		case spv::OpSUDotAccSat:
+		case spv::OpConvertFToU:
+		case spv::OpConvertFToS:
+		case spv::OpConvertSToF:
+		case spv::OpConvertUToF:
+		case spv::OpBitcast:
+		case spv::OpSelect:
+		case spv::OpIsInf:
+		case spv::OpIsNan:
+		case spv::OpAny:
+		case spv::OpAll:
+		case spv::OpDPdx:
+		case spv::OpDPdxCoarse:
+		case spv::OpDPdy:
+		case spv::OpDPdyCoarse:
+		case spv::OpFwidth:
+		case spv::OpFwidthCoarse:
+		case spv::OpDPdxFine:
+		case spv::OpDPdyFine:
+		case spv::OpFwidthFine:
+		case spv::OpAtomicLoad:
+		case spv::OpAtomicIAdd:
+		case spv::OpAtomicISub:
+		case spv::OpAtomicSMin:
+		case spv::OpAtomicSMax:
+		case spv::OpAtomicUMin:
+		case spv::OpAtomicUMax:
+		case spv::OpAtomicAnd:
+		case spv::OpAtomicOr:
+		case spv::OpAtomicXor:
+		case spv::OpAtomicIIncrement:
+		case spv::OpAtomicIDecrement:
+		case spv::OpAtomicExchange:
+		case spv::OpAtomicCompareExchange:
+		case spv::OpPhi:
+		case spv::OpImageSampleImplicitLod:
+		case spv::OpImageSampleExplicitLod:
+		case spv::OpImageSampleDrefImplicitLod:
+		case spv::OpImageSampleDrefExplicitLod:
+		case spv::OpImageSampleProjImplicitLod:
+		case spv::OpImageSampleProjExplicitLod:
+		case spv::OpImageSampleProjDrefImplicitLod:
+		case spv::OpImageSampleProjDrefExplicitLod:
+		case spv::OpImageGather:
+		case spv::OpImageDrefGather:
+		case spv::OpImageFetch:
+		case spv::OpImageQuerySizeLod:
+		case spv::OpImageQuerySize:
+		case spv::OpImageQueryLod:
+		case spv::OpImageQueryLevels:
+		case spv::OpImageQuerySamples:
+		case spv::OpImageRead:
+		case spv::OpImageTexelPointer:
+		case spv::OpGroupNonUniformElect:
+		case spv::OpGroupNonUniformAll:
+		case spv::OpGroupNonUniformAny:
+		case spv::OpGroupNonUniformAllEqual:
+		case spv::OpGroupNonUniformBroadcast:
+		case spv::OpGroupNonUniformBroadcastFirst:
+		case spv::OpGroupNonUniformBallot:
+		case spv::OpGroupNonUniformInverseBallot:
+		case spv::OpGroupNonUniformBallotBitExtract:
+		case spv::OpGroupNonUniformBallotBitCount:
+		case spv::OpGroupNonUniformBallotFindLSB:
+		case spv::OpGroupNonUniformBallotFindMSB:
+		case spv::OpGroupNonUniformShuffle:
+		case spv::OpGroupNonUniformShuffleXor:
+		case spv::OpGroupNonUniformShuffleUp:
+		case spv::OpGroupNonUniformShuffleDown:
+		case spv::OpGroupNonUniformIAdd:
+		case spv::OpGroupNonUniformFAdd:
+		case spv::OpGroupNonUniformIMul:
+		case spv::OpGroupNonUniformFMul:
+		case spv::OpGroupNonUniformSMin:
+		case spv::OpGroupNonUniformUMin:
+		case spv::OpGroupNonUniformFMin:
+		case spv::OpGroupNonUniformSMax:
+		case spv::OpGroupNonUniformUMax:
+		case spv::OpGroupNonUniformFMax:
+		case spv::OpGroupNonUniformBitwiseAnd:
+		case spv::OpGroupNonUniformBitwiseOr:
+		case spv::OpGroupNonUniformBitwiseXor:
+		case spv::OpGroupNonUniformLogicalAnd:
+		case spv::OpGroupNonUniformLogicalOr:
+		case spv::OpGroupNonUniformLogicalXor:
+		case spv::OpCopyObject:
+		case spv::OpCopyLogical:
+		case spv::OpArrayLength:
+		case spv::OpIsHelperInvocationEXT:
+			// Instructions that yield an intermediate value or divergent pointer
+			DefineResult(insn);
+			break;
+
+		case spv::OpExtInst:
+			switch(getExtension(insn.word(3)).name)
+			{
+			case Extension::GLSLstd450:
 				DefineResult(insn);
 				break;
-
-			case spv::OpExtInst:
-				switch(getExtension(insn.word(3)).name)
-				{
-					case Extension::GLSLstd450:
-						DefineResult(insn);
-						break;
-					case Extension::OpenCLDebugInfo100:
-						DefineOpenCLDebugInfo100(insn);
-						break;
-					default:
-						UNREACHABLE("Unexpected Extension name %d", int(getExtension(insn.word(3)).name));
-						break;
-				}
+			case Extension::OpenCLDebugInfo100:
+				DefineOpenCLDebugInfo100(insn);
 				break;
-
-			case spv::OpStore:
-			case spv::OpAtomicStore:
-			case spv::OpImageWrite:
-			case spv::OpCopyMemory:
-			case spv::OpMemoryBarrier:
-				// Don't need to do anything during analysis pass
+			case Extension::NonSemanticInfo:
+				// An extended set name which is prefixed with "NonSemantic." is
+				// guaranteed to contain only non-semantic instructions and all
+				// OpExtInst instructions referencing this set can be ignored.
 				break;
-
-			case spv::OpControlBarrier:
-				modes.ContainsControlBarriers = true;
+			default:
+				UNREACHABLE("Unexpected Extension name %d", int(getExtension(insn.word(3)).name));
 				break;
+			}
+			break;
 
-			case spv::OpExtension:
+		case spv::OpStore:
+		case spv::OpAtomicStore:
+		case spv::OpImageWrite:
+		case spv::OpCopyMemory:
+		case spv::OpMemoryBarrier:
+			// Don't need to do anything during analysis pass
+			break;
+
+		case spv::OpControlBarrier:
+			analysis.ContainsControlBarriers = true;
+			break;
+
+		case spv::OpExtension:
 			{
-				auto ext = insn.string(1);
+				const char *ext = insn.string(1);
 				// Part of core SPIR-V 1.3. Vulkan 1.1 implementations must also accept the pre-1.3
 				// extension per Appendix A, `Vulkan Environment for SPIR-V`.
 				if(!strcmp(ext, "SPV_KHR_storage_buffer_storage_class")) break;
@@ -741,14 +799,22 @@ SpirvShader::SpirvShader(
 				if(!strcmp(ext, "SPV_KHR_variable_pointers")) break;
 				if(!strcmp(ext, "SPV_KHR_device_group")) break;
 				if(!strcmp(ext, "SPV_KHR_multiview")) break;
+				if(!strcmp(ext, "SPV_EXT_demote_to_helper_invocation")) break;
+				if(!strcmp(ext, "SPV_KHR_terminate_invocation")) break;
 				if(!strcmp(ext, "SPV_EXT_shader_stencil_export")) break;
 				if(!strcmp(ext, "SPV_KHR_float_controls")) break;
+				if(!strcmp(ext, "SPV_KHR_integer_dot_product")) break;
+				if(!strcmp(ext, "SPV_KHR_non_semantic_info")) break;
+				if(!strcmp(ext, "SPV_KHR_vulkan_memory_model")) break;
+				if(!strcmp(ext, "SPV_GOOGLE_decorate_string")) break;
+				if(!strcmp(ext, "SPV_GOOGLE_hlsl_functionality1")) break;
+				if(!strcmp(ext, "SPV_GOOGLE_user_type")) break;
 				UNSUPPORTED("SPIR-V Extension: %s", ext);
-				break;
 			}
+			break;
 
-			default:
-				UNSUPPORTED("%s", OpcodeName(opcode));
+		default:
+			UNSUPPORTED("%s", OpcodeName(opcode));
 		}
 	}
 
@@ -786,7 +852,7 @@ void SpirvShader::DeclareType(InsnIterator insn)
 	// member. All members of such a structure are builtins.
 	switch(insn.opcode())
 	{
-		case spv::OpTypeStruct:
+	case spv::OpTypeStruct:
 		{
 			auto d = memberDecorations.find(resultId);
 			if(d != memberDecorations.end())
@@ -800,27 +866,27 @@ void SpirvShader::DeclareType(InsnIterator insn)
 					}
 				}
 			}
-			break;
 		}
-		case spv::OpTypePointer:
+		break;
+	case spv::OpTypePointer:
 		{
 			Type::ID elementTypeId = insn.word(3);
 			type.element = elementTypeId;
 			type.isBuiltInBlock = getType(elementTypeId).isBuiltInBlock;
 			type.storageClass = static_cast<spv::StorageClass>(insn.word(2));
-			break;
 		}
-		case spv::OpTypeVector:
-		case spv::OpTypeMatrix:
-		case spv::OpTypeArray:
-		case spv::OpTypeRuntimeArray:
+		break;
+	case spv::OpTypeVector:
+	case spv::OpTypeMatrix:
+	case spv::OpTypeArray:
+	case spv::OpTypeRuntimeArray:
 		{
 			Type::ID elementTypeId = insn.word(2);
 			type.element = elementTypeId;
-			break;
 		}
-		default:
-			break;
+		break;
+	default:
+		break;
 	}
 }
 
@@ -887,7 +953,7 @@ void SpirvShader::ProcessInterfaceVariable(Object &object)
 		VisitInterface(resultId,
 		               [&userDefinedInterface](Decorations const &d, AttribType type) {
 			               // Populate a single scalar slot in the interface from a collection of decorations and the intended component type.
-			               auto scalarSlot = (d.Location << 2) | d.Component;
+			               int32_t scalarSlot = (d.Location << 2) | d.Component;
 			               ASSERT(scalarSlot >= 0 &&
 			                      scalarSlot < static_cast<int32_t>(userDefinedInterface.size()));
 
@@ -919,6 +985,24 @@ uint32_t SpirvShader::GetNumInputComponents(int32_t location) const
 	return num_components_per_input;
 }
 
+uint32_t SpirvShader::GetPackedInterpolant(int32_t location) const
+{
+	ASSERT(location >= 0);
+	const uint32_t maxInterpolant = (location << 2);
+
+	// Return the number of used components only at location
+	uint32_t packedInterpolant = 0;
+	for(uint32_t i = 0; i < maxInterpolant; ++i)
+	{
+		if(inputs[i].Type != ATTRIBTYPE_UNUSED)
+		{
+			++packedInterpolant;
+		}
+	}
+
+	return packedInterpolant;
+}
+
 void SpirvShader::ProcessExecutionMode(InsnIterator insn)
 {
 	Function::ID function = insn.word(1);
@@ -930,35 +1014,52 @@ void SpirvShader::ProcessExecutionMode(InsnIterator insn)
 	auto mode = static_cast<spv::ExecutionMode>(insn.word(2));
 	switch(mode)
 	{
-		case spv::ExecutionModeEarlyFragmentTests:
-			modes.EarlyFragmentTests = true;
-			break;
-		case spv::ExecutionModeDepthReplacing:
-			modes.DepthReplacing = true;
-			break;
-		case spv::ExecutionModeDepthGreater:
-			// TODO(b/177915067): Can be used to optimize depth test, currently unused.
-			modes.DepthGreater = true;
-			break;
-		case spv::ExecutionModeDepthLess:
-			// TODO(b/177915067): Can be used to optimize depth test, currently unused.
-			modes.DepthLess = true;
-			break;
-		case spv::ExecutionModeDepthUnchanged:
-			// TODO(b/177915067): Can be used to optimize depth test, currently unused.
-			modes.DepthUnchanged = true;
-			break;
-		case spv::ExecutionModeLocalSize:
-			modes.WorkgroupSizeX = insn.word(3);
-			modes.WorkgroupSizeY = insn.word(4);
-			modes.WorkgroupSizeZ = insn.word(5);
-			break;
-		case spv::ExecutionModeOriginUpperLeft:
-			// This is always the case for a Vulkan shader. Do nothing.
-			break;
-		default:
-			UNREACHABLE("Execution mode: %d", int(mode));
+	case spv::ExecutionModeEarlyFragmentTests:
+		executionModes.EarlyFragmentTests = true;
+		break;
+	case spv::ExecutionModeDepthReplacing:
+		executionModes.DepthReplacing = true;
+		break;
+	case spv::ExecutionModeDepthGreater:
+		// TODO(b/177915067): Can be used to optimize depth test, currently unused.
+		executionModes.DepthGreater = true;
+		break;
+	case spv::ExecutionModeDepthLess:
+		// TODO(b/177915067): Can be used to optimize depth test, currently unused.
+		executionModes.DepthLess = true;
+		break;
+	case spv::ExecutionModeDepthUnchanged:
+		// TODO(b/177915067): Can be used to optimize depth test, currently unused.
+		executionModes.DepthUnchanged = true;
+		break;
+	case spv::ExecutionModeLocalSize:
+	case spv::ExecutionModeLocalSizeId:
+		executionModes.WorkgroupSizeX = insn.word(3);
+		executionModes.WorkgroupSizeY = insn.word(4);
+		executionModes.WorkgroupSizeZ = insn.word(5);
+		executionModes.useWorkgroupSizeId = (mode == spv::ExecutionModeLocalSizeId);
+		break;
+	case spv::ExecutionModeOriginUpperLeft:
+		// This is always the case for a Vulkan shader. Do nothing.
+		break;
+	default:
+		UNREACHABLE("Execution mode: %d", int(mode));
 	}
+}
+
+uint32_t SpirvShader::getWorkgroupSizeX() const
+{
+	return executionModes.useWorkgroupSizeId ? getObject(executionModes.WorkgroupSizeX).constantValue[0] : executionModes.WorkgroupSizeX.value();
+}
+
+uint32_t SpirvShader::getWorkgroupSizeY() const
+{
+	return executionModes.useWorkgroupSizeId ? getObject(executionModes.WorkgroupSizeY).constantValue[0] : executionModes.WorkgroupSizeY.value();
+}
+
+uint32_t SpirvShader::getWorkgroupSizeZ() const
+{
+	return executionModes.useWorkgroupSizeId ? getObject(executionModes.WorkgroupSizeZ).constantValue[0] : executionModes.WorkgroupSizeZ.value();
 }
 
 uint32_t SpirvShader::ComputeTypeSize(InsnIterator insn)
@@ -968,37 +1069,37 @@ uint32_t SpirvShader::ComputeTypeSize(InsnIterator insn)
 	// already been described (and so their sizes determined)
 	switch(insn.opcode())
 	{
-		case spv::OpTypeVoid:
-		case spv::OpTypeSampler:
-		case spv::OpTypeImage:
-		case spv::OpTypeSampledImage:
-		case spv::OpTypeFunction:
-		case spv::OpTypeRuntimeArray:
-			// Objects that don't consume any space.
-			// Descriptor-backed objects currently only need exist at compile-time.
-			// Runtime arrays don't appear in places where their size would be interesting
-			return 0;
+	case spv::OpTypeVoid:
+	case spv::OpTypeSampler:
+	case spv::OpTypeImage:
+	case spv::OpTypeSampledImage:
+	case spv::OpTypeFunction:
+	case spv::OpTypeRuntimeArray:
+		// Objects that don't consume any space.
+		// Descriptor-backed objects currently only need exist at compile-time.
+		// Runtime arrays don't appear in places where their size would be interesting
+		return 0;
 
-		case spv::OpTypeBool:
-		case spv::OpTypeFloat:
-		case spv::OpTypeInt:
-			// All the fundamental types are 1 component. If we ever add support for 8/16/64-bit components,
-			// we might need to change this, but only 32 bit components are required for Vulkan 1.1.
-			return 1;
+	case spv::OpTypeBool:
+	case spv::OpTypeFloat:
+	case spv::OpTypeInt:
+		// All the fundamental types are 1 component. If we ever add support for 8/16/64-bit components,
+		// we might need to change this, but only 32 bit components are required for Vulkan 1.1.
+		return 1;
 
-		case spv::OpTypeVector:
-		case spv::OpTypeMatrix:
-			// Vectors and matrices both consume element count * element size.
-			return getType(insn.word(2)).componentCount * insn.word(3);
+	case spv::OpTypeVector:
+	case spv::OpTypeMatrix:
+		// Vectors and matrices both consume element count * element size.
+		return getType(insn.word(2)).componentCount * insn.word(3);
 
-		case spv::OpTypeArray:
+	case spv::OpTypeArray:
 		{
 			// Element count * element size. Array sizes come from constant ids.
 			auto arraySize = GetConstScalarInt(insn.word(3));
 			return getType(insn.word(2)).componentCount * arraySize;
 		}
 
-		case spv::OpTypeStruct:
+	case spv::OpTypeStruct:
 		{
 			uint32_t size = 0;
 			for(uint32_t i = 2u; i < insn.wordCount(); i++)
@@ -1008,14 +1109,14 @@ uint32_t SpirvShader::ComputeTypeSize(InsnIterator insn)
 			return size;
 		}
 
-		case spv::OpTypePointer:
-			// Runtime representation of a pointer is a per-lane index.
-			// Note: clients are expected to look through the pointer if they want the pointee size instead.
-			return 1;
+	case spv::OpTypePointer:
+		// Runtime representation of a pointer is a per-lane index.
+		// Note: clients are expected to look through the pointer if they want the pointee size instead.
+		return 1;
 
-		default:
-			UNREACHABLE("%s", OpcodeName(insn.opcode()));
-			return 0;
+	default:
+		UNREACHABLE("%s", OpcodeName(insn.opcode()));
+		return 0;
 	}
 }
 
@@ -1038,32 +1139,32 @@ int SpirvShader::VisitInterfaceInner(Type::ID id, Decorations d, const Interface
 	auto const &obj = getType(id);
 	switch(obj.opcode())
 	{
-		case spv::OpTypePointer:
-			return VisitInterfaceInner(obj.definition.word(3), d, f);
-		case spv::OpTypeMatrix:
-			for(auto i = 0u; i < obj.definition.word(3); i++, d.Location++)
-			{
-				// consumes same components of N consecutive locations
-				VisitInterfaceInner(obj.definition.word(2), d, f);
-			}
-			return d.Location;
-		case spv::OpTypeVector:
-			for(auto i = 0u; i < obj.definition.word(3); i++, d.Component++)
-			{
-				// consumes N consecutive components in the same location
-				VisitInterfaceInner(obj.definition.word(2), d, f);
-			}
-			return d.Location + 1;
-		case spv::OpTypeFloat:
-			f(d, ATTRIBTYPE_FLOAT);
-			return d.Location + 1;
-		case spv::OpTypeInt:
-			f(d, obj.definition.word(3) ? ATTRIBTYPE_INT : ATTRIBTYPE_UINT);
-			return d.Location + 1;
-		case spv::OpTypeBool:
-			f(d, ATTRIBTYPE_UINT);
-			return d.Location + 1;
-		case spv::OpTypeStruct:
+	case spv::OpTypePointer:
+		return VisitInterfaceInner(obj.definition.word(3), d, f);
+	case spv::OpTypeMatrix:
+		for(auto i = 0u; i < obj.definition.word(3); i++, d.Location++)
+		{
+			// consumes same components of N consecutive locations
+			VisitInterfaceInner(obj.definition.word(2), d, f);
+		}
+		return d.Location;
+	case spv::OpTypeVector:
+		for(auto i = 0u; i < obj.definition.word(3); i++, d.Component++)
+		{
+			// consumes N consecutive components in the same location
+			VisitInterfaceInner(obj.definition.word(2), d, f);
+		}
+		return d.Location + 1;
+	case spv::OpTypeFloat:
+		f(d, ATTRIBTYPE_FLOAT);
+		return d.Location + 1;
+	case spv::OpTypeInt:
+		f(d, obj.definition.word(3) ? ATTRIBTYPE_INT : ATTRIBTYPE_UINT);
+		return d.Location + 1;
+	case spv::OpTypeBool:
+		f(d, ATTRIBTYPE_UINT);
+		return d.Location + 1;
+	case spv::OpTypeStruct:
 		{
 			// iterate over members, which may themselves have Location/Component decorations
 			for(auto i = 0u; i < obj.definition.wordCount() - 2; i++)
@@ -1075,7 +1176,7 @@ int SpirvShader::VisitInterfaceInner(Type::ID id, Decorations d, const Interface
 			}
 			return d.Location;
 		}
-		case spv::OpTypeArray:
+	case spv::OpTypeArray:
 		{
 			auto arraySize = GetConstScalarInt(obj.definition.word(3));
 			for(auto i = 0u; i < arraySize; i++)
@@ -1084,74 +1185,73 @@ int SpirvShader::VisitInterfaceInner(Type::ID id, Decorations d, const Interface
 			}
 			return d.Location;
 		}
-		default:
-			// Intentionally partial; most opcodes do not participate in type hierarchies
-			return 0;
+	default:
+		// Intentionally partial; most opcodes do not participate in type hierarchies
+		return 0;
 	}
 }
 
 void SpirvShader::VisitInterface(Object::ID id, const InterfaceVisitor &f) const
 {
 	// Walk a variable definition and call f for each component in it.
-	Decorations d{};
-	ApplyDecorationsForId(&d, id);
+	Decorations d = GetDecorationsForId(id);
 
 	auto def = getObject(id).definition;
 	ASSERT(def.opcode() == spv::OpVariable);
 	VisitInterfaceInner(def.word(1), d, f);
 }
 
-void SpirvShader::ApplyDecorationsForAccessChain(Decorations *d, DescriptorDecorations *dd, Object::ID baseId, uint32_t numIndexes, uint32_t const *indexIds) const
+void SpirvShader::ApplyDecorationsForAccessChain(Decorations *d, DescriptorDecorations *dd, Object::ID baseId, const Span &indexIds) const
 {
 	ApplyDecorationsForId(d, baseId);
 	auto &baseObject = getObject(baseId);
 	ApplyDecorationsForId(d, baseObject.typeId());
 	auto typeId = getType(baseObject).element;
 
-	for(auto i = 0u; i < numIndexes; i++)
+	for(uint32_t i = 0; i < indexIds.size(); i++)
 	{
 		ApplyDecorationsForId(d, typeId);
 		auto &type = getType(typeId);
 		switch(type.opcode())
 		{
-			case spv::OpTypeStruct:
+		case spv::OpTypeStruct:
 			{
 				int memberIndex = GetConstScalarInt(indexIds[i]);
 				ApplyDecorationsForIdMember(d, typeId, memberIndex);
 				typeId = type.definition.word(2u + memberIndex);
-				break;
 			}
-			case spv::OpTypeArray:
-			case spv::OpTypeRuntimeArray:
-				if(dd->InputAttachmentIndex >= 0)
-				{
-					dd->InputAttachmentIndex += GetConstScalarInt(indexIds[i]);
-				}
-				typeId = type.element;
-				break;
-			case spv::OpTypeVector:
-				typeId = type.element;
-				break;
-			case spv::OpTypeMatrix:
-				typeId = type.element;
-				d->InsideMatrix = true;
-				break;
-			default:
-				UNREACHABLE("%s", OpcodeName(type.definition.opcode()));
+			break;
+		case spv::OpTypeArray:
+		case spv::OpTypeRuntimeArray:
+			if(dd->InputAttachmentIndex >= 0)
+			{
+				dd->InputAttachmentIndex += GetConstScalarInt(indexIds[i]);
+			}
+			typeId = type.element;
+			break;
+		case spv::OpTypeVector:
+			typeId = type.element;
+			break;
+		case spv::OpTypeMatrix:
+			typeId = type.element;
+			d->InsideMatrix = true;
+			break;
+		default:
+			UNREACHABLE("%s", OpcodeName(type.definition.opcode()));
 		}
 	}
 }
 
-SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint32_t numIndexes, uint32_t const *indexIds, EmitState const *state) const
+SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, const Span &indexIds, const EmitState *state) const
 {
 	// Produce a offset into external memory in sizeof(float) units
 
 	auto &baseObject = getObject(baseId);
 	Type::ID typeId = getType(baseObject).element;
-	Decorations d = {};
-	ApplyDecorationsForId(&d, baseObject.typeId());
+	Decorations d = GetDecorationsForId(baseObject.typeId());
 
 	Int arrayIndex = 0;
+	uint32_t start = 0;
 	if(baseObject.kind == Object::Kind::DescriptorSet)
 	{
 		auto type = getType(typeId).definition.opcode();
@@ -1169,8 +1269,7 @@ SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint
 				arrayIndex = Extract(state->getIntermediate(indexIds[0]).Int(0), 0);
 			}
 
-			numIndexes--;
-			indexIds++;
+			start = 1;
 			typeId = getType(typeId).element;
 		}
 	}
@@ -1179,24 +1278,24 @@ SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint
 
 	int constantOffset = 0;
 
-	for(auto i = 0u; i < numIndexes; i++)
+	for(uint32_t i = start; i < indexIds.size(); i++)
 	{
 		auto &type = getType(typeId);
 		ApplyDecorationsForId(&d, typeId);
 
 		switch(type.definition.opcode())
 		{
-			case spv::OpTypeStruct:
+		case spv::OpTypeStruct:
 			{
 				int memberIndex = GetConstScalarInt(indexIds[i]);
 				ApplyDecorationsForIdMember(&d, typeId, memberIndex);
 				ASSERT(d.HasOffset);
 				constantOffset += d.Offset;
 				typeId = type.definition.word(2u + memberIndex);
-				break;
 			}
-			case spv::OpTypeArray:
-			case spv::OpTypeRuntimeArray:
+			break;
+		case spv::OpTypeArray:
+		case spv::OpTypeRuntimeArray:
 			{
 				// TODO: b/127950082: Check bounds.
 				ASSERT(d.HasArrayStride);
@@ -1210,9 +1309,9 @@ SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint
 					ptr += SIMD::Int(d.ArrayStride) * state->getIntermediate(indexIds[i]).Int(0);
 				}
 				typeId = type.element;
-				break;
 			}
-			case spv::OpTypeMatrix:
+			break;
+		case spv::OpTypeMatrix:
 			{
 				// TODO: b/127950082: Check bounds.
 				ASSERT(d.HasMatrixStride);
@@ -1228,9 +1327,9 @@ SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint
 					ptr += SIMD::Int(columnStride) * state->getIntermediate(indexIds[i]).Int(0);
 				}
 				typeId = type.element;
-				break;
 			}
-			case spv::OpTypeVector:
+			break;
+		case spv::OpTypeVector:
 			{
 				auto elemStride = (d.InsideMatrix && d.HasRowMajor && d.RowMajor) ? d.MatrixStride : static_cast<int32_t>(sizeof(float));
 				auto &obj = getObject(indexIds[i]);
@@ -1243,10 +1342,10 @@ SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint
 					ptr += SIMD::Int(elemStride) * state->getIntermediate(indexIds[i]).Int(0);
 				}
 				typeId = type.element;
-				break;
 			}
-			default:
-				UNREACHABLE("%s", OpcodeName(type.definition.opcode()));
+			break;
+		default:
+			UNREACHABLE("%s", OpcodeName(type.definition.opcode()));
 		}
 	}
 
@@ -1254,7 +1353,7 @@ SIMD::Pointer SpirvShader::WalkExplicitLayoutAccessChain(Object::ID baseId, uint
 	return ptr;
 }
 
-SIMD::Pointer SpirvShader::WalkAccessChain(Object::ID baseId, uint32_t numIndexes, uint32_t const *indexIds, EmitState const *state) const
+SIMD::Pointer SpirvShader::WalkAccessChain(Object::ID baseId, const Span &indexIds, EmitState const *state) const
 {
 	// TODO: avoid doing per-lane work in some cases if we can?
 	auto routine = state->routine;
@@ -1265,12 +1364,12 @@ SIMD::Pointer SpirvShader::WalkAccessChain(Object::ID baseId, uint32_t numIndexe
 
 	int constantOffset = 0;
 
-	for(auto i = 0u; i < numIndexes; i++)
+	for(uint32_t i = 0; i < indexIds.size(); i++)
 	{
 		auto &type = getType(typeId);
 		switch(type.opcode())
 		{
-			case spv::OpTypeStruct:
+		case spv::OpTypeStruct:
 			{
 				int memberIndex = GetConstScalarInt(indexIds[i]);
 				int offsetIntoStruct = 0;
@@ -1281,13 +1380,13 @@ SIMD::Pointer SpirvShader::WalkAccessChain(Object::ID baseId, uint32_t numIndexe
 				}
 				constantOffset += offsetIntoStruct;
 				typeId = type.definition.word(2u + memberIndex);
-				break;
 			}
+			break;
 
-			case spv::OpTypeVector:
-			case spv::OpTypeMatrix:
-			case spv::OpTypeArray:
-			case spv::OpTypeRuntimeArray:
+		case spv::OpTypeVector:
+		case spv::OpTypeMatrix:
+		case spv::OpTypeArray:
+		case spv::OpTypeRuntimeArray:
 			{
 				// TODO(b/127950082): Check bounds.
 				if(getType(baseObject).storageClass == spv::StorageClassUniformConstant)
@@ -1323,11 +1422,11 @@ SIMD::Pointer SpirvShader::WalkAccessChain(Object::ID baseId, uint32_t numIndexe
 					}
 				}
 				typeId = type.element;
-				break;
 			}
+			break;
 
-			default:
-				UNREACHABLE("%s", OpcodeName(type.opcode()));
+		default:
+			UNREACHABLE("%s", OpcodeName(type.opcode()));
 		}
 	}
 
@@ -1338,16 +1437,16 @@ SIMD::Pointer SpirvShader::WalkAccessChain(Object::ID baseId, uint32_t numIndexe
 	return ptr;
 }
 
-uint32_t SpirvShader::WalkLiteralAccessChain(Type::ID typeId, uint32_t numIndexes, uint32_t const *indexes) const
+uint32_t SpirvShader::WalkLiteralAccessChain(Type::ID typeId, const Span &indexes) const
 {
 	uint32_t componentOffset = 0;
 
-	for(auto i = 0u; i < numIndexes; i++)
+	for(uint32_t i = 0; i < indexes.size(); i++)
 	{
 		auto &type = getType(typeId);
 		switch(type.opcode())
 		{
-			case spv::OpTypeStruct:
+		case spv::OpTypeStruct:
 			{
 				int memberIndex = indexes[i];
 				int offsetIntoStruct = 0;
@@ -1358,22 +1457,22 @@ uint32_t SpirvShader::WalkLiteralAccessChain(Type::ID typeId, uint32_t numIndexe
 				}
 				componentOffset += offsetIntoStruct;
 				typeId = type.definition.word(2u + memberIndex);
-				break;
 			}
+			break;
 
-			case spv::OpTypeVector:
-			case spv::OpTypeMatrix:
-			case spv::OpTypeArray:
+		case spv::OpTypeVector:
+		case spv::OpTypeMatrix:
+		case spv::OpTypeArray:
 			{
 				auto elementType = type.definition.word(2);
 				auto stride = getType(elementType).componentCount;
 				componentOffset += stride * indexes[i];
 				typeId = elementType;
-				break;
 			}
+			break;
 
-			default:
-				UNREACHABLE("%s", OpcodeName(type.opcode()));
+		default:
+			UNREACHABLE("%s", OpcodeName(type.opcode()));
 		}
 	}
 
@@ -1384,58 +1483,58 @@ void SpirvShader::Decorations::Apply(spv::Decoration decoration, uint32_t arg)
 {
 	switch(decoration)
 	{
-		case spv::DecorationLocation:
-			HasLocation = true;
-			Location = static_cast<int32_t>(arg);
-			break;
-		case spv::DecorationComponent:
-			HasComponent = true;
-			Component = arg;
-			break;
-		case spv::DecorationBuiltIn:
-			HasBuiltIn = true;
-			BuiltIn = static_cast<spv::BuiltIn>(arg);
-			break;
-		case spv::DecorationFlat:
-			Flat = true;
-			break;
-		case spv::DecorationNoPerspective:
-			NoPerspective = true;
-			break;
-		case spv::DecorationCentroid:
-			Centroid = true;
-			break;
-		case spv::DecorationBlock:
-			Block = true;
-			break;
-		case spv::DecorationBufferBlock:
-			BufferBlock = true;
-			break;
-		case spv::DecorationOffset:
-			HasOffset = true;
-			Offset = static_cast<int32_t>(arg);
-			break;
-		case spv::DecorationArrayStride:
-			HasArrayStride = true;
-			ArrayStride = static_cast<int32_t>(arg);
-			break;
-		case spv::DecorationMatrixStride:
-			HasMatrixStride = true;
-			MatrixStride = static_cast<int32_t>(arg);
-			break;
-		case spv::DecorationRelaxedPrecision:
-			RelaxedPrecision = true;
-			break;
-		case spv::DecorationRowMajor:
-			HasRowMajor = true;
-			RowMajor = true;
-			break;
-		case spv::DecorationColMajor:
-			HasRowMajor = true;
-			RowMajor = false;
-		default:
-			// Intentionally partial, there are many decorations we just don't care about.
-			break;
+	case spv::DecorationLocation:
+		HasLocation = true;
+		Location = static_cast<int32_t>(arg);
+		break;
+	case spv::DecorationComponent:
+		HasComponent = true;
+		Component = arg;
+		break;
+	case spv::DecorationBuiltIn:
+		HasBuiltIn = true;
+		BuiltIn = static_cast<spv::BuiltIn>(arg);
+		break;
+	case spv::DecorationFlat:
+		Flat = true;
+		break;
+	case spv::DecorationNoPerspective:
+		NoPerspective = true;
+		break;
+	case spv::DecorationCentroid:
+		Centroid = true;
+		break;
+	case spv::DecorationBlock:
+		Block = true;
+		break;
+	case spv::DecorationBufferBlock:
+		BufferBlock = true;
+		break;
+	case spv::DecorationOffset:
+		HasOffset = true;
+		Offset = static_cast<int32_t>(arg);
+		break;
+	case spv::DecorationArrayStride:
+		HasArrayStride = true;
+		ArrayStride = static_cast<int32_t>(arg);
+		break;
+	case spv::DecorationMatrixStride:
+		HasMatrixStride = true;
+		MatrixStride = static_cast<int32_t>(arg);
+		break;
+	case spv::DecorationRelaxedPrecision:
+		RelaxedPrecision = true;
+		break;
+	case spv::DecorationRowMajor:
+		HasRowMajor = true;
+		RowMajor = true;
+		break;
+	case spv::DecorationColMajor:
+		HasRowMajor = true;
+		RowMajor = false;
+	default:
+		// Intentionally partial, there are many decorations we just don't care about.
+		break;
 	}
 }
 
@@ -1511,11 +1610,21 @@ void SpirvShader::DescriptorDecorations::Apply(const sw::SpirvShader::Descriptor
 	}
 }
 
+SpirvShader::Decorations SpirvShader::GetDecorationsForId(TypeOrObjectID id) const
+{
+	Decorations d;
+	ApplyDecorationsForId(&d, id);
+
+	return d;
+}
+
 void SpirvShader::ApplyDecorationsForId(Decorations *d, TypeOrObjectID id) const
 {
 	auto it = decorations.find(id);
 	if(it != decorations.end())
+	{
 		d->Apply(it->second);
+	}
 }
 
 void SpirvShader::ApplyDecorationsForIdMember(Decorations *d, Type::ID id, uint32_t member) const
@@ -1535,48 +1644,65 @@ void SpirvShader::DefineResult(const InsnIterator &insn)
 
 	switch(getType(typeId).opcode())
 	{
-		case spv::OpTypePointer:
-		case spv::OpTypeImage:
-		case spv::OpTypeSampledImage:
-		case spv::OpTypeSampler:
-			object.kind = Object::Kind::Pointer;
-			break;
+	case spv::OpTypePointer:
+	case spv::OpTypeImage:
+	case spv::OpTypeSampledImage:
+	case spv::OpTypeSampler:
+		object.kind = Object::Kind::Pointer;
+		break;
 
-		default:
-			object.kind = Object::Kind::Intermediate;
+	default:
+		object.kind = Object::Kind::Intermediate;
 	}
 
 	object.definition = insn;
 	dbgDeclareResult(insn, resultId);
 }
 
-OutOfBoundsBehavior SpirvShader::EmitState::getOutOfBoundsBehavior(spv::StorageClass storageClass) const
+OutOfBoundsBehavior SpirvShader::getOutOfBoundsBehavior(Object::ID pointerId, EmitState const *state) const
 {
-	switch(storageClass)
+	auto it = descriptorDecorations.find(pointerId);
+	if(it != descriptorDecorations.end())
 	{
-		case spv::StorageClassUniform:
-		case spv::StorageClassStorageBuffer:
-			// Buffer resource access. robustBufferAccess feature applies.
+		const auto &d = it->second;
+		if((d.DescriptorSet >= 0) && (d.Binding >= 0))
+		{
+			auto descriptorType = state->routine->pipelineLayout->getDescriptorType(d.DescriptorSet, d.Binding);
+			if(descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
+			{
+				return OutOfBoundsBehavior::UndefinedBehavior;
+			}
+		}
+	}
+
+	auto &pointer = getObject(pointerId);
+	auto &pointerTy = getType(pointer);
+	switch(pointerTy.storageClass)
+	{
+	case spv::StorageClassUniform:
+	case spv::StorageClassStorageBuffer:
+		// Buffer resource access. robustBufferAccess feature applies.
+		return robustBufferAccess ? OutOfBoundsBehavior::RobustBufferAccess
+		                          : OutOfBoundsBehavior::UndefinedBehavior;
+
+	case spv::StorageClassImage:
+		// VK_EXT_image_robustness requires nullifying out-of-bounds accesses.
+		// TODO(b/162327166): Only perform bounds checks when VK_EXT_image_robustness is enabled.
+		return OutOfBoundsBehavior::Nullify;
+
+	case spv::StorageClassInput:
+		if(executionModel == spv::ExecutionModelVertex)
+		{
+			// Vertex attributes follow robustBufferAccess rules.
 			return robustBufferAccess ? OutOfBoundsBehavior::RobustBufferAccess
 			                          : OutOfBoundsBehavior::UndefinedBehavior;
-
-		case spv::StorageClassImage:
-			// VK_EXT_image_robustness requires nullifying out-of-bounds accesses.
-			// TODO(b/162327166): Only perform bounds checks when VK_EXT_image_robustness is enabled.
-			return OutOfBoundsBehavior::Nullify;
-
-		case spv::StorageClassInput:
-			if(executionModel == spv::ExecutionModelVertex)
-			{
-				// Vertex attributes follow robustBufferAccess rules.
-				return robustBufferAccess ? OutOfBoundsBehavior::RobustBufferAccess
-				                          : OutOfBoundsBehavior::UndefinedBehavior;
-			}
-			// Fall through to default case.
-		default:
-			// TODO(b/137183137): Optimize if the pointer resulted from OpInBoundsAccessChain.
-			// TODO(b/131224163): Optimize cases statically known to be within bounds.
-			return OutOfBoundsBehavior::UndefinedValue;
+		}
+		// Fall through to default case.
+	default:
+		// TODO(b/192310780): StorageClassFunction out-of-bounds accesses are undefined behavior.
+		// TODO(b/137183137): Optimize if the pointer resulted from OpInBoundsAccessChain.
+		// TODO(b/131224163): Optimize cases statically known to be within bounds.
+		return OutOfBoundsBehavior::UndefinedValue;
 	}
 
 	return OutOfBoundsBehavior::Nullify;
@@ -1586,11 +1712,16 @@ OutOfBoundsBehavior SpirvShader::EmitState::getOutOfBoundsBehavior(spv::StorageC
 
 void SpirvShader::emitProlog(SpirvRoutine *routine) const
 {
+	if(IsProfilingEnabled())
+	{
+		routine->profData = std::make_unique<SpirvProfileData>();
+	}
+
 	for(auto insn : *this)
 	{
 		switch(insn.opcode())
 		{
-			case spv::OpVariable:
+		case spv::OpVariable:
 			{
 				auto resultPointerType = getType(insn.resultTypeId());
 				auto pointeeType = getType(resultPointerType.element);
@@ -1599,40 +1730,46 @@ void SpirvShader::emitProlog(SpirvRoutine *routine) const
 				{
 					routine->createVariable(insn.resultId(), pointeeType.componentCount);
 				}
-				break;
 			}
-			case spv::OpPhi:
+			break;
+
+		case spv::OpPhi:
 			{
 				auto type = getType(insn.resultTypeId());
 				routine->phis.emplace(insn.resultId(), SpirvRoutine::Variable(type.componentCount));
-				break;
 			}
+			break;
 
-			case spv::OpImageDrefGather:
-			case spv::OpImageFetch:
-			case spv::OpImageGather:
-			case spv::OpImageQueryLod:
-			case spv::OpImageSampleDrefExplicitLod:
-			case spv::OpImageSampleDrefImplicitLod:
-			case spv::OpImageSampleExplicitLod:
-			case spv::OpImageSampleImplicitLod:
-			case spv::OpImageSampleProjDrefExplicitLod:
-			case spv::OpImageSampleProjDrefImplicitLod:
-			case spv::OpImageSampleProjExplicitLod:
-			case spv::OpImageSampleProjImplicitLod:
-				routine->samplerCache.emplace(insn.resultId(), SpirvRoutine::SamplerCache{});
-				break;
+		case spv::OpImageSampleImplicitLod:
+		case spv::OpImageSampleExplicitLod:
+		case spv::OpImageSampleDrefImplicitLod:
+		case spv::OpImageSampleDrefExplicitLod:
+		case spv::OpImageSampleProjImplicitLod:
+		case spv::OpImageSampleProjExplicitLod:
+		case spv::OpImageSampleProjDrefImplicitLod:
+		case spv::OpImageSampleProjDrefExplicitLod:
+		case spv::OpImageFetch:
+		case spv::OpImageGather:
+		case spv::OpImageDrefGather:
+		case spv::OpImageWrite:
+		case spv::OpImageQueryLod:
+			{
+				// The 'inline' sampler caches must be created in the prolog to initialize the tags.
+				uint32_t instructionPosition = insn.distanceFrom(this->begin());
+				routine->samplerCache.emplace(instructionPosition, SpirvRoutine::SamplerCache{});
+			}
+			break;
 
-			default:
-				// Nothing else produces interface variables, so can all be safely ignored.
-				break;
+		default:
+			// Nothing else produces interface variables, so can all be safely ignored.
+			break;
 		}
 	}
 }
 
 void SpirvShader::emit(SpirvRoutine *routine, RValue<SIMD::Int> const &activeLaneMask, RValue<SIMD::Int> const &storesAndAtomicsMask, const vk::DescriptorSet::Bindings &descriptorSets, unsigned int multiSampleCount) const
 {
-	EmitState state(routine, entryPoint, activeLaneMask, storesAndAtomicsMask, descriptorSets, robustBufferAccess, multiSampleCount, executionModel);
+	EmitState state(routine, entryPoint, activeLaneMask, storesAndAtomicsMask, descriptorSets, multiSampleCount);
 
 	dbgBeginEmit(&state);
 	defer(dbgEndEmit(&state));
@@ -1659,13 +1796,13 @@ void SpirvShader::EmitInstructions(InsnIterator begin, InsnIterator end, EmitSta
 		auto res = EmitInstruction(insn, state);
 		switch(res)
 		{
-			case EmitResult::Continue:
-				continue;
-			case EmitResult::Terminator:
-				break;
-			default:
-				UNREACHABLE("Unexpected EmitResult %d", int(res));
-				break;
+		case EmitResult::Continue:
+			continue;
+		case EmitResult::Terminator:
+			break;
+		default:
+			UNREACHABLE("Unexpected EmitResult %d", int(res));
+			break;
 		}
 	}
 }
@@ -1677,11 +1814,17 @@ SpirvShader::EmitResult SpirvShader::EmitInstruction(InsnIterator insn, EmitStat
 
 	auto opcode = insn.opcode();
 
+	if(IsProfilingEnabled() && IsStatement(opcode))
+	{
+		int64_t *counter = &state->routine->profData->spvOpExecutionCount[opcode];
+		AddAtomic(Pointer<Long>(ConstantPointer(counter)), 1);
+	}
+
 #if SPIRV_SHADER_ENABLE_DBG
 	{
 		auto text = spvtools::spvInstructionBinaryToText(
 		    vk::SPIRV_VERSION,
-		    insn.wordPointer(0),
+		    insn.data(),
 		    insn.wordCount(),
 		    insns.data(),
 		    insns.size(),
@@ -1692,371 +1835,363 @@ SpirvShader::EmitResult SpirvShader::EmitInstruction(InsnIterator insn, EmitStat
 
 	switch(opcode)
 	{
-		case spv::OpTypeVoid:
-		case spv::OpTypeInt:
-		case spv::OpTypeFloat:
-		case spv::OpTypeBool:
-		case spv::OpTypeVector:
-		case spv::OpTypeArray:
-		case spv::OpTypeRuntimeArray:
-		case spv::OpTypeMatrix:
-		case spv::OpTypeStruct:
-		case spv::OpTypePointer:
-		case spv::OpTypeFunction:
-		case spv::OpTypeImage:
-		case spv::OpTypeSampledImage:
-		case spv::OpTypeSampler:
-		case spv::OpExecutionMode:
-		case spv::OpMemoryModel:
-		case spv::OpFunction:
-		case spv::OpFunctionEnd:
-		case spv::OpConstant:
-		case spv::OpConstantNull:
-		case spv::OpConstantTrue:
-		case spv::OpConstantFalse:
-		case spv::OpConstantComposite:
-		case spv::OpSpecConstant:
-		case spv::OpSpecConstantTrue:
-		case spv::OpSpecConstantFalse:
-		case spv::OpSpecConstantComposite:
-		case spv::OpSpecConstantOp:
-		case spv::OpUndef:
-		case spv::OpExtension:
-		case spv::OpCapability:
-		case spv::OpEntryPoint:
-		case spv::OpExtInstImport:
-		case spv::OpDecorate:
-		case spv::OpMemberDecorate:
-		case spv::OpGroupDecorate:
-		case spv::OpGroupMemberDecorate:
-		case spv::OpDecorationGroup:
-		case spv::OpDecorateId:
-		case spv::OpDecorateString:
-		case spv::OpMemberDecorateString:
-		case spv::OpName:
-		case spv::OpMemberName:
-		case spv::OpSource:
-		case spv::OpSourceContinued:
-		case spv::OpSourceExtension:
-		case spv::OpNoLine:
-		case spv::OpModuleProcessed:
-		case spv::OpString:
-			// Nothing to do at emit time. These are either fully handled at analysis time,
-			// or don't require any work at all.
-			return EmitResult::Continue;
+	case spv::OpTypeVoid:
+	case spv::OpTypeInt:
+	case spv::OpTypeFloat:
+	case spv::OpTypeBool:
+	case spv::OpTypeVector:
+	case spv::OpTypeArray:
+	case spv::OpTypeRuntimeArray:
+	case spv::OpTypeMatrix:
+	case spv::OpTypeStruct:
+	case spv::OpTypePointer:
+	case spv::OpTypeFunction:
+	case spv::OpTypeImage:
+	case spv::OpTypeSampledImage:
+	case spv::OpTypeSampler:
+	case spv::OpExecutionMode:
+	case spv::OpExecutionModeId:
+	case spv::OpMemoryModel:
+	case spv::OpFunction:
+	case spv::OpFunctionEnd:
+	case spv::OpConstant:
+	case spv::OpConstantNull:
+	case spv::OpConstantTrue:
+	case spv::OpConstantFalse:
+	case spv::OpConstantComposite:
+	case spv::OpSpecConstant:
+	case spv::OpSpecConstantTrue:
+	case spv::OpSpecConstantFalse:
+	case spv::OpSpecConstantComposite:
+	case spv::OpSpecConstantOp:
+	case spv::OpUndef:
+	case spv::OpExtension:
+	case spv::OpCapability:
+	case spv::OpEntryPoint:
+	case spv::OpExtInstImport:
+	case spv::OpDecorate:
+	case spv::OpMemberDecorate:
+	case spv::OpGroupDecorate:
+	case spv::OpGroupMemberDecorate:
+	case spv::OpDecorationGroup:
+	case spv::OpDecorateId:
+	case spv::OpDecorateString:
+	case spv::OpMemberDecorateString:
+	case spv::OpName:
+	case spv::OpMemberName:
+	case spv::OpSource:
+	case spv::OpSourceContinued:
+	case spv::OpSourceExtension:
+	case spv::OpNoLine:
+	case spv::OpModuleProcessed:
+	case spv::OpString:
+		// Nothing to do at emit time. These are either fully handled at analysis time,
+		// or don't require any work at all.
+		return EmitResult::Continue;
 
-		case spv::OpLine:
-			return EmitLine(insn, state);
+	case spv::OpLine:
+		return EmitLine(insn, state);
 
-		case spv::OpLabel:
-			return EmitResult::Continue;
+	case spv::OpLabel:
+		return EmitResult::Continue;
 
-		case spv::OpVariable:
-			return EmitVariable(insn, state);
+	case spv::OpVariable:
+		return EmitVariable(insn, state);
 
-		case spv::OpLoad:
-		case spv::OpAtomicLoad:
-			return EmitLoad(insn, state);
+	case spv::OpLoad:
+	case spv::OpAtomicLoad:
+		return EmitLoad(insn, state);
 
-		case spv::OpStore:
-		case spv::OpAtomicStore:
-			return EmitStore(insn, state);
+	case spv::OpStore:
+	case spv::OpAtomicStore:
+		return EmitStore(insn, state);
 
-		case spv::OpAtomicIAdd:
-		case spv::OpAtomicISub:
-		case spv::OpAtomicSMin:
-		case spv::OpAtomicSMax:
-		case spv::OpAtomicUMin:
-		case spv::OpAtomicUMax:
-		case spv::OpAtomicAnd:
-		case spv::OpAtomicOr:
-		case spv::OpAtomicXor:
-		case spv::OpAtomicIIncrement:
-		case spv::OpAtomicIDecrement:
-		case spv::OpAtomicExchange:
-			return EmitAtomicOp(insn, state);
+	case spv::OpAtomicIAdd:
+	case spv::OpAtomicISub:
+	case spv::OpAtomicSMin:
+	case spv::OpAtomicSMax:
+	case spv::OpAtomicUMin:
+	case spv::OpAtomicUMax:
+	case spv::OpAtomicAnd:
+	case spv::OpAtomicOr:
+	case spv::OpAtomicXor:
+	case spv::OpAtomicIIncrement:
+	case spv::OpAtomicIDecrement:
+	case spv::OpAtomicExchange:
+		return EmitAtomicOp(insn, state);
 
-		case spv::OpAtomicCompareExchange:
-			return EmitAtomicCompareExchange(insn, state);
+	case spv::OpAtomicCompareExchange:
+		return EmitAtomicCompareExchange(insn, state);
 
-		case spv::OpAccessChain:
-		case spv::OpInBoundsAccessChain:
-			return EmitAccessChain(insn, state);
+	case spv::OpAccessChain:
+	case spv::OpInBoundsAccessChain:
+		return EmitAccessChain(insn, state);
 
-		case spv::OpCompositeConstruct:
-			return EmitCompositeConstruct(insn, state);
+	case spv::OpCompositeConstruct:
+		return EmitCompositeConstruct(insn, state);
 
-		case spv::OpCompositeInsert:
-			return EmitCompositeInsert(insn, state);
+	case spv::OpCompositeInsert:
+		return EmitCompositeInsert(insn, state);
 
-		case spv::OpCompositeExtract:
-			return EmitCompositeExtract(insn, state);
+	case spv::OpCompositeExtract:
+		return EmitCompositeExtract(insn, state);
 
-		case spv::OpVectorShuffle:
-			return EmitVectorShuffle(insn, state);
+	case spv::OpVectorShuffle:
+		return EmitVectorShuffle(insn, state);
 
-		case spv::OpVectorExtractDynamic:
-			return EmitVectorExtractDynamic(insn, state);
+	case spv::OpVectorExtractDynamic:
+		return EmitVectorExtractDynamic(insn, state);
 
-		case spv::OpVectorInsertDynamic:
-			return EmitVectorInsertDynamic(insn, state);
+	case spv::OpVectorInsertDynamic:
+		return EmitVectorInsertDynamic(insn, state);
 
-		case spv::OpVectorTimesScalar:
-		case spv::OpMatrixTimesScalar:
-			return EmitVectorTimesScalar(insn, state);
+	case spv::OpVectorTimesScalar:
+	case spv::OpMatrixTimesScalar:
+		return EmitVectorTimesScalar(insn, state);
 
-		case spv::OpMatrixTimesVector:
-			return EmitMatrixTimesVector(insn, state);
+	case spv::OpMatrixTimesVector:
+		return EmitMatrixTimesVector(insn, state);
 
-		case spv::OpVectorTimesMatrix:
-			return EmitVectorTimesMatrix(insn, state);
+	case spv::OpVectorTimesMatrix:
+		return EmitVectorTimesMatrix(insn, state);
 
-		case spv::OpMatrixTimesMatrix:
-			return EmitMatrixTimesMatrix(insn, state);
+	case spv::OpMatrixTimesMatrix:
+		return EmitMatrixTimesMatrix(insn, state);
 
-		case spv::OpOuterProduct:
-			return EmitOuterProduct(insn, state);
+	case spv::OpOuterProduct:
+		return EmitOuterProduct(insn, state);
 
-		case spv::OpTranspose:
-			return EmitTranspose(insn, state);
+	case spv::OpTranspose:
+		return EmitTranspose(insn, state);
 
-		case spv::OpNot:
-		case spv::OpBitFieldInsert:
-		case spv::OpBitFieldSExtract:
-		case spv::OpBitFieldUExtract:
-		case spv::OpBitReverse:
-		case spv::OpBitCount:
-		case spv::OpSNegate:
-		case spv::OpFNegate:
-		case spv::OpLogicalNot:
-		case spv::OpConvertFToU:
-		case spv::OpConvertFToS:
-		case spv::OpConvertSToF:
-		case spv::OpConvertUToF:
-		case spv::OpBitcast:
-		case spv::OpIsInf:
-		case spv::OpIsNan:
-		case spv::OpDPdx:
-		case spv::OpDPdxCoarse:
-		case spv::OpDPdy:
-		case spv::OpDPdyCoarse:
-		case spv::OpFwidth:
-		case spv::OpFwidthCoarse:
-		case spv::OpDPdxFine:
-		case spv::OpDPdyFine:
-		case spv::OpFwidthFine:
-		case spv::OpQuantizeToF16:
-			return EmitUnaryOp(insn, state);
+	case spv::OpNot:
+	case spv::OpBitFieldInsert:
+	case spv::OpBitFieldSExtract:
+	case spv::OpBitFieldUExtract:
+	case spv::OpBitReverse:
+	case spv::OpBitCount:
+	case spv::OpSNegate:
+	case spv::OpFNegate:
+	case spv::OpLogicalNot:
+	case spv::OpConvertFToU:
+	case spv::OpConvertFToS:
+	case spv::OpConvertSToF:
+	case spv::OpConvertUToF:
+	case spv::OpBitcast:
+	case spv::OpIsInf:
+	case spv::OpIsNan:
+	case spv::OpDPdx:
+	case spv::OpDPdxCoarse:
+	case spv::OpDPdy:
+	case spv::OpDPdyCoarse:
+	case spv::OpFwidth:
+	case spv::OpFwidthCoarse:
+	case spv::OpDPdxFine:
+	case spv::OpDPdyFine:
+	case spv::OpFwidthFine:
+	case spv::OpQuantizeToF16:
+		return EmitUnaryOp(insn, state);
 
-		case spv::OpIAdd:
-		case spv::OpISub:
-		case spv::OpIMul:
-		case spv::OpSDiv:
-		case spv::OpUDiv:
-		case spv::OpFAdd:
-		case spv::OpFSub:
-		case spv::OpFMul:
-		case spv::OpFDiv:
-		case spv::OpFMod:
-		case spv::OpFRem:
-		case spv::OpFOrdEqual:
-		case spv::OpFUnordEqual:
-		case spv::OpFOrdNotEqual:
-		case spv::OpFUnordNotEqual:
-		case spv::OpFOrdLessThan:
-		case spv::OpFUnordLessThan:
-		case spv::OpFOrdGreaterThan:
-		case spv::OpFUnordGreaterThan:
-		case spv::OpFOrdLessThanEqual:
-		case spv::OpFUnordLessThanEqual:
-		case spv::OpFOrdGreaterThanEqual:
-		case spv::OpFUnordGreaterThanEqual:
-		case spv::OpSMod:
-		case spv::OpSRem:
-		case spv::OpUMod:
-		case spv::OpIEqual:
-		case spv::OpINotEqual:
-		case spv::OpUGreaterThan:
-		case spv::OpSGreaterThan:
-		case spv::OpUGreaterThanEqual:
-		case spv::OpSGreaterThanEqual:
-		case spv::OpULessThan:
-		case spv::OpSLessThan:
-		case spv::OpULessThanEqual:
-		case spv::OpSLessThanEqual:
-		case spv::OpShiftRightLogical:
-		case spv::OpShiftRightArithmetic:
-		case spv::OpShiftLeftLogical:
-		case spv::OpBitwiseOr:
-		case spv::OpBitwiseXor:
-		case spv::OpBitwiseAnd:
-		case spv::OpLogicalOr:
-		case spv::OpLogicalAnd:
-		case spv::OpLogicalEqual:
-		case spv::OpLogicalNotEqual:
-		case spv::OpUMulExtended:
-		case spv::OpSMulExtended:
-		case spv::OpIAddCarry:
-		case spv::OpISubBorrow:
-			return EmitBinaryOp(insn, state);
+	case spv::OpIAdd:
+	case spv::OpISub:
+	case spv::OpIMul:
+	case spv::OpSDiv:
+	case spv::OpUDiv:
+	case spv::OpFAdd:
+	case spv::OpFSub:
+	case spv::OpFMul:
+	case spv::OpFDiv:
+	case spv::OpFMod:
+	case spv::OpFRem:
+	case spv::OpFOrdEqual:
+	case spv::OpFUnordEqual:
+	case spv::OpFOrdNotEqual:
+	case spv::OpFUnordNotEqual:
+	case spv::OpFOrdLessThan:
+	case spv::OpFUnordLessThan:
+	case spv::OpFOrdGreaterThan:
+	case spv::OpFUnordGreaterThan:
+	case spv::OpFOrdLessThanEqual:
+	case spv::OpFUnordLessThanEqual:
+	case spv::OpFOrdGreaterThanEqual:
+	case spv::OpFUnordGreaterThanEqual:
+	case spv::OpSMod:
+	case spv::OpSRem:
+	case spv::OpUMod:
+	case spv::OpIEqual:
+	case spv::OpINotEqual:
+	case spv::OpUGreaterThan:
+	case spv::OpSGreaterThan:
+	case spv::OpUGreaterThanEqual:
+	case spv::OpSGreaterThanEqual:
+	case spv::OpULessThan:
+	case spv::OpSLessThan:
+	case spv::OpULessThanEqual:
+	case spv::OpSLessThanEqual:
+	case spv::OpShiftRightLogical:
+	case spv::OpShiftRightArithmetic:
+	case spv::OpShiftLeftLogical:
+	case spv::OpBitwiseOr:
+	case spv::OpBitwiseXor:
+	case spv::OpBitwiseAnd:
+	case spv::OpLogicalOr:
+	case spv::OpLogicalAnd:
+	case spv::OpLogicalEqual:
+	case spv::OpLogicalNotEqual:
+	case spv::OpUMulExtended:
+	case spv::OpSMulExtended:
+	case spv::OpIAddCarry:
+	case spv::OpISubBorrow:
+		return EmitBinaryOp(insn, state);
 
-		case spv::OpDot:
-			return EmitDot(insn, state);
+	case spv::OpDot:
+	case spv::OpSDot:
+	case spv::OpUDot:
+	case spv::OpSUDot:
+	case spv::OpSDotAccSat:
+	case spv::OpUDotAccSat:
+	case spv::OpSUDotAccSat:
+		return EmitDot(insn, state);
 
-		case spv::OpSelect:
-			return EmitSelect(insn, state);
+	case spv::OpSelect:
+		return EmitSelect(insn, state);
 
-		case spv::OpExtInst:
-			return EmitExtendedInstruction(insn, state);
+	case spv::OpExtInst:
+		return EmitExtendedInstruction(insn, state);
 
-		case spv::OpAny:
-			return EmitAny(insn, state);
+	case spv::OpAny:
+		return EmitAny(insn, state);
 
-		case spv::OpAll:
-			return EmitAll(insn, state);
+	case spv::OpAll:
+		return EmitAll(insn, state);
 
-		case spv::OpBranch:
-			return EmitBranch(insn, state);
+	case spv::OpBranch:
+		return EmitBranch(insn, state);
 
-		case spv::OpPhi:
-			return EmitPhi(insn, state);
+	case spv::OpPhi:
+		return EmitPhi(insn, state);
 
-		case spv::OpSelectionMerge:
-		case spv::OpLoopMerge:
-			return EmitResult::Continue;
+	case spv::OpSelectionMerge:
+	case spv::OpLoopMerge:
+		return EmitResult::Continue;
 
-		case spv::OpBranchConditional:
-			return EmitBranchConditional(insn, state);
+	case spv::OpBranchConditional:
+		return EmitBranchConditional(insn, state);
 
-		case spv::OpSwitch:
-			return EmitSwitch(insn, state);
+	case spv::OpSwitch:
+		return EmitSwitch(insn, state);
 
-		case spv::OpUnreachable:
-			return EmitUnreachable(insn, state);
+	case spv::OpUnreachable:
+		return EmitUnreachable(insn, state);
 
-		case spv::OpReturn:
-			return EmitReturn(insn, state);
+	case spv::OpReturn:
+		return EmitReturn(insn, state);
 
-		case spv::OpFunctionCall:
-			return EmitFunctionCall(insn, state);
+	case spv::OpFunctionCall:
+		return EmitFunctionCall(insn, state);
 
-		case spv::OpKill:
-			return EmitKill(insn, state);
+	case spv::OpKill:
+	case spv::OpTerminateInvocation:
+		return EmitTerminateInvocation(insn, state);
 
-		case spv::OpImageSampleImplicitLod:
-			return EmitImageSampleImplicitLod(None, insn, state);
+	case spv::OpDemoteToHelperInvocation:
+		return EmitDemoteToHelperInvocation(insn, state);
 
-		case spv::OpImageSampleExplicitLod:
-			return EmitImageSampleExplicitLod(None, insn, state);
+	case spv::OpIsHelperInvocationEXT:
+		return EmitIsHelperInvocation(insn, state);
 
-		case spv::OpImageSampleDrefImplicitLod:
-			return EmitImageSampleImplicitLod(Dref, insn, state);
+	case spv::OpImageSampleImplicitLod:
+	case spv::OpImageSampleExplicitLod:
+	case spv::OpImageSampleDrefImplicitLod:
+	case spv::OpImageSampleDrefExplicitLod:
+	case spv::OpImageSampleProjImplicitLod:
+	case spv::OpImageSampleProjExplicitLod:
+	case spv::OpImageSampleProjDrefImplicitLod:
+	case spv::OpImageSampleProjDrefExplicitLod:
+	case spv::OpImageGather:
+	case spv::OpImageDrefGather:
+	case spv::OpImageFetch:
+	case spv::OpImageQueryLod:
+		return EmitImageSample(ImageInstruction(insn, *this), state);
 
-		case spv::OpImageSampleDrefExplicitLod:
-			return EmitImageSampleExplicitLod(Dref, insn, state);
+	case spv::OpImageQuerySizeLod:
+		return EmitImageQuerySizeLod(insn, state);
 
-		case spv::OpImageSampleProjImplicitLod:
-			return EmitImageSampleImplicitLod(Proj, insn, state);
+	case spv::OpImageQuerySize:
+		return EmitImageQuerySize(insn, state);
 
-		case spv::OpImageSampleProjExplicitLod:
-			return EmitImageSampleExplicitLod(Proj, insn, state);
+	case spv::OpImageQueryLevels:
+		return EmitImageQueryLevels(insn, state);
 
-		case spv::OpImageSampleProjDrefImplicitLod:
-			return EmitImageSampleImplicitLod(ProjDref, insn, state);
+	case spv::OpImageQuerySamples:
+		return EmitImageQuerySamples(insn, state);
 
-		case spv::OpImageSampleProjDrefExplicitLod:
-			return EmitImageSampleExplicitLod(ProjDref, insn, state);
+	case spv::OpImageRead:
+		return EmitImageRead(ImageInstruction(insn, *this), state);
 
-		case spv::OpImageGather:
-			return EmitImageGather(None, insn, state);
+	case spv::OpImageWrite:
+		return EmitImageWrite(ImageInstruction(insn, *this), state);
 
-		case spv::OpImageDrefGather:
-			return EmitImageGather(Dref, insn, state);
+	case spv::OpImageTexelPointer:
+		return EmitImageTexelPointer(ImageInstruction(insn, *this), state);
 
-		case spv::OpImageFetch:
-			return EmitImageFetch(insn, state);
+	case spv::OpSampledImage:
+	case spv::OpImage:
+		return EmitSampledImageCombineOrSplit(insn, state);
 
-		case spv::OpImageQuerySizeLod:
-			return EmitImageQuerySizeLod(insn, state);
+	case spv::OpCopyObject:
+	case spv::OpCopyLogical:
+		return EmitCopyObject(insn, state);
 
-		case spv::OpImageQuerySize:
-			return EmitImageQuerySize(insn, state);
+	case spv::OpCopyMemory:
+		return EmitCopyMemory(insn, state);
 
-		case spv::OpImageQueryLod:
-			return EmitImageQueryLod(insn, state);
+	case spv::OpControlBarrier:
+		return EmitControlBarrier(insn, state);
 
-		case spv::OpImageQueryLevels:
-			return EmitImageQueryLevels(insn, state);
+	case spv::OpMemoryBarrier:
+		return EmitMemoryBarrier(insn, state);
 
-		case spv::OpImageQuerySamples:
-			return EmitImageQuerySamples(insn, state);
+	case spv::OpGroupNonUniformElect:
+	case spv::OpGroupNonUniformAll:
+	case spv::OpGroupNonUniformAny:
+	case spv::OpGroupNonUniformAllEqual:
+	case spv::OpGroupNonUniformBroadcast:
+	case spv::OpGroupNonUniformBroadcastFirst:
+	case spv::OpGroupNonUniformBallot:
+	case spv::OpGroupNonUniformInverseBallot:
+	case spv::OpGroupNonUniformBallotBitExtract:
+	case spv::OpGroupNonUniformBallotBitCount:
+	case spv::OpGroupNonUniformBallotFindLSB:
+	case spv::OpGroupNonUniformBallotFindMSB:
+	case spv::OpGroupNonUniformShuffle:
+	case spv::OpGroupNonUniformShuffleXor:
+	case spv::OpGroupNonUniformShuffleUp:
+	case spv::OpGroupNonUniformShuffleDown:
+	case spv::OpGroupNonUniformIAdd:
+	case spv::OpGroupNonUniformFAdd:
+	case spv::OpGroupNonUniformIMul:
+	case spv::OpGroupNonUniformFMul:
+	case spv::OpGroupNonUniformSMin:
+	case spv::OpGroupNonUniformUMin:
+	case spv::OpGroupNonUniformFMin:
+	case spv::OpGroupNonUniformSMax:
+	case spv::OpGroupNonUniformUMax:
+	case spv::OpGroupNonUniformFMax:
+	case spv::OpGroupNonUniformBitwiseAnd:
+	case spv::OpGroupNonUniformBitwiseOr:
+	case spv::OpGroupNonUniformBitwiseXor:
+	case spv::OpGroupNonUniformLogicalAnd:
+	case spv::OpGroupNonUniformLogicalOr:
+	case spv::OpGroupNonUniformLogicalXor:
+		return EmitGroupNonUniform(insn, state);
 
-		case spv::OpImageRead:
-			return EmitImageRead(insn, state);
+	case spv::OpArrayLength:
+		return EmitArrayLength(insn, state);
 
-		case spv::OpImageWrite:
-			return EmitImageWrite(insn, state);
-
-		case spv::OpImageTexelPointer:
-			return EmitImageTexelPointer(insn, state);
-
-		case spv::OpSampledImage:
-		case spv::OpImage:
-			return EmitSampledImageCombineOrSplit(insn, state);
-
-		case spv::OpCopyObject:
-		case spv::OpCopyLogical:
-			return EmitCopyObject(insn, state);
-
-		case spv::OpCopyMemory:
-			return EmitCopyMemory(insn, state);
-
-		case spv::OpControlBarrier:
-			return EmitControlBarrier(insn, state);
-
-		case spv::OpMemoryBarrier:
-			return EmitMemoryBarrier(insn, state);
-
-		case spv::OpGroupNonUniformElect:
-		case spv::OpGroupNonUniformAll:
-		case spv::OpGroupNonUniformAny:
-		case spv::OpGroupNonUniformAllEqual:
-		case spv::OpGroupNonUniformBroadcast:
-		case spv::OpGroupNonUniformBroadcastFirst:
-		case spv::OpGroupNonUniformBallot:
-		case spv::OpGroupNonUniformInverseBallot:
-		case spv::OpGroupNonUniformBallotBitExtract:
-		case spv::OpGroupNonUniformBallotBitCount:
-		case spv::OpGroupNonUniformBallotFindLSB:
-		case spv::OpGroupNonUniformBallotFindMSB:
-		case spv::OpGroupNonUniformShuffle:
-		case spv::OpGroupNonUniformShuffleXor:
-		case spv::OpGroupNonUniformShuffleUp:
-		case spv::OpGroupNonUniformShuffleDown:
-		case spv::OpGroupNonUniformIAdd:
-		case spv::OpGroupNonUniformFAdd:
-		case spv::OpGroupNonUniformIMul:
-		case spv::OpGroupNonUniformFMul:
-		case spv::OpGroupNonUniformSMin:
-		case spv::OpGroupNonUniformUMin:
-		case spv::OpGroupNonUniformFMin:
-		case spv::OpGroupNonUniformSMax:
-		case spv::OpGroupNonUniformUMax:
-		case spv::OpGroupNonUniformFMax:
-		case spv::OpGroupNonUniformBitwiseAnd:
-		case spv::OpGroupNonUniformBitwiseOr:
-		case spv::OpGroupNonUniformBitwiseXor:
-		case spv::OpGroupNonUniformLogicalAnd:
-		case spv::OpGroupNonUniformLogicalOr:
-		case spv::OpGroupNonUniformLogicalXor:
-			return EmitGroupNonUniform(insn, state);
-
-		case spv::OpArrayLength:
-			return EmitArrayLength(insn, state);
-
-		default:
-			UNREACHABLE("%s", OpcodeName(opcode));
-			break;
+	default:
+		UNREACHABLE("%s", OpcodeName(opcode));
+		break;
 	}
 
 	return EmitResult::Continue;
@@ -2067,8 +2202,6 @@ SpirvShader::EmitResult SpirvShader::EmitAccessChain(InsnIterator insn, EmitStat
 	Type::ID typeId = insn.word(1);
 	Object::ID resultId = insn.word(2);
 	Object::ID baseId = insn.word(3);
-	uint32_t numIndexes = insn.wordCount() - 4;
-	const uint32_t *indexes = insn.wordPointer(4);
 	auto &type = getType(typeId);
 	ASSERT(type.componentCount == 1);
 	ASSERT(getObject(resultId).kind == Object::Kind::Pointer);
@@ -2077,12 +2210,12 @@ SpirvShader::EmitResult SpirvShader::EmitAccessChain(InsnIterator insn, EmitStat
 	   type.storageClass == spv::StorageClassUniform ||
 	   type.storageClass == spv::StorageClassStorageBuffer)
 	{
-		auto ptr = WalkExplicitLayoutAccessChain(baseId, numIndexes, indexes, state);
+		auto ptr = WalkExplicitLayoutAccessChain(baseId, Span(insn, 4, insn.wordCount() - 4), state);
 		state->createPointer(resultId, ptr);
 	}
 	else
 	{
-		auto ptr = WalkAccessChain(baseId, numIndexes, indexes, state);
+		auto ptr = WalkAccessChain(baseId, Span(insn, 4, insn.wordCount() - 4), state);
 		state->createPointer(resultId, ptr);
 	}
 
@@ -2118,7 +2251,7 @@ SpirvShader::EmitResult SpirvShader::EmitCompositeInsert(InsnIterator insn, Emit
 	auto &dst = state->createIntermediate(insn.resultId(), type.componentCount);
 	auto &newPartObject = getObject(insn.word(3));
 	auto &newPartObjectTy = getType(newPartObject);
-	auto firstNewComponent = WalkLiteralAccessChain(resultTypeId, insn.wordCount() - 5, insn.wordPointer(5));
+	auto firstNewComponent = WalkLiteralAccessChain(resultTypeId, Span(insn, 5, insn.wordCount() - 5));
 
 	Operand srcObjectAccess(this, state, insn.word(4));
 	Operand newPartObjectAccess(this, state, insn.word(3));
@@ -2148,7 +2281,7 @@ SpirvShader::EmitResult SpirvShader::EmitCompositeExtract(InsnIterator insn, Emi
 	auto &dst = state->createIntermediate(insn.resultId(), type.componentCount);
 	auto &compositeObject = getObject(insn.word(3));
 	Type::ID compositeTypeId = compositeObject.definition.word(1);
-	auto firstComponent = WalkLiteralAccessChain(compositeTypeId, insn.wordCount() - 4, insn.wordPointer(4));
+	auto firstComponent = WalkLiteralAccessChain(compositeTypeId, Span(insn, 4, insn.wordCount() - 4));
 
 	Operand compositeObjectAccess(this, state, insn.word(3));
 	for(auto i = 0u; i < type.componentCount; i++)
@@ -2166,7 +2299,7 @@ SpirvShader::EmitResult SpirvShader::EmitVectorShuffle(InsnIterator insn, EmitSt
 
 	// Note: number of components in result type, first half type, and second
 	// half type are all independent.
-	auto &firstHalfType = getType(getObject(insn.word(3)));
+	auto &firstHalfType = getObjectType(insn.word(3));
 
 	Operand firstHalfAccess(this, state, insn.word(3));
 	Operand secondHalfAccess(this, state, insn.word(4));
@@ -2197,7 +2330,7 @@ SpirvShader::EmitResult SpirvShader::EmitVectorExtractDynamic(InsnIterator insn,
 {
 	auto &type = getType(insn.resultTypeId());
 	auto &dst = state->createIntermediate(insn.resultId(), type.componentCount);
-	auto &srcType = getType(getObject(insn.word(3)));
+	auto &srcType = getObjectType(insn.word(3));
 
 	Operand src(this, state, insn.word(3));
 	Operand index(this, state, insn.word(4));
@@ -2258,7 +2391,7 @@ SpirvShader::EmitResult SpirvShader::EmitAny(InsnIterator insn, EmitState *state
 	auto &type = getType(insn.resultTypeId());
 	ASSERT(type.componentCount == 1);
 	auto &dst = state->createIntermediate(insn.resultId(), type.componentCount);
-	auto &srcType = getType(getObject(insn.word(3)));
+	auto &srcType = getObjectType(insn.word(3));
 	auto src = Operand(this, state, insn.word(3));
 
 	SIMD::UInt result = src.UInt(0);
@@ -2277,7 +2410,7 @@ SpirvShader::EmitResult SpirvShader::EmitAll(InsnIterator insn, EmitState *state
 	auto &type = getType(insn.resultTypeId());
 	ASSERT(type.componentCount == 1);
 	auto &dst = state->createIntermediate(insn.resultId(), type.componentCount);
-	auto &srcType = getType(getObject(insn.word(3)));
+	auto &srcType = getObjectType(insn.word(3));
 	auto src = Operand(this, state, insn.word(3));
 
 	SIMD::UInt result = src.UInt(0);
@@ -2322,41 +2455,41 @@ SpirvShader::EmitResult SpirvShader::EmitAtomicOp(InsnIterator insn, EmitState *
 			UInt v;
 			switch(insn.opcode())
 			{
-				case spv::OpAtomicIAdd:
-				case spv::OpAtomicIIncrement:
-					v = AddAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicISub:
-				case spv::OpAtomicIDecrement:
-					v = SubAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicAnd:
-					v = AndAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicOr:
-					v = OrAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicXor:
-					v = XorAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicSMin:
-					v = As<UInt>(MinAtomic(Pointer<Int>(&ptr.base[offset]), As<Int>(laneValue), memoryOrder));
-					break;
-				case spv::OpAtomicSMax:
-					v = As<UInt>(MaxAtomic(Pointer<Int>(&ptr.base[offset]), As<Int>(laneValue), memoryOrder));
-					break;
-				case spv::OpAtomicUMin:
-					v = MinAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicUMax:
-					v = MaxAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				case spv::OpAtomicExchange:
-					v = ExchangeAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
-					break;
-				default:
-					UNREACHABLE("%s", OpcodeName(insn.opcode()));
-					break;
+			case spv::OpAtomicIAdd:
+			case spv::OpAtomicIIncrement:
+				v = AddAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicISub:
+			case spv::OpAtomicIDecrement:
+				v = SubAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicAnd:
+				v = AndAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicOr:
+				v = OrAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicXor:
+				v = XorAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicSMin:
+				v = As<UInt>(MinAtomic(Pointer<Int>(&ptr.base[offset]), As<Int>(laneValue), memoryOrder));
+				break;
+			case spv::OpAtomicSMax:
+				v = As<UInt>(MaxAtomic(Pointer<Int>(&ptr.base[offset]), As<Int>(laneValue), memoryOrder));
+				break;
+			case spv::OpAtomicUMin:
+				v = MinAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicUMax:
+				v = MaxAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			case spv::OpAtomicExchange:
+				v = ExchangeAtomic(Pointer<UInt>(&ptr.base[offset]), laneValue, memoryOrder);
+				break;
+			default:
+				UNREACHABLE("%s", OpcodeName(insn.opcode()));
+				break;
 			}
 			result = Insert(result, v, j);
 		}
@@ -2422,7 +2555,7 @@ SpirvShader::EmitResult SpirvShader::EmitArrayLength(InsnIterator insn, EmitStat
 	ASSERT(resultType.componentCount == 1);
 	ASSERT(resultType.definition.opcode() == spv::OpTypeInt);
 
-	auto &structPtrTy = getType(getObject(structPtrId));
+	auto &structPtrTy = getObjectType(structPtrId);
 	auto &structTy = getType(structPtrTy.element);
 	auto arrayId = Type::ID(structTy.definition.word(2 + arrayFieldIdx));
 
@@ -2436,8 +2569,7 @@ SpirvShader::EmitResult SpirvShader::EmitArrayLength(InsnIterator insn, EmitStat
 	auto arrayBase = structBase + structDecorations.Offset;
 	auto arraySizeInBytes = SIMD::Int(arrayBase.limit()) - arrayBase.offsets();
 
-	Decorations arrayDecorations = {};
-	ApplyDecorationsForId(&arrayDecorations, arrayId);
+	Decorations arrayDecorations = GetDecorationsForId(arrayId);
 	ASSERT(arrayDecorations.HasArrayStride);
 	auto arrayLength = arraySizeInBytes / SIMD::Int(arrayDecorations.ArrayStride);
 
@@ -2451,12 +2583,17 @@ SpirvShader::EmitResult SpirvShader::EmitExtendedInstruction(InsnIterator insn, 
 	auto ext = getExtension(insn.word(3));
 	switch(ext.name)
 	{
-		case Extension::GLSLstd450:
-			return EmitExtGLSLstd450(insn, state);
-		case Extension::OpenCLDebugInfo100:
-			return EmitOpenCLDebugInfo100(insn, state);
-		default:
-			UNREACHABLE("Unknown Extension::Name<%d>", int(ext.name));
+	case Extension::GLSLstd450:
+		return EmitExtGLSLstd450(insn, state);
+	case Extension::OpenCLDebugInfo100:
+		return EmitOpenCLDebugInfo100(insn, state);
+	case Extension::NonSemanticInfo:
+		// An extended set name which is prefixed with "NonSemantic." is
+		// guaranteed to contain only non-semantic instructions and all
+		// OpExtInst instructions referencing this set can be ignored.
+		break;
+	default:
+		UNREACHABLE("Unknown Extension::Name<%d>", int(ext.name));
 	}
 	return EmitResult::Continue;
 }
@@ -2475,7 +2612,7 @@ void SpirvShader::emitEpilog(SpirvRoutine *routine) const
 	{
 		switch(insn.opcode())
 		{
-			case spv::OpVariable:
+		case spv::OpVariable:
 			{
 				auto &object = getObject(insn.resultId());
 				auto &objectTy = getType(object);
@@ -2489,11 +2626,16 @@ void SpirvShader::emitEpilog(SpirvRoutine *routine) const
 						               routine->outputs[scalarSlot] = dst[offset++];
 					               });
 				}
-				break;
 			}
-			default:
-				break;
+			break;
+		default:
+			break;
 		}
+	}
+
+	if(IsProfilingEnabled())
+	{
+		profiler->RegisterShaderForProfiling(std::to_string(insns.getIdentifier()) + "_" + std::to_string((uintptr_t)routine), std::move(routine->profData));
 	}
 }
 
@@ -2510,24 +2652,24 @@ VkShaderStageFlagBits SpirvShader::executionModelToStage(spv::ExecutionModel mod
 {
 	switch(model)
 	{
-		case spv::ExecutionModelVertex: return VK_SHADER_STAGE_VERTEX_BIT;
-		// case spv::ExecutionModelTessellationControl:    return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-		// case spv::ExecutionModelTessellationEvaluation: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-		// case spv::ExecutionModelGeometry:               return VK_SHADER_STAGE_GEOMETRY_BIT;
-		case spv::ExecutionModelFragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-		case spv::ExecutionModelGLCompute: return VK_SHADER_STAGE_COMPUTE_BIT;
-		// case spv::ExecutionModelKernel:                 return VkShaderStageFlagBits(0); // Not supported by vulkan.
-		// case spv::ExecutionModelTaskNV:                 return VK_SHADER_STAGE_TASK_BIT_NV;
-		// case spv::ExecutionModelMeshNV:                 return VK_SHADER_STAGE_MESH_BIT_NV;
-		// case spv::ExecutionModelRayGenerationNV:        return VK_SHADER_STAGE_RAYGEN_BIT_NV;
-		// case spv::ExecutionModelIntersectionNV:         return VK_SHADER_STAGE_INTERSECTION_BIT_NV;
-		// case spv::ExecutionModelAnyHitNV:               return VK_SHADER_STAGE_ANY_HIT_BIT_NV;
-		// case spv::ExecutionModelClosestHitNV:           return VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV;
-		// case spv::ExecutionModelMissNV:                 return VK_SHADER_STAGE_MISS_BIT_NV;
-		// case spv::ExecutionModelCallableNV:             return VK_SHADER_STAGE_CALLABLE_BIT_NV;
-		default:
-			UNSUPPORTED("ExecutionModel: %d", int(model));
-			return VkShaderStageFlagBits(0);
+	case spv::ExecutionModelVertex: return VK_SHADER_STAGE_VERTEX_BIT;
+	// case spv::ExecutionModelTessellationControl:    return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+	// case spv::ExecutionModelTessellationEvaluation: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+	// case spv::ExecutionModelGeometry:               return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case spv::ExecutionModelFragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	case spv::ExecutionModelGLCompute: return VK_SHADER_STAGE_COMPUTE_BIT;
+	// case spv::ExecutionModelKernel:                 return VkShaderStageFlagBits(0); // Not supported by vulkan.
+	// case spv::ExecutionModelTaskNV:                 return VK_SHADER_STAGE_TASK_BIT_NV;
+	// case spv::ExecutionModelMeshNV:                 return VK_SHADER_STAGE_MESH_BIT_NV;
+	// case spv::ExecutionModelRayGenerationNV:        return VK_SHADER_STAGE_RAYGEN_BIT_NV;
+	// case spv::ExecutionModelIntersectionNV:         return VK_SHADER_STAGE_INTERSECTION_BIT_NV;
+	// case spv::ExecutionModelAnyHitNV:               return VK_SHADER_STAGE_ANY_HIT_BIT_NV;
+	// case spv::ExecutionModelClosestHitNV:           return VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV;
+	// case spv::ExecutionModelMissNV:                 return VK_SHADER_STAGE_MISS_BIT_NV;
+	// case spv::ExecutionModelCallableNV:             return VK_SHADER_STAGE_CALLABLE_BIT_NV;
+	default:
+		UNSUPPORTED("ExecutionModel: %d", int(model));
+		return VkShaderStageFlagBits(0);
 	}
 }
 
@@ -2550,16 +2692,16 @@ SpirvShader::Operand::Operand(const Intermediate &value)
 {
 }
 
-bool SpirvShader::Operand::isConstantZero() const
+bool SpirvShader::Object::isConstantZero() const
 {
-	if(!constant)
+	if(kind != Kind::Constant)
 	{
 		return false;
 	}
 
-	for(uint32_t i = 0; i < componentCount; i++)
+	for(uint32_t i = 0; i < constantValue.size(); i++)
 	{
-		if(constant[i] != 0)
+		if(constantValue[i] != 0)
 		{
 			return false;
 		}

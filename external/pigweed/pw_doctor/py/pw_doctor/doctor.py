@@ -27,6 +27,7 @@ import tempfile
 from typing import Callable, Iterable, List, Set
 
 import pw_cli.pw_command_plugins
+import pw_env_setup.cipd_setup.update as cipd_update
 
 
 def call_stdout(*args, **kwargs):
@@ -267,7 +268,6 @@ def cipd(ctx: DoctorContext):
     # TODO(mohrr) get these tools in CIPD for Windows.
     if os.name == 'posix':
         commands_expected_from_cipd += [
-            'bazel',
             'bloaty',
             'clang++',
         ]
@@ -289,32 +289,52 @@ def cipd_versions(ctx: DoctorContext):
     if os.environ.get('PW_DOCTOR_SKIP_CIPD_CHECKS'):
         return
 
-    try:
-        root = pathlib.Path(os.environ['PW_ROOT']).resolve()
-    except KeyError:
-        return  # This case is handled elsewhere.
+    if 'PW_CIPD_INSTALL_DIR' not in os.environ:
+        ctx.error('PW_CIPD_INSTALL_DIR not set')
+    cipd_dir = pathlib.Path(os.environ['PW_CIPD_INSTALL_DIR'])
 
-    if 'PW_PIGWEED_CIPD_INSTALL_DIR' not in os.environ:
-        ctx.error('PW_PIGWEED_CIPD_INSTALL_DIR not set')
-    cipd_dir = pathlib.Path(os.environ['PW_PIGWEED_CIPD_INSTALL_DIR'])
+    with open(cipd_dir / '_all_package_files.json', 'r') as ins:
+        json_paths = [pathlib.Path(x) for x in json.load(ins)]
 
-    versions_path = cipd_dir / '.versions'
-    # Deliberately not checking luci.json--it's not required to be up-to-date.
-    json_path = root.joinpath('pw_env_setup', 'py', 'pw_env_setup',
-                              'cipd_setup', 'pigweed.json')
+    platform = cipd_update.platform()
 
-    def check_cipd(package):
+    def check_cipd(package, install_path):
+        if platform not in package['platforms']:
+            ctx.debug("skipping %s because it doesn't apply to %s",
+                      package['path'], platform)
+            return
+
+        tags_without_refs = [x for x in package['tags'] if ':' in x]
+        if not tags_without_refs:
+            ctx.debug('skipping %s because it tracks a ref, not a tag (%s)',
+                      package['path'], ', '.join(package['tags']))
+            return
+
         ctx.debug('checking version of %s', package['path'])
+
         name = [
             part for part in package['path'].split('/') if '{' not in part
         ][-1]
-        path = versions_path.joinpath(f'{name}.cipd_version')
-        if not path.is_file():
-            ctx.debug('no version file')
-            return
+
+        # If the exact path is specified in the JSON file use it, and require it
+        # exist.
+        if 'version_file' in package:
+            path = install_path / package['version_file']
+            if not path.is_file():
+                ctx.error(f'no version file for {name} at {path}')
+                return
+
+        # Otherwise, follow a heuristic to find the file but don't require the
+        # file to exist.
+        else:
+            path = install_path / '.versions' / f'{name}.cipd_version'
+            if not path.is_file():
+                ctx.debug(f'no version file for {name} at {path}')
+                return
 
         with path.open() as ins:
             installed = json.load(ins)
+        ctx.debug(f'found version file for {name} at {path}')
 
         describe = (
             'cipd',
@@ -331,11 +351,45 @@ def cipd_versions(ctx: DoctorContext):
         for tag in package['tags']:
             if tag not in output:
                 ctx.error(
-                    'CIPD package %s is out of date, please rerun bootstrap',
-                    installed['package_name'])
+                    'CIPD package %s in %s is out of date, please rerun '
+                    'bootstrap', installed['package_name'], install_path)
 
-    for package in json.loads(json_path.read_text()):
-        ctx.submit(check_cipd, package)
+            else:
+                ctx.debug('CIPD package %s in %s is current',
+                          installed['package_name'], install_path)
+
+    for json_path in json_paths:
+        ctx.debug(f'Checking packages in {json_path}')
+        install_path = pathlib.Path(
+            cipd_update.package_installation_path(cipd_dir, json_path))
+        for package in json.loads(json_path.read_text()).get('packages', ()):
+            ctx.submit(check_cipd, package, install_path)
+
+
+@register_into(CHECKS)
+def symlinks(ctx: DoctorContext):
+    """Check that the platform supports symlinks."""
+
+    try:
+        root = pathlib.Path(os.environ['PW_ROOT']).resolve()
+    except KeyError:
+        return  # This case is handled elsewhere.
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest = pathlib.Path(tmpdir).resolve() / 'symlink'
+        try:
+            os.symlink(root, dest)
+            failure = False
+        except OSError:
+            # TODO(pwbug/500) Find out what errno is set when symlinks aren't
+            # supported by the OS.
+            failure = True
+
+        if not os.path.islink(dest) or failure:
+            ctx.warning(
+                'Symlinks are not supported or current user does not have '
+                'permission to use them. This may cause build issues. If on '
+                'Windows, turn on Development Mode to enable symlink support.')
 
 
 def run_doctor(strict=False, checks=None):

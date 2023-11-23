@@ -48,6 +48,20 @@ with:
  * `Storage16BitFeatures.storageInputOutput16`
  * `SubgroupSizeControl.subgroupSizeControl`
  * `SubgroupSizeControl.computeFullSubgroups`
+ * `SubgroupSupportedOperations.basic`
+ * `SubgroupSupportedOperations.vote`
+ * `SubgroupSupportedOperations.arithmetic`
+ * `SubgroupSupportedOperations.ballot`
+ * `SubgroupSupportedOperations.shuffle`
+ * `SubgroupSupportedOperations.shuffleRelative`
+ * `SubgroupSupportedOperations.clustered`
+ * `SubgroupSupportedOperations.quad`
+ * `SubgroupSupportedStages.vertex`
+ * `SubgroupSupportedStages.tessellationControl`
+ * `SubgroupSupportedStages.tessellationEvaluation`
+ * `SubgroupSupportedStages.geometry`
+ * `SubgroupSupportedStages.fragment`
+ * `SubgroupSupportedStages.compute`
 
 
 Extensions can be enabled with the `DEVICE_EXTENSION` and `INSTANCE_EXTENSION`
@@ -427,6 +441,11 @@ The following commands are all specified within the `PIPELINE` command.
   POLYGON_MODE {mode}
 ```
 
+```groovy
+  # Set the number of patch control points used by tessellation. The default value is 3.
+  PATCH_CONTROL_POINTS {control_points}
+```
+
 #### Compare operations
  * `never`
  * `less`
@@ -478,10 +497,106 @@ The following commands are all specified within the `PIPELINE` command.
   END
 ```
 
+#### Blend factors
+* `zero`
+* `one`
+* `src_color`
+* `one_minus_src_color`
+* `dst_color`
+* `one_minus_dst_color`
+* `src_alpha`
+* `one_minus_src_alpha`
+* `dst_alpha`
+* `one_minus_dst_alpha`
+* `constant_color`
+* `one_minus_constant_color`
+* `constant_alpha`
+* `one_minus_constant_alpha`
+* `src_alpha_saturate`
+* `src1_color`
+* `one_minus_src1_color`
+* `src1_alpha`
+* `one_minus_src1_alpha`
+
+#### Blend operations
+* `add`
+* `substract`
+* `reverse_substract`
+* `min`
+* `max`
+
+The following operations also require VK_EXT_blend_operation_advanced
+when using a Vulkan backend.
+* `zero`
+* `src`
+* `dst`
+* `src_over`
+* `dst_over`
+* `src_in`
+* `dst_in`
+* `src_out`
+* `dst_out`
+* `src_atop`
+* `dst_atop`
+* `xor`
+* `multiply`
+* `screen`
+* `overlay`
+* `darken`
+* `lighten`
+* `color_dodge`
+* `color_burn`
+* `hard_light`
+* `soft_light`
+* `difference`
+* `exclusion`
+* `invert`
+* `invert_rgb`
+* `linear_dodge`
+* `linear_burn`
+* `vivid_light`
+* `linear_light`
+* `pin_light`
+* `hard_mix`
+* `hsl_hue`
+* `hsl_saturation`
+* `hsl_color`
+* `hsl_luminosity`
+* `plus`
+* `plus_clamped`
+* `plus_clamped_alpha`
+* `plus_darker`
+* `minus`
+* `minus_clamped`
+* `contrast`
+* `invert_org`
+* `red`
+* `green`
+* `blue`
+
+```groovy
+  # Enable alpha blending and set blend factors and operations. Available
+  # blend factors and operations are listed above.
+  BLEND
+    SRC_COLOR_FACTOR {src_color_factor}
+    DST_COLOR_FACTOR {dst_color_factor}
+    COLOR_OP {color_op}
+    SRC_ALPHA_FACTOR {src_alpha_factor}
+    DST_ALPHA_FACTOR {dst_alpha_factor}
+    ALPHA_OP {alpha_op}
+  END
+```
+
 ```groovy
   # Set the size of the render buffers. |width| and |height| are integers and
   # default to 250x250.
   FRAMEBUFFER_SIZE _width_ _height_
+```
+
+```groovy
+  # Set the viewport size. If no viewport is provided then it defaults to the
+  # whole framebuffer size. Depth range defaults to 0 to 1.
+  VIEWPORT {x} {y} SIZE {width} {height} [MIN_DEPTH {mind}] [MAX_DEPTH {maxd}]
 ```
 
 ```groovy
@@ -494,7 +609,7 @@ The following commands are all specified within the `PIPELINE` command.
   #    and be less than or equal to maxSubgroupSize
   # - MIN to set the required subgroup size to the minSubgroupSize
   # - MAX to set the required subgroup size to the maxSubgroupSize
-  SUBROUP {name_of_shader}
+  SUBGROUP {name_of_shader}
     FULLY_POPULATED {fully_populated_enable}
     VARYING_SIZE {varying_size_enable}
     REQUIRED_SIZE {subgroup_size}
@@ -530,6 +645,11 @@ contain image attachment content, depth/stencil content, uniform buffers, etc.
   # pipelines.
   BIND BUFFER {buffer_name} AS depth_stencil
 
+  # Attach |buffer_name| as a multisample resolve target. The order of resolve
+  # target images match with the order of color attachments that have more than
+  # one sample.
+  BIND BUFFER {buffer_name} AS resolve
+
   # Attach |buffer_name| as the push_constant buffer. There can be only one
   # push constant buffer attached to a pipeline.
   BIND BUFFER {buffer_name} AS push_constant
@@ -559,13 +679,18 @@ All BIND BUFFER and BIND SAMPLER commands below define a descriptor set and bind
 These commands can be replaced with BIND BUFFER_ARRAY and BIND SAMPLER_ARRAY commands.
 In these cases multiple buffer or sampler names need to be provided, separated by spaces.
 This creates a descriptor array of buffers or samplers bound to the same descriptor set
-and binding ID. An array of offsets should be provided via `OFFSET offset1 offset2 ...`
-when using dynamic buffers with BUFFER_ARRAY.
+and binding ID. An array of dynamic offsets should be provided via `OFFSET offset1 offset2 ...`
+when using dynamic buffers with BUFFER_ARRAY. Optional descriptor binding offset(s) and range(s)
+can be defined via `DESCRIPTOR_OFFSET offset1 offset2 ...` and 
+`DESCRIPTOR_RANGE range1 range2 ...` when using uniform or storage buffers. Offsets and 
+ranges can be used also with dynamic buffers.
 ```groovy
   # Bind the buffer of the given |buffer_type| at the given descriptor set
-  # and binding. The buffer will use a start index of 0.
+  # and binding. The buffer will use a byte offset |descriptor_offset| 
+  # with range |range|.
   BIND {BUFFER | BUFFER_ARRAY} {buffer_name} AS {buffer_type} DESCRIPTOR_SET _id_ \
-       BINDING _id_
+       BINDING _id_ [ DESCRIPTOR_OFFSET _descriptor_offset_ (default 0) ] \ 
+       [ DESCRIPTOR_RANGE _range_ (default -1 == VK_WHOLE_SIZE) ]
 
   # Attach |buffer_name| as a storage image. The MIP level will have a base
   # value of |level|.
@@ -586,9 +711,12 @@ when using dynamic buffers with BUFFER_ARRAY.
   BIND {SAMPLER | SAMPLER_ARRAY} {sampler_name} DESCRIPTOR_SET _id_ BINDING _id_
 
   # Bind |buffer_name| as dynamic uniform/storage buffer at the given descriptor set
-  # and binding. The buffer will use a start index of |offset|.
+  # and binding. The buffer will use a byte offset |offset| + |descriptor_offset|
+  # with range |range|.
   BIND {BUFFER | BUFFER_ARRAY} {buffer_name} AS {uniform_dynamic | storage_dynamic} \
-       DESCRIPTOR_SET _id_ BINDING _id_ OFFSET _offset_
+       DESCRIPTOR_SET _id_ BINDING _id_ OFFSET _offset_ \
+       [ DESCRIPTOR_OFFSET _descriptor_offset_ (default 0) ] \ 
+       [ DESCRIPTOR_RANGE _range_ (default -1 == VK_WHOLE_SIZE) ]
 ```
 
 ```groovy

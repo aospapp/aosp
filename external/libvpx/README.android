@@ -1,12 +1,12 @@
 Name: libvpx
 URL: http://www.webmproject.org
-Version: v1.8.2
+Version: v1.11.0
 License: BSD
 License File: libvpx/LICENSE
 
-Date: Thursday December 19 2019
-Branch: origin/pekin
-Commit: 7ec7a33a081aeeb53fed1a8d87e4cbd189152527
+Date: Thursday October 7 2021
+Branch: origin/smew
+Commit: 626ff35955c2c35b806b3e0ecf551a1a8611cdbf
 
 Description:
 Contains the sources used to compile libvpx.

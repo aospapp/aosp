@@ -107,7 +107,7 @@ struct maxp
       maxpV1Tail *dest_v1 = c->serializer->embed<maxpV1Tail> (src_v1);
       if (unlikely (!dest_v1)) return_trace (false);
 
-      if (c->plan->drop_hints)
+      if (c->plan->flags & HB_SUBSET_FLAGS_NO_HINTING)
 	drop_hint_fields (dest_v1);
     }
 
@@ -126,9 +126,10 @@ struct maxp
   }
 
   protected:
-  FixedVersion<>version;		/* Version of the maxp table (0.5 or 1.0),
-					 * 0x00005000u or 0x00010000u. */
-  HBUINT16	numGlyphs;		/* The number of glyphs in the font. */
+  FixedVersion<>version;/* Version of the maxp table (0.5 or 1.0),
+			 * 0x00005000u or 0x00010000u. */
+  HBUINT16	numGlyphs;
+			/* The number of glyphs in the font. */
 /*maxpV1Tail	v1Tail[HB_VAR_ARRAY]; */
   public:
   DEFINE_SIZE_STATIC (6);

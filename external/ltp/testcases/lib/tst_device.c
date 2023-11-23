@@ -18,7 +18,7 @@ static struct tst_test test = {
 
 static void print_help(void)
 {
-	fprintf(stderr, "\nUsage: tst_device acquire [size]\n");
+	fprintf(stderr, "\nUsage: tst_device acquire [size [filename]]\n");
 	fprintf(stderr, "   or: tst_device release /path/to/device\n\n");
 }
 
@@ -27,10 +27,10 @@ static int acquire_device(int argc, char *argv[])
 	unsigned int size = 0;
 	const char *device;
 
-	if (argc > 3)
+	if (argc > 4)
 		return 1;
 
-	if (argc == 3) {
+	if (argc >= 3) {
 		size = atoi(argv[2]);
 
 		if (!size) {
@@ -40,7 +40,11 @@ static int acquire_device(int argc, char *argv[])
 		}
 	}
 
-	device = tst_acquire_device__(size);
+	if (argc >= 4) {
+		device = tst_acquire_loop_device(size, argv[3]);
+	} else {
+		device = tst_acquire_device__(size);
+	}
 
 	if (!device)
 		return 1;
@@ -60,7 +64,13 @@ static int release_device(int argc, char *argv[])
 	if (argc != 3)
 		return 1;
 
-	return tst_release_device(argv[2]);
+	/*
+	 * tst_acquire_[loop_]device() was called in a different process.
+	 * tst_release_device() would think that no device was acquired yet
+	 * and do nothing. Call tst_detach_device() directly to bypass
+	 * the check.
+	 */
+	return tst_detach_device(argv[2]);
 }
 
 int main(int argc, char *argv[])

@@ -28,12 +28,14 @@ pw_source_set("pw_stream") {
   public = [
     "public/pw_stream/memory_stream.h",
     "public/pw_stream/null_stream.h",
+    "public/pw_stream/seek.h",
     "public/pw_stream/stream.h",
   ]
   sources = [ "memory_stream.cc" ]
   public_deps = [
     dir_pw_assert,
     dir_pw_bytes,
+    dir_pw_polyfill,
     dir_pw_result,
     dir_pw_status,
   ]
@@ -41,7 +43,8 @@ pw_source_set("pw_stream") {
 
 pw_source_set("socket_stream") {
   public_configs = [ ":public_include_path" ]
-  public_deps = [ "$dir_pw_stream" ]
+  public_deps = [ ":pw_stream" ]
+  deps = [ dir_pw_log ]
   sources = [ "socket_stream.cc" ]
   public = [ "public/pw_stream/socket_stream.h" ]
 }
@@ -55,13 +58,33 @@ pw_source_set("sys_io_stream") {
   public = [ "public/pw_stream/sys_io_stream.h" ]
 }
 
+pw_source_set("std_file_stream") {
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ ":pw_stream" ]
+  public = [ "public/pw_stream/std_file_stream.h" ]
+  sources = [ "std_file_stream.cc" ]
+}
+
+pw_source_set("interval_reader") {
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    ":pw_stream",
+    dir_pw_assert,
+    dir_pw_status,
+  ]
+  public = [ "public/pw_stream/interval_reader.h" ]
+  sources = [ "interval_reader.cc" ]
+}
+
 pw_doc_group("docs") {
   sources = [ "docs.rst" ]
 }
 
 pw_test_group("tests") {
   tests = [
+    ":interval_reader_test",
     ":memory_stream_test",
+    ":seek_test",
     ":stream_test",
   ]
 }
@@ -71,7 +94,17 @@ pw_test("memory_stream_test") {
   deps = [ ":pw_stream" ]
 }
 
+pw_test("seek_test") {
+  sources = [ "seek_test.cc" ]
+  deps = [ ":pw_stream" ]
+}
+
 pw_test("stream_test") {
   sources = [ "stream_test.cc" ]
   deps = [ ":pw_stream" ]
+}
+
+pw_test("interval_reader_test") {
+  sources = [ "interval_reader_test.cc" ]
+  deps = [ ":interval_reader" ]
 }

@@ -79,7 +79,7 @@ macro_rules! make_numeric_coord {
                     return (limit.1 - limit.0) / 2;
                 }
 
-                let logic_length = (*v - self.0) as f64 / (self.1 - self.0) as f64;
+                let logic_length = (*v as f64 - self.0 as f64) / (self.1 as f64 - self.0 as f64);
 
                 let actual_length = limit.1 - limit.0;
 
@@ -99,7 +99,7 @@ macro_rules! make_numeric_coord {
     };
     ($type:ty, $name:ident, $key_points:ident, $doc: expr) => {
         make_numeric_coord!($type, $name, $key_points, $doc, DefaultFormatting);
-    }
+    };
 }
 
 macro_rules! gen_key_points_comp {
@@ -110,6 +110,13 @@ macro_rules! gen_key_points_comp {
             }
 
             let range = (range.0 as f64, range.1 as f64);
+
+            assert!(!(range.0.is_nan() || range.1.is_nan()));
+
+            if range.0 == range.1 {
+                return vec![range.0 as $type];
+            }
+
             let mut scale = (10f64).powf((range.1 - range.0).log(10.0).floor());
             let mut digits = -(range.1 - range.0).log(10.0).floor() as i32 + 1;
             fn rem_euclid(a: f64, b: f64) -> f64 {
@@ -357,5 +364,18 @@ mod test {
         let pos = coord.map(&5, (1000, 2000));
         let value = coord.unmap(pos, (1000, 2000));
         assert_eq!(value, Some(5));
+    }
+
+    #[test]
+    fn test_zero_sized_coord_not_hang() {
+        let coord: RangedCoordf32 = (0.0..0.0).into();
+        let _points = coord.key_points(10);
+    }
+
+    #[test]
+    fn test_small_coord() {
+        let coord: RangedCoordf64 = (0.0..1e-25).into();
+        let points = coord.key_points(10);
+        assert!(points.len() > 0);
     }
 }

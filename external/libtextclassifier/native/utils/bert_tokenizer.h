@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "annotator/types.h"
 #include "utils/wordpiece_tokenizer.h"
 #include "absl/container/flat_hash_map.h"
 #include "tensorflow_lite_support/cc/text/tokenizers/tokenizer.h"
@@ -81,6 +82,9 @@ class FlatHashMapBackedWordpiece : public WordpieceVocab {
 };
 
 // Wordpiece tokenizer for bert models. Initialized with a vocab file or vector.
+//
+// The full tokenization involves two steps: Splitting the input into tokens
+// (pretokenization) and splitting the tokens into subwords.
 class BertTokenizer : public tflite::support::text::tokenizer::Tokenizer {
  public:
   // Initialize the tokenizer from vocab vector and tokenizer configs.
@@ -101,15 +105,21 @@ class BertTokenizer : public tflite::support::text::tokenizer::Tokenizer {
                       options) {}
 
   // Perform tokenization, first tokenize the input and then find the subwords.
-  // return tokenized results containing the subwords.
+  // Return tokenized results containing the subwords.
   TokenizerResult Tokenize(const std::string& input) override;
 
-  // Perform tokenization on a single token, return tokenized results containing
-  // the subwords.
-  TokenizerResult TokenizeSingleToken(const std::string& token);
+  // Perform tokenization, first tokenize the input and then find the subwords.
+  // Return tokenized results containing the subwords and codepoint indices.
+  WordpieceTokenizerResult TokenizeIntoWordpieces(const std::string& input);
 
-  // Perform tokenization, return tokenized results containing the subwords.
-  TokenizerResult Tokenize(const std::vector<std::string>& tokens);
+  // Perform tokenization on a single token, return tokenized results containing
+  // the subwords and codepoint indices.
+  WordpieceTokenizerResult TokenizeSingleToken(const std::string& token);
+
+  // Perform tokenization, return tokenized results containing the subwords and
+  // codepoint indices.
+  WordpieceTokenizerResult TokenizeIntoWordpieces(
+      const std::vector<Token>& tokens);
 
   // Check if a certain key is included in the vocab.
   LookupStatus Contains(const absl::string_view key, bool* value) const {

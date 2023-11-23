@@ -13,6 +13,8 @@
 // the License.
 #pragma once
 
+#include "pw_status/internal/config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
@@ -185,7 +187,7 @@ namespace pw {
 // The Status class is a thin, zero-cost abstraction around the pw_Status enum.
 // It initializes to OkStatus() by default and adds ok() and str() methods.
 // Implicit conversions are permitted between pw_Status and pw::Status.
-class Status {
+class _PW_STATUS_NO_DISCARD Status {
  public:
   using Code = pw_Status;
 
@@ -302,6 +304,20 @@ class Status {
   [[nodiscard]] constexpr bool IsUnauthenticated() const {
     return code_ == PW_STATUS_UNAUTHENTICATED;
   }
+
+  // Updates this Status to the provided Status IF this status is OK. This is
+  // useful for tracking the first encountered error, as calls to this helper
+  // will not change one error status to another error status.
+  constexpr void Update(Status other) {
+    if (ok()) {
+      code_ = other.code();
+    }
+  }
+
+  // Ignores any errors. This method does nothing except potentially suppress
+  // complaints from any tools that are checking that errors are not dropped on
+  // the floor.
+  constexpr void IgnoreError() const {}
 
   // Returns a null-terminated string representation of the Status.
   [[nodiscard]] const char* str() const { return pw_StatusString(code_); }

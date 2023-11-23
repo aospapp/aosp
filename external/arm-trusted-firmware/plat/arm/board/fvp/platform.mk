@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2021, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -131,10 +131,14 @@ else
 					lib/cpus/aarch64/neoverse_e1.S		\
 					lib/cpus/aarch64/neoverse_v1.S		\
 					lib/cpus/aarch64/cortex_a78_ae.S	\
-					lib/cpus/aarch64/cortex_klein.S	        \
-					lib/cpus/aarch64/cortex_matterhorn.S	\
+					lib/cpus/aarch64/cortex_a510.S		\
+					lib/cpus/aarch64/cortex_a710.S	\
+					lib/cpus/aarch64/cortex_makalu.S	\
+					lib/cpus/aarch64/cortex_makalu_elp_arm.S \
+					lib/cpus/aarch64/cortex_demeter.S	\
 					lib/cpus/aarch64/cortex_a65.S		\
-					lib/cpus/aarch64/cortex_a65ae.S
+					lib/cpus/aarch64/cortex_a65ae.S		\
+					lib/cpus/aarch64/cortex_a78c.S
 	endif
 	# AArch64/AArch32 cores
 	FVP_CPU_LIBS	+=	lib/cpus/aarch64/cortex_a55.S		\

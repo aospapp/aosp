@@ -147,7 +147,7 @@ class CharsetISO2022 extends CharsetICU {
         maxBytesPerChar = 8;
         minBytesPerChar = 1;
         maxCharsPerByte = 1;
-        // open the required coverters and cache them.
+        // open the required converters and cache them.
         myConverterData.myConverterArray[GB2312_1] = ((CharsetMBCS)CharsetICU.forNameICU("ibm-5478")).sharedData;
         if (version == 1) {
             myConverterData.myConverterArray[ISO_IR_165] = ((CharsetMBCS)CharsetICU.forNameICU("iso-ir-165")).sharedData;
@@ -689,7 +689,7 @@ class CharsetISO2022 extends CharsetICU {
                  * Ticket 5691: consistent illegal sequences:
                  * - We include at least the first byte (ESC) in the illegal sequence.
                  * - If any of the non-initial bytes could be the start of a character,
-                 *   we stop the illegal sequece before the first one of those.
+                 *   we stop the illegal sequence before the first one of those.
                  *   In escape sequences, all following bytes are "printable", that is,
                  *   unless they are completely illegal (>7f in SBCS, outside 21..7e in DBCS),
                  *   they are valid single/lead bytes.
@@ -974,7 +974,7 @@ class CharsetISO2022 extends CharsetICU {
                                 if (mySourceChar <= 0x7f) {
                                     targetUniChar = mySourceChar + 0x80;
                                 }
-                                /* return from a single-shift state to the prevous one */
+                                /* return from a single-shift state to the previous one */
                                 myConverterData.toU2022State.g = myConverterData.toU2022State.prevG;
                                 break;
                             case ISO8859_7:
@@ -1759,8 +1759,8 @@ class CharsetISO2022 extends CharsetICU {
                         sourceChar = source.get();
                     }
                     /* check if the char is a First surrogate */
-                    if (getTrail || UTF16.isSurrogate((char)sourceChar)) {
-                        if (getTrail || UTF16.isLeadSurrogate((char)sourceChar)) {
+                    if (getTrail || UTF16.isSurrogate(sourceChar)) {
+                        if (getTrail || UTF16.isLeadSurrogate(sourceChar)) {
 // getTrail:
                             if (getTrail) {
                                 getTrail = false;
@@ -1773,7 +1773,7 @@ class CharsetISO2022 extends CharsetICU {
                                 source.position(source.position()-1);
                                 if (UTF16.isTrailSurrogate(trail)) {
                                     source.get();
-                                    sourceChar = UCharacter.getCodePoint((char)sourceChar, trail);
+                                    sourceChar = UCharacter.getCodePoint(sourceChar, trail);
                                     fromUChar32 = 0x00;
                                     /* convert this supplementary code point */
                                     /* exit this condition tree */
@@ -2114,7 +2114,7 @@ class CharsetISO2022 extends CharsetICU {
     /*
      * Rules for ISO-2022-CN Encoding:
      * i)   The designator sequence must appear once on a line before any instance
-     *      of chracter set it designates.
+     *      of character set it designates.
      * ii)  If two lines contain characters from the same character set, both lines
      *      must include the designator sequence.
      * iii) Once the designator sequence is known, a shifting sequence has to be found
@@ -2177,7 +2177,7 @@ class CharsetISO2022 extends CharsetICU {
      *       appears
      *
      *      As in ISO-2022-CN, each line starts in ASCII, and ends in ASCII, and
-     *      has its own designation information before any Chinese chracters
+     *      has its own designation information before any Chinese characters
      *      appears
      */
 
@@ -2267,8 +2267,8 @@ class CharsetISO2022 extends CharsetICU {
                         sourceChar = source.get();
                     }
                     /* check if the char is a First surrogate */
-                    if (UTF16.isSurrogate((char)sourceChar) || gotoGetTrail) {
-                        if (UTF16.isLeadSurrogate((char)sourceChar) || gotoGetTrail) {
+                    if (UTF16.isSurrogate(sourceChar) || gotoGetTrail) {
+                        if (UTF16.isLeadSurrogate(sourceChar) || gotoGetTrail) {
 // getTrail label
                             /* reset gotoGetTrail flag*/
                              gotoGetTrail = false;
@@ -2280,7 +2280,7 @@ class CharsetISO2022 extends CharsetICU {
                                 source.position(source.position()-1);
                                 if (UTF16.isTrailSurrogate(trail)) {
                                     source.get();
-                                    sourceChar = UCharacter.getCodePoint((char)sourceChar, trail);
+                                    sourceChar = UCharacter.getCodePoint(sourceChar, trail);
                                     fromUChar32 = 0x00;
                                     /* convert this supplementary code point */
                                     /* exit this condition tree */
@@ -2533,8 +2533,8 @@ class CharsetISO2022 extends CharsetICU {
              * are handled by the framework, but for ISO-2022-CN conversion
              * we need to be in ASCII mode at the very end
              *
-             * condtions:
-             *   succesful
+             * conditions:
+             *   successful
              *   not in ASCII mode
              *   end of input and no truncated input
              */
@@ -2566,7 +2566,7 @@ class CharsetISO2022 extends CharsetICU {
     /*
      *   Rules for ISO-2022-KR encoding
      *   i) The KSC5601 designator sequence should appear only once in a file,
-     *      at the begining of a line before any KSC5601 characters. This usually
+     *      at the beginning of a line before any KSC5601 characters. This usually
      *      means that it appears by itself on the first line of the file
      *  ii) There are only 2 shifting sequences SO to shift into double byte mode
      *      and SI to shift into single byte mode
@@ -2767,8 +2767,8 @@ class CharsetISO2022 extends CharsetICU {
                          */
 
                         /* check if the char is a First surrogate */
-                        if (gotoGetTrail || UTF16.isSurrogate((char)sourceChar)) {
-                            if (gotoGetTrail || UTF16.isLeadSurrogate((char)sourceChar)) {
+                        if (gotoGetTrail || UTF16.isSurrogate(sourceChar)) {
+                            if (gotoGetTrail || UTF16.isLeadSurrogate(sourceChar)) {
 // getTrail label
                                 // reset gotoGetTrail flag
                                 gotoGetTrail = false;
@@ -2780,7 +2780,7 @@ class CharsetISO2022 extends CharsetICU {
                                     source.position(source.position()-1);
                                     if (UTF16.isTrailSurrogate(trail)) {
                                         source.get();
-                                         sourceChar = UCharacter.getCodePoint((char)sourceChar, trail);
+                                         sourceChar = UCharacter.getCodePoint(sourceChar, trail);
                                          err = CoderResult.unmappableForLength(2);
                                          /* convert this surrogate code point */
                                          /* exit this condition tree */
@@ -2976,7 +2976,7 @@ class CharsetISO2022 extends CharsetICU {
                 } else if(variant==ISO_2022_JP && i == JISX208){
                     /*
                      * Only add code points that map to Shift-JIS codes
-                     * corrosponding to JIS X 208
+                     * corresponding to JIS X 208
                      */
                     filter=CharsetMBCS.UCNV_SET_FILTER_SJIS;
                 } else if(i==KSC5601){

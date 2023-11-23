@@ -34,12 +34,12 @@
 /* We use a mutex to avoid conflicts in traces */
 static pthread_mutex_t m_trace = PTHREAD_MUTEX_INITIALIZER;
 
-void output_init(void)
+static void output_init(void)
 {
 	return;
 }
 
-void output(char *string, ...)
+static void output(char *string, ...)
 {
 	va_list ap;
 	struct tm *now;
@@ -51,9 +51,9 @@ void output(char *string, ...)
 	nw = time(NULL);
 	now = localtime(&nw);
 	if (now == NULL)
-		printf("[??:??:??]");
+		printf("[??:??:??]\n");
 	else
-		printf("[%2.2d:%2.2d:%2.2d]",
+		printf("[%2.2d:%2.2d:%2.2d]\n",
 		       now->tm_hour, now->tm_min, now->tm_sec);
 	va_start(ap, string);
 	vprintf(string, ap);
@@ -62,7 +62,7 @@ void output(char *string, ...)
 	pthread_setcancelstate(oldstate, NULL);
 }
 
-void output_fini(void)
+static void output_fini(void)
 {
 	return;
 }

@@ -12,10 +12,35 @@ Maintained by Hans Kristian Rosbach
 |OSS-Fuzz|[![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/zlib-ng.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:zlib-ng)
 |Codecov|[![codecov.io](https://codecov.io/github/zlib-ng/zlib-ng/coverage.svg?branch=develop)](https://codecov.io/github/zlib-ng/zlib-ng/)|
 
-Fork Motivation
----------------------------
 
-The motivation for this fork was due to seeing several 3rd party
+Features
+--------
+
+* Zlib compatible API with support for dual-linking
+* Modernized native API based on zlib API for ease of porting
+* Modern C99 syntax and a clean code layout
+* Deflate medium and quick algorithms based on Intels zlib fork
+* Support for CPU intrinsics when available
+  * Adler32 implementation using SSSE3, AVX2, Neon & VSX
+  * CRC32-B implementation using PCLMULQDQ & ACLE
+  * Hash table implementation using CRC32-C intrinsics on x86 and ARM
+  * Slide hash implementations using SSE2, AVX2, Neon & VSX
+  * Compare256/258 implementations using SSE4.2 & AVX2
+  * Inflate chunk copying using SSE2, AVX2 & Neon
+  * Support for hardware-accelerated deflate using IBM Z DFLTCC
+* Unaligned memory read/writes and large bit buffer improvements
+* Includes improvements from Cloudflare and Intel forks
+* Configure, CMake, and NMake build system support
+* Comprehensive set of CMake unit tests
+* Code sanitizers, fuzzing, and coverage
+* GitHub Actions continuous integration on Windows, macOS, and Linux
+  * Emulated CI for ARM, AARCH64, PPC, PPC64, SPARC64, S390x using qemu
+
+
+History
+-------
+
+The motivation for this fork came after seeing several 3rd party
 contributions containing new optimizations not getting implemented
 into the official zlib repository.
 
@@ -46,33 +71,11 @@ various dead code, all contrib and example code as there is little
 point in having those in this fork for various reasons.
 
 A lot of improvements have gone into zlib-ng since its start, and
-numerous people have contributed both small and big improvements,
-or valuable testing.
+numerous people and companies have contributed both small and big
+improvements, or valuable testing.
 
 Please read LICENSE.md, it is very simple and very liberal.
 
-Features
---------
-
-* Zlib compatible API with support for dual-linking
-* Modernized native API based on zlib API for ease of porting
-* Intel deflate medium and quick algorithms
-* Support for CPU intrinsics when available
-  * Adler32 implementation using SSSE3, AVX2, Neon, & VSX
-  * Intel CRC32-B implementation using PCLMULQDQ
-  * Intel CRC32-C intrinsics for hash tables
-  * ARM CRC32-B implementation using ACLE
-  * Slide hash implementations using SSE2, AVX2, Neon, & VSX
-  * Inflate chunk copying using SSE2 & Neon
-  * Deflate hooks for IBM Z DFLTCC
-* Code sanitizers, fuzzing, and coverage
-* GitHub Actions continuous integration on Windows, macOS, and Linux
-  * Emulated CI for ARM, AARCH64, PPC, PPC64, SPARC64, S390x using qemu
-* Unaligned memory read/writes and large bit buffer improvements
-* Includes improvements from Cloudflare and Intel forks
-* Configure, CMake, and NMake build system support
-* Modern C99 syntax and a clean code layout
-* Comprehensive set of CMake unit tests
 
 Build
 -----
@@ -107,19 +110,20 @@ make test
 
 Build Options
 -------------
+
 | CMake                    | configure                | Description                                                                           | Default |
 |:-------------------------|:-------------------------|:--------------------------------------------------------------------------------------|---------|
 | ZLIB_COMPAT              | --zlib-compat            | Compile with zlib compatible API                                                      | OFF     |
 | ZLIB_ENABLE_TESTS        |                          | Build test binaries                                                                   | ON      |
-| WITH_GZFILEOP            | --with-gzfileops         | Compile with support for gzFile related functions                                     | OFF     |
-| WITH_MSAN                | --with-msan              | Build with memory sanitizer                                                           | OFF     |
+| WITH_GZFILEOP            | --without-gzfileops      | Compile with support for gzFile related functions                                     | ON      |
 | WITH_OPTIM               | --without-optimizations  | Build with optimisations                                                              | ON      |
 | WITH_NEW_STRATEGIES      | --without-new-strategies | Use new strategies                                                                    | ON      |
 | WITH_NATIVE_INSTRUCTIONS | --native                 | Compiles with full instruction set supported on this host (gcc/clang -march=native)   | OFF     |
-| WITH_SANITIZERS          | --with-sanitizers        | Build with address sanitizer and all supported sanitizers other than memory sanitizer | OFF     |
+| WITH_SANITIZER           | --with-sanitizer         | Build with sanitizer (memory, address, undefined)                                     | OFF     |
 | WITH_FUZZERS             | --with-fuzzers           | Build test/fuzz                                                                       | OFF     |
 | WITH_MAINTAINER_WARNINGS |                          | Build with project maintainer warnings                                                | OFF     |
 | WITH_CODE_COVERAGE       |                          | Enable code coverage reporting                                                        | OFF     |
+
 
 Install
 -------
@@ -159,12 +163,10 @@ make install
 Contributing
 ------------
 
-Zlib-ng is a young project, and we aim to be open to contributions,
-and we would be delighted to receive pull requests on github.
-Just remember that any code you submit must be your own and it must
-be zlib licensed.
-Help with testing and reviewing of pull requests etc is also very
-much appreciated.
+Zlib-ng is a aiming to be open to contributions, and we would be delighted to
+receive pull requests on github.
+Just remember that any code you submit must be your own and it must be zlib licensed.
+Help with testing and reviewing of pull requests etc is also very much appreciated.
 
 If you are interested in contributing, please consider joining our
 IRC channel #zlib-ng on the Freenode IRC network.
@@ -175,15 +177,15 @@ Acknowledgments
 
 Thanks to Servebolt.com for sponsoring my maintainership of zlib-ng.
 
-Thanks go out to all the people and companies who have taken the time
-to contribute code reviews, testing and/or patches. Zlib-ng would not
-have been nearly as good without you.
+Thanks go out to all the people and companies who have taken the time to contribute
+code reviews, testing and/or patches. Zlib-ng would not have been nearly as good without you.
 
 The deflate format used by zlib was defined by Phil Katz.
 The deflate and zlib specifications were written by L. Peter Deutsch.
 
 zlib was originally created by Jean-loup Gailly (compression)
 and Mark Adler (decompression).
+
 
 Advanced Build Options
 ----------------------
@@ -192,7 +194,7 @@ Advanced Build Options
 |:--------------------------------|:----------------------|:--------------------------------------------------------------------|------------------------|
 | ZLIB_DUAL_LINK                  |                       | Dual link tests with system zlib                                    | OFF                    |
 | UNALIGNED_OK                    |                       | Allow unaligned reads                                               | ON (x86, arm)          |
-|                                 | --force-sse2          | Assume SSE2 instructions are always available                       | ON (x86), OFF (x86_64) |
+|                                 | --force-sse2          | Skip runtime check for SSE2 instructions (Always on for x86_64)     | OFF (x86)              |
 | WITH_AVX2                       |                       | Build with AVX2 intrinsics                                          | ON                     |
 | WITH_SSE2                       |                       | Build with SSE2 intrinsics                                          | ON                     |
 | WITH_SSE4                       |                       | Build with SSE4 intrinsics                                          | ON                     |
@@ -200,8 +202,19 @@ Advanced Build Options
 | WITH_ACLE                       | --without-acle        | Build with ACLE intrinsics                                          | ON                     |
 | WITH_NEON                       | --without-neon        | Build with NEON intrinsics                                          | ON                     |
 | WITH_POWER8                     |                       | Build with POWER8 optimisations                                     | ON                     |
-| WITH_DFLTCC_DEFLATE             | --with-dfltcc-deflate | Use DEFLATE COMPRESSION CALL instruction for compression on IBM Z   | OFF                    |
-| WITH_DFLTCC_INFLATE             | --with-dfltcc-inflate | Use DEFLATE COMPRESSION CALL instruction for decompression on IBM Z | OFF                    |
+| WITH_DFLTCC_DEFLATE             | --with-dfltcc-deflate | Build with DFLTCC intrinsics for compression on IBM Z               | OFF                    |
+| WITH_DFLTCC_INFLATE             | --with-dfltcc-inflate | Build with DFLTCC intrinsics for decompression on IBM Z             | OFF                    |
+| WITH_UNALIGNED                  |                       | Allow optimizations that use unaligned reads if safe on current arch| ON                     |
 | WITH_INFLATE_STRICT             |                       | Build with strict inflate distance checking                         | OFF                    |
 | WITH_INFLATE_ALLOW_INVALID_DIST |                       | Build with zero fill for inflate invalid distances                  | OFF                    |
-| INSTALL_UTILS                   |                       | Copy minigzip and minigzip during install                           | OFF                    |
+| INSTALL_UTILS                   |                       | Copy minigzip and minideflate during install                        | OFF                    |
+
+
+Related Projects
+----------------
+
+* Fork of the popular minigzip                  https://github.com/zlib-ng/minizip-ng
+* Python tool to benchmark minigzip/minideflate https://github.com/zlib-ng/deflatebench
+* Python tool to benchmark pigz                 https://github.com/zlib-ng/pigzbench
+* 3rd party patches for zlib-ng compatibility   https://github.com/zlib-ng/patches
+

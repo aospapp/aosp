@@ -35,7 +35,7 @@ if [ -n "$SRCGEN_TOOL" ]; then
     SRCGEN_TOOL_BINARY=${SRCGEN_TOOL}
 else
     source $(dirname $BASH_SOURCE)/common.sh
-    SRCGEN_TOOL_BINARY=${ANDROID_HOST_OUT}/bin/android_icu4j_srcgen_binary
+    SRCGEN_TOOL_BINARY="${ANDROID_HOST_OUT}/bin/android_icu4j_srcgen_binary -JXint"
 fi
 
 if [ -n "$GEN_DIR" ]; then

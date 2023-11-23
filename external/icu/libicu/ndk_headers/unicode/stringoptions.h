@@ -10,6 +10,8 @@
 #include "unicode/utypes.h"
 
 /**
+ * @addtogroup ICU4C
+ * @{
  * \file
  * \brief C API: Bit set option bit constants for various string and character processing functions.
  */
@@ -17,7 +19,7 @@
 /**
  * Option value for case folding: Use default mappings defined in CaseFolding.txt.
  *
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #define U_FOLD_CASE_DEFAULT 0
 
@@ -35,7 +37,7 @@
  * are to be excluded for default mappings and
  * included for the Turkic-specific mappings.
  *
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #define U_FOLD_CASE_EXCLUDE_SPECIAL_I 1
 
@@ -48,7 +50,7 @@
  * including both an options bit and an explicit BreakIterator.
  *
  * @see U_TITLECASE_ADJUST_TO_CASED
- * @stable ICU 60
+ * \xrefitem stable "Stable" "Stable List" ICU 60
  */
 #define U_TITLECASE_WHOLE_STRING 0x20
 
@@ -61,7 +63,7 @@
  * including both an options bit and an explicit BreakIterator.
  *
  * @see U_TITLECASE_ADJUST_TO_CASED
- * @stable ICU 60
+ * \xrefitem stable "Stable" "Stable List" ICU 60
  */
 #define U_TITLECASE_SENTENCES 0x40
 
@@ -80,7 +82,7 @@
  * @see ucasemap_setOptions
  * @see ucasemap_toTitle
  * @see ucasemap_utf8ToTitle
- * @stable ICU 3.8
+ * \xrefitem stable "Stable" "Stable List" ICU 3.8
  */
 #define U_TITLECASE_NO_LOWERCASE 0x100
 
@@ -104,7 +106,7 @@
  * @see ucasemap_setOptions
  * @see ucasemap_toTitle
  * @see ucasemap_utf8ToTitle
- * @stable ICU 3.8
+ * \xrefitem stable "Stable" "Stable List" ICU 3.8
  */
 #define U_TITLECASE_NO_BREAK_ADJUSTMENT 0x200
 
@@ -124,7 +126,7 @@
  * It is an error to specify multiple titlecasing adjustment options together.
  *
  * @see U_TITLECASE_NO_BREAK_ADJUSTMENT
- * @stable ICU 60
+ * \xrefitem stable "Stable" "Stable List" ICU 60
  */
 #define U_TITLECASE_ADJUST_TO_CASED 0x400
 
@@ -135,7 +137,7 @@
  * @see CaseMap
  * @see Edits
  * @see Normalizer2
- * @stable ICU 60
+ * \xrefitem stable "Stable" "Stable List" ICU 60
  */
 #define U_EDITS_NO_RESET 0x2000
 
@@ -147,28 +149,28 @@
  * @see CaseMap
  * @see Edits
  * @see Normalizer2
- * @stable ICU 60
+ * \xrefitem stable "Stable" "Stable List" ICU 60
  */
 #define U_OMIT_UNCHANGED_TEXT 0x4000
 
 /**
  * Option bit for u_strCaseCompare, u_strcasecmp, unorm_compare, etc:
  * Compare strings in code point order instead of code unit order.
- * @stable ICU 2.2
+ * \xrefitem stable "Stable" "Stable List" ICU 2.2
  */
 #define U_COMPARE_CODE_POINT_ORDER  0x8000
 
 /**
  * Option bit for unorm_compare:
  * Perform case-insensitive comparison.
- * @stable ICU 2.2
+ * \xrefitem stable "Stable" "Stable List" ICU 2.2
  */
 #define U_COMPARE_IGNORE_CASE       0x10000
 
 /**
  * Option bit for unorm_compare:
  * Both input strings are assumed to fulfill FCD conditions.
- * @stable ICU 2.2
+ * \xrefitem stable "Stable" "Stable List" ICU 2.2
  */
 #define UNORM_INPUT_IS_FCD          0x20000
 
@@ -188,3 +190,5 @@
 // unormcmp.cpp #define _COMPARE_EQUIV 0x80000
 
 #endif  // __STRINGOPTIONS_H__
+
+/** @} */ // addtogroup

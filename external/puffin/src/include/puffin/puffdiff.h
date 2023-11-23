@@ -15,18 +15,36 @@
 
 namespace puffin {
 
+enum class PatchAlgorithm {
+  kBsdiff = 0,
+  kZucchini = 1,
+};
+
 // Performs a diff operation between input deflate streams and creates a patch
 // that is used in the client to recreate the |dst| from |src|.
 // |src|          IN   Source deflate stream.
 // |dst|          IN   Destination deflate stream.
 // |src_deflates| IN   Deflate locations in |src|.
 // |dst_deflates| IN   Deflate locations in |dst|.
-// |compressors|  IN   Compressors to use in the underlying bsdiff, e.g. bz2,
+// |compressors|  IN   Compressors to use in the underlying bsdiff, e.g.
+// bz2,
 //                     brotli.
+// |patchAlgorithm|    IN   The patchAlgorithm used to create patches between
+//                     uncompressed bytes, e.g. bsdiff, zucchini.
 // |tmp_filepath| IN   A path to a temporary file. The caller has the
 //                     responsibility of unlinking the file after the call to
 //                     |PuffDiff| finishes.
 // |puffin_patch| OUT  The patch that later can be used in |PuffPatch|.
+bool PuffDiff(UniqueStreamPtr src,
+              UniqueStreamPtr dst,
+              const std::vector<BitExtent>& src_deflates,
+              const std::vector<BitExtent>& dst_deflates,
+              const std::vector<bsdiff::CompressorType>& compressors,
+              PatchAlgorithm patchAlgorithm,
+              const std::string& tmp_filepath,
+              Buffer* patch);
+
+// This function uses bsdiff as the patch algorithm.
 bool PuffDiff(UniqueStreamPtr src,
               UniqueStreamPtr dst,
               const std::vector<BitExtent>& src_deflates,

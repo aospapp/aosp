@@ -42,6 +42,7 @@
     <protected-broadcast android:name="android.provider.rcs.eab.EAB_DATABASE_RESET"/>
     <protected-broadcast android:name="com.android.service.ims.presence.capability_polling_retry"/>
     <protected-broadcast android:name="com.android.service.ims.presence.periodical_capability_discovery"/>
+    <protected-broadcast android:name="com.android.vmm.DEVICE_STORAGE_FULL"/>
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BROADCAST_STICKY"/>

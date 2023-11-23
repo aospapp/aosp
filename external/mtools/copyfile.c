@@ -24,14 +24,12 @@
  * Copy the data from source to target
  */
 
-int copyfile(Stream_t *Source, Stream_t *Target)
+mt_off_t copyfile(Stream_t *Source, Stream_t *Target)
 {
 	char buffer[8*16384];
 	mt_off_t pos;
-	int ret;
+	ssize_t ret;
 	ssize_t retw;
-/*	size_t len;*/
-	mt_size_t mt_len;
 
 	if (!Source){
 		fprintf(stderr,"Couldn't open source file\n");
@@ -44,9 +42,8 @@ int copyfile(Stream_t *Source, Stream_t *Target)
 	}
 
 	pos = 0;
-	GET_DATA(Source, 0, &mt_len, 0, 0);
 	while(1){
-		ret = READS(Source, buffer, (mt_off_t) pos, 8*16384);
+		ret = READS(Source, buffer, 8*16384);
 		if (ret < 0 ){
 			perror("file read");
 			return -1;
@@ -57,19 +54,18 @@ int copyfile(Stream_t *Source, Stream_t *Target)
 			return -1;
 		if (ret == 0)
 			break;
-		if ((retw = force_write(Target, buffer,
-					(mt_off_t) pos, (size_t) ret)) != ret){
+		if ((retw = force_write(Target, buffer, (size_t) ret)) != ret){
 			if(retw < 0 )
 				perror("write in copy");
 			else
 				fprintf(stderr,
-					"Short write %lu instead of %d\n",
-					(unsigned long) retw, ret);
+					"Short write %zd instead of %zd\n",
+					retw, ret);
 			if(errno == ENOSPC)
 				got_signal = 1;
 			return ret;
 		}
 		pos += ret;
 	}
-	return 0;
+	return pos;
 }

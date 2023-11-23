@@ -15,11 +15,11 @@
 import * as m from 'mithril';
 
 import {Actions} from '../common/actions';
+import {timeToCode} from '../common/time';
 
 import {Flow, globals} from './globals';
 import {BLANK_CHECKBOX, CHECKBOX} from './icons';
 import {Panel, PanelSize} from './panel';
-import {findUiTrackId} from './scroll_helper';
 
 export const ALL_CATEGORIES = '_all_';
 
@@ -44,7 +44,7 @@ export class FlowEventsPanel extends Panel {
     }
 
     const flowClickHandler = (sliceId: number, trackId: number) => {
-      const uiTrackId = findUiTrackId(trackId);
+      const uiTrackId = globals.state.uiTrackIdByTraceTrackId[trackId];
       if (uiTrackId) {
         globals.makeSelection(
             Actions.selectChromeSlice(
@@ -59,8 +59,13 @@ export class FlowEventsPanel extends Panel {
 
     const columns = [
       m('th', 'Direction'),
+      m('th', 'Duration'),
       m('th', 'Connected Slice ID'),
-      m('th', 'Connected Slice Name')
+      m('th', 'Connected Slice Name'),
+      m('th', 'Thread Out'),
+      m('th', 'Thread In'),
+      m('th', 'Process Out'),
+      m('th', 'Process In')
     ];
 
     if (haveCategories) {
@@ -82,15 +87,21 @@ export class FlowEventsPanel extends Panel {
 
       const args = {
         onclick: () => flowClickHandler(otherEnd.sliceId, otherEnd.trackId),
-        onmousemove: () =>
-            globals.frontendLocalState.setHighlightedSliceId(otherEnd.sliceId),
-        onmouseleave: () => globals.frontendLocalState.setHighlightedSliceId(-1)
+        onmousemove: () => globals.dispatch(
+            Actions.setHighlightedSliceId({sliceId: otherEnd.sliceId})),
+        onmouseleave: () =>
+            globals.dispatch(Actions.setHighlightedSliceId({sliceId: -1})),
       };
 
       const data = [
         m('td.flow-link', args, outgoing ? 'Outgoing' : 'Incoming'),
+        m('td.flow-link', args, timeToCode(flow.dur)),
         m('td.flow-link', args, otherEnd.sliceId.toString()),
-        m('td.flow-link', args, otherEnd.sliceName)
+        m('td.flow-link', args, otherEnd.sliceName),
+        m('td.flow-link', args, flow.begin.threadName),
+        m('td.flow-link', args, flow.end.threadName),
+        m('td.flow-link', args, flow.begin.processName),
+        m('td.flow-link', args, flow.end.processName)
       ];
 
       if (haveCategories) {
@@ -103,7 +114,7 @@ export class FlowEventsPanel extends Panel {
 
     return m('.details-panel', [
       m('.details-panel-heading', m('h2', `Flow events`)),
-      m('.flow-events-table', m('table.half-width', rows))
+      m('.flow-events-table', m('table', rows))
     ]);
   }
 

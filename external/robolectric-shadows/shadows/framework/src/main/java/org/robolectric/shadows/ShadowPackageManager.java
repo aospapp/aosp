@@ -53,11 +53,11 @@ import android.content.pm.PackageParser;
 import android.content.pm.PackageParser.Component;
 import android.content.pm.PackageParser.Package;
 import android.content.pm.PackageStats;
-import android.content.pm.PackageUserState;
 import android.content.pm.PermissionGroupInfo;
 import android.content.pm.PermissionInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.Signature;
+import android.content.pm.pkg.FrameworkPackageUserState;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -775,7 +775,7 @@ public class ShadowPackageManager {
               0,
               0,
               new HashSet<String>(),
-              new PackageUserState());
+              FrameworkPackageUserState.DEFAULT);
     } else if (RuntimeEnvironment.getApiLevel() >= LOLLIPOP_MR1) {
       packageInfo =
           ReflectionHelpers.callStaticMethod(
@@ -788,7 +788,7 @@ public class ShadowPackageManager {
               ReflectionHelpers.ClassParameter.from(long.class, 0L),
               ReflectionHelpers.ClassParameter.from(ArraySet.class, new ArraySet<>()),
               ReflectionHelpers.ClassParameter.from(
-                  PackageUserState.class, new PackageUserState()));
+                FrameworkPackageUserState.class, FrameworkPackageUserState.DEFAULT));
     } else if (RuntimeEnvironment.getApiLevel() >= JELLY_BEAN_MR1) {
       packageInfo =
           ReflectionHelpers.callStaticMethod(
@@ -801,7 +801,7 @@ public class ShadowPackageManager {
               ReflectionHelpers.ClassParameter.from(long.class, 0L),
               ReflectionHelpers.ClassParameter.from(HashSet.class, new HashSet<>()),
               ReflectionHelpers.ClassParameter.from(
-                  PackageUserState.class, new PackageUserState()));
+                FrameworkPackageUserState.class, FrameworkPackageUserState.DEFAULT));
     } else {
       packageInfo =
           ReflectionHelpers.callStaticMethod(

@@ -16,6 +16,8 @@
 
 package com.google.turbine.binder;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +56,7 @@ import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.FieldSymbol;
 import com.google.turbine.binder.sym.ModuleSymbol;
 import com.google.turbine.diag.SourceFile;
+import com.google.turbine.diag.TurbineDiagnostic;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
 import com.google.turbine.diag.TurbineLog;
@@ -66,12 +69,13 @@ import com.google.turbine.type.Type;
 import java.time.Duration;
 import java.util.Optional;
 import javax.annotation.processing.Processor;
+import org.jspecify.nullness.Nullable;
 
 /** The entry point for analysis. */
-public class Binder {
+public final class Binder {
 
   /** Binds symbols and types to the given compilation units. */
-  public static BindingResult bind(
+  public static @Nullable BindingResult bind(
       ImmutableList<CompUnit> units,
       ClassPath classpath,
       ClassPath bootclasspath,
@@ -80,26 +84,35 @@ public class Binder {
   }
 
   /** Binds symbols and types to the given compilation units. */
-  public static BindingResult bind(
+  public static @Nullable BindingResult bind(
       ImmutableList<CompUnit> units,
       ClassPath classpath,
       ProcessorInfo processorInfo,
       ClassPath bootclasspath,
       Optional<String> moduleVersion) {
     TurbineLog log = new TurbineLog();
-    BindingResult br =
-        bind(
-            log,
-            units,
-            /* generatedSources= */ ImmutableMap.of(),
-            /* generatedClasses= */ ImmutableMap.of(),
-            classpath,
-            bootclasspath,
-            moduleVersion);
-    if (!processorInfo.processors().isEmpty() && !units.isEmpty()) {
+    BindingResult br;
+    try {
       br =
-          Processing.process(
-              log, units, classpath, processorInfo, bootclasspath, br, moduleVersion);
+          bind(
+              log,
+              units,
+              /* generatedSources= */ ImmutableMap.of(),
+              /* generatedClasses= */ ImmutableMap.of(),
+              classpath,
+              bootclasspath,
+              moduleVersion);
+      if (!processorInfo.processors().isEmpty() && !units.isEmpty()) {
+        br =
+            Processing.process(
+                log, units, classpath, processorInfo, bootclasspath, br, moduleVersion);
+      }
+    } catch (TurbineError turbineError) {
+      throw new TurbineError(
+          ImmutableList.<TurbineDiagnostic>builder()
+              .addAll(log.diagnostics())
+              .addAll(turbineError.diagnostics())
+              .build());
     }
     log.maybeThrow();
     return br;
@@ -169,11 +182,11 @@ public class Binder {
 
     ImmutableMap.Builder<ClassSymbol, SourceTypeBoundClass> result = ImmutableMap.builder();
     for (ClassSymbol sym : syms) {
-      result.put(sym, tenv.get(sym));
+      result.put(sym, tenv.getNonNull(sym));
     }
 
     return new BindingResult(
-        result.build(),
+        result.buildOrThrow(),
         boundModules,
         classPathEnv,
         tli,
@@ -240,11 +253,12 @@ public class Binder {
       ImportScope wildImportScope = WildImportIndex.create(importResolver, tli, unit.imports());
       MemberImportIndex memberImports =
           new MemberImportIndex(unit.source(), importResolver, tli, unit.imports());
-      ImportScope scope =
-          ImportScope.fromScope(topLevel)
-              .append(wildImportScope)
-              .append(ImportScope.fromScope(packageScope))
-              .append(importScope);
+      ImportScope scope = ImportScope.fromScope(topLevel).append(wildImportScope);
+      // Can be null if we're compiling a package-info.java for an empty package
+      if (packageScope != null) {
+        scope = scope.append(ImportScope.fromScope(packageScope));
+      }
+      scope = scope.append(importScope);
       if (unit.module().isPresent()) {
         ModDecl module = unit.module().get();
         modules.put(
@@ -274,12 +288,12 @@ public class Binder {
             @Override
             public SourceHeaderBoundClass complete(
                 Env<ClassSymbol, HeaderBoundClass> henv, ClassSymbol sym) {
-              PackageSourceBoundClass base = psenv.get(sym);
+              PackageSourceBoundClass base = psenv.getNonNull(sym);
               return HierarchyBinder.bind(log.withSource(base.source()), sym, base, henv);
             }
           });
     }
-    return new LazyEnv<>(completers.build(), classPathEnv);
+    return new LazyEnv<>(completers.buildOrThrow(), classPathEnv);
   }
 
   private static Env<ClassSymbol, SourceTypeBoundClass> bindTypes(
@@ -289,7 +303,7 @@ public class Binder {
       Env<ClassSymbol, HeaderBoundClass> henv) {
     SimpleEnv.Builder<ClassSymbol, SourceTypeBoundClass> builder = SimpleEnv.builder();
     for (ClassSymbol sym : syms) {
-      SourceHeaderBoundClass base = shenv.get(sym);
+      SourceHeaderBoundClass base = shenv.getNonNull(sym);
       builder.put(sym, TypeBinder.bind(log.withSource(base.source()), henv, sym, base));
     }
     return builder.build();
@@ -301,7 +315,8 @@ public class Binder {
       Env<ClassSymbol, TypeBoundClass> tenv) {
     SimpleEnv.Builder<ClassSymbol, SourceTypeBoundClass> builder = SimpleEnv.builder();
     for (ClassSymbol sym : syms) {
-      builder.put(sym, CanonicalTypeBinder.bind(sym, stenv.get(sym), tenv));
+      SourceTypeBoundClass base = stenv.getNonNull(sym);
+      builder.put(sym, CanonicalTypeBinder.bind(sym, base, tenv));
     }
     return builder.build();
   }
@@ -318,7 +333,7 @@ public class Binder {
         moduleEnv.append(
             new Env<ModuleSymbol, ModuleInfo>() {
               @Override
-              public ModuleInfo get(ModuleSymbol sym) {
+              public @Nullable ModuleInfo get(ModuleSymbol sym) {
                 PackageSourceBoundModule info = modules.get(sym);
                 if (info != null) {
                   return new ModuleInfo(
@@ -356,7 +371,7 @@ public class Binder {
     ImmutableMap.Builder<FieldSymbol, LazyEnv.Completer<FieldSymbol, Const.Value, Const.Value>>
         completers = ImmutableMap.builder();
     for (ClassSymbol sym : syms) {
-      SourceTypeBoundClass info = env.get(sym);
+      SourceTypeBoundClass info = env.getNonNull(sym);
       for (FieldInfo field : info.fields()) {
         if (!isConst(field)) {
           continue;
@@ -365,7 +380,8 @@ public class Binder {
             field.sym(),
             new LazyEnv.Completer<FieldSymbol, Const.Value, Const.Value>() {
               @Override
-              public Const.Value complete(Env<FieldSymbol, Const.Value> env1, FieldSymbol k) {
+              public Const.@Nullable Value complete(
+                  Env<FieldSymbol, Const.Value> env1, FieldSymbol k) {
                 try {
                   return new ConstEvaluator(
                           sym,
@@ -376,7 +392,9 @@ public class Binder {
                           env1,
                           baseEnv,
                           log.withSource(info.source()))
-                      .evalFieldInitializer(field.decl().init().get(), field.type());
+                      .evalFieldInitializer(
+                          // we're processing fields bound from sources in the compilation
+                          requireNonNull(field.decl()).init().get(), field.type());
                 } catch (LazyEnv.LazyBindingError e) {
                   // fields initializers are allowed to reference the field being initialized,
                   // but if they do they aren't constants
@@ -391,11 +409,12 @@ public class Binder {
     // lazily evaluated fields in the current compilation unit with
     // constant fields in the classpath (which don't require evaluation).
     Env<FieldSymbol, Const.Value> constenv =
-        new LazyEnv<>(completers.build(), SimpleEnv.<FieldSymbol, Const.Value>builder().build());
+        new LazyEnv<>(
+            completers.buildOrThrow(), SimpleEnv.<FieldSymbol, Const.Value>builder().build());
 
     SimpleEnv.Builder<ClassSymbol, SourceTypeBoundClass> builder = SimpleEnv.builder();
     for (ClassSymbol sym : syms) {
-      SourceTypeBoundClass base = env.get(sym);
+      SourceTypeBoundClass base = env.getNonNull(sym);
       builder.put(
           sym, new ConstBinder(constenv, sym, baseEnv, base, log.withSource(base.source())).bind());
     }
@@ -437,7 +456,8 @@ public class Binder {
       Env<ClassSymbol, TypeBoundClass> tenv) {
     SimpleEnv.Builder<ClassSymbol, SourceTypeBoundClass> builder = SimpleEnv.builder();
     for (ClassSymbol sym : syms) {
-      builder.put(sym, DisambiguateTypeAnnotations.bind(stenv.get(sym), tenv));
+      SourceTypeBoundClass base = stenv.getNonNull(sym);
+      builder.put(sym, DisambiguateTypeAnnotations.bind(base, tenv));
     }
     return builder.build();
   }
@@ -540,4 +560,6 @@ public class Binder {
           units, modules, classPathEnv, tli, generatedSources, generatedClasses, statistics);
     }
   }
+
+  private Binder() {}
 }

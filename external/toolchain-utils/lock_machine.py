@@ -42,7 +42,7 @@ class DontOwnLock(LockException):
 class MachineType(enum.Enum):
   """Enum class to hold machine type."""
   LOCAL = 'local'
-  SKYLAB = 'skylab'
+  CROSFLEET = 'crosfleet'
 
 
 class LockManager(object):
@@ -53,15 +53,15 @@ class LockManager(object):
   machines, using appropriate locking mechanisms for each.
   """
 
-  SKYLAB_PATH = 'skylab'
+  CROSFLEET_PATH = 'crosfleet'
 
   # TODO(zhizhouy): lease time may needs to be dynamically adjusted. For now we
   # set it long enough to cover the period to finish nightly rotation tests.
   LEASE_MINS = 1439
 
-  SKYLAB_CREDENTIAL = ('/usr/local/google/home/mobiletc-prebuild'
-                       '/sheriff_utils/credentials/skylab'
-                       '/chromeos-swarming-credential.json')
+  CROSFLEET_CREDENTIAL = ('/usr/local/google/home/mobiletc-prebuild'
+                          '/sheriff_utils/credentials/skylab'
+                          '/chromeos-swarming-credential.json')
   SWARMING = 'chromite/third_party/swarming.client/swarming.py'
   SUCCESS = 0
 
@@ -102,7 +102,7 @@ class LockManager(object):
     self.force = force_option
 
     self.local_machines = []
-    self.skylab_machines = []
+    self.crosfleet_machines = []
 
   def CheckMachine(self, machine, error_msg):
     """Verifies that machine is responding to ping.
@@ -125,8 +125,8 @@ class LockManager(object):
     Returns:
       A list of names of the toolchain machines in the ChromeOS HW lab.
     """
-    machines_file = os.path.join(
-        os.path.dirname(__file__), 'crosperf', 'default_remotes')
+    machines_file = os.path.join(os.path.dirname(__file__), 'crosperf',
+                                 'default_remotes')
     machine_list = []
     with open(machines_file, 'r') as input_file:
       lines = input_file.readlines()
@@ -148,8 +148,8 @@ class LockManager(object):
     """
     if m in self.local_machines:
       return MachineType.LOCAL
-    if m in self.skylab_machines:
-      return MachineType.SKYLAB
+    if m in self.crosfleet_machines:
+      return MachineType.CROSFLEET
 
   def PrintStatusHeader(self):
     """Prints the status header lines for machines."""
@@ -166,12 +166,12 @@ class LockManager(object):
     """
     if state['locked']:
       print('%s (%s)\t\t%slocked by %s since %s' %
-            (m, state['board'], '\t\t' if machine_type == MachineType.LOCAL else
-             '', state['locked_by'], state['lock_time']))
+            (m, state['board'], '\t\t' if machine_type == MachineType.LOCAL
+             else '', state['locked_by'], state['lock_time']))
     else:
-      print(
-          '%s (%s)\t\t%sunlocked' % (m, state['board'], '\t\t' if
-                                     machine_type == MachineType.LOCAL else ''))
+      print('%s (%s)\t\t%sunlocked' %
+            (m, state['board'],
+             '\t\t' if machine_type == MachineType.LOCAL else ''))
 
   def AddMachineToLocal(self, machine):
     """Adds a machine to local machine list.
@@ -182,14 +182,14 @@ class LockManager(object):
     if machine not in self.local_machines:
       self.local_machines.append(machine)
 
-  def AddMachineToSkylab(self, machine):
-    """Adds a machine to skylab machine list.
+  def AddMachineToCrosfleet(self, machine):
+    """Adds a machine to crosfleet machine list.
 
     Args:
       machine: The machine to be added.
     """
-    if machine not in self.skylab_machines:
-      self.skylab_machines.append(machine)
+    if machine not in self.crosfleet_machines:
+      self.crosfleet_machines.append(machine)
 
   def ListMachineStates(self, machine_states):
     """Gets and prints the current status for a list of machines.
@@ -208,8 +208,8 @@ class LockManager(object):
       state = machine_states[m]
       self.PrintStatus(m, state, machine_type)
 
-  def UpdateLockInSkylab(self, should_lock_machine, machine):
-    """Ask skylab to lease/release a machine.
+  def UpdateLockInCrosfleet(self, should_lock_machine, machine):
+    """Ask crosfleet to lease/release a machine.
 
     Args:
       should_lock_machine: Boolean indicating whether to lock the machine (True)
@@ -221,9 +221,9 @@ class LockManager(object):
     """
     try:
       if should_lock_machine:
-        ret = self.LeaseSkylabMachine(machine)
+        ret = self.LeaseCrosfleetMachine(machine)
       else:
-        ret = self.ReleaseSkylabMachine(machine)
+        ret = self.ReleaseCrosfleetMachine(machine)
     except Exception:
       return False
     return ret
@@ -268,18 +268,18 @@ class LockManager(object):
       # TODO(zhizhouy): Handling exceptions with more details when locking
       # doesn't succeed.
       machine_type = self.GetMachineType(m)
-      if machine_type == MachineType.SKYLAB:
-        ret = self.UpdateLockInSkylab(lock_machines, m)
+      if machine_type == MachineType.CROSFLEET:
+        ret = self.UpdateLockInCrosfleet(lock_machines, m)
       elif machine_type == MachineType.LOCAL:
         ret = self.UpdateFileLock(lock_machines, m)
 
       if ret:
-        self.logger.LogOutput(
-            '%s %s machine succeeded: %s.' % (action, machine_type.value, m))
+        self.logger.LogOutput('%s %s machine succeeded: %s.' %
+                              (action, machine_type.value, m))
         updated_machines.append(m)
       else:
-        self.logger.LogOutput(
-            '%s %s machine failed: %s.' % (action, machine_type.value, m))
+        self.logger.LogOutput('%s %s machine failed: %s.' %
+                              (action, machine_type.value, m))
 
     self.machines = updated_machines
     return updated_machines
@@ -323,10 +323,10 @@ class LockManager(object):
                                  '(%s).' % k)
           self._InternalRemoveMachine(k)
 
-        # TODO(zhizhouy): Skylab doesn't support host info such as locked_by.
-        # Need to update this when skylab supports it.
-        if (state['locked'] and state['locked_by'] and
-            state['locked_by'] != self.user):
+        # TODO(zhizhouy): Crosfleet doesn't support host info such as locked_by.
+        # Need to update this when crosfleet supports it.
+        if (state['locked'] and state['locked_by']
+            and state['locked_by'] != self.user):
           raise DontOwnLock('Attempt to unlock machine (%s) locked by someone '
                             'else (%s).' % (k, state['locked_by']))
       elif cmd == 'lock':
@@ -352,10 +352,11 @@ class LockManager(object):
     """
     machine_list = {}
     for m in self.machines:
-      # For local or skylab machines, we simply set {'locked': status} for them
-      # TODO(zhizhouy): This is a quick fix since skylab cannot return host info
-      # as afe does. We need to get more info such as locked_by when skylab
-      # supports that.
+      # For local or crosfleet machines, we simply set {'locked': status} for
+      # them
+      # TODO(zhizhouy): This is a quick fix since crosfleet cannot return host
+      # info as afe does. We need to get more info such as locked_by when
+      # crosfleet supports that.
       values = {
           'locked': 0 if cmd == 'lock' else 1,
           'board': '??',
@@ -368,31 +369,29 @@ class LockManager(object):
 
     return machine_list
 
-  def CheckMachineInSkylab(self, machine):
-    """Run command to check if machine is in Skylab or not.
+  def CheckMachineInCrosfleet(self, machine):
+    """Run command to check if machine is in Crosfleet or not.
 
     Returns:
-      True if machine in skylab, else False
+      True if machine in crosfleet, else False
     """
     credential = ''
-    if os.path.exists(self.SKYLAB_CREDENTIAL):
-      credential = '--auth-service-account-json %s' % self.SKYLAB_CREDENTIAL
+    if os.path.exists(self.CROSFLEET_CREDENTIAL):
+      credential = '--auth-service-account-json %s' % self.CROSFLEET_CREDENTIAL
     swarming = os.path.join(self.chromeos_root, self.SWARMING)
     # TODO(zhizhouy): Swarming script doesn't support python3 so explicitly
     # launch it with python2 until migrated.
-    cmd = (('python2 %s ' \
-            'query --swarming https://chromeos-swarming.appspot.com ' \
-            "%s 'bots/list?is_dead=FALSE&dimensions=dut_name:%s'") % \
-           (swarming,
-            credential,
-            machine.rstrip('.cros')))
+    cmd = (('python2 %s '
+            'query --swarming https://chromeos-swarming.appspot.com '
+            "%s 'bots/list?is_dead=FALSE&dimensions=dut_name:%s'") %
+           (swarming, credential, machine.rstrip('.cros')))
     exit_code, stdout, stderr = self.ce.RunCommandWOutput(cmd)
     if exit_code:
-      raise ValueError(
-          'Querying bots failed (2); stdout: %r; stderr: %r' % (stdout, stderr))
+      raise ValueError('Querying bots failed (2); stdout: %r; stderr: %r' %
+                       (stdout, stderr))
 
-    # The command will return a json output as stdout. If machine not in skylab
-    # stdout will look like this:
+    # The command will return a json output as stdout. If machine not in
+    # crosfleet, stdout will look like this:
     #  {
     #    "death_timeout": "600",
     #    "now": "TIMESTAMP"
@@ -401,39 +400,35 @@ class LockManager(object):
     # this keyword for result.
     return 'items' in stdout
 
-  def LeaseSkylabMachine(self, machine):
-    """Run command to lease dut from skylab.
+  def LeaseCrosfleetMachine(self, machine):
+    """Run command to lease dut from crosfleet.
 
     Returns:
       True if succeeded, False if failed.
     """
     credential = ''
-    if os.path.exists(self.SKYLAB_CREDENTIAL):
-      credential = '-service-account-json %s' % self.SKYLAB_CREDENTIAL
-    cmd = (('%s lease-dut -minutes %s %s %s') % \
-           (self.SKYLAB_PATH,
-            self.LEASE_MINS,
-            credential,
-            machine.rstrip('.cros')))
-    # Wait 120 seconds for server to start the lease task, if not started,
+    if os.path.exists(self.CROSFLEET_CREDENTIAL):
+      credential = '-service-account-json %s' % self.CROSFLEET_CREDENTIAL
+    cmd = (('%s dut lease -minutes %s %s %s %s') %
+           (self.CROSFLEET_PATH, self.LEASE_MINS, credential, '-host'
+            if '.cros' in machine else '-board', machine.rstrip('.cros')))
+    # Wait 8 minutes for server to start the lease task, if not started,
     # we will treat it as unavailable.
-    check_interval_time = 120
+    check_interval_time = 480
     retval = self.ce.RunCommand(cmd, command_timeout=check_interval_time)
     return retval == self.SUCCESS
 
-  def ReleaseSkylabMachine(self, machine):
-    """Run command to release dut from skylab.
+  def ReleaseCrosfleetMachine(self, machine):
+    """Run command to release dut from crosfleet.
 
     Returns:
       True if succeeded, False if failed.
     """
     credential = ''
-    if os.path.exists(self.SKYLAB_CREDENTIAL):
-      credential = '-service-account-json %s' % self.SKYLAB_CREDENTIAL
-    cmd = (('%s release-dut %s %s') % \
-           (self.SKYLAB_PATH,
-            credential,
-            machine.rstrip('.cros')))
+    if os.path.exists(self.CROSFLEET_CREDENTIAL):
+      credential = '-service-account-json %s' % self.CROSFLEET_CREDENTIAL
+    cmd = (('%s dut abandon %s %s') %
+           (self.CROSFLEET_PATH, credential, machine.rstrip('.cros')))
     retval = self.ce.RunCommand(cmd)
     return retval == self.SUCCESS
 
@@ -449,44 +444,39 @@ def Main(argv):
   """
   parser = argparse.ArgumentParser()
 
-  parser.add_argument(
-      '--list',
-      dest='cmd',
-      action='store_const',
-      const='status',
-      help='List current status of all known machines.')
-  parser.add_argument(
-      '--lock',
-      dest='cmd',
-      action='store_const',
-      const='lock',
-      help='Lock given machine(s).')
-  parser.add_argument(
-      '--unlock',
-      dest='cmd',
-      action='store_const',
-      const='unlock',
-      help='Unlock given machine(s).')
-  parser.add_argument(
-      '--status',
-      dest='cmd',
-      action='store_const',
-      const='status',
-      help='List current status of given machine(s).')
-  parser.add_argument(
-      '--remote', dest='remote', help='machines on which to operate')
-  parser.add_argument(
-      '--chromeos_root',
-      dest='chromeos_root',
-      required=True,
-      help='ChromeOS root to use for autotest scripts.')
-  parser.add_argument(
-      '--force',
-      dest='force',
-      action='store_true',
-      default=False,
-      help='Force lock/unlock of machines, even if not'
-      ' current lock owner.')
+  parser.add_argument('--list',
+                      dest='cmd',
+                      action='store_const',
+                      const='status',
+                      help='List current status of all known machines.')
+  parser.add_argument('--lock',
+                      dest='cmd',
+                      action='store_const',
+                      const='lock',
+                      help='Lock given machine(s).')
+  parser.add_argument('--unlock',
+                      dest='cmd',
+                      action='store_const',
+                      const='unlock',
+                      help='Unlock given machine(s).')
+  parser.add_argument('--status',
+                      dest='cmd',
+                      action='store_const',
+                      const='status',
+                      help='List current status of given machine(s).')
+  parser.add_argument('--remote',
+                      dest='remote',
+                      help='machines on which to operate')
+  parser.add_argument('--chromeos_root',
+                      dest='chromeos_root',
+                      required=True,
+                      help='ChromeOS root to use for autotest scripts.')
+  parser.add_argument('--force',
+                      dest='force',
+                      action='store_true',
+                      default=False,
+                      help='Force lock/unlock of machines, even if not'
+                      ' current lock owner.')
 
   options = parser.parse_args(argv)
 
@@ -504,7 +494,8 @@ def Main(argv):
   if options.remote:
     machine_list = options.remote.split()
 
-  lock_manager = LockManager(machine_list, options.force, options.chromeos_root)
+  lock_manager = LockManager(machine_list, options.force,
+                             options.chromeos_root)
 
   machine_states = lock_manager.GetMachineStates(cmd=options.cmd)
   cmd = options.cmd

@@ -338,6 +338,12 @@ void Annotator::ValidateAndInitialize(const Model* model, const UniLib* unilib,
       TC3_LOG(ERROR) << "Could not initialize selection executor.";
       return;
     }
+  }
+
+  // Even if the annotation mode is not enabled (for the neural network model),
+  // the selection feature processor is needed to tokenize the text for other
+  // models.
+  if (model_->selection_feature_options()) {
     selection_feature_processor_.reset(
         new FeatureProcessor(model_->selection_feature_options(), unilib_));
   }
@@ -967,11 +973,11 @@ CodepointSpan Annotator::SuggestSelection(
   // Sort candidates according to their position in the input, so that the next
   // code can assume that any connected component of overlapping spans forms a
   // contiguous block.
-  std::sort(candidates.annotated_spans[0].begin(),
-            candidates.annotated_spans[0].end(),
-            [](const AnnotatedSpan& a, const AnnotatedSpan& b) {
-              return a.span.first < b.span.first;
-            });
+  std::stable_sort(candidates.annotated_spans[0].begin(),
+                   candidates.annotated_spans[0].end(),
+                   [](const AnnotatedSpan& a, const AnnotatedSpan& b) {
+                     return a.span.first < b.span.first;
+                   });
 
   std::vector<int> candidate_indices;
   if (!ResolveConflicts(candidates.annotated_spans[0], context, tokens,
@@ -981,13 +987,14 @@ CodepointSpan Annotator::SuggestSelection(
     return original_click_indices;
   }
 
-  std::sort(candidate_indices.begin(), candidate_indices.end(),
-            [this, &candidates](int a, int b) {
-              return GetPriorityScore(
-                         candidates.annotated_spans[0][a].classification) >
-                     GetPriorityScore(
-                         candidates.annotated_spans[0][b].classification);
-            });
+  std::stable_sort(
+      candidate_indices.begin(), candidate_indices.end(),
+      [this, &candidates](int a, int b) {
+        return GetPriorityScore(
+                   candidates.annotated_spans[0][a].classification) >
+               GetPriorityScore(
+                   candidates.annotated_spans[0][b].classification);
+      });
 
   for (const int i : candidate_indices) {
     if (SpansOverlap(candidates.annotated_spans[0][i].span, click_indices) &&
@@ -1167,7 +1174,7 @@ bool Annotator::ResolveConflict(
     }
   }
 
-  std::sort(
+  std::stable_sort(
       conflicting_indices.begin(), conflicting_indices.end(),
       [this, &scores_lengths, candidates, conflicting_indices](int i, int j) {
         if (scores_lengths[i].first == scores_lengths[j].first &&
@@ -1235,7 +1242,7 @@ bool Annotator::ResolveConflict(
     chosen_indices_for_source_ptr->insert(considered_candidate);
   }
 
-  std::sort(chosen_indices->begin(), chosen_indices->end());
+  std::stable_sort(chosen_indices->begin(), chosen_indices->end());
 
   return true;
 }
@@ -1408,10 +1415,11 @@ namespace {
 // Sorts the classification results from high score to low score.
 void SortClassificationResults(
     std::vector<ClassificationResult>* classification_results) {
-  std::sort(classification_results->begin(), classification_results->end(),
-            [](const ClassificationResult& a, const ClassificationResult& b) {
-              return a.score > b.score;
-            });
+  std::stable_sort(
+      classification_results->begin(), classification_results->end(),
+      [](const ClassificationResult& a, const ClassificationResult& b) {
+        return a.score > b.score;
+      });
 }
 }  // namespace
 
@@ -1930,10 +1938,11 @@ std::vector<ClassificationResult> Annotator::ClassifyText(
   }
 
   // Sort results according to score.
-  std::sort(results.begin(), results.end(),
-            [](const ClassificationResult& a, const ClassificationResult& b) {
-              return a.score > b.score;
-            });
+  std::stable_sort(
+      results.begin(), results.end(),
+      [](const ClassificationResult& a, const ClassificationResult& b) {
+        return a.score > b.score;
+      });
 
   if (results.empty()) {
     results = {{Collections::Other(), 1.0}};
@@ -1946,21 +1955,22 @@ bool Annotator::ModelAnnotate(
     const std::vector<Locale>& detected_text_language_tags,
     const AnnotationOptions& options, InterpreterManager* interpreter_manager,
     std::vector<Token>* tokens, std::vector<AnnotatedSpan>* result) const {
+  bool skip_model_annotatation = false;
   if (model_->triggering_options() == nullptr ||
       !(model_->triggering_options()->enabled_modes() & ModeFlag_ANNOTATION)) {
-    return true;
+    skip_model_annotatation = true;
   }
-
   if (!Locale::IsAnyLocaleSupported(detected_text_language_tags,
                                     ml_model_triggering_locales_,
                                     /*default_value=*/true)) {
-    return true;
+    skip_model_annotatation = true;
   }
 
   const UnicodeText context_unicode = UTF8ToUnicodeText(context,
                                                         /*do_copy=*/false);
   std::vector<UnicodeTextRange> lines;
-  if (!selection_feature_processor_->GetOptions()->only_use_line_with_click()) {
+  if (!selection_feature_processor_ ||
+      !selection_feature_processor_->GetOptions()->only_use_line_with_click()) {
     lines.push_back({context_unicode.begin(), context_unicode.end()});
   } else {
     lines = selection_feature_processor_->SplitContext(
@@ -1974,7 +1984,6 @@ bool Annotator::ModelAnnotate(
            : 0.f);
 
   for (const UnicodeTextRange& line : lines) {
-    FeatureProcessor::EmbeddingCache embedding_cache;
     const std::string line_str =
         UnicodeText::UTF8Substring(line.first, line.second);
 
@@ -1988,6 +1997,13 @@ bool Annotator::ModelAnnotate(
         /*click_pos=*/nullptr);
     const TokenSpan full_line_span = {
         0, static_cast<TokenIndex>(line_tokens.size())};
+
+    tokens->insert(tokens->end(), line_tokens.begin(), line_tokens.end());
+
+    if (skip_model_annotatation) {
+      // We do not annotate, we only output the tokens.
+      continue;
+    }
 
     // TODO(zilka): Add support for greater granularity of this check.
     if (!selection_feature_processor_->HasEnoughSupportedCodepoints(
@@ -2017,68 +2033,46 @@ bool Annotator::ModelAnnotate(
     }
 
     const int offset = std::distance(context_unicode.begin(), line.first);
-    UnicodeText line_unicode;
-    std::vector<UnicodeText::const_iterator> line_codepoints;
-    if (options.enable_optimization) {
-      if (local_chunks.empty()) {
-        continue;
-      }
-      line_unicode = UTF8ToUnicodeText(line_str, /*do_copy=*/false);
-      line_codepoints = line_unicode.Codepoints();
-      line_codepoints.push_back(line_unicode.end());
+    if (local_chunks.empty()) {
+      continue;
     }
+    const UnicodeText line_unicode =
+        UTF8ToUnicodeText(line_str, /*do_copy=*/false);
+    std::vector<UnicodeText::const_iterator> line_codepoints =
+        line_unicode.Codepoints();
+    line_codepoints.push_back(line_unicode.end());
+
+    FeatureProcessor::EmbeddingCache embedding_cache;
     for (const TokenSpan& chunk : local_chunks) {
       CodepointSpan codepoint_span =
           TokenSpanToCodepointSpan(line_tokens, chunk);
-      if (options.enable_optimization) {
-        if (!codepoint_span.IsValid() ||
-            codepoint_span.second > line_codepoints.size()) {
-          continue;
-        }
-        codepoint_span = selection_feature_processor_->StripBoundaryCodepoints(
+      if (!codepoint_span.IsValid() ||
+          codepoint_span.second > line_codepoints.size()) {
+        continue;
+      }
+      codepoint_span = selection_feature_processor_->StripBoundaryCodepoints(
+          /*span_begin=*/line_codepoints[codepoint_span.first],
+          /*span_end=*/line_codepoints[codepoint_span.second], codepoint_span);
+      if (model_->selection_options()->strip_unpaired_brackets()) {
+        codepoint_span = StripUnpairedBrackets(
             /*span_begin=*/line_codepoints[codepoint_span.first],
-            /*span_end=*/line_codepoints[codepoint_span.second],
-            codepoint_span);
-        if (model_->selection_options()->strip_unpaired_brackets()) {
-          codepoint_span = StripUnpairedBrackets(
-              /*span_begin=*/line_codepoints[codepoint_span.first],
-              /*span_end=*/line_codepoints[codepoint_span.second],
-              codepoint_span, *unilib_);
-        }
-      } else {
-        codepoint_span = selection_feature_processor_->StripBoundaryCodepoints(
-            line_str, codepoint_span);
-        if (model_->selection_options()->strip_unpaired_brackets()) {
-          codepoint_span =
-              StripUnpairedBrackets(context_unicode, codepoint_span, *unilib_);
-        }
+            /*span_end=*/line_codepoints[codepoint_span.second], codepoint_span,
+            *unilib_);
       }
 
       // Skip empty spans.
       if (codepoint_span.first != codepoint_span.second) {
         std::vector<ClassificationResult> classification;
-        if (options.enable_optimization) {
-          if (!ModelClassifyText(
-                  line_unicode, line_tokens, detected_text_language_tags,
-                  /*span_begin=*/line_codepoints[codepoint_span.first],
-                  /*span_end=*/line_codepoints[codepoint_span.second], &line,
-                  codepoint_span, options, interpreter_manager,
-                  &embedding_cache, &classification, /*tokens=*/nullptr)) {
-            TC3_LOG(ERROR) << "Could not classify text: "
-                           << (codepoint_span.first + offset) << " "
-                           << (codepoint_span.second + offset);
-            return false;
-          }
-        } else {
-          if (!ModelClassifyText(line_str, line_tokens,
-                                 detected_text_language_tags, codepoint_span,
-                                 options, interpreter_manager, &embedding_cache,
-                                 &classification, /*tokens=*/nullptr)) {
-            TC3_LOG(ERROR) << "Could not classify text: "
-                           << (codepoint_span.first + offset) << " "
-                           << (codepoint_span.second + offset);
-            return false;
-          }
+        if (!ModelClassifyText(
+                line_unicode, line_tokens, detected_text_language_tags,
+                /*span_begin=*/line_codepoints[codepoint_span.first],
+                /*span_end=*/line_codepoints[codepoint_span.second], &line,
+                codepoint_span, options, interpreter_manager, &embedding_cache,
+                &classification, /*tokens=*/nullptr)) {
+          TC3_LOG(ERROR) << "Could not classify text: "
+                         << (codepoint_span.first + offset) << " "
+                         << (codepoint_span.second + offset);
+          return false;
         }
 
         // Do not include the span if it's classified as "other".
@@ -2091,16 +2085,6 @@ bool Annotator::ModelAnnotate(
           result->push_back(std::move(result_span));
         }
       }
-    }
-
-    // If we are going line-by-line, we need to insert the tokens for each line.
-    // But if not, we can optimize and just std::move the current line vector to
-    // the output.
-    if (selection_feature_processor_->GetOptions()
-            ->only_use_line_with_click()) {
-      tokens->insert(tokens->end(), line_tokens.begin(), line_tokens.end());
-    } else {
-      *tokens = std::move(line_tokens);
     }
   }
   return true;
@@ -2316,19 +2300,19 @@ Status Annotator::AnnotateSingleInput(
   // Also sort them according to the end position and collection, so that the
   // deduplication code below can assume that same spans and classifications
   // form contiguous blocks.
-  std::sort(candidates->begin(), candidates->end(),
-            [](const AnnotatedSpan& a, const AnnotatedSpan& b) {
-              if (a.span.first != b.span.first) {
-                return a.span.first < b.span.first;
-              }
+  std::stable_sort(candidates->begin(), candidates->end(),
+                   [](const AnnotatedSpan& a, const AnnotatedSpan& b) {
+                     if (a.span.first != b.span.first) {
+                       return a.span.first < b.span.first;
+                     }
 
-              if (a.span.second != b.span.second) {
-                return a.span.second < b.span.second;
-              }
+                     if (a.span.second != b.span.second) {
+                       return a.span.second < b.span.second;
+                     }
 
-              return a.classification[0].collection <
-                     b.classification[0].collection;
-            });
+                     return a.classification[0].collection <
+                            b.classification[0].collection;
+                   });
 
   std::vector<int> candidate_indices;
   if (!ResolveConflicts(*candidates, context, tokens,
@@ -2923,10 +2907,10 @@ bool Annotator::ModelChunk(int num_tokens, const TokenSpan& span_of_interest,
       return false;
     }
   }
-  std::sort(scored_chunks.rbegin(), scored_chunks.rend(),
-            [](const ScoredChunk& lhs, const ScoredChunk& rhs) {
-              return lhs.score < rhs.score;
-            });
+  std::stable_sort(scored_chunks.rbegin(), scored_chunks.rend(),
+                   [](const ScoredChunk& lhs, const ScoredChunk& rhs) {
+                     return lhs.score < rhs.score;
+                   });
 
   // Traverse the candidate chunks from highest-scoring to lowest-scoring. Pick
   // them greedily as long as they do not overlap with any previously picked
@@ -2955,7 +2939,7 @@ bool Annotator::ModelChunk(int num_tokens, const TokenSpan& span_of_interest,
     chunks->push_back(scored_chunk.token_span);
   }
 
-  std::sort(chunks->begin(), chunks->end());
+  std::stable_sort(chunks->begin(), chunks->end());
 
   return true;
 }

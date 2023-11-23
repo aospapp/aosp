@@ -1,7 +1,7 @@
-diff --git a/Android.bp b/Android.bp
-index 21ebb3ac..519fb5d5 100644
---- a/Android.bp
-+++ b/Android.bp
+diff --git b/Android.bp a/Android.bp
+index d3d46248..bc1191a5 100644
+--- b/Android.bp
++++ a/Android.bp
 @@ -36,6 +36,7 @@ rust_binary {
      name: "crosvm",
      defaults: ["crosvm_defaults"],
@@ -9,19 +9,30 @@ index 21ebb3ac..519fb5d5 100644
 +    prefer_rlib: true,
      crate_name: "crosvm",
      cargo_env_compat: true,
-     cargo_pkg_version: "0.1.0",
-@@ -92,7 +93,14 @@ rust_binary {
+     srcs: ["src/main.rs"],
+@@ -94,6 +94,9 @@ rust_binary {
+                 "gpu",
+             ],  
          },
-     },
-     target: {
-+        linux_bionic_arm64: {
-+            relative_install_path: "aarch64-linux-bionic",
-+        },
 +        darwin: {
 +            enabled: false,
 +        },
-         linux_glibc_x86_64: {
-+            relative_install_path: "x86_64-linux-gnu",
+         host_linux: {
              features: [
                  "gdb",
-                 "gdbstub",
+@@ -107,6 +108,15 @@ rust_binary {
+                 "libthiserror",
+             ],
+         },
++        linux_bionic_arm64: {
++            relative_install_path: "aarch64-linux-bionic",
++        },
++        linux_glibc_x86_64: {
++            relative_install_path: "x86_64-linux-gnu",
++        },
++        linux_musl_x86_64: {
++            relative_install_path: "x86_64-linux-musl",
++        },
+     },
+     ld_flags: [
+         "-Wl,--rpath,\\$$ORIGIN",

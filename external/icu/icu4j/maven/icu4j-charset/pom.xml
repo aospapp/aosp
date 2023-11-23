@@ -15,13 +15,13 @@
   <description>
     icu4j-charset is a supplemental library for icu4j, implementing Java Charset SPI.
   </description>
-  <url>http://icu-project.org/</url>
+  <url>https://icu.unicode.org/</url>
   <inceptionYear>2001</inceptionYear>
 
   <licenses>
     <license>
       <name>Unicode/ICU License</name>
-      <url>https://raw.githubusercontent.com/unicode-org/icu/master/icu4c/LICENSE</url>
+      <url>https://raw.githubusercontent.com/unicode-org/icu/main/icu4c/LICENSE</url>
       <distribution>repo</distribution>
     </license>
   </licenses>

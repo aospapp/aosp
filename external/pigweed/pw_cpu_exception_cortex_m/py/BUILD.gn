@@ -17,7 +17,11 @@ import("//build_overrides/pigweed.gni")
 import("$dir_pw_build/python.gni")
 
 pw_python_package("py") {
-  setup = [ "setup.py" ]
+  setup = [
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+  ]
   sources = [
     "pw_cpu_exception_cortex_m/__init__.py",
     "pw_cpu_exception_cortex_m/cfsr_decoder.py",
@@ -28,6 +32,7 @@ pw_python_package("py") {
   python_deps = [
     "$dir_pw_cli/py",
     "$dir_pw_protobuf_compiler/py",
+    "$dir_pw_symbolizer/py",
     "..:cpu_state_protos.python",
   ]
   pylintrc = "$dir_pigweed/.pylintrc"

@@ -13,43 +13,52 @@
 """Helper classes use for fake file system implementation."""
 import io
 import locale
+import os
 import platform
 import stat
 import sys
+import time
 from copy import copy
 from stat import S_IFLNK
-
-import os
+from typing import Union, Optional, Any, AnyStr, overload, cast
 
 IS_PYPY = platform.python_implementation() == 'PyPy'
 IS_WIN = sys.platform == 'win32'
 IN_DOCKER = os.path.exists('/.dockerenv')
 
+AnyPath = Union[AnyStr, os.PathLike]
 
-def is_int_type(val):
+
+def is_int_type(val: Any) -> bool:
     """Return True if `val` is of integer type."""
     return isinstance(val, int)
 
 
-def is_byte_string(val):
+def is_byte_string(val: Any) -> bool:
     """Return True if `val` is a bytes-like object, False for a unicode
     string."""
     return not hasattr(val, 'encode')
 
 
-def is_unicode_string(val):
+def is_unicode_string(val: Any) -> bool:
     """Return True if `val` is a unicode string, False for a bytes-like
     object."""
     return hasattr(val, 'encode')
 
 
-def make_string_path(dir_name):
-    if sys.version_info >= (3, 6):
-        dir_name = os.fspath(dir_name)
-    return dir_name
+@overload
+def make_string_path(dir_name: AnyStr) -> AnyStr: ...
 
 
-def to_string(path):
+@overload
+def make_string_path(dir_name: os.PathLike) -> str: ...
+
+
+def make_string_path(dir_name: AnyPath) -> AnyStr:
+    return cast(AnyStr, os.fspath(dir_name))
+
+
+def to_string(path: Union[AnyStr, Union[str, bytes]]) -> str:
     """Return the string representation of a byte string using the preferred
      encoding, or the string itself if path is a str."""
     if isinstance(path, bytes):
@@ -57,41 +66,89 @@ def to_string(path):
     return path
 
 
+def to_bytes(path: Union[AnyStr, Union[str, bytes]]) -> bytes:
+    """Return the bytes representation of a string using the preferred
+     encoding, or the byte string itself if path is a byte string."""
+    if isinstance(path, str):
+        return bytes(path, locale.getpreferredencoding(False))
+    return path
+
+
+def join_strings(s1: AnyStr, s2: AnyStr) -> AnyStr:
+    """This is a bit of a hack to satisfy mypy - may be refactored."""
+    return s1 + s2
+
+
+def real_encoding(encoding: Optional[str]) -> Optional[str]:
+    """Since Python 3.10, the new function ``io.text_encoding`` returns
+    "locale" as the encoding if None is defined. This will be handled
+    as no encoding in pyfakefs."""
+    if sys.version_info >= (3, 10):
+        return encoding if encoding != "locale" else None
+    return encoding
+
+
+def now():
+    return time.time()
+
+
+@overload
+def matching_string(matched: bytes, string: AnyStr) -> bytes: ...
+
+
+@overload
+def matching_string(matched: str, string: AnyStr) -> str: ...
+
+
+@overload
+def matching_string(matched: AnyStr, string: None) -> None: ...
+
+
+def matching_string(  # type: ignore[misc]
+        matched: AnyStr, string: Optional[AnyStr]) -> Optional[AnyStr]:
+    """Return the string as byte or unicode depending
+    on the type of matched, assuming string is an ASCII string.
+    """
+    if string is None:
+        return string
+    if isinstance(matched, bytes) and isinstance(string, str):
+        return string.encode(locale.getpreferredencoding(False))
+    return string
+
+
 class FakeStatResult:
     """Mimics os.stat_result for use as return type of `stat()` and similar.
     This is needed as `os.stat_result` has no possibility to set
     nanosecond times directly.
     """
-    _stat_float_times = True
+    _stat_float_times: bool = True
 
-    def __init__(self, is_windows, user_id, group_id, initial_time=None):
-        self._use_float = None
-        self.st_mode = None
-        self.st_ino = None
-        self.st_dev = None
-        self.st_nlink = 0
-        self.st_uid = user_id
-        self.st_gid = group_id
-        self._st_size = None
-        self.is_windows = is_windows
-        if initial_time is not None:
-            self._st_atime_ns = int(initial_time * 1e9)
-        else:
-            self._st_atime_ns = None
-        self._st_mtime_ns = self._st_atime_ns
-        self._st_ctime_ns = self._st_atime_ns
+    def __init__(self, is_windows: bool, user_id: int, group_id: int,
+                 initial_time: Optional[float] = None):
+        self._use_float: Optional[bool] = None
+        self.st_mode: int = 0
+        self.st_ino: Optional[int] = None
+        self.st_dev: int = 0
+        self.st_nlink: int = 0
+        self.st_uid: int = user_id
+        self.st_gid: int = group_id
+        self._st_size: int = 0
+        self.is_windows: bool = is_windows
+        self._st_atime_ns: int = int((initial_time or 0) * 1e9)
+        self._st_mtime_ns: int = self._st_atime_ns
+        self._st_ctime_ns: int = self._st_atime_ns
 
     @property
-    def use_float(self):
+    def use_float(self) -> bool:
         if self._use_float is None:
             return self.stat_float_times()
         return self._use_float
 
     @use_float.setter
-    def use_float(self, val):
+    def use_float(self, val: bool) -> None:
         self._use_float = val
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return (
                 isinstance(other, FakeStatResult) and
                 self._st_atime_ns == other._st_atime_ns and
@@ -106,10 +163,10 @@ class FakeStatResult:
                 self.st_mode == other.st_mode
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self == other
 
-    def copy(self):
+    def copy(self) -> "FakeStatResult":
         """Return a copy where the float usage is hard-coded to mimic the
         behavior of the real os.stat_result.
         """
@@ -117,7 +174,7 @@ class FakeStatResult:
         stat_result.use_float = self.use_float
         return stat_result
 
-    def set_from_stat_result(self, stat_result):
+    def set_from_stat_result(self, stat_result: os.stat_result) -> None:
         """Set values from a real os.stat_result.
         Note: values that are controlled by the fake filesystem are not set.
         This includes st_ino, st_dev and st_nlink.
@@ -131,7 +188,7 @@ class FakeStatResult:
         self._st_ctime_ns = stat_result.st_ctime_ns
 
     @classmethod
-    def stat_float_times(cls, newvalue=None):
+    def stat_float_times(cls, newvalue: Optional[bool] = None) -> bool:
         """Determine whether a file's time stamps are reported as floats
         or ints.
 
@@ -147,50 +204,50 @@ class FakeStatResult:
         return cls._stat_float_times
 
     @property
-    def st_ctime(self):
+    def st_ctime(self) -> Union[int, float]:
         """Return the creation time in seconds."""
         ctime = self._st_ctime_ns / 1e9
         return ctime if self.use_float else int(ctime)
 
+    @st_ctime.setter
+    def st_ctime(self, val: Union[int, float]) -> None:
+        """Set the creation time in seconds."""
+        self._st_ctime_ns = int(val * 1e9)
+
     @property
-    def st_atime(self):
+    def st_atime(self) -> Union[int, float]:
         """Return the access time in seconds."""
         atime = self._st_atime_ns / 1e9
         return atime if self.use_float else int(atime)
 
+    @st_atime.setter
+    def st_atime(self, val: Union[int, float]) -> None:
+        """Set the access time in seconds."""
+        self._st_atime_ns = int(val * 1e9)
+
     @property
-    def st_mtime(self):
+    def st_mtime(self) -> Union[int, float]:
         """Return the modification time in seconds."""
         mtime = self._st_mtime_ns / 1e9
         return mtime if self.use_float else int(mtime)
 
-    @st_ctime.setter
-    def st_ctime(self, val):
-        """Set the creation time in seconds."""
-        self._st_ctime_ns = int(val * 1e9)
-
-    @st_atime.setter
-    def st_atime(self, val):
-        """Set the access time in seconds."""
-        self._st_atime_ns = int(val * 1e9)
-
     @st_mtime.setter
-    def st_mtime(self, val):
+    def st_mtime(self, val: Union[int, float]) -> None:
         """Set the modification time in seconds."""
         self._st_mtime_ns = int(val * 1e9)
 
     @property
-    def st_size(self):
+    def st_size(self) -> int:
         if self.st_mode & S_IFLNK == S_IFLNK and self.is_windows:
             return 0
         return self._st_size
 
     @st_size.setter
-    def st_size(self, val):
+    def st_size(self, val: int) -> None:
         self._st_size = val
 
     @property
-    def st_file_attributes(self):
+    def st_file_attributes(self) -> int:
         if not self.is_windows:
             raise AttributeError("module 'os.stat_result' "
                                  "has no attribute 'st_file_attributes'")
@@ -207,15 +264,15 @@ class FakeStatResult:
         return mode
 
     @property
-    def st_reparse_tag(self):
+    def st_reparse_tag(self) -> int:
         if not self.is_windows or sys.version_info < (3, 8):
             raise AttributeError("module 'os.stat_result' "
                                  "has no attribute 'st_reparse_tag'")
         if self.st_mode & stat.S_IFLNK:
-            return stat.IO_REPARSE_TAG_SYMLINK
+            return stat.IO_REPARSE_TAG_SYMLINK  # type: ignore[attr-defined]
         return 0
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> Optional[int]:
         """Implement item access to mimic `os.stat_result` behavior."""
         import stat
 
@@ -243,190 +300,59 @@ class FakeStatResult:
         raise ValueError('Invalid item')
 
     @property
-    def st_atime_ns(self):
+    def st_atime_ns(self) -> int:
         """Return the access time in nanoseconds."""
         return self._st_atime_ns
 
-    @property
-    def st_mtime_ns(self):
-        """Return the modification time in nanoseconds."""
-        return self._st_mtime_ns
-
-    @property
-    def st_ctime_ns(self):
-        """Return the creation time in nanoseconds."""
-        return self._st_ctime_ns
-
     @st_atime_ns.setter
-    def st_atime_ns(self, val):
+    def st_atime_ns(self, val: int) -> None:
         """Set the access time in nanoseconds."""
         self._st_atime_ns = val
 
+    @property
+    def st_mtime_ns(self) -> int:
+        """Return the modification time in nanoseconds."""
+        return self._st_mtime_ns
+
     @st_mtime_ns.setter
-    def st_mtime_ns(self, val):
+    def st_mtime_ns(self, val: int) -> None:
         """Set the modification time of the fake file in nanoseconds."""
         self._st_mtime_ns = val
 
+    @property
+    def st_ctime_ns(self) -> int:
+        """Return the creation time in nanoseconds."""
+        return self._st_ctime_ns
+
     @st_ctime_ns.setter
-    def st_ctime_ns(self, val):
+    def st_ctime_ns(self, val: int) -> None:
         """Set the creation time of the fake file in nanoseconds."""
         self._st_ctime_ns = val
 
 
-class FileBufferIO:
-    """Stream class that handles Python string and byte contents for files.
-    The standard io.StringIO cannot be used for strings due to the slightly
-    different handling of newline mode.
-    Uses an io.BytesIO stream for the raw data and adds handling of encoding
-    and newlines.
+class BinaryBufferIO(io.BytesIO):
+    """Stream class that handles byte contents for files."""
+
+    def __init__(self, contents: Optional[bytes]):
+        super().__init__(contents or b'')
+
+    def putvalue(self, value: bytes) -> None:
+        self.write(value)
+
+
+class TextBufferIO(io.TextIOWrapper):
+    """Stream class that handles Python string contents for files.
     """
 
-    def __init__(self, contents=None, linesep='\n', binary=False,
-                 newline=None, encoding=None, errors='strict'):
-        self._newline = newline
-        self._encoding = encoding
-        self.errors = errors
-        self._linesep = linesep
-        self.binary = binary
-        self._bytestream = io.BytesIO()
-        if contents is not None:
-            self.putvalue(contents)
-            self._bytestream.seek(0)
+    def __init__(self, contents: Optional[bytes] = None,
+                 newline: Optional[str] = None,
+                 encoding: Optional[str] = None,
+                 errors: str = 'strict'):
+        self._bytestream = io.BytesIO(contents or b'')
+        super().__init__(self._bytestream, encoding, errors, newline)
 
-    def encoding(self):
-        return self._encoding or locale.getpreferredencoding(False)
+    def getvalue(self) -> bytes:
+        return self._bytestream.getvalue()
 
-    def encoded_string(self, contents):
-        if is_byte_string(contents):
-            return contents
-        return contents.encode(self.encoding(), self.errors)
-
-    def decoded_string(self, contents):
-        return contents.decode(self.encoding(), self.errors)
-
-    def convert_newlines_for_writing(self, s):
-        if self.binary:
-            return s
-        if self._newline in (None, '-'):
-            return s.replace('\n', self._linesep)
-        if self._newline in ('', '\n'):
-            return s
-        return s.replace('\n', self._newline)
-
-    def convert_newlines_after_reading(self, s):
-        if self._newline is None:
-            return s.replace('\r\n', '\n').replace('\r', '\n')
-        if self._newline == '-':
-            return s.replace(self._linesep, '\n')
-        return s
-
-    def read(self, size=-1):
-        contents = self._bytestream.read(size)
-        if self.binary:
-            return contents
-        return self.convert_newlines_after_reading(
-            self.decoded_string(contents))
-
-    def readline(self, size=-1):
-        seek_pos = self._bytestream.tell()
-        byte_contents = self._bytestream.read(size)
-        if self.binary:
-            read_contents = byte_contents
-            LF = b'\n'
-        else:
-            read_contents = self.convert_newlines_after_reading(
-                self.decoded_string(byte_contents))
-            LF = '\n'
-        end_pos = 0
-
-        if self._newline is None:
-            end_pos = self._linelen_for_universal_newlines(byte_contents)
-            if end_pos > 0:
-                length = read_contents.find(LF) + 1
-        elif self._newline == '':
-            end_pos = self._linelen_for_universal_newlines(byte_contents)
-            if end_pos > 0:
-                if byte_contents[end_pos - 1] == ord(b'\r'):
-                    newline = '\r'
-                elif end_pos > 1 and byte_contents[end_pos - 2] == ord(b'\r'):
-                    newline = '\r\n'
-                else:
-                    newline = '\n'
-                length = read_contents.find(newline) + len(newline)
-        else:
-            newline = '\n' if self._newline == '-' else self._newline
-            length = read_contents.find(newline)
-            if length >= 0:
-                nl_len = len(newline)
-                end_pos = byte_contents.find(newline.encode()) + nl_len
-                length += nl_len
-
-        if end_pos == 0:
-            length = len(read_contents)
-            end_pos = len(byte_contents)
-
-        self._bytestream.seek(seek_pos + end_pos)
-        return (byte_contents[:end_pos] if self.binary
-                else read_contents[:length])
-
-    def _linelen_for_universal_newlines(self, byte_contents):
-        if self.binary:
-            return byte_contents.find(b'\n') + 1
-        pos_lf = byte_contents.find(b'\n')
-        pos_cr = byte_contents.find(b'\r')
-        if pos_lf == -1 and pos_cr == -1:
-            return 0
-        if pos_lf != -1 and (pos_lf < pos_cr or pos_cr == -1):
-            end_pos = pos_lf
-        else:
-            end_pos = pos_cr
-        if end_pos == pos_cr and end_pos + 1 == pos_lf:
-            end_pos = pos_lf
-        return end_pos + 1
-
-    def readlines(self, size=-1):
-        remaining_size = size
-        lines = []
-        while True:
-            line = self.readline(remaining_size)
-            if not line:
-                return lines
-            lines.append(line)
-            if size > 0:
-                remaining_size -= len(line)
-                if remaining_size <= 0:
-                    return lines
-
-    def putvalue(self, s):
-        self._bytestream.write(self.encoded_string(s))
-
-    def write(self, s):
-        if self.binary != is_byte_string(s):
-            raise TypeError('Incorrect type for writing')
-        contents = self.convert_newlines_for_writing(s)
-        length = len(contents)
-        self.putvalue(contents)
-        return length
-
-    def writelines(self, lines):
-        for line in lines:
-            self.write(line)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        line = self.readline()
-        if not line:
-            raise StopIteration
-        return line
-
-    def __getattr__(self, name):
-        return getattr(self._bytestream, name)
-
-
-class NullFileBufferIO(FileBufferIO):
-    """Special stream for null device. Does nothing on writing."""
-
-    def putvalue(self, s):
-        pass
+    def putvalue(self, value: bytes) -> None:
+        self._bytestream.write(value)

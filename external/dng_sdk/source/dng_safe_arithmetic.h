@@ -20,6 +20,7 @@
 #ifndef __dng_safe_arithmetic__
 #define __dng_safe_arithmetic__
 
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -112,7 +113,7 @@ std::int64_t SafeInt64MultSlow(std::int64_t arg1, std::int64_t arg2);
 #if __has_builtin(__builtin_smull_overflow)
 inline std::int64_t SafeInt64MultByClang(std::int64_t arg1, std::int64_t arg2) {
   std::int64_t result;
-#if (__WORDSIZE == 64) && !defined(__APPLE__)
+#if LONG_MAX == INT64_MAX
   if (__builtin_smull_overflow(arg1, arg2, &result)) {
 #else
   if (__builtin_smulll_overflow(arg1, arg2, &result)) {

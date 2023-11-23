@@ -945,21 +945,47 @@ void impeg2d_dec_pic_data_thread(dec_state_t *ps_dec)
     UWORD32 u4_bits_read;
     WORD32 i4_dequeue_job;
     IMPEG2D_ERROR_CODES_T e_error;
+#ifdef KEEP_THREADS_ACTIVE
+    UWORD32 id = ps_dec->currThreadId;
+    dec_state_multi_core_t *ps_dec_state_multi_core = ps_dec->ps_dec_state_multi_core;
+#endif
 
-    i4_cur_row = ps_dec->u2_mb_y + 1;
-
-    i4_continue_decode = 1;
-
-    i4_dequeue_job = 1;
-    do
+    while (1)
     {
-        if(i4_cur_row > ps_dec->u2_num_vert_mb)
+#ifdef KEEP_THREADS_ACTIVE
+        if(id != 0)
         {
-            i4_continue_decode = 0;
-            break;
-        }
+            e_error = ithread_mutex_lock(ps_dec->pv_proc_start_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != e_error)
+                break;
 
+            while(!ps_dec->ai4_process_start)
+            {
+                ithread_cond_wait(ps_dec->pv_proc_start_condition,
+                                  ps_dec->pv_proc_start_mutex);
+            }
+            ps_dec->ai4_process_start = 0;
+            e_error = ithread_mutex_unlock(ps_dec->pv_proc_start_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != e_error)
+                break;
+            // break off at the end of decoding all the frames
+            if(ps_dec_state_multi_core->i4_break_threads)
+                break;
+        }
+#endif
+        i4_cur_row = ps_dec->u2_mb_y + 1;
+
+        i4_continue_decode = 1;
+
+        i4_dequeue_job = 1;
+        do
         {
+            if(i4_cur_row > ps_dec->u2_num_vert_mb)
+            {
+                i4_continue_decode = 0;
+                break;
+            }
+
             if((ps_dec->i4_num_cores> 1) && (i4_dequeue_job))
             {
                 job_t s_job;
@@ -1022,113 +1048,134 @@ void impeg2d_dec_pic_data_thread(dec_state_t *ps_dec)
                     return;
                 }
             }
-        }
 
-        /* Detecting next slice start code */
-        while(1)
-        {
-            // skip (dec->u4_num_cores-1) rows
-            u4_bits_read = impeg2d_bit_stream_nxt(&ps_dec->s_bit_stream,START_CODE_LEN);
-            temp = u4_bits_read & 0xFF;
-            i4_continue_decode = (((u4_bits_read >> 8) == 0x01) && (temp) && (temp <= 0xAF));
-
-            if (1 == ps_dec->i4_num_cores && 0 == ps_dec->u2_num_mbs_left)
+            /* Detecting next slice start code */
+            while(1)
             {
-                i4_continue_decode = 0;
-#ifdef __ANDROID__
-                android_errorWriteLog(0x534e4554, "26070014");
-#endif
-            }
+                // skip (dec->u4_num_cores-1) rows
+                u4_bits_read = impeg2d_bit_stream_nxt(&ps_dec->s_bit_stream,START_CODE_LEN);
+                temp = u4_bits_read & 0xFF;
+                i4_continue_decode = (((u4_bits_read >> 8) == 0x01) && (temp) && (temp <= 0xAF));
 
-            if(i4_continue_decode)
-            {
-                if (0 != ps_dec->u2_num_mbs_left)
+                if (1 == ps_dec->i4_num_cores && 0 == ps_dec->u2_num_mbs_left)
                 {
-                    /* If the slice is from the same row, then continue decoding without dequeue */
-                    if((temp - 1) == i4_cur_row)
+                    i4_continue_decode = 0;
+#ifdef __ANDROID__
+                    android_errorWriteLog(0x534e4554, "26070014");
+#endif
+                }
+
+                if(i4_continue_decode)
+                {
+                    if (0 != ps_dec->u2_num_mbs_left)
                     {
-                        i4_dequeue_job = 0;
-                    }
-                    else
-                    {
-                        if(temp < ps_dec->i4_end_mb_y)
+                        /* If the slice is from the same row, then continue decoding without dequeue */
+                        if((temp - 1) == i4_cur_row)
                         {
-                            i4_cur_row = ps_dec->u2_mb_y;
+                            i4_dequeue_job = 0;
                         }
                         else
                         {
-                            i4_dequeue_job = 1;
+                            if(temp < ps_dec->i4_end_mb_y)
+                            {
+                                i4_cur_row = ps_dec->u2_mb_y;
+                            }
+                            else
+                            {
+                                i4_dequeue_job = 1;
+                            }
                         }
                     }
+                    else
+                    {
+                        i4_dequeue_job = 1;
+                    }
+                    break;
                 }
                 else
-                {
-                    i4_dequeue_job = 1;
-                }
-                break;
+                    break;
             }
-            else
-                break;
-        }
 
-    }while(i4_continue_decode);
-    if(ps_dec->i4_num_cores > 1)
-    {
-        while(1)
+        }while(i4_continue_decode);
+        if(ps_dec->i4_num_cores > 1)
         {
-            job_t s_job;
-            IV_API_CALL_STATUS_T e_ret;
-
-            e_ret = impeg2_jobq_dequeue(ps_dec->pv_jobq, &s_job, sizeof(s_job), 1, 1);
-            if(e_ret != IV_SUCCESS)
-                break;
-            if(CMD_FMTCONV == s_job.i4_cmd)
+            while(1)
             {
-                WORD32 start_row;
-                WORD32 num_rows;
-                start_row = s_job.i2_start_mb_y << 4;
-                num_rows = MIN((s_job.i2_end_mb_y << 4), ps_dec->u2_vertical_size);
-                num_rows -= start_row;
+                job_t s_job;
+                IV_API_CALL_STATUS_T e_ret;
+
+                e_ret = impeg2_jobq_dequeue(ps_dec->pv_jobq, &s_job, sizeof(s_job), 1, 1);
+                if(e_ret != IV_SUCCESS)
+                    break;
+                if(CMD_FMTCONV == s_job.i4_cmd)
+                {
+                    WORD32 start_row;
+                    WORD32 num_rows;
+                    start_row = s_job.i2_start_mb_y << 4;
+                    num_rows = MIN((s_job.i2_end_mb_y << 4), ps_dec->u2_vertical_size);
+                    num_rows -= start_row;
+                    if(ps_dec->u4_deinterlace && (0 == ps_dec->u2_progressive_frame))
+                    {
+                        impeg2d_deinterlace(ps_dec,
+                                            ps_dec->ps_disp_pic,
+                                            ps_dec->ps_disp_frm_buf,
+                                            start_row,
+                                            num_rows);
+
+                    }
+                    else
+                    {
+                        impeg2d_format_convert(ps_dec,
+                                               ps_dec->ps_disp_pic,
+                                               ps_dec->ps_disp_frm_buf,
+                                               start_row,
+                                               num_rows);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if((NULL != ps_dec->ps_disp_pic) && ((0 == ps_dec->u4_share_disp_buf) || (IV_YUV_420P != ps_dec->i4_chromaFormat)))
+            {
                 if(ps_dec->u4_deinterlace && (0 == ps_dec->u2_progressive_frame))
                 {
                     impeg2d_deinterlace(ps_dec,
                                         ps_dec->ps_disp_pic,
                                         ps_dec->ps_disp_frm_buf,
-                                        start_row,
-                                        num_rows);
+                                        0,
+                                        ps_dec->u2_vertical_size);
 
                 }
                 else
                 {
-                    impeg2d_format_convert(ps_dec,
-                                           ps_dec->ps_disp_pic,
-                                           ps_dec->ps_disp_frm_buf,
-                                           start_row,
-                                           num_rows);
+                    impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
+                                            ps_dec->ps_disp_frm_buf,
+                                            0, ps_dec->u2_vertical_size);
                 }
             }
         }
-    }
-    else
-    {
-        if((NULL != ps_dec->ps_disp_pic) && ((0 == ps_dec->u4_share_disp_buf) || (IV_YUV_420P != ps_dec->i4_chromaFormat)))
+#ifdef KEEP_THREADS_ACTIVE
+        if(id != 0)
         {
-            if(ps_dec->u4_deinterlace && (0 == ps_dec->u2_progressive_frame))
-            {
-                impeg2d_deinterlace(ps_dec,
-                                    ps_dec->ps_disp_pic,
-                                    ps_dec->ps_disp_frm_buf,
-                                    0,
-                                    ps_dec->u2_vertical_size);
+            e_error = ithread_mutex_lock(ps_dec->pv_proc_done_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != e_error)
+                break;
 
-            }
-            else
-            {
-                impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
-                                        ps_dec->ps_disp_frm_buf,
-                                        0, ps_dec->u2_vertical_size);
-            }
+            ps_dec->ai4_process_done = 1;
+            ithread_cond_signal(ps_dec->pv_proc_done_condition);
+
+            e_error = ithread_mutex_unlock(ps_dec->pv_proc_done_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != e_error)
+                break;
         }
+        else
+        {
+            break;
+        }
+#else
+        break;
+#endif
     }
 }
 
@@ -1427,13 +1474,17 @@ void impeg2d_dec_pic_data(dec_state_t *ps_dec)
     ps_dec_state_multi_core = ps_dec->ps_dec_state_multi_core;
     impeg2d_get_slice_pos(ps_dec_state_multi_core);
 
+#ifdef KEEP_THREADS_ACTIVE
+    ps_dec->currThreadId = 0;
+#endif
+
     i4_min_mb_y = 1;
-    for(i=0; i < ps_dec->i4_num_cores - 1; i++)
+    for(i=1; i < ps_dec->i4_num_cores; i++)
     {
         // initialize decoder context for thread
         // launch dec->u4_num_cores-1 threads
 
-        ps_dec_thd = ps_dec_state_multi_core->ps_dec_state[i+1];
+        ps_dec_thd = ps_dec_state_multi_core->ps_dec_state[i];
 
         ps_dec_thd->ps_disp_pic = ps_dec->ps_disp_pic;
         ps_dec_thd->ps_disp_frm_buf = ps_dec->ps_disp_frm_buf;
@@ -1441,28 +1492,57 @@ void impeg2d_dec_pic_data(dec_state_t *ps_dec)
         i4_status = impeg2d_init_thread_dec_ctxt(ps_dec, ps_dec_thd, i4_min_mb_y);
         //impeg2d_dec_pic_data_thread(ps_dec_thd);
 
-        if(i4_status == 0)
+        if(i4_status == 0 && !ps_dec_state_multi_core->au4_thread_launched[i])
         {
+#ifdef KEEP_THREADS_ACTIVE
+            ps_dec_thd->currThreadId = i;
+#endif
             ithread_create(ps_dec_thd->pv_codec_thread_handle, NULL, (void *)impeg2d_dec_pic_data_thread, ps_dec_thd);
-            ps_dec_state_multi_core->au4_thread_launched[i + 1] = 1;
+            ps_dec_state_multi_core->au4_thread_launched[i] = 1;
             i4_min_mb_y = ps_dec_thd->u2_mb_y + 1;
         }
+#ifndef KEEP_THREADS_ACTIVE
         else
         {
-            ps_dec_state_multi_core->au4_thread_launched[i + 1] = 0;
+            ps_dec_state_multi_core->au4_thread_launched[i] = 0;
             break;
         }
+#else
+        i4_status = ithread_mutex_lock(ps_dec_thd->pv_proc_start_mutex);
+        if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != i4_status) return;
+
+        ps_dec_thd->ai4_process_start = 1;
+        ithread_cond_signal(ps_dec_thd->pv_proc_start_condition);
+
+        i4_status = ithread_mutex_unlock(ps_dec_thd->pv_proc_start_mutex);
+        if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != i4_status) return;
+#endif
     }
 
     impeg2d_dec_pic_data_thread(ps_dec);
 
     // wait for threads to complete
-    for(i=0; i < (ps_dec->i4_num_cores - 1); i++)
+    for(i=1; i < ps_dec->i4_num_cores; i++)
     {
-        if(ps_dec_state_multi_core->au4_thread_launched[i + 1] == 1)
+        if(ps_dec_state_multi_core->au4_thread_launched[i])
         {
-            ps_dec_thd = ps_dec_state_multi_core->ps_dec_state[i+1];
+            ps_dec_thd = ps_dec_state_multi_core->ps_dec_state[i];
+#ifdef KEEP_THREADS_ACTIVE
+            i4_status = ithread_mutex_lock(ps_dec_thd->pv_proc_done_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != i4_status) return;
+
+            while(!ps_dec_thd->ai4_process_done)
+            {
+                ithread_cond_wait(ps_dec_thd->pv_proc_done_condition,
+                                  ps_dec_thd->pv_proc_done_mutex);
+            }
+            ps_dec_thd->ai4_process_done = 0;
+            i4_status = ithread_mutex_unlock(ps_dec_thd->pv_proc_done_mutex);
+            if((IMPEG2D_ERROR_CODES_T)IV_SUCCESS != i4_status) return;
+#else
             ithread_join(ps_dec_thd->pv_codec_thread_handle, NULL);
+            ps_dec_state_multi_core->au4_thread_launched[i] = 0;
+#endif
         }
     }
 

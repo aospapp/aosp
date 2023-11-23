@@ -8,11 +8,5 @@ exports_files([
 alias(
     name = "ResourceProcessorBusyBox",
     actual = "@bazel_tools//tools/android:busybox",
-    visibility =  ["//visibility:public"],
-)
-
-alias(
-    name = "current_java_runtime",
-    actual = "@bazel_tools//tools/jdk:current_java_runtime",
     visibility = ["//visibility:public"],
 )

@@ -121,13 +121,20 @@ void xnn_f32_igemm_minmax_ukernel_7x16__avx512f_broadcast(
         const __m512 vb0123456789ABCDEF = _mm512_load_ps(w);
         w += 16;
 
-        vacc0x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a0), vb0123456789ABCDEF, vacc0x0123456789ABCDEF);
-        vacc1x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a1), vb0123456789ABCDEF, vacc1x0123456789ABCDEF);
-        vacc2x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a2), vb0123456789ABCDEF, vacc2x0123456789ABCDEF);
-        vacc3x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a3), vb0123456789ABCDEF, vacc3x0123456789ABCDEF);
-        vacc4x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a4), vb0123456789ABCDEF, vacc4x0123456789ABCDEF);
-        vacc5x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a5), vb0123456789ABCDEF, vacc5x0123456789ABCDEF);
-        vacc6x0123456789ABCDEF = _mm512_fmadd_ps(_mm512_set1_ps(*a6), vb0123456789ABCDEF, vacc6x0123456789ABCDEF);
+        const __m512 va0 = _mm512_set1_ps(*a0);
+        vacc0x0123456789ABCDEF = _mm512_fmadd_ps(va0, vb0123456789ABCDEF, vacc0x0123456789ABCDEF);
+        const __m512 va1 = _mm512_set1_ps(*a1);
+        vacc1x0123456789ABCDEF = _mm512_fmadd_ps(va1, vb0123456789ABCDEF, vacc1x0123456789ABCDEF);
+        const __m512 va2 = _mm512_set1_ps(*a2);
+        vacc2x0123456789ABCDEF = _mm512_fmadd_ps(va2, vb0123456789ABCDEF, vacc2x0123456789ABCDEF);
+        const __m512 va3 = _mm512_set1_ps(*a3);
+        vacc3x0123456789ABCDEF = _mm512_fmadd_ps(va3, vb0123456789ABCDEF, vacc3x0123456789ABCDEF);
+        const __m512 va4 = _mm512_set1_ps(*a4);
+        vacc4x0123456789ABCDEF = _mm512_fmadd_ps(va4, vb0123456789ABCDEF, vacc4x0123456789ABCDEF);
+        const __m512 va5 = _mm512_set1_ps(*a5);
+        vacc5x0123456789ABCDEF = _mm512_fmadd_ps(va5, vb0123456789ABCDEF, vacc5x0123456789ABCDEF);
+        const __m512 va6 = _mm512_set1_ps(*a6);
+        vacc6x0123456789ABCDEF = _mm512_fmadd_ps(va6, vb0123456789ABCDEF, vacc6x0123456789ABCDEF);
 
         a0 += 1;
         a1 += 1;
@@ -142,16 +149,7 @@ void xnn_f32_igemm_minmax_ukernel_7x16__avx512f_broadcast(
       p -= 7 * sizeof(void*);
     } while (p != 0);
 
-    const __m512 vmax = _mm512_broadcast_f32x4(_mm_load_ps(params->sse.max));
-    vacc0x0123456789ABCDEF = _mm512_min_ps(vacc0x0123456789ABCDEF, vmax);
-    vacc1x0123456789ABCDEF = _mm512_min_ps(vacc1x0123456789ABCDEF, vmax);
-    vacc2x0123456789ABCDEF = _mm512_min_ps(vacc2x0123456789ABCDEF, vmax);
-    vacc3x0123456789ABCDEF = _mm512_min_ps(vacc3x0123456789ABCDEF, vmax);
-    vacc4x0123456789ABCDEF = _mm512_min_ps(vacc4x0123456789ABCDEF, vmax);
-    vacc5x0123456789ABCDEF = _mm512_min_ps(vacc5x0123456789ABCDEF, vmax);
-    vacc6x0123456789ABCDEF = _mm512_min_ps(vacc6x0123456789ABCDEF, vmax);
-
-    const __m512 vmin = _mm512_broadcast_f32x4(_mm_load_ps(params->sse.min));
+    const __m512 vmin = _mm512_set1_ps(params->scalar.min);
     vacc0x0123456789ABCDEF = _mm512_max_ps(vacc0x0123456789ABCDEF, vmin);
     vacc1x0123456789ABCDEF = _mm512_max_ps(vacc1x0123456789ABCDEF, vmin);
     vacc2x0123456789ABCDEF = _mm512_max_ps(vacc2x0123456789ABCDEF, vmin);
@@ -159,6 +157,15 @@ void xnn_f32_igemm_minmax_ukernel_7x16__avx512f_broadcast(
     vacc4x0123456789ABCDEF = _mm512_max_ps(vacc4x0123456789ABCDEF, vmin);
     vacc5x0123456789ABCDEF = _mm512_max_ps(vacc5x0123456789ABCDEF, vmin);
     vacc6x0123456789ABCDEF = _mm512_max_ps(vacc6x0123456789ABCDEF, vmin);
+
+    const __m512 vmax = _mm512_set1_ps(params->scalar.max);
+    vacc0x0123456789ABCDEF = _mm512_min_ps(vacc0x0123456789ABCDEF, vmax);
+    vacc1x0123456789ABCDEF = _mm512_min_ps(vacc1x0123456789ABCDEF, vmax);
+    vacc2x0123456789ABCDEF = _mm512_min_ps(vacc2x0123456789ABCDEF, vmax);
+    vacc3x0123456789ABCDEF = _mm512_min_ps(vacc3x0123456789ABCDEF, vmax);
+    vacc4x0123456789ABCDEF = _mm512_min_ps(vacc4x0123456789ABCDEF, vmax);
+    vacc5x0123456789ABCDEF = _mm512_min_ps(vacc5x0123456789ABCDEF, vmax);
+    vacc6x0123456789ABCDEF = _mm512_min_ps(vacc6x0123456789ABCDEF, vmax);
 
     if XNN_LIKELY(nc >= 16) {
       _mm512_storeu_ps(c6, vacc6x0123456789ABCDEF);

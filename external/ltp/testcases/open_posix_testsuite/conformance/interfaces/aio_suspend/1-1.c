@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include "posixtest.h"
+#include "tempfile.h"
 
 #define TNAME "aio_suspend/1-1.c"
 
@@ -52,15 +53,15 @@
 
 static volatile int received_all;
 
-static void sigrt1_handler(int signum LTP_ATTRIBUTE_UNUSED,
-	siginfo_t *info LTP_ATTRIBUTE_UNUSED, void *context LTP_ATTRIBUTE_UNUSED)
+static void sigrt1_handler(int signum PTS_ATTRIBUTE_UNUSED,
+	siginfo_t *info PTS_ATTRIBUTE_UNUSED, void *context PTS_ATTRIBUTE_UNUSED)
 {
 	received_all = 1;
 }
 
 int main(void)
 {
-	char tmpfname[256];
+	char tmpfname[PATH_MAX];
 	int fd;
 
 	struct aiocb **aiocbs;
@@ -76,8 +77,7 @@ int main(void)
 	if (sysconf(_SC_ASYNCHRONOUS_IO) < 200112L)
 		return PTS_UNSUPPORTED;
 
-	snprintf(tmpfname, sizeof(tmpfname), "/tmp/pts_aio_suspend_1_1_%d",
-		 getpid());
+	PTS_GET_TMP_FILENAME(tmpfname, "pts_aio_suspend_1_1");
 	unlink(tmpfname);
 
 	fd = open(tmpfname, O_CREAT | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);

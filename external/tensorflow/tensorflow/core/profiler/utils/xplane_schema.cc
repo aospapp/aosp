@@ -29,7 +29,13 @@ namespace profiler {
 const absl::string_view kHostThreadsPlaneName = "/host:CPU";
 const absl::string_view kGpuPlanePrefix = "/device:GPU:";
 const absl::string_view kTpuPlanePrefix = "/device:TPU:";
+// TODO(b/195582092): change it to /device:custom once all literals are
+// migrated.
+const absl::string_view kCustomPlanePrefix = "/device:CUSTOM:";
+
+const absl::string_view kTpuRuntimePlaneName = "/host:TPU-runtime";
 const absl::string_view kCuptiDriverApiPlaneName = "/host:CUPTI";
+const absl::string_view kRoctracerApiPlaneName = "/host:ROCTRACER";
 const absl::string_view kMetadataPlaneName = "/host:metadata";
 const absl::string_view kTFStreamzPlaneName = "/host:tfstreamz";
 const absl::string_view kPythonTracerPlaneName = "/host:python-tracer";
@@ -40,6 +46,7 @@ const absl::string_view kTensorFlowOpLineName = "TensorFlow Ops";
 const absl::string_view kXlaModuleLineName = "XLA Modules";
 const absl::string_view kXlaOpLineName = "XLA Ops";
 const absl::string_view kKernelLaunchLineName = "Launch Stats";
+const absl::string_view kSourceLineName = "Source code";
 
 namespace {
 
@@ -110,6 +117,8 @@ const HostEventTypeMap& GetHostEventTypeMap() {
       {"MapAndBatchConsume", kMapAndBatchConsume},
       {"ParseExampleProduce", kParseExampleProduce},
       {"ParseExampleConsume", kParseExampleConsume},
+      {"ParallelBatchProduce", kParallelBatchProduce},
+      {"ParallelBatchConsume", kParallelBatchConsume},
       // Batching related.
       {"BatchingSessionRun", kBatchingSessionRun},
       {"ProcessBatch", kProcessBatch},
@@ -118,6 +127,8 @@ const HostEventTypeMap& GetHostEventTypeMap() {
       {"ScheduleWithoutSplit", kScheduleWithoutSplit},
       {"ScheduleWithSplit", kScheduleWithSplit},
       {"ASBSQueue::Schedule", kASBSQueueSchedule},
+      // TFRT related.
+      {"TfrtModelRun", kTfrtModelRun},
       // JAX related.
       {"LocalExecutable::ExecuteOnLocalDevices", kExecuteOnLocalDevices},
       // GPU related.
@@ -198,6 +209,9 @@ const StatTypeMap& GetStatTypeMap() {
       {"flops", kFlops},
       {"bytes_accessed", kBytesAccessed},
       {"selected_group_ids", kSelectedGroupIds},
+      {"source", kSourceInfo},
+      {"model_name", kModelName},
+      {"model_version", kModelVersion},
       // Performance counter related.
       {"Raw Value", kRawValue},
       {"Scaled Value", kScaledValue},

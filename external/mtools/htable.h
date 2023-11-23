@@ -19,7 +19,7 @@
 
 typedef struct hashtable T_HashTable;
 typedef void *T_HashTableEl;
-typedef size_t (*T_HashFunc)(void *);
+typedef uint32_t (*T_HashFunc)(void *);
 typedef int (*T_ComparFunc)(void *, void *);
 
 

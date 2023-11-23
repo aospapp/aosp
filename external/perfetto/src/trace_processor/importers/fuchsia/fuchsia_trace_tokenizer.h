@@ -18,7 +18,6 @@
 #define SRC_TRACE_PROCESSOR_IMPORTERS_FUCHSIA_FUCHSIA_TRACE_TOKENIZER_H_
 
 #include "src/trace_processor/importers/common/chunked_trace_reader.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/importers/fuchsia/fuchsia_trace_utils.h"
 #include "src/trace_processor/storage/trace_storage.h"
 
@@ -35,7 +34,7 @@ class FuchsiaTraceTokenizer : public ChunkedTraceReader {
   ~FuchsiaTraceTokenizer() override;
 
   // ChunkedTraceReader implementation
-  util::Status Parse(std::unique_ptr<uint8_t[]>, size_t) override;
+  util::Status Parse(TraceBlobView) override;
   void NotifyEndOfFile() override;
 
  private:

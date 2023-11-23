@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * erofs-utils/lib/xattr.c
- *
  * Originally contributed by an anonymous person,
  * heavily changed by Li Guifu <blucerlee@gmail.com>
  *                and Gao Xiang <hsiangkao@aol.com>
@@ -19,6 +17,7 @@
 #include "erofs/xattr.h"
 #include "erofs/cache.h"
 #include "erofs/io.h"
+#include "liberofs_private.h"
 
 #define EA_HASHTABLE_BITS 16
 
@@ -159,7 +158,13 @@ static struct xattr_item *parse_one_xattr(const char *path, const char *key,
 	DBG_BUGON(keylen < prefixlen);
 
 	/* determine length of the value */
+#ifdef HAVE_LGETXATTR
 	ret = lgetxattr(path, key, NULL, 0);
+#elif defined(__APPLE__)
+	ret = getxattr(path, key, NULL, 0, 0, XATTR_NOFOLLOW);
+#else
+	return ERR_PTR(-EOPNOTSUPP);
+#endif
 	if (ret < 0)
 		return ERR_PTR(-errno);
 	len[1] = ret;
@@ -173,7 +178,15 @@ static struct xattr_item *parse_one_xattr(const char *path, const char *key,
 	memcpy(kvbuf, key + prefixlen, len[0]);
 	if (len[1]) {
 		/* copy value to buffer */
+#ifdef HAVE_LGETXATTR
 		ret = lgetxattr(path, key, kvbuf + len[0], len[1]);
+#elif defined(__APPLE__)
+		ret = getxattr(path, key, kvbuf + len[0], len[1], 0,
+			       XATTR_NOFOLLOW);
+#else
+		free(kvbuf);
+		return ERR_PTR(-EOPNOTSUPP);
+#endif
 		if (ret < 0) {
 			free(kvbuf);
 			return ERR_PTR(-errno);
@@ -203,7 +216,7 @@ static struct xattr_item *erofs_get_selabel_xattr(const char *srcpath,
 				       erofs_fspath(srcpath));
 		else
 #endif
-		ret = asprintf(&fspath, "/%s", erofs_fspath(srcpath));
+			ret = asprintf(&fspath, "/%s", erofs_fspath(srcpath));
 		if (ret <= 0)
 			return ERR_PTR(-ENOMEM);
 
@@ -292,7 +305,13 @@ static bool erofs_is_skipped_xattr(const char *key)
 static int read_xattrs_from_file(const char *path, mode_t mode,
 				 struct list_head *ixattrs)
 {
+#ifdef HAVE_LLISTXATTR
 	ssize_t kllen = llistxattr(path, NULL, 0);
+#elif defined(__APPLE__)
+	ssize_t kllen = listxattr(path, NULL, 0, XATTR_NOFOLLOW);
+#else
+	ssize_t kllen = 0;
+#endif
 	int ret;
 	char *keylst, *key, *klend;
 	unsigned int keylen;
@@ -313,13 +332,19 @@ static int read_xattrs_from_file(const char *path, mode_t mode,
 		return -ENOMEM;
 
 	/* copy the list of attribute keys to the buffer.*/
+#ifdef HAVE_LLISTXATTR
 	kllen = llistxattr(path, keylst, kllen);
+#elif defined(__APPLE__)
+	kllen = listxattr(path, keylst, kllen, XATTR_NOFOLLOW);
 	if (kllen < 0) {
 		erofs_err("llistxattr to get names for %s failed", path);
 		ret = -errno;
 		goto err;
 	}
-
+#else
+	ret = -EOPNOTSUPP;
+	goto err;
+#endif
 	/*
 	 * loop over the list of zero terminated strings with the
 	 * attribute keys. Use the remaining buffer length to determine
@@ -446,8 +471,8 @@ static int erofs_count_all_xattrs_from_path(const char *path)
 
 	_dir = opendir(path);
 	if (!_dir) {
-		erofs_err("%s, failed to opendir at %s: %s",
-			  __func__, path, erofs_strerror(errno));
+		erofs_err("failed to opendir at %s: %s",
+			  path, erofs_strerror(errno));
 		return -errno;
 	}
 
@@ -575,7 +600,7 @@ int erofs_build_shared_xattrs_from_path(const char *path)
 	}
 	bh->op = &erofs_skip_write_bhops;
 
-	erofs_mapbh(bh->block, true);
+	erofs_mapbh(bh->block);
 	off = erofs_btell(bh, false);
 
 	sbi.xattr_blkaddr = off / EROFS_BLKSIZ;
@@ -661,4 +686,3 @@ char *erofs_export_xattr_ibody(struct list_head *ixattrs, unsigned int size)
 	DBG_BUGON(p > size);
 	return buf;
 }
-

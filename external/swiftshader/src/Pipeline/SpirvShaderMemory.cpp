@@ -16,7 +16,7 @@
 #include "SpirvShaderDebug.hpp"
 
 #include "ShaderCore.hpp"
-
+#include "Reactor/Assert.hpp"
 #include "Vulkan/VkPipelineLayout.hpp"
 
 #include <spirv/unified1/spirv.hpp>
@@ -56,7 +56,7 @@ SpirvShader::EmitResult SpirvShader::EmitLoad(InsnIterator insn, EmitState *stat
 	auto ptr = GetPointerToData(pointerId, 0, state);
 	bool interleavedByLane = IsStorageInterleavedByLane(pointerTy.storageClass);
 	auto &dst = state->createIntermediate(resultId, resultTy.componentCount);
-	auto robustness = state->getOutOfBoundsBehavior(pointerTy.storageClass);
+	auto robustness = getOutOfBoundsBehavior(pointerId, state);
 
 	VisitMemoryObject(pointerId, [&](const MemoryElement &el) {
 		auto p = ptr + el.offset;
@@ -100,7 +100,7 @@ void SpirvShader::Store(Object::ID pointerId, const Operand &value, bool atomic,
 
 	auto ptr = GetPointerToData(pointerId, 0, state);
 	bool interleavedByLane = IsStorageInterleavedByLane(pointerTy.storageClass);
-	auto robustness = state->getOutOfBoundsBehavior(pointerTy.storageClass);
+	auto robustness = getOutOfBoundsBehavior(pointerId, state);
 
 	SIMD::Int mask = state->activeLaneMask();
 	if(!StoresInHelperInvocation(pointerTy.storageClass))
@@ -126,26 +126,26 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 
 	switch(objectTy.storageClass)
 	{
-		case spv::StorageClassOutput:
-		case spv::StorageClassPrivate:
-		case spv::StorageClassFunction:
+	case spv::StorageClassOutput:
+	case spv::StorageClassPrivate:
+	case spv::StorageClassFunction:
 		{
 			ASSERT(objectTy.opcode() == spv::OpTypePointer);
 			auto base = &routine->getVariable(resultId)[0];
 			auto elementTy = getType(objectTy.element);
 			auto size = elementTy.componentCount * static_cast<uint32_t>(sizeof(float)) * SIMD::Width;
 			state->createPointer(resultId, SIMD::Pointer(base, size));
-			break;
 		}
-		case spv::StorageClassWorkgroup:
+		break;
+	case spv::StorageClassWorkgroup:
 		{
 			ASSERT(objectTy.opcode() == spv::OpTypePointer);
 			auto base = &routine->workgroupMemory[0];
 			auto size = workgroupMemory.size();
 			state->createPointer(resultId, SIMD::Pointer(base, size, workgroupMemory.offsetOf(resultId)));
-			break;
 		}
-		case spv::StorageClassInput:
+		break;
+	case spv::StorageClassInput:
 		{
 			if(object.kind == Object::Kind::InterfaceVariable)
 			{
@@ -162,9 +162,9 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 			auto elementTy = getType(objectTy.element);
 			auto size = elementTy.componentCount * static_cast<uint32_t>(sizeof(float)) * SIMD::Width;
 			state->createPointer(resultId, SIMD::Pointer(base, size));
-			break;
 		}
-		case spv::StorageClassUniformConstant:
+		break;
+	case spv::StorageClassUniformConstant:
 		{
 			const auto &d = descriptorDecorations.at(resultId);
 			ASSERT(d.DescriptorSet >= 0);
@@ -175,10 +175,10 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 			Pointer<Byte> binding = Pointer<Byte>(set + bindingOffset);    // vk::SampledImageDescriptor*
 			auto size = 0;                                                 // Not required as this pointer is not directly used by SIMD::Read or SIMD::Write.
 			state->createPointer(resultId, SIMD::Pointer(binding, size));
-			break;
 		}
-		case spv::StorageClassUniform:
-		case spv::StorageClassStorageBuffer:
+		break;
+	case spv::StorageClassUniform:
+	case spv::StorageClassStorageBuffer:
 		{
 			const auto &d = descriptorDecorations.at(resultId);
 			ASSERT(d.DescriptorSet >= 0);
@@ -186,7 +186,7 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 			// Note: the module may contain descriptor set references that are not suitable for this implementation -- using a set index higher than the number
 			// of descriptor set binding points we support. As long as the selected entrypoint doesn't actually touch the out of range binding points, this
 			// is valid. In this case make the value nullptr to make it easier to diagnose an attempt to dereference it.
-			if(d.DescriptorSet < vk::MAX_BOUND_DESCRIPTOR_SETS)
+			if(static_cast<uint32_t>(d.DescriptorSet) < vk::MAX_BOUND_DESCRIPTOR_SETS)
 			{
 				state->createPointer(resultId, SIMD::Pointer(routine->descriptorSets[d.DescriptorSet], size));
 			}
@@ -194,16 +194,16 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 			{
 				state->createPointer(resultId, SIMD::Pointer(nullptr, 0));
 			}
-			break;
 		}
-		case spv::StorageClassPushConstant:
+		break;
+	case spv::StorageClassPushConstant:
 		{
 			state->createPointer(resultId, SIMD::Pointer(routine->pushConstants, vk::MAX_PUSH_CONSTANT_SIZE));
-			break;
 		}
-		default:
-			UNREACHABLE("Storage class %d", objectTy.storageClass);
-			break;
+		break;
+	default:
+		UNREACHABLE("Storage class %d", objectTy.storageClass);
+		break;
 	}
 
 	if(insn.wordCount() > 4)
@@ -216,9 +216,10 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 
 		switch(objectTy.storageClass)
 		{
-			case spv::StorageClassOutput:
-			case spv::StorageClassPrivate:
-			case spv::StorageClassFunction:
+		case spv::StorageClassOutput:
+		case spv::StorageClassPrivate:
+		case spv::StorageClassFunction:
+		case spv::StorageClassWorkgroup:
 			{
 				bool interleavedByLane = IsStorageInterleavedByLane(objectTy.storageClass);
 				auto ptr = GetPointerToData(resultId, 0, state);
@@ -229,10 +230,16 @@ SpirvShader::EmitResult SpirvShader::EmitVariable(InsnIterator insn, EmitState *
 					auto robustness = OutOfBoundsBehavior::UndefinedBehavior;  // Local variables are always within bounds.
 					p.Store(initialValue.Float(el.index), robustness, state->activeLaneMask());
 				});
-				break;
+				if(objectTy.storageClass == spv::StorageClassWorkgroup)
+				{
+					// Initialization of workgroup memory is done by each subgroup and requires waiting on a barrier.
+					// TODO(b/221242292): Initialize just once per workgroup and eliminate the barrier.
+					Yield(YieldResult::ControlBarrier);
+				}
 			}
-			default:
-				ASSERT_MSG(initializerId == 0, "Vulkan does not permit variables of storage class %d to have initializers", int(objectTy.storageClass));
+			break;
+		default:
+			ASSERT_MSG(initializerId == 0, "Vulkan does not permit variables of storage class %d to have initializers", int(objectTy.storageClass));
 		}
 	}
 
@@ -243,8 +250,8 @@ SpirvShader::EmitResult SpirvShader::EmitCopyMemory(InsnIterator insn, EmitState
 {
 	Object::ID dstPtrId = insn.word(1);
 	Object::ID srcPtrId = insn.word(2);
-	auto &dstPtrTy = getType(getObject(dstPtrId));
-	auto &srcPtrTy = getType(getObject(srcPtrId));
+	auto &dstPtrTy = getObjectType(dstPtrId);
+	auto &srcPtrTy = getObjectType(srcPtrId);
 	ASSERT(dstPtrTy.element == srcPtrTy.element);
 
 	bool dstInterleavedByLane = IsStorageInterleavedByLane(dstPtrTy.storageClass);
@@ -279,8 +286,8 @@ SpirvShader::EmitResult SpirvShader::EmitCopyMemory(InsnIterator insn, EmitState
 SpirvShader::EmitResult SpirvShader::EmitMemoryBarrier(InsnIterator insn, EmitState *state) const
 {
 	auto semantics = spv::MemorySemanticsMask(GetConstScalarInt(insn.word(2)));
-	// TODO: We probably want to consider the memory scope here. For now,
-	// just always emit the full fence.
+	// TODO(b/176819536): We probably want to consider the memory scope here.
+	// For now, just always emit the full fence.
 	Fence(semantics);
 	return EmitResult::Continue;
 }
@@ -298,24 +305,24 @@ void SpirvShader::VisitMemoryObjectInner(sw::SpirvShader::Type::ID id, sw::Spirv
 
 	switch(type.opcode())
 	{
-		case spv::OpTypePointer:
-			VisitMemoryObjectInner(type.definition.word(3), d, index, offset, f);
-			break;
-		case spv::OpTypeInt:
-		case spv::OpTypeFloat:
-		case spv::OpTypeRuntimeArray:
-			f(MemoryElement{ index++, offset, type });
-			break;
-		case spv::OpTypeVector:
+	case spv::OpTypePointer:
+		VisitMemoryObjectInner(type.definition.word(3), d, index, offset, f);
+		break;
+	case spv::OpTypeInt:
+	case spv::OpTypeFloat:
+	case spv::OpTypeRuntimeArray:
+		f(MemoryElement{ index++, offset, type });
+		break;
+	case spv::OpTypeVector:
 		{
 			auto elemStride = (d.InsideMatrix && d.HasRowMajor && d.RowMajor) ? d.MatrixStride : static_cast<int32_t>(sizeof(float));
 			for(auto i = 0u; i < type.definition.word(3); i++)
 			{
 				VisitMemoryObjectInner(type.definition.word(2), d, index, offset + elemStride * i, f);
 			}
-			break;
 		}
-		case spv::OpTypeMatrix:
+		break;
+	case spv::OpTypeMatrix:
 		{
 			auto columnStride = (d.HasRowMajor && d.RowMajor) ? static_cast<int32_t>(sizeof(float)) : d.MatrixStride;
 			d.InsideMatrix = true;
@@ -324,16 +331,16 @@ void SpirvShader::VisitMemoryObjectInner(sw::SpirvShader::Type::ID id, sw::Spirv
 				ASSERT(d.HasMatrixStride);
 				VisitMemoryObjectInner(type.definition.word(2), d, index, offset + columnStride * i, f);
 			}
-			break;
 		}
-		case spv::OpTypeStruct:
-			for(auto i = 0u; i < type.definition.wordCount() - 2; i++)
-			{
-				ApplyDecorationsForIdMember(&d, id, i);
-				VisitMemoryObjectInner(type.definition.word(i + 2), d, index, offset, f);
-			}
-			break;
-		case spv::OpTypeArray:
+		break;
+	case spv::OpTypeStruct:
+		for(auto i = 0u; i < type.definition.wordCount() - 2; i++)
+		{
+			ApplyDecorationsForIdMember(&d, id, i);
+			VisitMemoryObjectInner(type.definition.word(i + 2), d, index, offset, f);
+		}
+		break;
+	case spv::OpTypeArray:
 		{
 			auto arraySize = GetConstScalarInt(type.definition.word(3));
 			for(auto i = 0u; i < arraySize; i++)
@@ -341,10 +348,10 @@ void SpirvShader::VisitMemoryObjectInner(sw::SpirvShader::Type::ID id, sw::Spirv
 				ASSERT(d.HasArrayStride);
 				VisitMemoryObjectInner(type.definition.word(2), d, index, offset + i * d.ArrayStride, f);
 			}
-			break;
 		}
-		default:
-			UNREACHABLE("%s", OpcodeName(type.opcode()));
+		break;
+	default:
+		UNREACHABLE("%s", OpcodeName(type.opcode()));
 	}
 }
 
@@ -355,8 +362,7 @@ void SpirvShader::VisitMemoryObject(Object::ID id, const MemoryVisitor &f) const
 
 	if(IsExplicitLayout(type.storageClass))
 	{
-		Decorations d{};
-		ApplyDecorationsForId(&d, id);
+		Decorations d = GetDecorationsForId(id);
 		uint32_t index = 0;
 		VisitMemoryObjectInner(typeId, d, index, 0, f);
 	}
@@ -378,14 +384,14 @@ SIMD::Pointer SpirvShader::GetPointerToData(Object::ID id, Int arrayIndex, EmitS
 	auto &object = getObject(id);
 	switch(object.kind)
 	{
-		case Object::Kind::Pointer:
-		case Object::Kind::InterfaceVariable:
-			return state->getPointer(id);
+	case Object::Kind::Pointer:
+	case Object::Kind::InterfaceVariable:
+		return state->getPointer(id);
 
-		case Object::Kind::DescriptorSet:
+	case Object::Kind::DescriptorSet:
 		{
 			const auto &d = descriptorDecorations.at(id);
-			ASSERT(d.DescriptorSet >= 0 && d.DescriptorSet < vk::MAX_BOUND_DESCRIPTOR_SETS);
+			ASSERT(d.DescriptorSet >= 0 && static_cast<uint32_t>(d.DescriptorSet) < vk::MAX_BOUND_DESCRIPTOR_SETS);
 			ASSERT(d.Binding >= 0);
 			ASSERT(routine->pipelineLayout->getDescriptorCount(d.DescriptorSet, d.Binding) != 0);  // "If descriptorCount is zero this binding entry is reserved and the resource must not be accessed from any stage via this binding within any pipeline using the set layout."
 
@@ -394,51 +400,72 @@ SIMD::Pointer SpirvShader::GetPointerToData(Object::ID id, Int arrayIndex, EmitS
 			Int descriptorOffset = bindingOffset + descriptorSize * arrayIndex;
 
 			auto set = state->getPointer(id);
-			Pointer<Byte> descriptor = set.base + descriptorOffset;                                        // BufferDescriptor*
-			Pointer<Byte> data = *Pointer<Pointer<Byte>>(descriptor + OFFSET(vk::BufferDescriptor, ptr));  // void*
-			Int size = *Pointer<Int>(descriptor + OFFSET(vk::BufferDescriptor, sizeInBytes));
+			Assert(set.base != Pointer<Byte>(nullptr));
+			Pointer<Byte> descriptor = set.base + descriptorOffset;  // BufferDescriptor* or inline uniform block
 
-			if(routine->pipelineLayout->isDescriptorDynamic(d.DescriptorSet, d.Binding))
+			auto descriptorType = routine->pipelineLayout->getDescriptorType(d.DescriptorSet, d.Binding);
+			if(descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
 			{
-				Int dynamicOffsetIndex =
-				    routine->pipelineLayout->getDynamicOffsetIndex(d.DescriptorSet, d.Binding) +
-				    arrayIndex;
-				Int offset = routine->descriptorDynamicOffsets[dynamicOffsetIndex];
-				Int robustnessSize = *Pointer<Int>(descriptor + OFFSET(vk::BufferDescriptor, robustnessSize));
-
-				return SIMD::Pointer(data + offset, Min(size, robustnessSize - offset));
+				// Note: there is no bounds checking for inline uniform blocks.
+				// MAX_INLINE_UNIFORM_BLOCK_SIZE represents the maximum size of
+				// an inline uniform block, but this value should remain unused.
+				return SIMD::Pointer(descriptor, vk::MAX_INLINE_UNIFORM_BLOCK_SIZE);
 			}
 			else
 			{
-				return SIMD::Pointer(data, size);
+				Pointer<Byte> data = *Pointer<Pointer<Byte>>(descriptor + OFFSET(vk::BufferDescriptor, ptr));  // void*
+				Int size = *Pointer<Int>(descriptor + OFFSET(vk::BufferDescriptor, sizeInBytes));
+
+				if(routine->pipelineLayout->isDescriptorDynamic(d.DescriptorSet, d.Binding))
+				{
+					Int dynamicOffsetIndex =
+					    routine->pipelineLayout->getDynamicOffsetIndex(d.DescriptorSet, d.Binding) +
+					    arrayIndex;
+					Int offset = routine->descriptorDynamicOffsets[dynamicOffsetIndex];
+					Int robustnessSize = *Pointer<Int>(descriptor + OFFSET(vk::BufferDescriptor, robustnessSize));
+
+					return SIMD::Pointer(data + offset, Min(size, robustnessSize - offset));
+				}
+				else
+				{
+					return SIMD::Pointer(data, size);
+				}
 			}
 		}
 
-		default:
-			UNREACHABLE("Invalid pointer kind %d", int(object.kind));
-			return SIMD::Pointer(Pointer<Byte>(), 0);
+	default:
+		UNREACHABLE("Invalid pointer kind %d", int(object.kind));
+		return SIMD::Pointer(Pointer<Byte>(), 0);
+	}
+}
+
+void SpirvShader::Fence(spv::MemorySemanticsMask semantics) const
+{
+	if(semantics != spv::MemorySemanticsMaskNone)
+	{
+		rr::Fence(MemoryOrder(semantics));
 	}
 }
 
 std::memory_order SpirvShader::MemoryOrder(spv::MemorySemanticsMask memorySemantics)
 {
-	auto control = static_cast<uint32_t>(memorySemantics) & static_cast<uint32_t>(
-	                                                            spv::MemorySemanticsAcquireMask |
-	                                                            spv::MemorySemanticsReleaseMask |
-	                                                            spv::MemorySemanticsAcquireReleaseMask |
-	                                                            spv::MemorySemanticsSequentiallyConsistentMask);
+	uint32_t control = static_cast<uint32_t>(memorySemantics) & static_cast<uint32_t>(
+	                                                                spv::MemorySemanticsAcquireMask |
+	                                                                spv::MemorySemanticsReleaseMask |
+	                                                                spv::MemorySemanticsAcquireReleaseMask |
+	                                                                spv::MemorySemanticsSequentiallyConsistentMask);
 	switch(control)
 	{
-		case spv::MemorySemanticsMaskNone: return std::memory_order_relaxed;
-		case spv::MemorySemanticsAcquireMask: return std::memory_order_acquire;
-		case spv::MemorySemanticsReleaseMask: return std::memory_order_release;
-		case spv::MemorySemanticsAcquireReleaseMask: return std::memory_order_acq_rel;
-		case spv::MemorySemanticsSequentiallyConsistentMask: return std::memory_order_acq_rel;  // Vulkan 1.1: "SequentiallyConsistent is treated as AcquireRelease"
-		default:
-			// "it is invalid for more than one of these four bits to be set:
-			// Acquire, Release, AcquireRelease, or SequentiallyConsistent."
-			UNREACHABLE("MemorySemanticsMask: %x", int(control));
-			return std::memory_order_acq_rel;
+	case spv::MemorySemanticsMaskNone: return std::memory_order_relaxed;
+	case spv::MemorySemanticsAcquireMask: return std::memory_order_acquire;
+	case spv::MemorySemanticsReleaseMask: return std::memory_order_release;
+	case spv::MemorySemanticsAcquireReleaseMask: return std::memory_order_acq_rel;
+	case spv::MemorySemanticsSequentiallyConsistentMask: return std::memory_order_acq_rel;  // Vulkan 1.1: "SequentiallyConsistent is treated as AcquireRelease"
+	default:
+		// "it is invalid for more than one of these four bits to be set:
+		//  Acquire, Release, AcquireRelease, or SequentiallyConsistent."
+		UNREACHABLE("MemorySemanticsMask: %x", int(control));
+		return std::memory_order_acq_rel;
 	}
 }
 
@@ -446,12 +473,12 @@ bool SpirvShader::StoresInHelperInvocation(spv::StorageClass storageClass)
 {
 	switch(storageClass)
 	{
-		case spv::StorageClassUniform:
-		case spv::StorageClassStorageBuffer:
-		case spv::StorageClassImage:
-			return false;
-		default:
-			return true;
+	case spv::StorageClassUniform:
+	case spv::StorageClassStorageBuffer:
+	case spv::StorageClassImage:
+		return false;
+	default:
+		return true;
 	}
 }
 
@@ -459,12 +486,12 @@ bool SpirvShader::IsExplicitLayout(spv::StorageClass storageClass)
 {
 	switch(storageClass)
 	{
-		case spv::StorageClassUniform:
-		case spv::StorageClassStorageBuffer:
-		case spv::StorageClassPushConstant:
-			return true;
-		default:
-			return false;
+	case spv::StorageClassUniform:
+	case spv::StorageClassStorageBuffer:
+	case spv::StorageClassPushConstant:
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -482,14 +509,14 @@ bool SpirvShader::IsStorageInterleavedByLane(spv::StorageClass storageClass)
 {
 	switch(storageClass)
 	{
-		case spv::StorageClassUniform:
-		case spv::StorageClassStorageBuffer:
-		case spv::StorageClassPushConstant:
-		case spv::StorageClassWorkgroup:
-		case spv::StorageClassImage:
-			return false;
-		default:
-			return true;
+	case spv::StorageClassUniform:
+	case spv::StorageClassStorageBuffer:
+	case spv::StorageClassPushConstant:
+	case spv::StorageClassWorkgroup:
+	case spv::StorageClassImage:
+		return false;
+	default:
+		return true;
 	}
 }
 

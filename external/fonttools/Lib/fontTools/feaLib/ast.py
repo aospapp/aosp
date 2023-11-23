@@ -1,7 +1,7 @@
-from fontTools.misc.py23 import byteord, tobytes
 from fontTools.feaLib.error import FeatureLibError
 from fontTools.feaLib.location import FeatureLibLocation
 from fontTools.misc.encodingTools import getEncoding
+from fontTools.misc.textTools import byteord, tobytes
 from collections import OrderedDict
 import itertools
 
@@ -34,6 +34,7 @@ __all__ = [
     "ChainContextPosStatement",
     "ChainContextSubstStatement",
     "CharacterStatement",
+    "ConditionsetStatement",
     "CursivePosStatement",
     "ElidedFallbackName",
     "ElidedFallbackNameID",
@@ -700,7 +701,7 @@ class AttachStatement(Statement):
 
 
 class ChainContextPosStatement(Statement):
-    """A chained contextual positioning statement.
+    r"""A chained contextual positioning statement.
 
     ``prefix``, ``glyphs``, and ``suffix`` should be lists of
     `glyph-containing objects`_ .
@@ -758,7 +759,7 @@ class ChainContextPosStatement(Statement):
 
 
 class ChainContextSubstStatement(Statement):
-    """A chained contextual substitution statement.
+    r"""A chained contextual substitution statement.
 
     ``prefix``, ``glyphs``, and ``suffix`` should be lists of
     `glyph-containing objects`_ .
@@ -1258,9 +1259,25 @@ class MultipleSubstStatement(Statement):
         """Calls the builder object's ``add_multiple_subst`` callback."""
         prefix = [p.glyphSet() for p in self.prefix]
         suffix = [s.glyphSet() for s in self.suffix]
-        builder.add_multiple_subst(
-            self.location, prefix, self.glyph, suffix, self.replacement, self.forceChain
-        )
+        if not self.replacement and hasattr(self.glyph, "glyphSet"):
+            for glyph in self.glyph.glyphSet():
+                builder.add_multiple_subst(
+                    self.location,
+                    prefix,
+                    glyph,
+                    suffix,
+                    self.replacement,
+                    self.forceChain,
+                )
+        else:
+            builder.add_multiple_subst(
+                self.location,
+                prefix,
+                self.glyph,
+                suffix,
+                self.replacement,
+                self.forceChain,
+            )
 
     def asFea(self, indent=""):
         res = "sub "
@@ -1314,9 +1331,15 @@ class PairPosStatement(Statement):
         """
         if self.enumerated:
             g = [self.glyphs1.glyphSet(), self.glyphs2.glyphSet()]
+            seen_pair = False
             for glyph1, glyph2 in itertools.product(*g):
+                seen_pair = True
                 builder.add_specific_pair_pos(
                     self.location, glyph1, self.valuerecord1, glyph2, self.valuerecord2
+                )
+            if not seen_pair:
+                raise FeatureLibError(
+                    "Empty glyph class in positioning rule", self.location
                 )
             return
 
@@ -2026,4 +2049,80 @@ class AxisValueLocationStatement(Statement):
     def asFea(self, res=""):
         res += f"location {self.tag} "
         res += f"{' '.join(str(i) for i in self.values)};\n"
+        return res
+
+
+class ConditionsetStatement(Statement):
+    """
+    A variable layout conditionset
+
+    Args:
+        name (str): the name of this conditionset
+        conditions (dict): a dictionary mapping axis tags to a
+            tuple of (min,max) userspace coordinates.
+    """
+
+    def __init__(self, name, conditions, location=None):
+        Statement.__init__(self, location)
+        self.name = name
+        self.conditions = conditions
+
+    def build(self, builder):
+        builder.add_conditionset(self.name, self.conditions)
+
+    def asFea(self, res="", indent=""):
+        res += indent + f"conditionset {self.name} " + "{\n"
+        for tag, (minvalue, maxvalue) in self.conditions.items():
+            res += indent + SHIFT + f"{tag} {minvalue} {maxvalue};\n"
+        res += indent + "}" + f" {self.name};\n"
+        return res
+
+
+class VariationBlock(Block):
+    """A variation feature block, applicable in a given set of conditions."""
+
+    def __init__(self, name, conditionset, use_extension=False, location=None):
+        Block.__init__(self, location)
+        self.name, self.conditionset, self.use_extension = (
+            name,
+            conditionset,
+            use_extension,
+        )
+
+    def build(self, builder):
+        """Call the ``start_feature`` callback on the builder object, visit
+        all the statements in this feature, and then call ``end_feature``."""
+        builder.start_feature(self.location, self.name)
+        if (
+            self.conditionset != "NULL"
+            and self.conditionset not in builder.conditionsets_
+        ):
+            raise FeatureLibError(
+                f"variation block used undefined conditionset {self.conditionset}",
+                self.location,
+            )
+
+        # language exclude_dflt statements modify builder.features_
+        # limit them to this block with temporary builder.features_
+        features = builder.features_
+        builder.features_ = {}
+        Block.build(self, builder)
+        for key, value in builder.features_.items():
+            items = builder.feature_variations_.setdefault(key, {}).setdefault(
+                self.conditionset, []
+            )
+            items.extend(value)
+            if key not in features:
+                features[key] = []  # Ensure we make a feature record
+        builder.features_ = features
+        builder.end_feature()
+
+    def asFea(self, indent=""):
+        res = indent + "variation %s " % self.name.strip()
+        res += self.conditionset + " "
+        if self.use_extension:
+            res += "useExtension "
+        res += "{\n"
+        res += Block.asFea(self, indent=indent)
+        res += indent + "} %s;\n" % self.name.strip()
         return res

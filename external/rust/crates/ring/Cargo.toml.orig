@@ -10,7 +10,7 @@ license-file = "LICENSE"
 name = "ring"
 readme = "doc/link-to-readme.md"
 repository = "https://github.com/briansmith/ring"
-version = "0.16.19"
+version = "0.16.20"
 
 # Prevent multiple versions of *ring* from being linked into the same program.
 links = "ring-asm"
@@ -91,6 +91,7 @@ include = [
     "crypto/poly1305/poly1305_arm.c",
     "crypto/poly1305/poly1305_arm_asm.S",
     "crypto/poly1305/poly1305_vec.c",
+    "crypto/cipher_extra/asm/chacha20_poly1305_x86_64.pl",
     "doc/link-to-readme.md",
     "examples/checkdigest.rs",
     "include/GFp/aes.h",
@@ -292,6 +293,9 @@ include = [
     "third_party/NIST/SHAVS/SHA512Monte.rsp",
     "third_party/NIST/SHAVS/SHA512ShortMsg.rsp",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "ring"

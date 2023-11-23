@@ -51,10 +51,9 @@ def GetCommandLineArgs():
       'of updating the packages')
 
   # Add argument for a specific chroot path.
-  parser.add_argument(
-      '--chroot_path',
-      default=cros_root,
-      help='the path to the chroot (default: %(default)s)')
+  parser.add_argument('--chroot_path',
+                      default=cros_root,
+                      help='the path to the chroot (default: %(default)s)')
 
   # Add argument to choose between llvm and llvm-next.
   parser.add_argument(
@@ -71,65 +70,58 @@ def GetCommandLineArgs():
       'arguments.')
 
   # Add argument for the LLVM version to use.
-  parser.add_argument(
-      '--llvm_version',
-      type=get_llvm_hash.is_svn_option,
-      required=True,
-      help='which git hash of LLVM to find '
-      '{google3, ToT, <svn_version>} '
-      '(default: finds the git hash of the google3 LLVM '
-      'version)')
+  parser.add_argument('--llvm_version',
+                      type=get_llvm_hash.IsSvnOption,
+                      required=True,
+                      help='which git hash of LLVM to find '
+                      '{google3, ToT, <svn_version>} '
+                      '(default: finds the git hash of the google3 LLVM '
+                      'version)')
 
   # Add argument to add reviewers for the created CL.
-  parser.add_argument(
-      '--reviewers',
-      nargs='+',
-      default=[],
-      help='The reviewers for the package update changelist')
+  parser.add_argument('--reviewers',
+                      nargs='+',
+                      default=[],
+                      help='The reviewers for the package update changelist')
 
   # Add argument for whether to display command contents to `stdout`.
-  parser.add_argument(
-      '--verbose',
-      action='store_true',
-      help='display contents of a command to the terminal '
-      '(default: %(default)s)')
+  parser.add_argument('--verbose',
+                      action='store_true',
+                      help='display contents of a command to the terminal '
+                      '(default: %(default)s)')
 
   subparsers = parser.add_subparsers(dest='subparser_name')
   subparser_names = []
   # Testing with the tryjobs.
   tryjob_subparser = subparsers.add_parser('tryjobs')
   subparser_names.append('tryjobs')
-  tryjob_subparser.add_argument(
-      '--builders',
-      required=True,
-      nargs='+',
-      default=[],
-      help='builders to use for the tryjob testing')
+  tryjob_subparser.add_argument('--builders',
+                                required=True,
+                                nargs='+',
+                                default=[],
+                                help='builders to use for the tryjob testing')
 
   # Add argument for custom options for the tryjob.
-  tryjob_subparser.add_argument(
-      '--options',
-      required=False,
-      nargs='+',
-      default=[],
-      help='options to use for the tryjob testing')
+  tryjob_subparser.add_argument('--options',
+                                required=False,
+                                nargs='+',
+                                default=[],
+                                help='options to use for the tryjob testing')
 
   # Testing with the recipe builders
   recipe_subparser = subparsers.add_parser('recipe')
   subparser_names.append('recipe')
-  recipe_subparser.add_argument(
-      '--options',
-      required=False,
-      nargs='+',
-      default=[],
-      help='options passed to the recipe builders')
+  recipe_subparser.add_argument('--options',
+                                required=False,
+                                nargs='+',
+                                default=[],
+                                help='options passed to the recipe builders')
 
-  recipe_subparser.add_argument(
-      '--builders',
-      required=True,
-      nargs='+',
-      default=[],
-      help='recipe builders to launch')
+  recipe_subparser.add_argument('--builders',
+                                required=True,
+                                nargs='+',
+                                default=[],
+                                help='recipe builders to launch')
 
   # Testing with CQ.
   cq_subparser = subparsers.add_parser('cq')
@@ -276,10 +268,12 @@ def RunTryJobs(cl_number, extra_change_lists, options, builders, chroot_path):
 
     test_output = json.loads(out)
 
+    buildbucket_id = int(test_output[0]['id'])
+
     tests.append({
         'launch_time': str(GetCurrentTimeInUTC()),
-        'link': str(test_output[0]['url']),
-        'buildbucket_id': int(test_output[0]['buildbucket_id']),
+        'link': 'http://ci.chromium.org/b/%s' % buildbucket_id,
+        'buildbucket_id': buildbucket_id,
         'extra_cls': extra_change_lists,
         'options': options,
         'builder': [builder]
@@ -358,7 +352,8 @@ def GetCQDependString(dependent_cls):
     return None
 
   # Cq-Depend must start a new paragraph prefixed with "Cq-Depend".
-  return '\nCq-Depend: ' + ', '.join(('chromium:%s' % i) for i in dependent_cls)
+  return '\nCq-Depend: ' + ', '.join(
+      ('chromium:%s' % i) for i in dependent_cls)
 
 
 def GetCQIncludeTrybotsString(trybot):
@@ -400,11 +395,6 @@ def main():
 
   args_output = GetCommandLineArgs()
 
-  update_packages = [
-      'sys-devel/llvm', 'sys-libs/compiler-rt', 'sys-libs/libcxx',
-      'sys-libs/libcxxabi', 'sys-libs/llvm-libunwind'
-  ]
-
   patch_metadata_file = 'PATCHES.json'
 
   svn_option = args_output.llvm_version
@@ -418,8 +408,8 @@ def main():
   # If --last_tested is specified, check if the current run has the same
   # arguments last time --last_tested is used.
   if args_output.last_tested:
-    chroot_file_paths = chroot.GetChrootEbuildPaths(args_output.chroot_path,
-                                                    update_packages)
+    chroot_file_paths = chroot.GetChrootEbuildPaths(
+        args_output.chroot_path, update_chromeos_llvm_hash.DEFAULT_PACKAGES)
     arg_dict = {
         'svn_version': svn_version,
         'ebuilds': chroot_file_paths,
@@ -447,7 +437,7 @@ def main():
       extra_commit_msg += cq_trybot_msg
 
   change_list = update_chromeos_llvm_hash.UpdatePackages(
-      update_packages,
+      update_chromeos_llvm_hash.DEFAULT_PACKAGES,
       llvm_variant,
       git_hash,
       svn_version,
@@ -472,9 +462,10 @@ def main():
     for test in tests:
       print(test)
   elif args_output.subparser_name == 'recipe':
-    tests = StartRecipeBuilders(
-        change_list.cl_number, args_output.extra_change_lists,
-        args_output.options, args_output.builders, args_output.chroot_path)
+    tests = StartRecipeBuilders(change_list.cl_number,
+                                args_output.extra_change_lists,
+                                args_output.options, args_output.builders,
+                                args_output.chroot_path)
     print('Tests:')
     for test in tests:
       print(test)

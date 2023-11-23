@@ -183,18 +183,15 @@ impl<'a> Octets<'a> {
             return Err(BufferTooShortError);
         }
 
-        let mut vec = self.get_bytes(len)?.to_vec();
-
-        // Mask the 2 most significant bits to remove the encoded length.
-        vec[0] &= 0x3f;
-
-        let mut b = OctetsMut::with_slice(&mut vec);
-
         let out = match len {
-            1 => u64::from(b.get_u8()?),
-            2 => u64::from(b.get_u16()?),
-            4 => u64::from(b.get_u32()?),
-            8 => b.get_u64()?,
+            1 => u64::from(self.get_u8()?),
+
+            2 => u64::from(self.get_u16()? & 0x3fff),
+
+            4 => u64::from(self.get_u32()? & 0x3fffffff),
+
+            8 => self.get_u64()? & 0x3fffffffffffffff,
+
             _ => unreachable!(),
         };
 
@@ -273,6 +270,17 @@ impl<'a> Octets<'a> {
 
         let cap = self.cap();
         Ok(&self.buf[cap - len..])
+    }
+
+    /// Advances the buffer's offset.
+    pub fn skip(&mut self, skip: usize) -> Result<()> {
+        if skip > self.cap() {
+            return Err(BufferTooShortError);
+        }
+
+        self.off += skip;
+
+        Ok(())
     }
 
     /// Returns the remaining capacity in the buffer.
@@ -402,18 +410,15 @@ impl<'a> OctetsMut<'a> {
             return Err(BufferTooShortError);
         }
 
-        let mut vec = self.get_bytes(len)?.to_vec();
-
-        // Mask the 2 most significant bits to remove the encoded length.
-        vec[0] &= 0x3f;
-
-        let mut b = OctetsMut::with_slice(&mut vec);
-
         let out = match len {
-            1 => u64::from(b.get_u8()?),
-            2 => u64::from(b.get_u16()?),
-            4 => u64::from(b.get_u32()?),
-            8 => b.get_u64()?,
+            1 => u64::from(self.get_u8()?),
+
+            2 => u64::from(self.get_u16()? & 0x3fff),
+
+            4 => u64::from(self.get_u32()? & 0x3fffffff),
+
+            8 => self.get_u64()? & 0x3fffffffffffffff,
+
             _ => unreachable!(),
         };
 
@@ -601,6 +606,17 @@ impl<'a> OctetsMut<'a> {
 
         let cap = self.cap();
         Ok(&mut self.buf[cap - len..])
+    }
+
+    /// Advances the buffer's offset.
+    pub fn skip(&mut self, skip: usize) -> Result<()> {
+        if skip > self.cap() {
+            return Err(BufferTooShortError);
+        }
+
+        self.off += skip;
+
+        Ok(())
     }
 
     /// Returns the remaining capacity in the buffer.

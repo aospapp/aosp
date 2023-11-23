@@ -1,11 +1,11 @@
-# Serde JSON &emsp; [![Build Status]][travis] [![Latest Version]][crates.io] [![Rustc Version 1.31+]][rustc]
+# Serde JSON &emsp; [![Build Status]][travis] [![Latest Version]][crates.io] [![Rustc Version 1.36+]][rustc]
 
 [Build Status]: https://img.shields.io/github/workflow/status/serde-rs/json/CI/master
 [travis]: https://github.com/serde-rs/json/actions?query=branch%3Amaster
 [Latest Version]: https://img.shields.io/crates/v/serde_json.svg
 [crates.io]: https://crates.io/crates/serde\_json
-[Rustc Version 1.31+]: https://img.shields.io/badge/rustc-1.31+-lightgray.svg
-[rustc]: https://blog.rust-lang.org/2018/12/06/Rust-1.31-and-rust-2018.html
+[Rustc Version 1.36+]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
+[rustc]: https://blog.rust-lang.org/2019/07/04/Rust-1.36.0.html
 
 **Serde is a framework for *ser*ializing and *de*serializing Rust data structures efficiently and generically.**
 
@@ -81,9 +81,11 @@ A string of JSON data can be parsed into a `serde_json::Value` by the
 [`from_reader`][from_reader] for parsing from any `io::Read` like a File or
 a TCP stream.
 
+<div align="right">
 <a href="https://play.rust-lang.org/?edition=2018&gist=d69d8e3156d4bb81c4461b60b772ab72" target="_blank">
-<img align="right" width="50" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/run.png">
+<img align="center" width="85" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/runtab.png">
 </a>
+</div>
 
 ```rust
 use serde_json::{Result, Value};
@@ -139,9 +141,11 @@ in one of the dozens of places it is used in your code.
 Serde provides a powerful way of mapping JSON data into Rust data structures
 largely automatically.
 
+<div align="right">
 <a href="https://play.rust-lang.org/?edition=2018&gist=15cfab66d38ff8a15a9cf1d8d897ac68" target="_blank">
-<img align="right" width="50" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/run.png">
+<img align="center" width="85" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/runtab.png">
 </a>
+</div>
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -206,9 +210,11 @@ derive]* page of the Serde site.
 Serde JSON provides a [`json!` macro][macro] to build `serde_json::Value`
 objects with very natural JSON syntax.
 
+<div align="right">
 <a href="https://play.rust-lang.org/?edition=2018&gist=6ccafad431d72b62e77cc34c8e879b24" target="_blank">
-<img align="right" width="50" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/run.png">
+<img align="center" width="85" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/runtab.png">
 </a>
+</div>
 
 ```rust
 use serde_json::json;
@@ -239,9 +245,11 @@ be interpolated directly into the JSON value as you are building it. Serde
 will check at compile time that the value you are interpolating is able to
 be represented as JSON.
 
+<div align="right">
 <a href="https://play.rust-lang.org/?edition=2018&gist=f9101a6e61dfc9e02c6a67f315ed24f2" target="_blank">
-<img align="right" width="50" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/run.png">
+<img align="center" width="85" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/runtab.png">
 </a>
+</div>
 
 ```rust
 let full_name = "John Doe";
@@ -270,9 +278,11 @@ A data structure can be converted to a JSON string by
 [`serde_json::to_writer`][to_writer] which serializes to any `io::Write`
 such as a File or a TCP stream.
 
+<div align="right">
 <a href="https://play.rust-lang.org/?edition=2018&gist=3472242a08ed2ff88a944f2a2283b0ee" target="_blank">
-<img align="right" width="50" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/run.png">
+<img align="center" width="85" src="https://raw.githubusercontent.com/serde-rs/serde-rs.github.io/master/img/runtab.png">
 </a>
+</div>
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -320,17 +330,20 @@ Benchmarks live in the [serde-rs/json-benchmark] repo.
 
 Serde is one of the most widely used Rust libraries so any place that Rustaceans
 congregate will be able to help you out. For chat, consider trying the
-[#general] or [#beginners] channels of the unofficial community Discord, the
-[#rust-usage] channel of the official Rust Project Discord, or the
-[#general][zulip] stream in Zulip. For asynchronous, consider the [\[rust\] tag
-on StackOverflow][stackoverflow], the [/r/rust] subreddit which has a pinned
-weekly easy questions post, or the Rust [Discourse forum][discourse]. It's
-acceptable to file a support issue in this repo but they tend not to get as many
-eyes as any of the above and may get closed without a response after some time.
+[#rust-questions] or [#rust-beginners] channels of the unofficial community
+Discord (invite: <https://discord.gg/rust-lang-community>), the [#rust-usage] or
+[#beginners] channels of the official Rust Project Discord (invite:
+<https://discord.gg/rust-lang>), or the [#general][zulip] stream in Zulip. For
+asynchronous, consider the [\[rust\] tag on StackOverflow][stackoverflow], the
+[/r/rust] subreddit which has a pinned weekly easy questions post, or the Rust
+[Discourse forum][discourse]. It's acceptable to file a support issue in this
+repo but they tend not to get as many eyes as any of the above and may get
+closed without a response after some time.
 
-[#general]: https://discord.com/channels/273534239310479360/274215136414400513
-[#beginners]: https://discord.com/channels/273534239310479360/273541522815713281
+[#rust-questions]: https://discord.com/channels/273534239310479360/274215136414400513
+[#rust-beginners]: https://discord.com/channels/273534239310479360/273541522815713281
 [#rust-usage]: https://discord.com/channels/442252698964721669/443150878111694848
+[#beginners]: https://discord.com/channels/442252698964721669/448238009733742612
 [zulip]: https://rust-lang.zulipchat.com/#narrow/stream/122651-general
 [stackoverflow]: https://stackoverflow.com/questions/tagged/rust
 [/r/rust]: https://www.reddit.com/r/rust
@@ -350,7 +363,7 @@ serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 For JSON support in Serde without a memory allocator, please see the
 [`serde-json-core`] crate.
 
-[`serde-json-core`]: https://japaric.github.io/serde-json-core/serde_json_core/
+[`serde-json-core`]: https://github.com/rust-embedded-community/serde-json-core
 
 [value]: https://docs.serde.rs/serde_json/value/enum.Value.html
 [from_str]: https://docs.serde.rs/serde_json/de/fn.from_str.html

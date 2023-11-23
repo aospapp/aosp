@@ -74,9 +74,8 @@
         allow(dead_code, unused_variables)
     )
 ))]
-#![warn(future_incompatible, rust_2018_idioms, single_use_lifetimes, unreachable_pub)]
-#![warn(missing_docs)]
-#![warn(clippy::all, clippy::default_trait_access)]
+#![warn(missing_docs, rust_2018_idioms, single_use_lifetimes, unreachable_pub)]
+#![warn(clippy::default_trait_access, clippy::wildcard_imports)]
 #![allow(clippy::needless_doctest_main)]
 
 // ANDROID: Use std to allow building as a dylib.
@@ -91,6 +90,8 @@ pub use pin_project_internal::pinned_drop;
 ///
 /// This trait is used in conjunction with the `UnsafeUnpin` argument to
 /// the [`#[pin_project]`][macro@pin_project] attribute.
+///
+/// # Safety
 ///
 /// The Rust [`Unpin`] trait is safe to implement - by itself,
 /// implementing it cannot lead to [undefined behavior][undefined-behavior].
@@ -150,10 +151,10 @@ pub unsafe trait UnsafeUnpin {}
 // Not public API.
 #[doc(hidden)]
 pub mod __private {
+    use core::mem::ManuallyDrop;
     #[doc(hidden)]
     pub use core::{
         marker::{PhantomData, PhantomPinned, Unpin},
-        mem::ManuallyDrop,
         ops::Drop,
         pin::Pin,
         ptr,
@@ -257,7 +258,14 @@ pub mod __private {
 
     // This is an internal helper used to ensure a value is dropped.
     #[doc(hidden)]
-    pub struct UnsafeDropInPlaceGuard<T: ?Sized>(pub *mut T);
+    pub struct UnsafeDropInPlaceGuard<T: ?Sized>(*mut T);
+
+    impl<T: ?Sized> UnsafeDropInPlaceGuard<T> {
+        #[doc(hidden)]
+        pub unsafe fn new(ptr: *mut T) -> Self {
+            Self(ptr)
+        }
+    }
 
     impl<T: ?Sized> Drop for UnsafeDropInPlaceGuard<T> {
         fn drop(&mut self) {
@@ -271,8 +279,15 @@ pub mod __private {
     // its destructor being called.
     #[doc(hidden)]
     pub struct UnsafeOverwriteGuard<T> {
-        pub value: ManuallyDrop<T>,
-        pub target: *mut T,
+        target: *mut T,
+        value: ManuallyDrop<T>,
+    }
+
+    impl<T> UnsafeOverwriteGuard<T> {
+        #[doc(hidden)]
+        pub unsafe fn new(target: *mut T, value: T) -> Self {
+            Self { target, value: ManuallyDrop::new(value) }
+        }
     }
 
     impl<T> Drop for UnsafeOverwriteGuard<T> {

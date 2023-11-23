@@ -398,7 +398,7 @@ OperationManager::ComparisonError OperationManager::compareResults (void* refere
 		resultsBytes += m_operandSize;
 	}
 
-	return tcu::nothing<OperationComponent>();
+	return tcu::Nothing;
 }
 
 class TrinaryMinMaxCase : public vkt::TestCase
@@ -719,7 +719,7 @@ tcu::TestStatus TrinaryMinMaxInstance::iterate (void)
 
 	vk::BufferWithMemory	inputBuffer		{vkd, device, allocator, inputBufferInfo,	vk::MemoryRequirement::HostVisible};
 	vk::BufferWithMemory	outputBuffer	{vkd, device, allocator, outputBufferInfo,	vk::MemoryRequirement::HostVisible};
-	std::unique_ptr<char[]>	referenceBuffer	{new char[kOutputBufferSize]};
+	std::unique_ptr<char[]>	referenceBuffer	{new char[static_cast<size_t>(kOutputBufferSize)]};
 
 	// Fill buffers with initial contents.
 	auto& inputAlloc	= inputBuffer.getAllocation();

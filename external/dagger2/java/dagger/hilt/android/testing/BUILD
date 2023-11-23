@@ -14,7 +14,7 @@
 # Description:
 #   Testing libraries for Hilt Android.
 
-load("//:build_defs.bzl", "POM_VERSION_ALPHA")
+load("//:build_defs.bzl", "POM_VERSION")
 load("//tools:maven.bzl", "gen_maven_artifact")
 
 package(default_visibility = ["//:src"])
@@ -57,14 +57,21 @@ android_library(
         "//java/dagger/hilt/android/internal/builders",
         "//java/dagger/hilt/android/internal/managers",
         "//java/dagger/hilt/android/internal/modules",
+        "//java/dagger/hilt/android/internal/testing:early_test_singleton_component_creator",
         "//java/dagger/hilt/android/internal/testing:test_application_component_manager",
         "//java/dagger/hilt/android/internal/testing:test_application_component_manager_holder",
+        "//java/dagger/hilt/android/internal/testing:test_component_data",
         "//java/dagger/hilt/android/internal/testing:test_injector",
+        "//java/dagger/hilt/android/internal/testing/root:default",
         "//java/dagger/hilt/android/scopes",
         "//java/dagger/hilt/internal:component_entry_point",
         "//java/dagger/hilt/internal:component_manager",
+        "//java/dagger/hilt/internal:generated_component",
         "//java/dagger/hilt/internal:generated_entry_point",
         "//java/dagger/hilt/internal:preconditions",
+        "//java/dagger/hilt/internal:test_singleton_component",
+        "//java/dagger/hilt/internal/aggregatedroot",
+        "//java/dagger/hilt/internal/processedrootsentinel",
         "//java/dagger/hilt/migration:disable_install_in_check",
         "@maven//:androidx_annotation_annotation",
         "@maven//:androidx_multidex_multidex",
@@ -123,10 +130,14 @@ android_library(
     testonly = 1,
     srcs = ["UninstallModules.java"],
     exported_plugins = [
-        "//java/dagger/hilt/android/processor/internal/uninstallmodules:processor",
+        "//java/dagger/hilt/processor/internal/uninstallmodules:processor",
+    ],
+    exports = [
+        "//java/dagger/hilt/android/internal/uninstallmodules",
     ],
     deps = [
         ":package_info",
+        "//java/dagger/hilt:generates_root_input",
     ],
 )
 
@@ -163,7 +174,7 @@ java_library(
 android_library(
     name = "artifact-lib",
     testonly = 1,
-    tags = ["maven_coordinates=com.google.dagger:hilt-android-testing:" + POM_VERSION_ALPHA],
+    tags = ["maven_coordinates=com.google.dagger:hilt-android-testing:" + POM_VERSION],
     exports = [
         ":bind_value",
         ":custom_test_application",
@@ -178,15 +189,18 @@ android_library(
 gen_maven_artifact(
     name = "artifact",
     testonly = 1,
-    artifact_coordinates = "com.google.dagger:hilt-android-testing:" + POM_VERSION_ALPHA,
+    artifact_coordinates = "com.google.dagger:hilt-android-testing:" + POM_VERSION,
     artifact_name = "Hilt Android Testing",
     artifact_target = ":artifact-lib",
     artifact_target_libs = [
+        "//java/dagger/hilt/android/internal/testing:early_test_singleton_component_creator",
         "//java/dagger/hilt/android/internal/testing:mark_that_rules_ran_rule",
         "//java/dagger/hilt/android/internal/testing:test_application_component_manager",
         "//java/dagger/hilt/android/internal/testing:test_application_component_manager_holder",
         "//java/dagger/hilt/android/internal/testing:test_component_data",
         "//java/dagger/hilt/android/internal/testing:test_injector",
+        "//java/dagger/hilt/android/internal/testing/root:default",
+        "//java/dagger/hilt/android/internal/uninstallmodules:uninstallmodules",
         "//java/dagger/hilt/android/testing:bind_value",
         "//java/dagger/hilt/android/testing:custom_test_application",
         "//java/dagger/hilt/android/testing:hilt_android_rule",
@@ -202,6 +216,7 @@ gen_maven_artifact(
         "androidx.activity:activity",
         "androidx.annotation:annotation",
         "androidx.fragment:fragment",
+        "androidx.lifecycle:lifecycle-common",
         "androidx.lifecycle:lifecycle-viewmodel",
         "androidx.lifecycle:lifecycle-viewmodel-savedstate",
         "androidx.multidex:multidex",

@@ -20,6 +20,7 @@
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
+#include "perfetto/base/proc_utils.h"
 #include "perfetto/ext/base/metatrace.h"
 #include "perfetto/ext/base/utils.h"
 #include "perfetto/ext/base/weak_ptr.h"
@@ -29,6 +30,11 @@
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
 #include "src/tracing/core/metatrace_writer.h"
+
+// This translation unit is only ever used in Android in-tree builds.
+// These producers are here  to dynamically start heapprofd and other services
+// via sysprops when a trace that requests them is active. That can only happen
+// in in-tree builds of Android.
 
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID)
 #include <sys/system_properties.h>
@@ -61,8 +67,16 @@ BuiltinProducer::~BuiltinProducer() {
 }
 
 void BuiltinProducer::ConnectInProcess(TracingService* svc) {
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+  // TODO(primiano): ConnectProducer should take a base::PlatformProcessId not
+  // pid_t, as they are different on Windows. But that is a larger refactoring
+  // and not worth given this is the only use case where it clashes.
+  const pid_t cur_proc_id = 0;
+#else
+  const pid_t cur_proc_id = base::GetProcessId();
+#endif
   endpoint_ = svc->ConnectProducer(
-      this, base::GetCurrentUserId(), "traced",
+      this, base::GetCurrentUserId(), cur_proc_id, "traced",
       /*shared_memory_size_hint_bytes=*/16 * 1024, /*in_process=*/true,
       TracingService::ProducerSMBScrapingMode::kDisabled,
       /*shared_memory_page_size_hint_bytes=*/4096);

@@ -82,7 +82,7 @@ void xnn_f32_gemm_relu_ukernel_1x8__wasmsimd_splat(
     }
     if XNN_UNLIKELY(k != 0) {
       do {
-        const v128_t va0 = wasm_v32x4_load_splat(a0);
+        const v128_t va0 = wasm_v128_load32_splat(a0);
         a0 += 1;
 
         const v128_t vb0123 = wasm_v128_load(w);
@@ -96,7 +96,7 @@ void xnn_f32_gemm_relu_ukernel_1x8__wasmsimd_splat(
       } while (k != 0);
     }
 
-    const v128_t vzero = wasm_f32x4_splat(0.0f);
+    const v128_t vzero = wasm_i32x4_const_splat(0);
     vacc0x0123 = wasm_i32x4_max(vacc0x0123, vzero);
     vacc0x4567 = wasm_i32x4_max(vacc0x4567, vzero);
 

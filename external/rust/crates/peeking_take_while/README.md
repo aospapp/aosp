@@ -15,8 +15,6 @@ hand, `take_while` will consume that first item for which the predicate returns
 `false`, and it will be lost.
 
 ```rust
-extern crate peeking_take_while;
-
 // Bring the `peeking_take_while` method for peekable iterators into
 // scope.
 use peeking_take_while::PeekableExt;

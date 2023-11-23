@@ -14,11 +14,11 @@
 
 #include "icing/index/main/flash-index-storage.h"
 
-#include <errno.h>
-#include <inttypes.h>
 #include <sys/types.h>
 
 #include <algorithm>
+#include <cerrno>
+#include <cinttypes>
 #include <cstdint>
 #include <memory>
 #include <unordered_set>

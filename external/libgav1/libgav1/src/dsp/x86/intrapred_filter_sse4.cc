@@ -64,10 +64,10 @@ constexpr int kDuplicateFirstHalf = 0x44;
 // at zero to preserve the sum.
 // |pixels| contains p0-p7 in order as shown above.
 // |taps_0_1| contains the filter kernels used to predict f0 and f1, and so on.
-inline void Filter4x2_SSE4_1(uint8_t* dst, const ptrdiff_t stride,
-                             const __m128i& pixels, const __m128i& taps_0_1,
-                             const __m128i& taps_2_3, const __m128i& taps_4_5,
-                             const __m128i& taps_6_7) {
+inline void Filter4x2_SSE4_1(uint8_t* LIBGAV1_RESTRICT dst,
+                             const ptrdiff_t stride, const __m128i& pixels,
+                             const __m128i& taps_0_1, const __m128i& taps_2_3,
+                             const __m128i& taps_4_5, const __m128i& taps_6_7) {
   const __m128i mul_0_01 = _mm_maddubs_epi16(pixels, taps_0_1);
   const __m128i mul_0_23 = _mm_maddubs_epi16(pixels, taps_2_3);
   // |output_half| contains 8 partial sums for f0-f7.
@@ -93,10 +93,10 @@ inline void Filter4x2_SSE4_1(uint8_t* dst, const ptrdiff_t stride,
 // for successive blocks. This implementation takes advantage of the fact
 // that the p5 and p6 for each sub-block come solely from the |left_ptr| buffer,
 // using shifts to arrange things to fit reusable shuffle vectors.
-inline void Filter4xH(uint8_t* dest, ptrdiff_t stride,
-                      const uint8_t* const top_ptr,
-                      const uint8_t* const left_ptr, FilterIntraPredictor pred,
-                      const int height) {
+inline void Filter4xH(uint8_t* LIBGAV1_RESTRICT dest, ptrdiff_t stride,
+                      const uint8_t* LIBGAV1_RESTRICT const top_ptr,
+                      const uint8_t* LIBGAV1_RESTRICT const left_ptr,
+                      FilterIntraPredictor pred, const int height) {
   // Two filter kernels per vector.
   const __m128i taps_0_1 = LoadAligned16(kFilterIntraTaps[pred][0]);
   const __m128i taps_2_3 = LoadAligned16(kFilterIntraTaps[pred][2]);
@@ -271,9 +271,10 @@ inline void Filter4xH(uint8_t* dest, ptrdiff_t stride,
   }
 }
 
-void FilterIntraPredictor_SSE4_1(void* const dest, ptrdiff_t stride,
-                                 const void* const top_row,
-                                 const void* const left_column,
+void FilterIntraPredictor_SSE4_1(void* LIBGAV1_RESTRICT const dest,
+                                 ptrdiff_t stride,
+                                 const void* LIBGAV1_RESTRICT const top_row,
+                                 const void* LIBGAV1_RESTRICT const left_column,
                                  FilterIntraPredictor pred, const int width,
                                  const int height) {
   const auto* const top_ptr = static_cast<const uint8_t*>(top_row);

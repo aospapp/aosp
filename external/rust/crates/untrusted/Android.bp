@@ -23,60 +23,39 @@ rust_library {
     // has rustc warnings
     host_supported: true,
     crate_name: "untrusted",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.7.1",
     srcs: ["src/untrusted.rs"],
     edition: "2018",
     apex_available: [
         "//apex_available:platform",
+        "com.android.compos",
         "com.android.resolv",
+        "com.android.virt",
     ],
     min_sdk_version: "29",
 }
 
-rust_defaults {
-    name: "untrusted_defaults",
-    crate_name: "untrusted",
-    // has rustc warnings
-    srcs: ["src/untrusted.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-}
-
-rust_test_host {
-    name: "untrusted_host_test_src_untrusted",
-    defaults: ["untrusted_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
 rust_test {
-    name: "untrusted_device_test_src_untrusted",
-    defaults: ["untrusted_defaults"],
-}
-
-rust_defaults {
-    name: "untrusted_defaults_tests",
-    crate_name: "tests",
+    name: "untrusted_test_tests_tests",
     // has rustc warnings
+    host_supported: true,
+    crate_name: "tests",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.7.1",
     srcs: ["tests/tests.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2018",
     rustlibs: [
         "libuntrusted",
     ],
 }
 
-rust_test_host {
-    name: "untrusted_host_test_tests_tests",
-    defaults: ["untrusted_defaults_tests"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "untrusted_device_test_tests_tests",
-    defaults: ["untrusted_defaults_tests"],
-}
+// Errors when listing tests:
+// error: lint `non_autolinks` has been renamed to `rustdoc::bare_urls`
+// error: aborting due to previous error
+// error: test failed, to rerun pass '--doc'

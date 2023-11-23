@@ -123,7 +123,9 @@ class FramebufferMtl : public FramebufferImpl
   private:
     void reset();
     gl::FramebufferStatus checkPackedDepthStencilAttachment() const;
-    angle::Result invalidateImpl(ContextMtl *contextMtl, size_t count, const GLenum *attachments);
+    angle::Result invalidateImpl(const gl::Context *context,
+                                 size_t count,
+                                 const GLenum *attachments);
     angle::Result blitWithDraw(const gl::Context *context,
                                FramebufferMtl *srcFrameBuffer,
                                bool blitColorBuffer,
@@ -204,6 +206,7 @@ class FramebufferMtl : public FramebufferImpl
                                      const mtl::BufferRef *dstBuffer) const;
 
     RenderTargetMtl *getColorReadRenderTargetNoCache(const gl::Context *context) const;
+    bool prepareForUse(const gl::Context *context) const;
 
     // NOTE: we cannot use RenderTargetCache here because it doesn't support separate
     // depth & stencil attachments as of now. Separate depth & stencil could be useful to

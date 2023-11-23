@@ -7,10 +7,6 @@ The ``pw_sync`` module contains utilities for synchronizing between threads
 and/or interrupts through signaling primitives and critical section lock
 primitives.
 
-.. contents::
-   :local:
-   :depth: 2
-
 .. Warning::
   This module is still under construction, the API is not yet stable.
 
@@ -82,7 +78,7 @@ C++
 
   .. cpp:function:: bool try_lock()
 
-     Attempts to lock the mutex in a non-blocking manner.
+     Tries to lock the mutex in a non-blocking manner.
      Returns true if the mutex was successfully acquired.
 
      **Precondition:** The lock isn't already held by this thread. Recursive
@@ -219,7 +215,7 @@ meaning it is a
 
 Note that the ``TimedMutex`` is a derived ``Mutex`` class, meaning that
 a ``TimedMutex`` can be used by someone who needs the basic ``Mutex``. This is
-in stark contrast to the C++ STL's
+in contrast to the C++ STL's
 `std::timed_mutex <https://en.cppreference.com/w/cpp/thread/timed_mutex>`_.
 
 
@@ -253,25 +249,26 @@ C++
 
   .. cpp:function:: bool try_lock()
 
-     Attempts to lock the mutex in a non-blocking manner.
+     Tries to lock the mutex in a non-blocking manner.
      Returns true if the mutex was successfully acquired.
 
      **Precondition:** The lock isn't already held by this thread. Recursive
      locking is undefined behavior.
 
-  .. cpp:function:: bool try_lock_for(chrono::SystemClock::duration for_at_least)
 
-     Attempts to lock the mutex where, if needed, blocking for at least the
-     specified duration.
+  .. cpp:function:: bool try_lock_for(const chrono::SystemClock::duration& timeout)
+
+     Tries to lock the mutex. Blocks until specified the timeout has elapsed or
+     the lock is acquired, whichever comes first.
      Returns true if the mutex was successfully acquired.
 
      **Precondition:** The lock isn't already held by this thread. Recursive
      locking is undefined behavior.
 
-  .. cpp:function:: bool try_lock_until(chrono::SystemClock::time_point until_at_least)
+  .. cpp:function:: bool try_lock_until(const chrono::SystemClock::time_point& deadline)
 
-     Attempts to lock the mutex where, if needed, blocking until at least the
-     specified time_point.
+     Tries to lock the mutex. Blocks until specified deadline has been reached
+     or the lock is acquired, whichever comes first.
      Returns true if the mutex was successfully acquired.
 
      **Precondition:** The lock isn't already held by this thread. Recursive
@@ -375,11 +372,11 @@ The TimedMutex must be created in C++, however it can be passed into C using the
 
   Invokes the ``TimedMutex::try_lock`` member function on the given ``mutex``.
 
-.. cpp:function:: bool pw_sync_TimedMutex_TryLockFor(pw_sync_TimedMutex* mutex, pw_chrono_SystemClock_Duration for_at_least)
+.. cpp:function:: bool pw_sync_TimedMutex_TryLockFor(pw_sync_TimedMutex* mutex, pw_chrono_SystemClock_Duration timeout)
 
   Invokes the ``TimedMutex::try_lock_for`` member function on the given ``mutex``.
 
-.. cpp:function:: bool pw_sync_TimedMutex_TryLockUntil(pw_sync_TimedMutex* mutex, pw_chrono_SystemClock_TimePoint until_at_least)
+.. cpp:function:: bool pw_sync_TimedMutex_TryLockUntil(pw_sync_TimedMutex* mutex, pw_chrono_SystemClock_TimePoint deadline)
 
   Invokes the ``TimedMutex::try_lock_until`` member function on the given ``mutex``.
 
@@ -489,7 +486,7 @@ C++
 
   .. cpp:function:: bool try_lock()
 
-      Attempts to lock the spinlock in a non-blocking manner.
+      Tries to lock the spinlock in a non-blocking manner.
       Returns true if the spinlock was successfully acquired.
 
       **Precondition:** Recursive locking is undefined behavior.
@@ -951,6 +948,248 @@ the macro documentation after for more details:
    Documents functions that dynamically check to see if a lock is held, and fail
    if it is not held.
 
+-----------------------------
+Critical Section Lock Helpers
+-----------------------------
+
+Virtual Lock Interfaces
+=======================
+Virtual lock interfaces can be useful when lock selection cannot be templated.
+
+Why use virtual locks?
+----------------------
+Virtual locks enable depending on locks without templating implementation code
+on the type, while retaining flexibility with respect to the concrete lock type.
+Pigweed tries to avoid pushing policy on to users, and virtual locks are one way
+to accomplish that without templating everything.
+
+A case when virtual locks are useful is when the concrete lock type changes at
+run time. For example, access to flash may be protected at run time by an
+internal mutex, however at crash time we may want to switch to a no-op lock. A
+virtual lock interface could be used here to minimize the code-size cost that
+would occur otherwise if the flash driver were templated.
+
+VirtualBasicLock
+----------------
+The ``VirtualBasicLock`` interface meets the
+`BasicLockable <https://en.cppreference.com/w/cpp/named_req/BasicLockable>`_ C++
+named requirement. Our critical section lock primitives offer optional virtual
+versions, including:
+
+* ``pw::sync::VirtualMutex``
+* ``pw::sync::VirtualTimedMutex``
+* ``pw::sync::VirtualInterruptSpinLock``
+
+Borrowable
+==========
+The Borrowable is a helper construct that enables callers to borrow an object
+which is guarded by a lock, enabling a containerized style of external locking.
+
+Users who need access to the guarded object can ask to acquire a
+``BorrowedPointer`` which permits access while the lock is held.
+
+This class is compatible with locks which comply with
+`BasicLockable <https://en.cppreference.com/w/cpp/named_req/BasicLockable>`_,
+`Lockable <https://en.cppreference.com/w/cpp/named_req/Lockable>`_, and
+`TimedLockable <https://en.cppreference.com/w/cpp/named_req/TimedLockable>`_
+C++ named requirements.
+
+By default the selected lock type is a ``pw::sync::VirtualBasicLockable``. If
+this virtual interface is used, the templated lock parameter can be skipped.
+
+External vs Internal locking
+----------------------------
+Before we explain why Borrowable is useful, it's important to understand the
+trade-offs when deciding on using internal and/or external locking.
+
+Internal locking is when the lock is hidden from the caller entirely and is used
+internally to the API. For example:
+
+.. code-block:: cpp
+
+  class BankAccount {
+   public:
+    void Deposit(int amount) {
+      std::lock_guard lock(mutex_);
+      balance_ += amount;
+    }
+
+    void Withdraw(int amount) {
+      std::lock_guard lock(mutex_);
+      balance_ -= amount;
+    }
+
+    void Balance() const {
+      std::lock_guard lock(mutex_);
+      return balance_;
+    }
+
+   private:
+    int balance_ PW_GUARDED_BY(mutex_);
+    pw::sync::Mutex mutex_;
+  };
+
+Internal locking guarantees that any concurrent calls to its public member
+functions don't corrupt an instance of that class. This is typically ensured by
+having each member function acquire a lock on the object upon entry. This way,
+for any instance, there can only be one member function call active at any
+moment, serializing the operations.
+
+One common issue that pops up is that member functions may have to call other
+member functions which also require locks. This typically results in a
+duplication of the public API into an internal mirror where the lock is already
+held. This along with having to modify every thread-safe public member function
+may results in an increased code size.
+
+However, with the per-method locking approach, it is not possible to perform a
+multi-method thread-safe transaction. For example, what if we only wanted to
+withdraw money if the balance was high enough? With the current API there would
+be a risk that money is withdrawn after we've checked the balance.
+
+This is usually why external locking is used. This is when the lock is exposed
+to the caller and may be used externally to the public API. External locking
+can take may forms which may even include mixing internal and external locking.
+In its most simplistic form it is an external lock used along side each
+instance, e.g.:
+
+.. code-block:: cpp
+
+  class BankAccount {
+   public:
+    void Deposit(int amount) {
+      balance_ += amount;
+    }
+
+    void Withdraw(int amount) {
+      balance_ -= amount;
+    }
+
+    void Balance() const {
+      return balance_;
+    }
+
+   private:
+    int balance_;
+  };
+
+  pw::sync::Mutex bobs_account_mutex;
+  BankAccount bobs_account PW_GUARDED_BY(bobs_account_mutex);
+
+The lock is acquired before the bank account is used for a transaction. In
+addition, we do not have to modify every public function and its trivial to
+call other public member functions from a public member function. However, as
+you can imagine instantiating and passing around the instances and their locks
+can become error prone.
+
+This is why ``Borrowable`` exists.
+
+Why use Borrowable?
+-------------------
+``Borrowable`` offers code-size efficient way to enable external locking that is
+easy and safe to use. It is effectively a container which holds references to a
+protected instance and its lock which provides RAII-style access.
+
+.. code-block:: cpp
+
+  pw::sync::Mutex bobs_account_mutex;
+  BankAccount bobs_account PW_GUARDED_BY(bobs_account_mutex);
+  pw::sync::Borrowable<BankAccount, pw::sync::Mutex> bobs_acount(
+      bobs_account, bobs_account_mutex);
+
+This construct is useful when sharing objects or data which are transactional in
+nature where making individual operations threadsafe is insufficient. See the
+section on internal vs external locking tradeoffs above.
+
+It can also offer a code-size and stack-usage efficient way to separate timeout
+constraints between the acquiring of the shared object and timeouts used for the
+shared object's API. For example, imagine you have an I2c bus which is used by
+several threads and you'd like to specify an ACK timeout of 50ms. It'd be ideal
+if the duration it takes to gain exclusive access to the I2c bus does not eat
+into the ACK timeout you'd like to use for the transaction. Borrowable can help
+you do exactly this if you provide access to the I2c bus through a
+``Borrowable``.
+
+C++
+---
+.. cpp:class:: template <typename GuardedType, typename Lock = pw::sync::VirtualBasicLockable> pw::sync::BorrowedPointer
+
+  The BorrowedPointer is an RAII handle which wraps a pointer to a borrowed
+  object along with a held lock which is guarding the object. When destroyed,
+  the lock is released.
+
+  This object is moveable, but not copyable.
+
+  .. cpp:function:: GuardedType* operator->()
+
+     Provides access to the borrowed object's members.
+
+  .. cpp:function:: GuardedType& operator*()
+
+     Provides access to the borrowed object directly.
+
+     **Warning:** The member of pointer member access operator, operator->(), is
+     recommended over this API as this is prone to leaking references. However,
+     this is sometimes necessary.
+
+     **Warning:** Be careful not to leak references to the borrowed object.
+
+.. cpp:class:: template <typename GuardedType, typename Lock = pw::sync::VirtualBasicLockable> pw::sync::Borrowable
+
+  .. cpp:function:: BorrowedPointer<GuardedType, Lock> acquire()
+
+     Blocks indefinitely until the object can be borrowed. Failures are fatal.
+
+  .. cpp:function:: std::optional<BorrowedPointer<GuardedType, Lock>> try_acquire()
+
+     Tries to borrow the object in a non-blocking manner. Returns a
+     BorrowedPointer on success, otherwise std::nullopt (nothing).
+
+  .. cpp:function:: template <class Rep, class Period> std::optional<BorrowedPointer<GuardedType, Lock>> try_acquire_for(std::chrono::duration<Rep, Period> timeout)
+
+     Tries to borrow the object. Blocks until the specified timeout has elapsed
+     or the object has been borrowed, whichever comes first. Returns a
+     BorrowedPointer on success, otherwise std::nullopt (nothing).
+
+  .. cpp:function:: template <class Rep, class Period> std::optional<BorrowedPointer<GuardedType, Lock>> try_acquire_until(std::chrono::duration<Rep, Period> deadline)
+
+     Tries to borrow the object. Blocks until the specified deadline has been
+     reached or the object has been borrowed, whichever comes first. Returns a
+     BorrowedPointer on success, otherwise std::nullopt (nothing).
+
+Example in C++
+^^^^^^^^^^^^^^
+
+.. code-block:: cpp
+
+  #include <chrono>
+
+  #include "pw_bytes/span.h"
+  #include "pw_i2c/initiator.h"
+  #include "pw_status/try.h"
+  #include "pw_status/result.h"
+  #include "pw_sync/borrow.h"
+  #include "pw_sync/mutex.h"
+
+  class ExampleI2c : public pw::i2c::Initiator;
+
+  pw::sync::VirtualMutex i2c_mutex;
+  ExampleI2c i2c;
+  pw::sync::Borrowable<ExampleI2c> borrowable_i2c(i2c, i2c_mutex);
+
+  pw::Result<ConstByteSpan> ReadI2cData(ByteSpan buffer) {
+    // Block indefinitely waiting to borrow the i2c bus.
+    pw::sync::BorrowedPointer<ExampleI2c> borrowed_i2c =
+        borrowable_i2c.acquire();
+
+    // Execute a sequence of transactions to get the needed data.
+    PW_TRY(borrowed_i2c->WriteFor(kFirstWrite, std::chrono::milliseconds(50)));
+    PW_TRY(borrowed_i2c->WriteReadFor(kSecondWrite, buffer,
+                                      std::chrono::milliseconds(10)));
+
+    // Borrowed i2c pointer is returned when the scope exits.
+    return buffer;
+  }
+
 --------------------
 Signaling Primitives
 --------------------
@@ -963,17 +1202,325 @@ variables tend to not be natively supported on RTOSes. Although you can usually
 build any signaling primitive based on other native signaling primitives, this
 may come with non-trivial added overhead in ROM, RAM, and execution efficiency.
 
-For this reason, Pigweed intends to provide some "simpler" signaling primitives
+For this reason, Pigweed intends to provide some simpler signaling primitives
 which exist to solve a narrow programming need but can be implemented as
 efficiently as possible for the platform that it is used on.
 
 This simpler but highly portable class of signaling primitives is intended to
 ensure that a portability efficiency tradeoff does not have to be made up front.
-For example we intend to provide a ``pw::sync::Notification`` facade which
-permits a singler consumer to block until an event occurs. This should be
+Today this is class of simpler signaling primitives is limited to the
+``pw::sync::ThreadNotification`` and ``pw::sync::TimedThreadNotification``.
+
+ThreadNotification
+==================
+The ThreadNotification is a synchronization primitive that can be used to
+permit a SINGLE thread to block and consume a latching, saturating
+notification from multiple notifiers.
+
+.. Note::
+  Although only a single thread can block on a ThreadNotification at a time,
+  many instances may be used by a single thread just like binary semaphores.
+  This is in contrast to some native RTOS APIs, such as direct task
+  notifications, which re-use the same state within a thread's context.
+
+.. Warning::
+  This is a single consumer/waiter, multiple producer/notifier API!
+  The acquire APIs must only be invoked by a single consuming thread. As a
+  result, having multiple threads receiving notifications via the acquire API
+  is unsupported.
+
+This is effectively a subset of the ``pw::sync::BinarySemaphore`` API, except
+that only a single thread can be notified and block at a time.
+
+The single consumer aspect of the API permits the use of a smaller and/or
+faster native APIs such as direct thread signaling. This should be
 backed by the most efficient native primitive for a target, regardless of
 whether that is a semaphore, event flag group, condition variable, or something
 else.
+
+Generic BinarySemaphore-based Backend
+-------------------------------------
+This module provides a generic backend for ``pw::sync::ThreadNotification`` via
+``pw_sync:binary_semaphore_thread_notification`` which uses a
+``pw::sync::BinarySemaphore`` as the backing primitive. See
+:ref:`BinarySemaphore <module-pw_sync-binary-semaphore>` for backend
+availability.
+
+Optimized Backend
+-----------------
+.. list-table::
+
+  * - *Supported on*
+    - *Optimized backend module*
+  * - FreeRTOS
+    - ``pw_sync_freertos:thread_notification``
+  * - ThreadX
+    - Not possible, use ``pw_sync:binary_semaphore_thread_notification``
+  * - embOS
+    - Not needed, use ``pw_sync:binary_semaphore_thread_notification``
+  * - STL
+    - Not planned, use ``pw_sync:binary_semaphore_thread_notification``
+  * - Baremetal
+    - Planned
+  * - Zephyr
+    - Planned
+  * - CMSIS-RTOS API v2 & RTX5
+    - Planned
+
+C++
+---
+.. cpp:class:: pw::sync::ThreadNotification
+
+  .. cpp:function:: void acquire()
+
+     Blocks indefinitely until the thread is notified, i.e. until the
+     notification latch can be cleared because it was set.
+
+     Clears the notification latch.
+
+     **IMPORTANT:** This should only be used by a single consumer thread.
+
+  .. cpp:function:: bool try_acquire()
+
+     Returns whether the thread has been notified, i.e. whether the notificion
+     latch was set and resets the latch regardless.
+
+     Clears the notification latch.
+
+     Returns true if the thread was notified, meaning the the internal latch was
+     reset successfully.
+
+     **IMPORTANT:** This should only be used by a single consumer thread.
+
+  .. cpp:function:: void release()
+
+     Notifies the thread in a saturating manner, setting the notification latch.
+
+     Raising the notification multiple time without it being acquired by the
+     consuming thread is equivalent to raising the notification once to the
+     thread. The notification is latched in case the thread was not waiting at
+     the time.
+
+     This is IRQ and thread safe.
+
+  .. list-table::
+
+    * - *Safe to use in context*
+      - *Thread*
+      - *Interrupt*
+      - *NMI*
+    * - ``ThreadNotification::ThreadNotification``
+      - ✔
+      -
+      -
+    * - ``ThreadNotification::~ThreadNotification``
+      - ✔
+      -
+      -
+    * - ``void ThreadNotification::acquire``
+      - ✔
+      -
+      -
+    * - ``bool ThreadNotification::try_acquire``
+      - ✔
+      -
+      -
+    * - ``void ThreadNotification::release``
+      - ✔
+      - ✔
+      -
+
+Examples in C++
+^^^^^^^^^^^^^^^
+.. code-block:: cpp
+
+  #include "pw_sync/thread_notification.h"
+  #include "pw_thread/thread_core.h"
+
+  class FooHandler() : public pw::thread::ThreadCore {
+   // Public API invoked by other threads and/or interrupts.
+   void NewFooAvailable() {
+     new_foo_notification_.release();
+   }
+
+   private:
+    pw::sync::ThreadNotification new_foo_notification_;
+
+    // Thread function.
+    void Run() override {
+      while (true) {
+        new_foo_notification_.acquire();
+        HandleFoo();
+      }
+    }
+
+    void HandleFoo();
+  }
+
+TimedThreadNotification
+=======================
+The TimedThreadNotification is an extension of the ThreadNotification which
+offers timeout and deadline based semantics.
+
+.. Warning::
+  This is a single consumer/waiter, multiple producer/notifier API!
+  The acquire APIs must only be invoked by a single consuming thread. As a
+  result, having multiple threads receiving notifications via the acquire API
+  is unsupported.
+
+Generic BinarySemaphore-based Backend
+-------------------------------------
+This module provides a generic backend for ``pw::sync::TimedThreadNotification``
+via ``pw_sync:binary_semaphore_timed_thread_notification`` which uses a
+``pw::sync::BinarySemaphore`` as the backing primitive. See
+:ref:`BinarySemaphore <module-pw_sync-binary-semaphore>` for backend
+availability.
+
+Optimized Backend
+-----------------
+.. list-table::
+
+  * - *Supported on*
+    - *Backend module*
+  * - FreeRTOS
+    - ``pw_sync_freertos:timed_thread_notification``
+  * - ThreadX
+    - Not possible, use ``pw_sync:binary_semaphore_timed_thread_notification``
+  * - embOS
+    - Not needed, use ``pw_sync:binary_semaphore_timed_thread_notification``
+  * - STL
+    - Not planned, use ``pw_sync:binary_semaphore_timed_thread_notification``
+  * - Zephyr
+    - Planned
+  * - CMSIS-RTOS API v2 & RTX5
+    - Planned
+
+C++
+---
+.. cpp:class:: pw::sync::TimedThreadNotification
+
+  .. cpp:function:: void acquire()
+
+     Blocks indefinitely until the thread is notified, i.e. until the
+     notification latch can be cleared because it was set.
+
+     Clears the notification latch.
+
+     **IMPORTANT:** This should only be used by a single consumer thread.
+
+  .. cpp:function:: bool try_acquire()
+
+     Returns whether the thread has been notified, i.e. whether the notificion
+     latch was set and resets the latch regardless.
+
+     Clears the notification latch.
+
+     Returns true if the thread was notified, meaning the the internal latch was
+     reset successfully.
+
+     **IMPORTANT:** This should only be used by a single consumer thread.
+
+  .. cpp:function:: void release()
+
+     Notifies the thread in a saturating manner, setting the notification latch.
+
+     Raising the notification multiple time without it being acquired by the
+     consuming thread is equivalent to raising the notification once to the
+     thread. The notification is latched in case the thread was not waiting at
+     the time.
+
+     This is IRQ and thread safe.
+
+  .. cpp:function:: bool try_acquire_for(chrono::SystemClock::duration timeout)
+
+     Blocks until the specified timeout duration has elapsed or the thread
+     has been notified (i.e. notification latch can be cleared because it was
+     set), whichever comes first.
+
+     Clears the notification latch.
+
+     Returns true if the thread was notified, meaning the the internal latch was
+     reset successfully.
+
+     **IMPORTANT:** This should only be used by a single consumer thread.
+
+  .. cpp:function:: bool try_acquire_until(chrono::SystemClock::time_point deadline)
+
+     Blocks until the specified deadline time has been reached the thread has
+     been notified (i.e. notification latch can be cleared because it was set),
+     whichever comes first.
+
+     Clears the notification latch.
+
+     Returns true if the thread was notified, meaning the the internal latch was
+     reset successfully.
+
+     **IMPORTANT:** This should only be used by a single consumer thread.
+
+  .. list-table::
+
+    * - *Safe to use in context*
+      - *Thread*
+      - *Interrupt*
+      - *NMI*
+    * - ``TimedThreadNotification::TimedThreadNotification``
+      - ✔
+      -
+      -
+    * - ``TimedThreadNotification::~TimedThreadNotification``
+      - ✔
+      -
+      -
+    * - ``void TimedThreadNotification::acquire``
+      - ✔
+      -
+      -
+    * - ``bool TimedThreadNotification::try_acquire``
+      - ✔
+      -
+      -
+    * - ``bool TimedThreadNotification::try_acquire_for``
+      - ✔
+      -
+      -
+    * - ``bool TimedThreadNotification::try_acquire_until``
+      - ✔
+      -
+      -
+    * - ``void TimedThreadNotification::release``
+      - ✔
+      - ✔
+      -
+
+Examples in C++
+^^^^^^^^^^^^^^^
+.. code-block:: cpp
+
+  #include "pw_sync/timed_thread_notification.h"
+  #include "pw_thread/thread_core.h"
+
+  class FooHandler() : public pw::thread::ThreadCore {
+   // Public API invoked by other threads and/or interrupts.
+   void NewFooAvailable() {
+     new_foo_notification_.release();
+   }
+
+   private:
+    pw::sync::TimedThreadNotification new_foo_notification_;
+
+    // Thread function.
+    void Run() override {
+      while (true) {
+        if (new_foo_notification_.try_acquire_for(kNotificationTimeout)) {
+          HandleFoo();
+        }
+        DoOtherStuff();
+      }
+    }
+
+    void HandleFoo();
+    void DoOtherStuff();
+  }
 
 CountingSemaphore
 =================
@@ -987,8 +1534,12 @@ does not recommend semaphores for mutual exclusion.
 
 The CountingSemaphore is initialized to being empty or having no tokens.
 
-The entire API is thread safe, but only a subset is interrupt safe. None of it
-is NMI safe.
+The entire API is thread safe, but only a subset is interrupt safe.
+
+.. Note::
+  If there is only a single consuming thread, we recommend using a
+  ThreadNotification instead which can be much more efficient on some RTOSes
+  such as FreeRTOS.
 
 .. Warning::
   Releasing multiple tokens is often not natively supported, meaning you may
@@ -1012,6 +1563,134 @@ is NMI safe.
   * - CMSIS-RTOS API v2 & RTX5
     - Planned
 
+C++
+---
+.. cpp:class:: pw::sync::CountingSemaphore
+
+  .. cpp:function:: void acquire()
+
+     Decrements the internal counter by 1 or blocks indefinitely until it can.
+     This is thread safe, but not IRQ safe.
+
+  .. cpp:function:: bool try_acquire() noexcept
+
+     Tries to decrement by the internal counter by 1 without blocking.
+     Returns true if the internal counter was decremented successfully.
+     This is thread and IRQ safe.
+
+  .. cpp:function:: bool try_acquire_for(chrono::SystemClock::duration timeout)
+
+     Tries to decrement the internal counter by 1. Blocks until the specified
+     timeout has elapsed or the counter was decremented by 1, whichever comes
+     first.
+     Returns true if the internal counter was decremented successfully.
+     This is thread safe, but not IRQ safe.
+
+  .. cpp:function:: bool try_acquire_until(chrono::SystemClock::time_point deadline)
+
+     Tries to decrement the internal counter by 1. Blocks until the specified
+     deadline has been reached or the counter was decremented  by 1, whichever
+     comes first.
+     Returns true if the internal counter was decremented successfully.
+     This is thread safe, but not IRQ safe.
+
+  .. cpp:function:: void release(ptrdiff_t update = 1)
+
+     Atomically increments the internal counter by the value of update.
+     Any thread(s) waiting for the counter to be greater than 0, i.e.
+     blocked in acquire, will subsequently be unblocked.
+     This is thread and IRQ safe.
+
+     **Precondition:** update >= 0
+
+     **Precondition:** update <= max() - counter
+
+  .. cpp:function:: static constexpr ptrdiff_t max() noexcept
+
+     Returns the internal counter's maximum possible value.
+
+  .. list-table::
+
+    * - *Safe to use in context*
+      - *Thread*
+      - *Interrupt*
+      - *NMI*
+    * - ``CountingSemaphore::CountingSemaphore``
+      - ✔
+      -
+      -
+    * - ``CountingSemaphore::~CountingSemaphore``
+      - ✔
+      -
+      -
+    * - ``void CountingSemaphore::acquire``
+      - ✔
+      -
+      -
+    * - ``bool CountingSemaphore::try_acquire``
+      - ✔
+      - ✔
+      -
+    * - ``bool CountingSemaphore::try_acquire_for``
+      - ✔
+      -
+      -
+    * - ``bool CountingSemaphore::try_acquire_until``
+      - ✔
+      -
+      -
+    * - ``void CountingSemaphore::release``
+      - ✔
+      - ✔
+      -
+    * - ``void CountingSemaphore::max``
+      - ✔
+      - ✔
+      - ✔
+
+Examples in C++
+^^^^^^^^^^^^^^^
+As an example, a counting sempahore can be useful to run periodic tasks at
+frequencies near or higher than the system clock tick rate in a way which lets
+you detect whether you ever fall behind.
+
+.. code-block:: cpp
+
+  #include "pw_sync/counting_semaphore.h"
+  #include "pw_thread/thread_core.h"
+
+  class PeriodicWorker() : public pw::thread::ThreadCore {
+   // Public API invoked by a higher frequency timer interrupt.
+   void TimeToExecute() {
+     periodic_run_semaphore_.release();
+   }
+
+   private:
+    pw::sync::CountingSemaphore periodic_run_semaphore_;
+
+    // Thread function.
+    void Run() override {
+      while (true) {
+        size_t behind_by_n_cycles = 0;
+        periodic_run_semaphore_.acquire(); // Wait to run until it's time.
+        while (periodic_run_semaphore_.try_acquire()) {
+          ++behind_by_n_cycles;
+        }
+        if (behind_by_n_cycles > 0) {
+          PW_LOG_WARNING("Not keeping up, behind by %d cycles",
+                         behind_by_n_cycles);
+        }
+        DoPeriodicWork();
+      }
+    }
+
+    void DoPeriodicWork();
+  }
+
+
+
+.. _module-pw_sync-binary-semaphore:
+
 BinarySemaphore
 ===============
 BinarySemaphore is a specialization of CountingSemaphore with an arbitrary token
@@ -1023,8 +1702,13 @@ default implementation of CountingSemaphore.
 
 The BinarySemaphore is initialized to being empty or having no tokens.
 
-The entire API is thread safe, but only a subset is interrupt safe. None of it
-is NMI safe.
+The entire API is thread safe, but only a subset is interrupt safe.
+
+.. Note::
+  If there is only a single consuming thread, we recommend using a
+  ThreadNotification instead which can be much more efficient on some RTOSes
+  such as FreeRTOS.
+
 
 .. list-table::
 
@@ -1043,16 +1727,130 @@ is NMI safe.
   * - CMSIS-RTOS API v2 & RTX5
     - Planned
 
-Coming Soon
-===========
-We are intending to provide facades for:
+C++
+---
+.. cpp:class:: pw::sync::BinarySemaphore
 
-* ``pw::sync::Notification``: A portable abstraction to allow threads to receive
-  notification of a single occurrence of a single event.
+  .. cpp:function:: void acquire()
 
-* ``pw::sync::EventGroup`` A facade for a common primitive on RTOSes like
-  FreeRTOS, RTX5, ThreadX, and embOS which permit threads and interrupts to
-  signal up to 32 events. This permits others threads to be notified when either
-  any or some combination of these events have been signaled. This is frequently
-  used as an alternative to a set of binary semaphore(s). This is not supported
-  natively on Zephyr.
+     Decrements the internal counter to 0 or blocks indefinitely until it can.
+     This is thread safe, but not IRQ safe.
+
+  .. cpp:function:: bool try_acquire() noexcept
+
+     Tries to decrement by the internal counter to 0 without blocking.
+     Returns true if the internal counter was decremented successfully.
+     This is thread and IRQ safe.
+
+  .. cpp:function:: bool try_acquire_for(chrono::SystemClock::duration timeout)
+
+     Tries to decrement the internal counter to 0. Blocks until the specified
+     timeout has elapsed or the counter was decremented to 0, whichever comes
+     first.
+     Returns true if the internal counter was decremented successfully.
+     This is thread safe, but not IRQ safe.
+
+  .. cpp:function:: bool try_acquire_until(chrono::SystemClock::time_point deadline)
+
+     Tries to decrement the internal counter to 0. Blocks until the specified
+     deadline has been reached or the counter was decremented to 0, whichever
+     comes first.
+     Returns true if the internal counter was decremented successfully.
+     This is thread safe, but not IRQ safe.
+
+  .. cpp:function:: void release()
+
+     Atomically increments the internal counter by 1.
+     Any thread(s) waiting for the counter to be greater than 0, i.e.
+     blocked in acquire, will subsequently be unblocked.
+     This is thread and IRQ safe.
+
+     There exists an overflow risk if one releases more than max() times
+     between acquires because many RTOS implementations internally
+     increment the counter past one where it is only cleared when acquired.
+
+     **Precondition:** 1 <= max() - counter
+
+  .. cpp:function:: static constexpr ptrdiff_t max() noexcept
+
+     Returns the internal counter's maximum possible value.
+
+  .. list-table::
+
+    * - *Safe to use in context*
+      - *Thread*
+      - *Interrupt*
+      - *NMI*
+    * - ``BinarySemaphore::BinarySemaphore``
+      - ✔
+      -
+      -
+    * - ``BinarySemaphore::~BinarySemaphore``
+      - ✔
+      -
+      -
+    * - ``void BinarySemaphore::acquire``
+      - ✔
+      -
+      -
+    * - ``bool BinarySemaphore::try_acquire``
+      - ✔
+      - ✔
+      -
+    * - ``bool BinarySemaphore::try_acquire_for``
+      - ✔
+      -
+      -
+    * - ``bool BinarySemaphore::try_acquire_until``
+      - ✔
+      -
+      -
+    * - ``void BinarySemaphore::release``
+      - ✔
+      - ✔
+      -
+    * - ``void BinarySemaphore::max``
+      - ✔
+      - ✔
+      - ✔
+
+Examples in C++
+^^^^^^^^^^^^^^^
+.. code-block:: cpp
+
+  #include "pw_sync/binary_semaphore.h"
+  #include "pw_thread/thread_core.h"
+
+  class FooHandler() : public pw::thread::ThreadCore {
+   // Public API invoked by other threads and/or interrupts.
+   void NewFooAvailable() {
+     new_foo_semaphore_.release();
+   }
+
+   private:
+    pw::sync::BinarySemaphore new_foo_semaphore_;
+
+    // Thread function.
+    void Run() override {
+      while (true) {
+        if (new_foo_semaphore_.try_acquire_for(kNotificationTimeout)) {
+          HandleFoo();
+        }
+        DoOtherStuff();
+      }
+    }
+
+    void HandleFoo();
+    void DoOtherStuff();
+  }
+
+Conditional Variables
+=====================
+We've decided for now to skip on conditional variables. These are constructs,
+which are typically not natively available on RTOSes. CVs would have to be
+backed by a multiple hidden semaphore(s) in addition to the explicit public
+mutex. In other words a CV typically ends up as a a composition of
+synchronization primitives on RTOSes. That being said, one could implement them
+using our semaphore and mutex layers and we may consider providing this in the
+future. However for most of our resource constrained customers they will mostly
+likely be using semaphores more often than CVs.

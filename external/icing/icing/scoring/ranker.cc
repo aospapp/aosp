@@ -32,6 +32,7 @@ namespace {
 
 // Helper function to wrap the heapify algorithm, it heapifies the target
 // subtree node in place.
+// TODO(b/152934343) refactor the heapify function and making it into a class.
 void Heapify(
     std::vector<ScoredDocumentHit>* scored_document_hits,
     int target_subtree_root_index,
@@ -69,6 +70,80 @@ void Heapify(
               scored_document_hits->at(target_subtree_root_index));
     Heapify(scored_document_hits, best, scored_document_hit_comparator);
   }
+}
+
+// Heapify the given term vector from top to bottom. Call it after add or
+// replace an element at the front of the vector.
+void HeapifyTermDown(std::vector<TermMetadata>& scored_terms,
+                     int target_subtree_root_index) {
+  int heap_size = scored_terms.size();
+  if (target_subtree_root_index >= heap_size) {
+    return;
+  }
+
+  // Initializes subtree root as the current minimum node.
+  int min = target_subtree_root_index;
+  // If we represent a heap in an array/vector, indices of left and right
+  // children can be calculated as such.
+  const int left = target_subtree_root_index * 2 + 1;
+  const int right = target_subtree_root_index * 2 + 2;
+
+  // If left child is smaller than current minimum.
+  if (left < heap_size &&
+      scored_terms.at(left).hit_count < scored_terms.at(min).hit_count) {
+    min = left;
+  }
+
+  // If right child is smaller than current minimum.
+  if (right < heap_size &&
+      scored_terms.at(right).hit_count < scored_terms.at(min).hit_count) {
+    min = right;
+  }
+
+  // If the minimum is not the subtree root, swap and continue heapifying the
+  // lower level subtree.
+  if (min != target_subtree_root_index) {
+    std::swap(scored_terms.at(min),
+              scored_terms.at(target_subtree_root_index));
+    HeapifyTermDown(scored_terms, min);
+  }
+}
+
+// Heapify the given term vector from bottom to top. Call it after add an
+// element at the end of the vector.
+void HeapifyTermUp(std::vector<TermMetadata>& scored_terms,
+                   int target_subtree_child_index) {
+  // If we represent a heap in an array/vector, indices of root can be
+  // calculated as such.
+  const int root = (target_subtree_child_index + 1) / 2 - 1;
+
+  // If the current child is smaller than the root, swap and continue heapifying
+  // the upper level subtree
+  if (root >= 0 && scored_terms.at(target_subtree_child_index).hit_count <
+                       scored_terms.at(root).hit_count) {
+    std::swap(scored_terms.at(root),
+              scored_terms.at(target_subtree_child_index));
+    HeapifyTermUp(scored_terms, root);
+  }
+}
+
+TermMetadata PopRootTerm(std::vector<TermMetadata>& scored_terms) {
+  if (scored_terms.empty()) {
+    // Return an invalid TermMetadata as a sentinel value.
+    return TermMetadata(/*content_in=*/"", /*hit_count_in=*/-1);
+  }
+
+  // Steps to extract root from heap:
+  // 1. copy out root
+  TermMetadata root = scored_terms.at(0);
+  const size_t last_node_index = scored_terms.size() - 1;
+  // 2. swap root and the last node
+  std::swap(scored_terms.at(0), scored_terms.at(last_node_index));
+  // 3. remove last node
+  scored_terms.pop_back();
+  // 4. heapify root
+  HeapifyTermDown(scored_terms, /*target_subtree_root_index=*/0);
+  return root;
 }
 
 // Helper function to extract the root from the heap. The heap structure will be
@@ -115,6 +190,19 @@ void BuildHeapInPlace(
   }
 }
 
+void PushToTermHeap(TermMetadata term, int number_to_return,
+                    std::vector<TermMetadata>& scored_terms_heap) {
+  if (scored_terms_heap.size() < number_to_return) {
+    scored_terms_heap.push_back(std::move(term));
+    // We insert at end, so we should heapify bottom up.
+    HeapifyTermUp(scored_terms_heap, scored_terms_heap.size() - 1);
+  } else if (scored_terms_heap.at(0).hit_count < term.hit_count) {
+    scored_terms_heap.at(0) = std::move(term);
+    // We insert at root, so we should heapify top down.
+    HeapifyTermDown(scored_terms_heap, /*target_subtree_root_index=*/0);
+  }
+}
+
 std::vector<ScoredDocumentHit> PopTopResultsFromHeap(
     std::vector<ScoredDocumentHit>* scored_document_hits_heap, int num_results,
     const ScoredDocumentHitComparator& scored_document_hit_comparator) {
@@ -132,6 +220,16 @@ std::vector<ScoredDocumentHit> PopTopResultsFromHeap(
     }
   }
   return scored_document_hit_result;
+}
+
+std::vector<TermMetadata> PopAllTermsFromHeap(
+    std::vector<TermMetadata>& scored_terms_heap) {
+  std::vector<TermMetadata> top_term_result;
+  top_term_result.reserve(scored_terms_heap.size());
+  while (!scored_terms_heap.empty()) {
+    top_term_result.push_back(PopRootTerm(scored_terms_heap));
+  }
+  return top_term_result;
 }
 
 }  // namespace lib

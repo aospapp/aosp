@@ -15,6 +15,7 @@
 #include "pw_router/static_router.h"
 
 #include "gtest/gtest.h"
+#include "pw_assert/check.h"
 #include "pw_router/egress_function.h"
 
 namespace pw::router {
@@ -24,12 +25,16 @@ struct BasicPacket {
   static constexpr uint32_t kMagic = 0x8badf00d;
 
   constexpr BasicPacket(uint32_t addr, uint64_t data)
-      : magic(kMagic), address(addr), payload(data) {}
+      : magic(kMagic), address(addr), priority(0), payload(data) {}
+
+  constexpr BasicPacket(uint32_t addr, uint32_t prio, uint64_t data)
+      : magic(kMagic), address(addr), priority(prio), payload(data) {}
 
   ConstByteSpan data() const { return std::as_bytes(std::span(this, 1)); }
 
   uint32_t magic;
   uint32_t address;
+  uint32_t priority;
   uint64_t payload;
 };
 
@@ -47,66 +52,96 @@ class BasicPacketParser : public PacketParser {
     return packet_->address;
   }
 
+  uint32_t priority() const {
+    PW_DCHECK_NOTNULL(packet_);
+    return packet_->priority;
+  };
+
  private:
   const BasicPacket* packet_;
 };
 
-EgressFunction GoodEgress(+[](ConstByteSpan) { return OkStatus(); });
-EgressFunction BadEgress(+[](ConstByteSpan) {
+EgressFunction GoodEgress(+[](ConstByteSpan, const PacketParser&) {
+  return OkStatus();
+});
+EgressFunction BadEgress(+[](ConstByteSpan, const PacketParser&) {
   return Status::ResourceExhausted();
 });
 
 TEST(StaticRouter, RoutePacket_RoutesToAnEgress) {
   BasicPacketParser parser;
   constexpr StaticRouter::Route routes[] = {{1, GoodEgress}, {2, BadEgress}};
-  StaticRouter router(parser, std::span(routes));
+  StaticRouter router(routes);
 
-  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 0xdddd).data()), OkStatus());
-  EXPECT_EQ(router.RoutePacket(BasicPacket(2, 0xdddd).data()),
+  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 0xdddd).data(), parser),
+            OkStatus());
+  EXPECT_EQ(router.RoutePacket(BasicPacket(2, 0xdddd).data(), parser),
             Status::Unavailable());
+}
+
+TEST(StaticRouter, RoutePacket_ForwardsPacketParser) {
+  uint32_t parser_priority = 0xffffffff;
+
+  EgressFunction parser_egress(
+      [&parser_priority](ConstByteSpan, const PacketParser& parser) {
+        const BasicPacketParser& basic_parser =
+            static_cast<const BasicPacketParser&>(parser);
+        parser_priority = basic_parser.priority();
+        return OkStatus();
+      });
+
+  StaticRouter::Route routes[] = {{1, parser_egress}};
+  StaticRouter router(routes);
+  BasicPacketParser parser;
+
+  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 71, 0xdddd).data(), parser),
+            OkStatus());
+  EXPECT_EQ(parser_priority, 71u);
 }
 
 TEST(StaticRouter, RoutePacket_ReturnsParserError) {
   BasicPacketParser parser;
   constexpr StaticRouter::Route routes[] = {{1, GoodEgress}, {2, BadEgress}};
-  StaticRouter router(parser, std::span(routes));
+  StaticRouter router(routes);
 
   BasicPacket bad_magic(1, 0xdddd);
   bad_magic.magic = 0x1badda7a;
-  EXPECT_EQ(router.RoutePacket(bad_magic.data()), Status::DataLoss());
+  EXPECT_EQ(router.RoutePacket(bad_magic.data(), parser), Status::DataLoss());
 }
 
 TEST(StaticRouter, RoutePacket_ReturnsNotFoundOnInvalidRoute) {
   BasicPacketParser parser;
   constexpr StaticRouter::Route routes[] = {{1, GoodEgress}, {2, BadEgress}};
-  StaticRouter router(parser, std::span(routes));
+  StaticRouter router(routes);
 
-  EXPECT_EQ(router.RoutePacket(BasicPacket(42, 0xdddd).data()),
+  EXPECT_EQ(router.RoutePacket(BasicPacket(42, 0xdddd).data(), parser),
             Status::NotFound());
 }
 
 TEST(StaticRouter, RoutePacket_TracksNumberOfDrops) {
   BasicPacketParser parser;
   constexpr StaticRouter::Route routes[] = {{1, GoodEgress}, {2, BadEgress}};
-  StaticRouter router(parser, std::span(routes));
+  StaticRouter router(routes);
 
   // Good
-  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 0xdddd).data()), OkStatus());
+  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 0xdddd).data(), parser),
+            OkStatus());
 
   // Egress error
-  EXPECT_EQ(router.RoutePacket(BasicPacket(2, 0xdddd).data()),
+  EXPECT_EQ(router.RoutePacket(BasicPacket(2, 0xdddd).data(), parser),
             Status::Unavailable());
 
   // Parser error
   BasicPacket bad_magic(1, 0xdddd);
   bad_magic.magic = 0x1badda7a;
-  EXPECT_EQ(router.RoutePacket(bad_magic.data()), Status::DataLoss());
+  EXPECT_EQ(router.RoutePacket(bad_magic.data(), parser), Status::DataLoss());
 
   // Good
-  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 0xdddd).data()), OkStatus());
+  EXPECT_EQ(router.RoutePacket(BasicPacket(1, 0xdddd).data(), parser),
+            OkStatus());
 
   // Bad route
-  EXPECT_EQ(router.RoutePacket(BasicPacket(42, 0xdddd).data()),
+  EXPECT_EQ(router.RoutePacket(BasicPacket(42, 0xdddd).data(), parser),
             Status::NotFound());
 
   EXPECT_EQ(router.dropped_packets(), 3u);

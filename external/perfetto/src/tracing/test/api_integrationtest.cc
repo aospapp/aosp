@@ -18,11 +18,13 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <fstream>
 #include <functional>
 #include <list>
 #include <mutex>
 #include <regex>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 // We also want to test legacy trace events.
@@ -43,6 +45,7 @@
 #include "src/tracing/test/api_test_support.h"
 #include "src/tracing/test/tracing_module.h"
 
+#include "perfetto/protozero/scattered_heap_buffer.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
 #include "perfetto/tracing/core/trace_config.h"
 
@@ -55,8 +58,10 @@
 #include "protos/perfetto/common/trace_stats.gen.h"
 #include "protos/perfetto/common/tracing_service_state.gen.h"
 #include "protos/perfetto/common/track_event_descriptor.gen.h"
+#include "protos/perfetto/common/track_event_descriptor.pbzero.h"
 #include "protos/perfetto/config/interceptor_config.gen.h"
 #include "protos/perfetto/config/track_event/track_event_config.gen.h"
+#include "protos/perfetto/trace/clock_snapshot.gen.h"
 #include "protos/perfetto/trace/clock_snapshot.pbzero.h"
 #include "protos/perfetto/trace/gpu/gpu_render_stage_event.gen.h"
 #include "protos/perfetto/trace/gpu/gpu_render_stage_event.pbzero.h"
@@ -70,6 +75,7 @@
 #include "protos/perfetto/trace/trace.pbzero.h"
 #include "protos/perfetto/trace/trace_packet.gen.h"
 #include "protos/perfetto/trace/trace_packet.pbzero.h"
+#include "protos/perfetto/trace/trace_packet_defaults.gen.h"
 #include "protos/perfetto/trace/track_event/chrome_process_descriptor.gen.h"
 #include "protos/perfetto/trace/track_event/chrome_process_descriptor.pbzero.h"
 #include "protos/perfetto/trace/track_event/counter_descriptor.gen.h"
@@ -122,6 +128,22 @@ struct std::hash<SourceLocation> {
   }
 };
 
+static void WriteFile(const std::string& file_name,
+                      const char* content,
+                      size_t len) {
+  std::ofstream output;
+  output.open(file_name.c_str(), std::ios::out | std::ios::binary);
+  output.write(content, static_cast<std::streamsize>(len));
+  output.close();
+}
+
+// Unused in merged code, but very handy for debugging when trace generated in
+// a test needs to be exported, to understand it further with other tools.
+__attribute__((unused)) static void WriteFile(const std::string& file_name,
+                                              const std::vector<char>& data) {
+  return WriteFile(file_name, data.data(), data.size());
+}
+
 // Represents an opaque (from Perfetto's point of view) thread identifier (e.g.,
 // base::PlatformThreadId in Chromium).
 struct MyThreadId {
@@ -162,6 +184,7 @@ struct TraceTimestampTraits<MyTimestamp> {
 namespace {
 
 using perfetto::TracingInitArgs;
+using perfetto::internal::TrackEventInternal;
 using ::testing::_;
 using ::testing::ContainerEq;
 using ::testing::ElementsAre;
@@ -247,7 +270,7 @@ class MockDataSource2 : public perfetto::DataSource<MockDataSource2> {
 class MockTracingMuxer : public perfetto::internal::TracingMuxer {
  public:
   struct DataSource {
-    const perfetto::DataSourceDescriptor dsd;
+    perfetto::DataSourceDescriptor dsd;
     perfetto::internal::DataSourceStaticState* static_state;
   };
 
@@ -262,6 +285,17 @@ class MockTracingMuxer : public perfetto::internal::TracingMuxer {
       perfetto::internal::DataSourceStaticState* static_state) override {
     data_sources.emplace_back(DataSource{dsd, static_state});
     return true;
+  }
+
+  void UpdateDataSourceDescriptor(
+      const perfetto::DataSourceDescriptor& dsd,
+      const perfetto::internal::DataSourceStaticState* static_state) override {
+    for (auto& rds : data_sources) {
+      if (rds.static_state == static_state) {
+        rds.dsd = dsd;
+        return;
+      }
+    }
   }
 
   std::unique_ptr<perfetto::TraceWriterBase> CreateTraceWriter(
@@ -302,6 +336,7 @@ bool TestIncrementalState::destroyed;
 struct TestIncrementalDataSourceTraits
     : public perfetto::DefaultDataSourceTraits {
   using IncrementalStateType = TestIncrementalState;
+  using CustomTlsState = void;
 };
 
 class TestIncrementalDataSource
@@ -344,6 +379,67 @@ class TestTracingPolicy : public perfetto::TracingPolicy {
 
 TestTracingPolicy* g_test_tracing_policy = new TestTracingPolicy();  // Leaked.
 
+class ParsedIncrementalState {
+ public:
+  void ClearIfNeeded(const perfetto::protos::gen::TracePacket& packet) {
+    if (packet.sequence_flags() &
+        perfetto::protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED) {
+      incremental_state_was_cleared_ = true;
+      categories_.clear();
+      event_names_.clear();
+      debug_annotation_names_.clear();
+      seen_tracks_.clear();
+    }
+  }
+
+  void Parse(const perfetto::protos::gen::TracePacket& packet) {
+    // Update incremental state.
+    if (packet.has_interned_data()) {
+      const auto& interned_data = packet.interned_data();
+      for (const auto& it : interned_data.event_categories()) {
+        EXPECT_EQ(categories_.find(it.iid()), categories_.end());
+        categories_[it.iid()] = it.name();
+      }
+      for (const auto& it : interned_data.event_names()) {
+        EXPECT_EQ(event_names_.find(it.iid()), event_names_.end());
+        event_names_[it.iid()] = it.name();
+      }
+      for (const auto& it : interned_data.debug_annotation_names()) {
+        EXPECT_EQ(debug_annotation_names_.find(it.iid()),
+                  debug_annotation_names_.end());
+        debug_annotation_names_[it.iid()] = it.name();
+      }
+    }
+  }
+
+  bool HasSeenTrack(uint64_t uuid) const {
+    return seen_tracks_.count(uuid) != 0;
+  }
+
+  void InsertTrack(uint64_t uuid) { seen_tracks_.insert(uuid); }
+
+  std::string GetCategory(uint64_t iid) { return categories_[iid]; }
+
+  std::string GetEventName(const perfetto::protos::gen::TrackEvent& event) {
+    if (event.has_name_iid())
+      return event_names_[event.name_iid()];
+    return event.name();
+  }
+
+  std::string GetDebugAnnotationName(uint64_t iid) {
+    return debug_annotation_names_[iid];
+  }
+
+  bool WasCleared() const { return incremental_state_was_cleared_; }
+
+ private:
+  bool incremental_state_was_cleared_ = false;
+  std::map<uint64_t, std::string> categories_;
+  std::map<uint64_t, std::string> event_names_;
+  std::map<uint64_t, std::string> debug_annotation_names_;
+  std::set<uint64_t> seen_tracks_;
+};
+
 // -------------------------
 // Declaration of test class
 // -------------------------
@@ -356,30 +452,16 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
     g_test_tracing_policy->should_allow_consumer_connection = true;
 
     // Start a fresh system service for this test, tearing down any previous
-    // service that was running.
-    uint32_t supported_backends =
-        perfetto::kInProcessBackend | perfetto::kSystemBackend;
-    if (!perfetto::test::StartSystemService())
-      supported_backends &= ~perfetto::kSystemBackend;
-
-    // If the system backend wasn't supported, skip all system backend tests.
-    auto backend = GetParam();
-    if (!(supported_backends & backend))
+    // service that was running. If the system backend isn't supported, skip all
+    // system backend tests.
+    if (GetParam() == perfetto::kSystemBackend &&
+        !perfetto::test::StartSystemService()) {
       GTEST_SKIP();
-
-    static bool was_initialized;
-    if (!was_initialized) {
-      EXPECT_FALSE(perfetto::Tracing::IsInitialized());
-      was_initialized = true;
-    } else {
-      EXPECT_TRUE(perfetto::Tracing::IsInitialized());
     }
 
-    // Since the client API can only be initialized once per process, initialize
-    // both the in-process and system backends for every test here. The actual
-    // service to be used is chosen by the test parameter.
+    EXPECT_FALSE(perfetto::Tracing::IsInitialized());
     TracingInitArgs args;
-    args.backends = supported_backends;
+    args.backends = GetParam();
     args.tracing_policy = g_test_tracing_policy;
     perfetto::Tracing::Initialize(args);
     RegisterDataSource<MockDataSource>("my_data_source");
@@ -397,15 +479,34 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
     perfetto::test::DisableReconnectLimit();
   }
 
-  void TearDown() override { instance = nullptr; }
+  void TearDown() override {
+    instance = nullptr;
+    sessions_.clear();
+    perfetto::Tracing::ResetForTesting();
+  }
 
   template <typename DataSourceType>
   TestDataSourceHandle* RegisterDataSource(std::string name) {
-    EXPECT_EQ(data_sources_.count(name), 0u);
-    TestDataSourceHandle* handle = &data_sources_[name];
     perfetto::DataSourceDescriptor dsd;
     dsd.set_name(name);
+    return RegisterDataSource<DataSourceType>(dsd);
+  }
+
+  template <typename DataSourceType>
+  TestDataSourceHandle* RegisterDataSource(
+      const perfetto::DataSourceDescriptor& dsd) {
+    EXPECT_EQ(data_sources_.count(dsd.name()), 0u);
+    TestDataSourceHandle* handle = &data_sources_[dsd.name()];
     DataSourceType::Register(dsd);
+    return handle;
+  }
+
+  template <typename DataSourceType>
+  TestDataSourceHandle* UpdateDataSource(
+      const perfetto::DataSourceDescriptor& dsd) {
+    EXPECT_EQ(data_sources_.count(dsd.name()), 1u);
+    TestDataSourceHandle* handle = &data_sources_[dsd.name()];
+    DataSourceType::UpdateDescriptor(dsd);
     return handle;
   }
 
@@ -426,14 +527,13 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
   }
 
   TestTracingSessionHandle* NewTraceWithCategories(
-      std::vector<std::string> categories) {
+      std::vector<std::string> categories,
+      perfetto::protos::gen::TrackEventConfig te_cfg = {}) {
     perfetto::TraceConfig cfg;
     cfg.set_duration_ms(500);
     cfg.add_buffers()->set_size_kb(1024);
     auto* ds_cfg = cfg.add_data_sources()->mutable_config();
     ds_cfg->set_name("track_event");
-
-    perfetto::protos::gen::TrackEventConfig te_cfg;
     te_cfg.add_disabled_categories("*");
     for (const auto& category : categories)
       te_cfg.add_enabled_categories(category);
@@ -498,36 +598,30 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
 
   std::vector<std::string> ReadSlicesFromTrace(
       perfetto::TracingSession* tracing_session) {
-    std::vector<char> raw_trace = tracing_session->ReadTraceBlocking();
+    return ReadSlicesFromTrace(tracing_session->ReadTraceBlocking());
+  }
+
+  std::vector<std::string> ReadSlicesFromTrace(
+      const std::vector<char>& raw_trace) {
     EXPECT_GE(raw_trace.size(), 0u);
 
     // Read back the trace, maintaining interning tables as we go.
     std::vector<std::string> slices;
-    std::map<uint64_t, std::string> categories;
-    std::map<uint64_t, std::string> event_names;
-    std::map<uint64_t, std::string> debug_annotation_names;
-    std::set<uint64_t> seen_tracks;
     perfetto::protos::gen::Trace parsed_trace;
     EXPECT_TRUE(
         parsed_trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
 
-    bool incremental_state_was_cleared = false;
+    ParsedIncrementalState incremental_state;
+
     uint32_t sequence_id = 0;
     for (const auto& packet : parsed_trace.packet()) {
-      if (packet.sequence_flags() & perfetto::protos::pbzero::TracePacket::
-                                        SEQ_INCREMENTAL_STATE_CLEARED) {
-        incremental_state_was_cleared = true;
-        categories.clear();
-        event_names.clear();
-        debug_annotation_names.clear();
-        seen_tracks.clear();
-      }
+      incremental_state.ClearIfNeeded(packet);
 
       if (packet.has_track_descriptor()) {
         // Make sure we haven't seen any events on this track before the
         // descriptor was written.
-        EXPECT_EQ(seen_tracks.find(packet.track_descriptor().uuid()),
-                  seen_tracks.end());
+        EXPECT_FALSE(
+            incremental_state.HasSeenTrack(packet.track_descriptor().uuid()));
       }
 
       if (!packet.has_track_event())
@@ -540,28 +634,13 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
         EXPECT_EQ(sequence_id, packet.trusted_packet_sequence_id());
       }
 
-      // Update incremental state.
-      if (packet.has_interned_data()) {
-        const auto& interned_data = packet.interned_data();
-        for (const auto& it : interned_data.event_categories()) {
-          EXPECT_EQ(categories.find(it.iid()), categories.end());
-          categories[it.iid()] = it.name();
-        }
-        for (const auto& it : interned_data.event_names()) {
-          EXPECT_EQ(event_names.find(it.iid()), event_names.end());
-          event_names[it.iid()] = it.name();
-        }
-        for (const auto& it : interned_data.debug_annotation_names()) {
-          EXPECT_EQ(debug_annotation_names.find(it.iid()),
-                    debug_annotation_names.end());
-          debug_annotation_names[it.iid()] = it.name();
-        }
-      }
+      incremental_state.Parse(packet);
+
       const auto& track_event = packet.track_event();
       std::string slice;
 
       if (track_event.has_track_uuid()) {
-        seen_tracks.insert(track_event.track_uuid());
+        incremental_state.InsertTrack(track_event.track_uuid());
         std::stringstream track;
         track << "[track=" << track_event.track_uuid() << "]";
         slice += track.str();
@@ -619,11 +698,12 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
       }
       size_t category_count = 0;
       for (const auto& it : track_event.category_iids())
-        slice += (category_count++ ? "," : ":") + categories[it];
+        slice +=
+            (category_count++ ? "," : ":") + incremental_state.GetCategory(it);
       for (const auto& it : track_event.categories())
         slice += (category_count++ ? ",$" : ":$") + it;
-      if (track_event.has_name_iid())
-        slice += "." + event_names[track_event.name_iid()];
+      if (track_event.has_name() || track_event.has_name_iid())
+        slice += "." + incremental_state.GetEventName(track_event);
 
       if (track_event.debug_annotations_size()) {
         slice += "(";
@@ -632,7 +712,8 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
           if (!first_annotation) {
             slice += ",";
           }
-          slice += debug_annotation_names[it.name_iid()] + "=";
+          slice +=
+              incremental_state.GetDebugAnnotationName(it.name_iid()) + "=";
           std::stringstream value;
           if (it.has_bool_value()) {
             value << "(bool)" << it.bool_value();
@@ -657,9 +738,37 @@ class PerfettoApiTest : public ::testing::TestWithParam<perfetto::BackendType> {
         slice += ")";
       }
 
+      if (track_event.flow_ids_size()) {
+        slice += "(flow_ids=";
+        std::stringstream value;
+        bool first_annotation = true;
+        for (uint64_t id : track_event.flow_ids()) {
+          if (!first_annotation) {
+            value << ",";
+          }
+          first_annotation = false;
+          value << id;
+        }
+        slice += value.str() + ")";
+      }
+
+      if (track_event.terminating_flow_ids_size()) {
+        slice += "(terminating_flow_ids=";
+        std::stringstream value;
+        bool first_annotation = true;
+        for (uint64_t id : track_event.terminating_flow_ids()) {
+          if (!first_annotation) {
+            value << ",";
+          }
+          value << id;
+          first_annotation = false;
+        }
+        slice += value.str() + ")";
+      }
+
       slices.push_back(slice);
     }
-    EXPECT_TRUE(incremental_state_was_cleared);
+    EXPECT_TRUE(incremental_state.WasCleared());
     return slices;
   }
 
@@ -880,6 +989,11 @@ TEST_P(PerfettoApiTest, TrackEvent) {
   bool process_descriptor_found = false;
   uint32_t sequence_id = 0;
   int32_t cur_pid = perfetto::test::GetCurrentProcessId();
+  uint64_t recent_absolute_time_ns = 0;
+  bool found_incremental_clock = false;
+  constexpr auto kClockIdIncremental =
+      perfetto::internal::TrackEventIncrementalState::kClockIdIncremental;
+
   for (const auto& packet : trace.packet()) {
     if (packet.has_track_descriptor()) {
       const auto& desc = packet.track_descriptor();
@@ -896,6 +1010,17 @@ TEST_P(PerfettoApiTest, TrackEvent) {
       incremental_state_was_cleared = true;
       categories.clear();
       event_names.clear();
+      EXPECT_EQ(kClockIdIncremental,
+                packet.trace_packet_defaults().timestamp_clock_id());
+    }
+    if (packet.has_clock_snapshot()) {
+      for (auto& clock : packet.clock_snapshot().clocks()) {
+        if (clock.is_incremental()) {
+          found_incremental_clock = true;
+          recent_absolute_time_ns = clock.timestamp();
+          EXPECT_EQ(kClockIdIncremental, clock.clock_id());
+        }
+      }
     }
 
     if (!packet.has_track_event())
@@ -925,18 +1050,13 @@ TEST_P(PerfettoApiTest, TrackEvent) {
         event_names[it.iid()] = it.name();
       }
     }
-
-    EXPECT_GT(packet.timestamp(), 0u);
-    EXPECT_LE(packet.timestamp(), now);
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_APPLE) && \
-    !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+    EXPECT_TRUE(found_incremental_clock);
+    uint64_t absolute_timestamp = packet.timestamp() + recent_absolute_time_ns;
+    recent_absolute_time_ns = absolute_timestamp;
+    EXPECT_GT(absolute_timestamp, 0u);
+    EXPECT_LE(absolute_timestamp, now);
+    // Packet uses default (incremental) clock.
     EXPECT_FALSE(packet.has_timestamp_clock_id());
-#else
-    constexpr auto kClockMonotonic =
-        perfetto::protos::pbzero::ClockSnapshot::Clock::MONOTONIC;
-    EXPECT_EQ(packet.timestamp_clock_id(),
-              static_cast<uint32_t>(kClockMonotonic));
-#endif
     if (track_event.type() ==
         perfetto::protos::gen::TrackEvent::TYPE_SLICE_BEGIN) {
       EXPECT_FALSE(begin_found);
@@ -961,6 +1081,109 @@ TEST_P(PerfettoApiTest, TrackEvent) {
   // Dummy instantiation of test templates.
   TestTrackEventInsideTemplate(true);
   TestCategoryAsTemplateParameter<kTestCategory>();
+}
+
+TEST_P(PerfettoApiTest, TrackEventWithIncrementalTimestamp) {
+  for (auto disable_incremental_timestamps : {false, true}) {
+    // Create a new trace session.
+    perfetto::protos::gen::TrackEventConfig te_cfg;
+    te_cfg.set_disable_incremental_timestamps(disable_incremental_timestamps);
+    auto* tracing_session = NewTraceWithCategories({"bar"}, te_cfg);
+    constexpr auto kClockIdIncremental =
+        perfetto::internal::TrackEventIncrementalState::kClockIdIncremental;
+    tracing_session->get()->StartBlocking();
+
+    std::map<uint64_t, std::string> event_names;
+
+    auto empty_lambda = [](perfetto::EventContext) {};
+
+    constexpr uint64_t kInstantEvent1Time = 92718891479583;
+    TRACE_EVENT_INSTANT(
+        "bar", "InstantEvent1",
+        perfetto::TraceTimestamp{kClockIdIncremental, kInstantEvent1Time},
+        empty_lambda);
+
+    constexpr uint64_t kInstantEvent2Time = 92718891618959;
+    TRACE_EVENT_INSTANT(
+        "bar", "InstantEvent2",
+        perfetto::TraceTimestamp{kClockIdIncremental, kInstantEvent2Time},
+        empty_lambda);
+
+    perfetto::TrackEvent::Flush();
+    tracing_session->get()->StopBlocking();
+
+    std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+    perfetto::protos::gen::Trace trace;
+    ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+    uint64_t absolute_timestamp = 0;
+    uint64_t prv_timestamp = 0;
+    int event_count = 0;
+    // Go through the packets and add the timestamps of those packets that use
+    // the incremental clock - in order to get the absolute timestamps of the
+    // track events.
+
+    uint64_t default_clock_id = 0;
+    bool is_incremental = false;
+
+    for (const auto& packet : trace.packet()) {
+      if (!packet.has_track_event() && !packet.has_clock_snapshot())
+        continue;
+      if (packet.has_trace_packet_defaults()) {
+        auto& defaults = packet.trace_packet_defaults();
+        if (defaults.has_timestamp_clock_id()) {
+          default_clock_id = defaults.timestamp_clock_id();
+        }
+      }
+      if (packet.has_clock_snapshot()) {
+        for (auto& clock : packet.clock_snapshot().clocks()) {
+          if (clock.is_incremental()) {
+            is_incremental = true;
+            absolute_timestamp = clock.timestamp();
+            EXPECT_EQ(clock.clock_id(), kClockIdIncremental);
+            EXPECT_FALSE(disable_incremental_timestamps);
+          }
+        }
+      } else {
+        auto clock_id = packet.has_timestamp_clock_id()
+                            ? packet.timestamp_clock_id()
+                            : default_clock_id;
+        if (clock_id == kClockIdIncremental) {
+          absolute_timestamp = prv_timestamp + packet.timestamp();
+          EXPECT_FALSE(disable_incremental_timestamps);
+        } else {
+          absolute_timestamp = packet.timestamp();
+          EXPECT_TRUE(disable_incremental_timestamps);
+        }
+      }
+      prv_timestamp = absolute_timestamp;
+
+      if (packet.sequence_flags() & perfetto::protos::pbzero::TracePacket::
+                                        SEQ_INCREMENTAL_STATE_CLEARED) {
+        event_names.clear();
+      }
+
+      // Update incremental state.
+      if (packet.has_interned_data()) {
+        const auto& interned_data = packet.interned_data();
+        for (const auto& it : interned_data.event_names()) {
+          EXPECT_EQ(event_names.find(it.iid()), event_names.end());
+          event_names[it.iid()] = it.name();
+        }
+      }
+
+      if (event_names[packet.track_event().name_iid()] == "InstantEvent1") {
+        event_count++;
+        EXPECT_EQ(absolute_timestamp, kInstantEvent1Time);
+      } else if (event_names[packet.track_event().name_iid()] ==
+                 "InstantEvent2") {
+        event_count++;
+        EXPECT_EQ(absolute_timestamp, kInstantEvent2Time);
+      }
+    }
+    EXPECT_NE(is_incremental, disable_incremental_timestamps);
+    EXPECT_EQ(event_count, 2);
+  }
 }
 
 TEST_P(PerfettoApiTest, TrackEventCategories) {
@@ -1318,7 +1541,7 @@ TEST_P(PerfettoApiTest, TrackEventProcessAndThreadDescriptors) {
     if (packet.has_track_descriptor()) {
       if (packet.trusted_packet_sequence_id() == main_thread_sequence) {
         descs.push_back(packet.track_descriptor());
-      } else {
+      } else if (packet.track_descriptor().has_thread()) {
         thread_descs.push_back(packet.track_descriptor());
       }
     }
@@ -1344,13 +1567,15 @@ TEST_P(PerfettoApiTest, TrackEventProcessAndThreadDescriptors) {
 
   // The child thread records only its own thread descriptor (twice, since it
   // was mutated).
-  EXPECT_EQ(2u, thread_descs.size());
+  ASSERT_EQ(2u, thread_descs.size());
   EXPECT_EQ("TestThread", thread_descs[0].name());
   EXPECT_NE(0, thread_descs[0].thread().pid());
   EXPECT_NE(0, thread_descs[0].thread().tid());
   EXPECT_EQ("TestThread", thread_descs[1].name());
   EXPECT_NE(0, thread_descs[1].thread().pid());
   EXPECT_NE(0, thread_descs[1].thread().tid());
+  EXPECT_NE(0, descs[2].process().pid());
+  EXPECT_EQ("goodbye.exe", descs[2].name());
 }
 
 TEST_P(PerfettoApiTest, CustomTrackDescriptor) {
@@ -1387,7 +1612,8 @@ TEST_P(PerfettoApiTest, CustomTrackDescriptor) {
       continue;
     if (packet.has_track_descriptor()) {
       auto td = packet.track_descriptor();
-      EXPECT_TRUE(td.has_process());
+      if (!td.has_process())
+        continue;
       EXPECT_NE(0, td.process().pid());
       EXPECT_TRUE(td.has_chrome_process());
       EXPECT_EQ("testing.exe", td.process().process_name());
@@ -1471,6 +1697,65 @@ TEST_P(PerfettoApiTest, TrackEventCustomTrack) {
   EXPECT_TRUE(found_descriptor);
   EXPECT_EQ(4, event_count);
   perfetto::TrackEvent::EraseTrackDescriptor(track);
+}
+
+TEST_P(PerfettoApiTest, TrackEventCustomTimestampClock) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  const perfetto::protos::pbzero::BuiltinClock kMyClockId =
+      static_cast<perfetto::protos::pbzero::BuiltinClock>(700);
+  const uint64_t kTimestamp = 12345678;
+
+  // First emit a clock snapshot that maps our custom clock to regular trace
+  // time. Note that the clock snapshot should come before any events
+  // referencing that clock.
+  perfetto::TrackEvent::Trace([](perfetto::TrackEvent::TraceContext ctx) {
+    auto packet = ctx.NewTracePacket();
+    packet->set_timestamp_clock_id(perfetto::TrackEvent::GetTraceClockId());
+    packet->set_timestamp(perfetto::TrackEvent::GetTraceTimeNs());
+    auto* clock_snapshot = packet->set_clock_snapshot();
+    // First set the reference clock, i.e., the default trace clock in this
+    // case.
+    auto* clock = clock_snapshot->add_clocks();
+    clock->set_clock_id(perfetto::TrackEvent::GetTraceClockId());
+    clock->set_timestamp(perfetto::TrackEvent::GetTraceTimeNs());
+    // Then set the value of our reference clock at the same point in time. We
+    // pretend our clock is one second behind trace time.
+    clock = clock_snapshot->add_clocks();
+    clock->set_clock_id(kMyClockId);
+    clock->set_timestamp(kTimestamp + 1000000000ull);
+  });
+
+  // Next emit a trace event with a custom timestamp and a custom clock.
+  TRACE_EVENT_INSTANT("foo", "EventWithCustomTime",
+                      perfetto::TraceTimestamp{kMyClockId, kTimestamp});
+  TRACE_EVENT_INSTANT("foo", "EventWithNormalTime");
+
+  perfetto::TrackEvent::Flush();
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+  perfetto::protos::gen::Trace trace;
+  ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+
+  // Check that both the clock id and the timestamp got written together with
+  // the packet. Note that we don't check the actual clock sync behavior here
+  // since that happens in the Trace Processor instead.
+  bool found_clock_snapshot = false;
+  bool found_event = false;
+  for (const auto& packet : trace.packet()) {
+    if (packet.has_clock_snapshot())
+      found_clock_snapshot = true;
+    if (!packet.has_track_event() || packet.timestamp() != kTimestamp)
+      continue;
+    found_event = true;
+    EXPECT_EQ(static_cast<uint32_t>(kMyClockId), packet.timestamp_clock_id());
+    EXPECT_EQ(kTimestamp, packet.timestamp());
+  }
+  EXPECT_TRUE(found_clock_snapshot);
+  EXPECT_TRUE(found_event);
 }
 
 TEST_P(PerfettoApiTest, LegacyEventWithThreadOverride) {
@@ -1604,6 +1889,9 @@ TEST_P(PerfettoApiTest, TrackEventCustomTrackAndTimestamp) {
   for (const auto& packet : trace.packet()) {
     if (!packet.has_track_event())
       continue;
+
+    EXPECT_EQ(packet.timestamp_clock_id(),
+              static_cast<uint32_t>(perfetto::TrackEvent::GetTraceClockId()));
     event_count++;
     switch (packet.track_event().type()) {
       case perfetto::protos::gen::TrackEvent::TYPE_SLICE_BEGIN:
@@ -1778,16 +2066,71 @@ TEST_P(PerfettoApiTest, InlineTrackEventTypedArgs_SimpleRepeated) {
   EXPECT_TRUE(found_args);
 }
 
-TEST_P(PerfettoApiTest, InlineTrackEventTypedArgs_NestedSingle) {
-  struct LogMessage {
-    void WriteIntoTrace(
-        perfetto::TracedProto<perfetto::protos::pbzero::LogMessage> context)
-        const {
-      context->set_source_location_iid(1);
-      context->set_body_iid(2);
-    }
-  };
+namespace {
 
+struct LogMessage {
+  void WriteIntoTrace(
+      perfetto::TracedProto<perfetto::protos::pbzero::LogMessage> context)
+      const {
+    context->set_source_location_iid(1);
+    context->set_body_iid(2);
+  }
+};
+
+auto GetWriteLogMessageRefLambda = []() {
+  return [](perfetto::EventContext& ctx) {
+    auto* log = ctx.event()->set_log_message();
+    log->set_source_location_iid(1);
+    log->set_body_iid(2);
+  };
+};
+
+void CheckTypedArguments(
+    const std::vector<char>& raw_trace,
+    const char* event_name,
+    perfetto::protos::gen::TrackEvent::Type type,
+    std::function<void(const perfetto::protos::gen::TrackEvent&)> checker) {
+  perfetto::protos::gen::Trace parsed_trace;
+  ASSERT_TRUE(parsed_trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+
+  bool found_slice = false;
+  ParsedIncrementalState incremental_state;
+
+  for (const auto& packet : parsed_trace.packet()) {
+    incremental_state.ClearIfNeeded(packet);
+    incremental_state.Parse(packet);
+
+    if (!packet.has_track_event())
+      continue;
+    const auto& track_event = packet.track_event();
+    if (track_event.type() != type) {
+      continue;
+    }
+    if (event_name &&
+        incremental_state.GetEventName(track_event) != event_name) {
+      continue;
+    }
+
+    checker(track_event);
+    found_slice = true;
+  }
+  EXPECT_TRUE(found_slice);
+}
+
+void CheckLogMessagePresent(const std::vector<char>& raw_trace) {
+  CheckTypedArguments(raw_trace, nullptr,
+                      perfetto::protos::gen::TrackEvent::TYPE_SLICE_BEGIN,
+                      [](const perfetto::protos::gen::TrackEvent& track_event) {
+                        EXPECT_TRUE(track_event.has_log_message());
+                        const auto& log = track_event.log_message();
+                        EXPECT_EQ(1u, log.source_location_iid());
+                        EXPECT_EQ(2u, log.body_iid());
+                      });
+}
+
+}  // namespace
+
+TEST_P(PerfettoApiTest, InlineTrackEventTypedArgs_NestedSingle) {
   // Create a new trace session.
   auto* tracing_session = NewTraceWithCategories({"foo"});
   tracing_session->get()->StartBlocking();
@@ -1799,28 +2142,305 @@ TEST_P(PerfettoApiTest, InlineTrackEventTypedArgs_NestedSingle) {
 
   tracing_session->get()->StopBlocking();
   std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_TypedAndUntyped) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN("foo", "E",
+                    perfetto::protos::pbzero::TrackEvent::kLogMessage,
+                    LogMessage(), "arg", "value");
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
   std::string trace(raw_trace.data(), raw_trace.size());
 
-  perfetto::protos::gen::Trace parsed_trace;
-  ASSERT_TRUE(parsed_trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+  // Find typed argument.
+  CheckLogMessagePresent(raw_trace);
 
-  bool found_args = false;
-  for (const auto& packet : parsed_trace.packet()) {
-    if (!packet.has_track_event())
-      continue;
-    const auto& track_event = packet.track_event();
-    if (track_event.type() !=
-        perfetto::protos::gen::TrackEvent::TYPE_SLICE_BEGIN) {
-      continue;
-    }
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
 
-    EXPECT_TRUE(track_event.has_log_message());
-    const auto& log = track_event.log_message();
-    EXPECT_EQ(1u, log.source_location_iid());
-    EXPECT_EQ(2u, log.body_iid());
-    found_args = true;
+TEST_P(PerfettoApiTest, TrackEventArgs_UntypedAndTyped) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN("foo", "E", "arg", "value",
+                    perfetto::protos::pbzero::TrackEvent::kLogMessage,
+                    LogMessage());
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed argument.
+  CheckLogMessagePresent(raw_trace);
+
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_UntypedAndRefLambda) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN("foo", "E", "arg", "value", GetWriteLogMessageRefLambda());
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed argument.
+  CheckLogMessagePresent(raw_trace);
+
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_RefLambdaAndUntyped) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN("foo", "E", GetWriteLogMessageRefLambda(), "arg", "value");
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed argument.
+  CheckLogMessagePresent(raw_trace);
+
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_RefLambdaAndTyped) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN(
+      "foo", "E",
+      [](perfetto::EventContext& ctx) {
+        ctx.AddDebugAnnotation("arg", "value");
+      },
+      perfetto::protos::pbzero::TrackEvent::kLogMessage, LogMessage());
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed argument.
+  CheckLogMessagePresent(raw_trace);
+
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_TypedAndRefLambda) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN("foo", "E",
+                    perfetto::protos::pbzero::TrackEvent::kLogMessage,
+                    LogMessage(), [](perfetto::EventContext& ctx) {
+                      ctx.AddDebugAnnotation("arg", "value");
+                    });
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed argument.
+  CheckLogMessagePresent(raw_trace);
+
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_RefLambdaAndRefLambda) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN(
+      "foo", "E",
+      [](perfetto::EventContext& ctx) {
+        ctx.AddDebugAnnotation("arg1", "value1");
+      },
+      [](perfetto::EventContext& ctx) {
+        ctx.AddDebugAnnotation("arg2", "value2");
+      });
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find untyped arguments.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg1=(string)value1,arg2=(string)value2)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_RefLambdaAndLambda) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN(
+      "foo", "E",
+      [](perfetto::EventContext& ctx) {
+        ctx.AddDebugAnnotation("arg1", "value1");
+      },
+      [](perfetto::EventContext ctx) {
+        ctx.AddDebugAnnotation("arg2", "value2");
+      });
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find untyped arguments.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg1=(string)value1,arg2=(string)value2)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_RefLambda) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_BEGIN("foo", "E", [](perfetto::EventContext& ctx) {
+    ctx.AddDebugAnnotation("arg", "value");
+  });
+  TRACE_EVENT_END("foo");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find untyped argument.
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E(arg=(string)value)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_Flow_Global) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_INSTANT("foo", "E1", perfetto::Flow::Global(42));
+  TRACE_EVENT_INSTANT("foo", "E2", perfetto::TerminatingFlow::Global(42));
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed argument.
+  CheckTypedArguments(
+      raw_trace, "E1", perfetto::protos::gen::TrackEvent::TYPE_INSTANT,
+      [](const perfetto::protos::gen::TrackEvent& track_event) {
+        EXPECT_THAT(track_event.flow_ids(), testing::ElementsAre(42));
+      });
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_MultipleFlows) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  {
+    TRACE_EVENT("foo", "E1", perfetto::Flow::Global(1),
+                perfetto::Flow::Global(2), perfetto::Flow::Global(3));
   }
-  EXPECT_TRUE(found_args);
+  {
+    TRACE_EVENT("foo", "E2", perfetto::Flow::Global(1),
+                perfetto::TerminatingFlow::Global(2));
+  }
+  { TRACE_EVENT("foo", "E3", perfetto::TerminatingFlow::Global(3)); }
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+  EXPECT_THAT(ReadSlicesFromTrace(raw_trace),
+              ElementsAre("B:foo.E1(flow_ids=1,2,3)", "E",
+                          "B:foo.E2(flow_ids=1)(terminating_flow_ids=2)", "E",
+                          "B:foo.E3(terminating_flow_ids=3)"));
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_Flow_ProcessScoped) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_INSTANT("foo", "E1", perfetto::Flow::ProcessScoped(1));
+  TRACE_EVENT_INSTANT("foo", "E2", perfetto::TerminatingFlow::ProcessScoped(1));
+  TRACE_EVENT_INSTANT("foo", "Flush");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed arguments.
+  CheckTypedArguments(raw_trace, "E1",
+                      perfetto::protos::gen::TrackEvent::TYPE_INSTANT,
+                      [](const perfetto::protos::gen::TrackEvent& track_event) {
+                        EXPECT_EQ(track_event.flow_ids_size(), 1);
+                      });
+  CheckTypedArguments(raw_trace, "E2",
+                      perfetto::protos::gen::TrackEvent::TYPE_INSTANT,
+                      [](const perfetto::protos::gen::TrackEvent& track_event) {
+                        EXPECT_EQ(track_event.terminating_flow_ids_size(), 1);
+                      });
+}
+
+TEST_P(PerfettoApiTest, TrackEventArgs_Flow_FromPointer) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"foo"});
+  tracing_session->get()->StartBlocking();
+
+  int a;
+  int* ptr = &a;
+  TRACE_EVENT_INSTANT("foo", "E1", perfetto::Flow::FromPointer(ptr));
+  TRACE_EVENT_INSTANT("foo", "E2", perfetto::TerminatingFlow::FromPointer(ptr));
+  TRACE_EVENT_INSTANT("foo", "Flush");
+
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  // Find typed arguments.
+  CheckTypedArguments(raw_trace, "E1",
+                      perfetto::protos::gen::TrackEvent::TYPE_INSTANT,
+                      [](const perfetto::protos::gen::TrackEvent& track_event) {
+                        EXPECT_EQ(track_event.flow_ids_size(), 1);
+                      });
+  CheckTypedArguments(raw_trace, "E2",
+                      perfetto::protos::gen::TrackEvent::TYPE_INSTANT,
+                      [](const perfetto::protos::gen::TrackEvent& track_event) {
+                        EXPECT_EQ(track_event.terminating_flow_ids_size(), 1);
+                      });
 }
 
 struct InternedLogMessageBody
@@ -2202,6 +2822,82 @@ TEST_P(PerfettoApiTest, TrackEventTrackFromPointer) {
                                   "]I:test.Event"));
 }
 
+TEST_P(PerfettoApiTest, TrackEventTrackFromThreadScopedPointer) {
+  // Create a new trace session.
+  auto* tracing_session = NewTraceWithCategories({"test"});
+  tracing_session->get()->StartBlocking();
+
+  int num = 2;
+  TRACE_EVENT_INSTANT("test", "Event0.1");
+  TRACE_EVENT_INSTANT("test", "Event0.2");
+  TRACE_EVENT_INSTANT("test", "Event1.1", perfetto::Track::ThreadScoped(&num));
+  TRACE_EVENT_INSTANT("test", "Event1.2", perfetto::Track::ThreadScoped(&num));
+  std::thread t1([&]() {
+    TRACE_EVENT_INSTANT("test", "Event2.1",
+                        perfetto::Track::ThreadScoped(&num));
+    TRACE_EVENT_INSTANT("test", "Event2.2",
+                        perfetto::Track::ThreadScoped(&num));
+  });
+  t1.join();
+  std::thread t2([&]() {
+    TRACE_EVENT_INSTANT("test", "Event3.1",
+                        perfetto::Track::ThreadScoped(&num));
+    TRACE_EVENT_INSTANT("test", "Event3.2",
+                        perfetto::Track::ThreadScoped(&num));
+  });
+  t2.join();
+  perfetto::TrackEvent::Flush();
+  tracing_session->get()->StopBlocking();
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+  perfetto::protos::gen::Trace parsed_trace;
+  ASSERT_TRUE(parsed_trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+
+  std::unordered_map<std::string, uint64_t> track_uuid_map;
+  for (auto packet : parsed_trace.packet()) {
+    if (packet.has_interned_data()) {
+      for (auto& ename : packet.interned_data().event_names()) {
+        track_uuid_map.emplace(ename.name(), packet.track_event().track_uuid());
+      }
+    }
+  }
+  EXPECT_EQ(track_uuid_map.at("Event0.1"), track_uuid_map.at("Event0.2"));
+  EXPECT_EQ(track_uuid_map.at("Event1.1"), track_uuid_map.at("Event1.2"));
+  EXPECT_EQ(track_uuid_map.at("Event2.1"), track_uuid_map.at("Event2.2"));
+  EXPECT_EQ(track_uuid_map.at("Event3.1"), track_uuid_map.at("Event3.2"));
+
+  EXPECT_EQ(4u,
+            (std::unordered_set<uint64_t>{
+                 track_uuid_map.at("Event0.1"), track_uuid_map.at("Event1.1"),
+                 track_uuid_map.at("Event2.1"), track_uuid_map.at("Event3.1")})
+                .size());
+}
+
+TEST_P(PerfettoApiTest, FilterDebugAnnotations) {
+  for (auto flag : {false, true}) {
+    // Create a new trace session.
+    perfetto::protos::gen::TrackEventConfig te_cfg;
+    te_cfg.set_filter_debug_annotations(flag);
+    auto* tracing_session = NewTraceWithCategories({"test"}, te_cfg);
+    tracing_session->get()->StartBlocking();
+
+    TRACE_EVENT_BEGIN("test", "Event1");
+    TRACE_EVENT_BEGIN("test", "Event2", [&](perfetto::EventContext ctx) {
+      ctx.AddDebugAnnotation("debug_name", "debug_value");
+    });
+    TRACE_EVENT_BEGIN("test", "Event3");
+    perfetto::TrackEvent::Flush();
+    tracing_session->get()->StopBlocking();
+
+    auto slices = ReadSlicesFromTrace(tracing_session->get());
+    ASSERT_EQ(3u, slices.size());
+    if (flag) {
+      EXPECT_EQ("B:test.Event2", slices[1]);
+    } else {
+      EXPECT_EQ("B:test.Event2(debug_name=(string)debug_value)", slices[1]);
+    }
+  }
+}
+
 TEST_P(PerfettoApiTest, TrackEventDebugAnnotations) {
   // Create a new trace session.
   auto* tracing_session = NewTraceWithCategories({"test"});
@@ -2229,6 +2925,9 @@ TEST_P(PerfettoApiTest, TrackEventDebugAnnotations) {
                     [&](perfetto::TracedValue context) {
                       std::move(context).WriteInt64(42);
                     });
+  TRACE_EVENT_BEGIN("test", "E", [&](perfetto::EventContext ctx) {
+    ctx.AddDebugAnnotation("debug_annotation", "value");
+  });
   perfetto::TrackEvent::Flush();
 
   tracing_session->get()->StopBlocking();
@@ -2243,7 +2942,8 @@ TEST_P(PerfettoApiTest, TrackEventDebugAnnotations) {
           "B:test.E(ptr_arg=(pointer)baadf00d)",
           "B:test.E(size_t_arg=(uint)42)", "B:test.E(ptrdiff_t_arg=(int)-7)",
           "B:test.E(enum_arg=(uint)1)", "B:test.E(signed_enum_arg=(int)-1)",
-          "B:test.E(class_enum_arg=(int)0)", "B:test.E(traced_value=(int)42)"));
+          "B:test.E(class_enum_arg=(int)0)", "B:test.E(traced_value=(int)42)",
+          "B:test.E(debug_annotation=(string)value)"));
 }
 
 TEST_P(PerfettoApiTest, TrackEventCustomDebugAnnotations) {
@@ -2364,6 +3064,61 @@ TEST_P(PerfettoApiTest, DebugAnnotationAndLambda) {
     found_args = true;
   }
   EXPECT_TRUE(found_args);
+}
+
+TEST_P(PerfettoApiTest, ProtoInsideDebugAnnotation) {
+  auto* tracing_session = NewTraceWithCategories({"test"});
+  tracing_session->get()->StartBlocking();
+
+  TRACE_EVENT_INSTANT(
+      "test", "E", "key",
+      [](perfetto::TracedProto<perfetto::protos::pbzero::LogMessage> ctx) {
+        ctx->set_source_location_iid(42);
+      });
+
+  perfetto::TrackEvent::Flush();
+
+  tracing_session->get()->StopBlocking();
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+  std::string trace(raw_trace.data(), raw_trace.size());
+
+  perfetto::protos::gen::Trace parsed_trace;
+  ASSERT_TRUE(parsed_trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+
+  std::vector<std::string> interned_debug_annotation_names;
+  std::vector<std::string> interned_debug_annotation_proto_type_names;
+
+  bool found_args = false;
+  for (const auto& packet : parsed_trace.packet()) {
+    if (packet.has_interned_data()) {
+      for (const auto& interned_name :
+           packet.interned_data().debug_annotation_names()) {
+        interned_debug_annotation_names.push_back(interned_name.name());
+      }
+      for (const auto& interned_type_name :
+           packet.interned_data().debug_annotation_value_type_names()) {
+        interned_debug_annotation_proto_type_names.push_back(
+            interned_type_name.name());
+      }
+    }
+
+    if (!packet.has_track_event())
+      continue;
+    const auto& track_event = packet.track_event();
+    if (track_event.type() != perfetto::protos::gen::TrackEvent::TYPE_INSTANT) {
+      continue;
+    }
+
+    EXPECT_EQ(track_event.debug_annotations_size(), 1);
+    found_args = true;
+  }
+  // TODO(altimin): Use DebugAnnotationParser here to parse the debug
+  // annotations.
+  EXPECT_TRUE(found_args);
+  EXPECT_THAT(interned_debug_annotation_names,
+              testing::UnorderedElementsAre("key"));
+  EXPECT_THAT(interned_debug_annotation_proto_type_names,
+              testing::UnorderedElementsAre(".perfetto.protos.LogMessage"));
 }
 
 TEST_P(PerfettoApiTest, TrackEventComputedName) {
@@ -3258,6 +4013,51 @@ TEST_P(PerfettoApiTest, QueryServiceState) {
   EXPECT_TRUE(found_ds);
 }
 
+TEST_P(PerfettoApiTest, UpdateDataSource) {
+  class UpdateTestDataSource
+      : public perfetto::DataSource<UpdateTestDataSource> {};
+
+  perfetto::DataSourceDescriptor dsd;
+  dsd.set_name("update_test_data_source");
+
+  RegisterDataSource<UpdateTestDataSource>(dsd);
+
+  {
+    protozero::HeapBuffered<perfetto::protos::pbzero::TrackEventDescriptor> ted;
+    auto cat = ted->add_available_categories();
+    cat->set_name("new_cat");
+    dsd.set_track_event_descriptor_raw(ted.SerializeAsString());
+  }
+
+  UpdateDataSource<UpdateTestDataSource>(dsd);
+
+  perfetto::test::SyncProducers();
+
+  auto tracing_session =
+      perfetto::Tracing::NewTrace(/*BackendType=*/GetParam());
+  // Blocking read.
+  auto result = tracing_session->QueryServiceStateBlocking();
+  perfetto::protos::gen::TracingServiceState state;
+  EXPECT_TRUE(result.success);
+  EXPECT_TRUE(state.ParseFromArray(result.service_state_data.data(),
+                                   result.service_state_data.size()));
+  EXPECT_EQ(1, state.producers_size());
+  EXPECT_NE(std::string::npos,
+            state.producers()[0].name().find("integrationtest"));
+  bool found_ds = false;
+  for (const auto& ds : state.data_sources()) {
+    if (ds.ds_descriptor().name() == "update_test_data_source") {
+      found_ds = true;
+      perfetto::protos::gen::TrackEventDescriptor ted;
+      auto desc_raw = ds.ds_descriptor().track_event_descriptor_raw();
+      EXPECT_TRUE(ted.ParseFromArray(desc_raw.data(), desc_raw.size()));
+      EXPECT_EQ(ted.available_categories_size(), 1);
+      EXPECT_EQ(ted.available_categories()[0].name(), "new_cat");
+    }
+  }
+  EXPECT_TRUE(found_ds);
+}
+
 TEST_P(PerfettoApiTest, LegacyTraceEvents) {
   auto is_new_session = [] {
     bool result;
@@ -3302,6 +4102,20 @@ TEST_P(PerfettoApiTest, LegacyTraceEvents) {
   // Metadata event.
   TRACE_EVENT_METADATA1("cat", "LegacyMetadata", "obsolete", true);
 
+  // Async events.
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP_AND_FLAGS0(
+      "cat", "LegacyAsync", 5678, MyTimestamp{4}, TRACE_EVENT_FLAG_NONE);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0("cat", "LegacyAsync", 5678,
+                                                 MyTimestamp{5});
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_FLAGS0("cat", "LegacyAsync2", 9000,
+                                               TRACE_EVENT_FLAG_NONE);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_FLAGS0("cat", "LegacyAsync2", 9000,
+                                             TRACE_EVENT_FLAG_NONE);
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_FLAGS0("cat", "LegacyAsync3", 9001,
+                                               TRACE_EVENT_FLAG_NONE);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP_AND_FLAGS0(
+      "cat", "LegacyAsync3", 9001, MyTimestamp{6}, TRACE_EVENT_FLAG_NONE);
+
   perfetto::TrackEvent::Flush();
   tracing_session->get()->StopBlocking();
   auto slices = ReadSlicesFromTrace(tracing_session->get());
@@ -3319,7 +4133,13 @@ TEST_P(PerfettoApiTest, LegacyTraceEvents) {
               "]Legacy_S(unscoped_id=1):cat.LegacyWithIdTidAndTimestamp",
           "Legacy_C:cat.LegacyCounter(value=(int)1234)",
           "Legacy_C(unscoped_id=1234):cat.LegacyCounterWithId(value=(int)9000)",
-          "Legacy_M:cat.LegacyMetadata"));
+          "Legacy_M:cat.LegacyMetadata",
+          "Legacy_b(unscoped_id=5678):cat.LegacyAsync",
+          "Legacy_e(unscoped_id=5678):cat.LegacyAsync",
+          "Legacy_b(unscoped_id=9000):cat.LegacyAsync2",
+          "Legacy_e(unscoped_id=9000):cat.LegacyAsync2",
+          "Legacy_b(unscoped_id=9001):cat.LegacyAsync3",
+          "Legacy_e(unscoped_id=9001):cat.LegacyAsync3"));
 }
 
 TEST_P(PerfettoApiTest, LegacyTraceEventsWithCustomAnnotation) {
@@ -3385,6 +4205,51 @@ TEST_P(PerfettoApiTest, LegacyTraceEventsWithId) {
                                   "Legacy_S(global_id=12288):cat.GlobalId",
                                   "Legacy_S(global_id=16384)(id_scope=\"scope "
                                   "string\"):cat.WithScope"));
+}
+
+TEST_P(PerfettoApiTest, NestableAsyncTraceEvent) {
+  auto* tracing_session = NewTraceWithCategories({"cat"});
+  tracing_session->get()->StartBlocking();
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("cat", "foo",
+                                    TRACE_ID_WITH_SCOPE("foo", 1));
+  // Same id, different scope.
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("cat", "bar",
+                                    TRACE_ID_WITH_SCOPE("bar", 1));
+  // Same scope, different id.
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("cat", "bar",
+                                    TRACE_ID_WITH_SCOPE("bar", 2));
+
+  TRACE_EVENT_NESTABLE_ASYNC_END0("cat", "bar", TRACE_ID_WITH_SCOPE("bar", 2));
+  TRACE_EVENT_NESTABLE_ASYNC_END0("cat", "bar", TRACE_ID_WITH_SCOPE("bar", 1));
+  TRACE_EVENT_NESTABLE_ASYNC_END0("cat", "foo", TRACE_ID_WITH_SCOPE("foo", 1));
+  perfetto::TrackEvent::Flush();
+  tracing_session->get()->StopBlocking();
+
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+  perfetto::protos::gen::Trace parsed_trace;
+  ASSERT_TRUE(parsed_trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+  using LegacyEvent = perfetto::protos::gen::TrackEvent::LegacyEvent;
+  std::vector<const LegacyEvent*> legacy_events;
+  for (const auto& packet : parsed_trace.packet()) {
+    if (packet.has_track_event() && packet.track_event().has_legacy_event()) {
+      legacy_events.push_back(&packet.track_event().legacy_event());
+    }
+  }
+  ASSERT_EQ(6u, legacy_events.size());
+  EXPECT_EQ("foo", legacy_events[0]->id_scope());
+  EXPECT_EQ("bar", legacy_events[1]->id_scope());
+  EXPECT_EQ("bar", legacy_events[2]->id_scope());
+  EXPECT_EQ("bar", legacy_events[3]->id_scope());
+  EXPECT_EQ("bar", legacy_events[4]->id_scope());
+  EXPECT_EQ("foo", legacy_events[5]->id_scope());
+
+  EXPECT_EQ(legacy_events[0]->unscoped_id(), legacy_events[5]->unscoped_id());
+  EXPECT_EQ(legacy_events[1]->unscoped_id(), legacy_events[4]->unscoped_id());
+  EXPECT_EQ(legacy_events[2]->unscoped_id(), legacy_events[3]->unscoped_id());
+
+  EXPECT_NE(legacy_events[0]->unscoped_id(), legacy_events[1]->unscoped_id());
+  EXPECT_NE(legacy_events[1]->unscoped_id(), legacy_events[2]->unscoped_id());
+  EXPECT_NE(legacy_events[2]->unscoped_id(), legacy_events[0]->unscoped_id());
 }
 
 TEST_P(PerfettoApiTest, LegacyTraceEventsWithFlow) {
@@ -3914,6 +4779,70 @@ TEST_P(PerfettoApiTest, ThreadSafetyAnnotation) {
 }
 #endif  // PERFETTO_BUILDFLAG(PERFETTO_COMPILER_CLANG)
 
+TEST_P(PerfettoApiTest, CountersDeltaEncoding) {
+  auto* tracing_session = NewTraceWithCategories({"cat"});
+  tracing_session->get()->StartBlocking();
+
+  // Describe a counter track.
+  perfetto::CounterTrack track1 =
+      perfetto::CounterTrack("Framerate1", "fps1").set_is_incremental(true);
+  // Global tracks can be constructed at build time.
+  constexpr perfetto::CounterTrack track2 =
+      perfetto::CounterTrack::Global("Framerate2", "fps2")
+          .set_is_incremental(true);
+  perfetto::CounterTrack track3 = perfetto::CounterTrack("Framerate3", "fps3");
+
+  TRACE_COUNTER("cat", track1, 120);
+  TRACE_COUNTER("cat", track2, 1000);
+  TRACE_COUNTER("cat", track3, 10009);
+
+  TRACE_COUNTER("cat", track1, 10);
+  TRACE_COUNTER("cat", track1, 1200);
+  TRACE_COUNTER("cat", track1, 34);
+
+  TRACE_COUNTER("cat", track3, 975);
+  TRACE_COUNTER("cat", track2, 449);
+  TRACE_COUNTER("cat", track2, 2);
+
+  TRACE_COUNTER("cat", track3, 1091);
+  TRACE_COUNTER("cat", track3, 110);
+  TRACE_COUNTER("cat", track3, 1081);
+
+  TRACE_COUNTER("cat", track1, 98);
+  TRACE_COUNTER("cat", track2, 1084);
+
+  perfetto::TrackEvent::Flush();
+
+  tracing_session->get()->StopBlocking();
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+  perfetto::protos::gen::Trace trace;
+  ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+  std::unordered_map<uint64_t, std::string> counter_names;
+  // Map(Counter name -> counter values)
+  std::unordered_map<std::string, std::vector<int64_t>> values;
+  for (const auto& packet : trace.packet()) {
+    if (packet.has_track_descriptor()) {
+      auto& desc = packet.track_descriptor();
+      if (!desc.has_counter())
+        continue;
+      counter_names[desc.uuid()] = desc.name();
+      EXPECT_EQ((desc.name() != "Framerate3"), desc.counter().is_incremental());
+    }
+    if (packet.has_track_event()) {
+      auto event = packet.track_event();
+      EXPECT_EQ(perfetto::protos::gen::TrackEvent_Type_TYPE_COUNTER,
+                event.type());
+      auto& counter_name = counter_names.at(event.track_uuid());
+      values[counter_name].push_back(event.counter_value());
+    }
+  }
+  ASSERT_EQ(3u, values.size());
+  using IntVector = std::vector<int64_t>;
+  EXPECT_EQ((IntVector{120, -110, 1190, -1166, 64}), values.at("Framerate1"));
+  EXPECT_EQ((IntVector{1000, -551, -447, 1082}), values.at("Framerate2"));
+  EXPECT_EQ((IntVector{10009, 975, 1091, 110, 1081}), values.at("Framerate3"));
+}
+
 TEST_P(PerfettoApiTest, Counters) {
   auto* tracing_session = NewTraceWithCategories({"cat"});
   tracing_session->get()->StartBlocking();
@@ -3992,6 +4921,35 @@ TEST_P(PerfettoApiTest, Counters) {
               ElementsAre("Framerate = 120", "Goats teleported = 0.25",
                           "Goats teleported = 0.5", "Goats teleported = 0.75",
                           "Voltage = 220", "Power = 1.21"));
+}
+
+TEST_P(PerfettoApiTest, EmptyEvent) {
+  auto* tracing_session = NewTraceWithCategories({"cat"});
+  tracing_session->get()->StartBlocking();
+
+  // Emit an empty event.
+  PERFETTO_INTERNAL_ADD_EMPTY_EVENT();
+  perfetto::TrackEvent::Flush();
+
+  tracing_session->get()->StopBlocking();
+  std::vector<char> raw_trace = tracing_session->get()->ReadTraceBlocking();
+
+  perfetto::protos::gen::Trace trace;
+  ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), raw_trace.size()));
+  auto it = std::find_if(trace.packet().begin(), trace.packet().end(),
+                         [](const perfetto::protos::gen::TracePacket& packet) {
+                           return packet.has_trace_stats();
+                         });
+  EXPECT_NE(it, trace.packet().end());
+  // The empty event required a trace chunk.
+  EXPECT_EQ(it->trace_stats().buffer_stats()[0].chunks_read(), 1u);
+  // But it isn't in the trace, because empty packets are skipped when reading
+  // from TraceBuffer.
+  it = std::find_if(trace.packet().begin(), trace.packet().end(),
+                    [](const perfetto::protos::gen::TracePacket& packet) {
+                      return packet.has_track_event();
+                    });
+  EXPECT_EQ(it, trace.packet().end());
 }
 
 struct BackendTypeAsString {

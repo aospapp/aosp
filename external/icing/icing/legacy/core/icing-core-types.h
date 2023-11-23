@@ -21,9 +21,8 @@
 #ifndef ICING_LEGACY_CORE_ICING_CORE_TYPES_H_
 #define ICING_LEGACY_CORE_ICING_CORE_TYPES_H_
 
-#include <stdint.h>
-
 #include <cstddef>  // size_t not defined implicitly for all platforms.
+#include <cstdint>
 #include <vector>
 
 #include "icing/legacy/core/icing-compat.h"

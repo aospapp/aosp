@@ -3,25 +3,26 @@
  * Copyright (c) 2017 RedHat.  All Rights Reserved.
  *
  * Started by Xiong Zhou <xzhou@redhat.com>
- *
- * DESCRIPTION
- *     Sanity check fanotify_init flag FAN_CLOEXEC by fcntl.
  */
+
+/*\
+ * [Description]
+ * Sanity check fanotify_init flag FAN_CLOEXEC by fcntl.
+ */
+
 #define _GNU_SOURCE
 #include "config.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
 #include "tst_test.h"
-#include "fanotify.h"
 
-#if defined(HAVE_SYS_FANOTIFY_H)
-#include <sys/fanotify.h>
+#ifdef HAVE_SYS_FANOTIFY_H
+#include "fanotify.h"
 
 static int fd_notify;
 

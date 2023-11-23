@@ -8,6 +8,10 @@
 
   <application>
     <uses-library android:name="android.test.runner"/>
+    <service
+        android:exported="false"
+        android:name="com.android.textclassifier.downloader.TestModelDownloaderService">
+    </service>
   </application>
 
   <instrumentation

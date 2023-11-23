@@ -5,11 +5,11 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
-.\" * are also available at https://curl.haxx.se/docs/copyright.html.
+.\" * are also available at https://curl.se/docs/copyright.html.
 .\" *
 .\" * You may opt to use, copy, modify, merge, publish, distribute and/or sell
 .\" * copies of the Software, and permit persons to whom the Software is
@@ -20,7 +20,8 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_ISSUERCERT_BLOB 3 "24 Jun 2020" "libcurl 7.71.0" "curl_easy_setopt options"
+.TH CURLOPT_ISSUERCERT_BLOB 3 "October 25, 2021" "libcurl 7.80.0" "curl_easy_setopt options"
+
 .SH NAME
 CURLOPT_ISSUERCERT_BLOB \- issuer SSL certificate from memory blob
 .SH SYNOPSIS
@@ -70,7 +71,7 @@ if(curl) {
 }
 .fi
 .SH AVAILABILITY
-Added in libcurl 7.71.0. This option is supported by the OpenSSL backends.
+Added in 7.71.0. This option is supported by the OpenSSL backends.
 .SH RETURN VALUE
 Returns CURLE_OK if the option is supported, CURLE_UNKNOWN_OPTION if not, or
 CURLE_OUT_OF_MEMORY if there was insufficient heap space.

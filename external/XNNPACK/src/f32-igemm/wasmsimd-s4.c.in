@@ -28,7 +28,7 @@ void xnn_f32_igemm${ACTIVATION_SUFFIX}_ukernel_${MR}x${NR}s4__wasmsimd${ARCH_SUF
     size_t cn_stride,
     size_t a_offset,
     const float* zero,
-    const union ${PARAMS} params[restrict XNN_MIN_ELEMENTS(1)])
+    const union ${PARAMS} params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= ${MR});
@@ -59,8 +59,8 @@ void xnn_f32_igemm${ACTIVATION_SUFFIX}_ukernel_${MR}x${NR}s4__wasmsimd${ARCH_SUF
       }
 
   $if ACTIVATION == "MINMAX" and not X86:
-    const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-    const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+    const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
+    const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
   do {
     v128_t vacc0x${ABC[0:4]} = wasm_v128_load(w);
     $for N in range(4, NR, 4):
@@ -103,47 +103,50 @@ void xnn_f32_igemm${ACTIVATION_SUFFIX}_ukernel_${MR}x${NR}s4__wasmsimd${ARCH_SUF
         k -= 4 * sizeof(float);
       }
       if XNN_UNLIKELY(k != 0) {
-        do {
-          const v128_t vb${ABC[0:4]} = wasm_v128_load(w);
-          $for N in range(4, NR, 4):
-            const v128_t vb${ABC[N:N+4]} = wasm_v128_load(w + ${N});
-          w += ${NR};
+        $for M in range(MR):
+          v128_t va${M} = wasm_v128_load(a${M});
+          a${M} = (const float*) ((uintptr_t) a${M} + k);
 
-          $for M in range(MR):
-            const v128_t va${M} = wasm_v32x4_load_splat(a${M});
-            a${M} += 1;
+        const v128_t vzero = wasm_f32x4_const_splat(0.0f);
+        $for L in range(4):
 
-          $for M in range(MR):
-            $for N in range(0, NR, 4):
-              vacc${M}x${ABC[N:N+4]} = wasm_f32x4_add(vacc${M}x${ABC[N:N+4]}, wasm_f32x4_mul(va${M}, vb${ABC[N:N+4]}));
-          k -= sizeof(float);
-        } while (k != 0);
+          $for N in range(0, NR, 4):
+            const v128_t vb${ABC[N:N+4]}c${L} = wasm_v128_load(w + ${L * NR + N});
+
+          $for N in range(0, NR, 4):
+            $for M in range(MR):
+              vacc${M}x${ABC[N:N+4]} = wasm_f32x4_add(vacc${M}x${ABC[N:N+4]}, wasm_f32x4_mul(wasm_v128_andnot(va${M}, wasm_f32x4_eq(vb${ABC[N:N+4]}c${L}, vzero)), vb${ABC[N:N+4]}c${L}));
+
+          $if L + 1 != 4:
+            $for M in range(MR):
+              va${M} = wasm_v32x4_shuffle(va${M}, va${M}, 1, 2, 3, 0);
+
+        w += ${4 * NR};
       }
       p -= ${MR} * sizeof(void*);
     } while (p != 0);
 
     $if ACTIVATION == "MINMAX":
       $if X86:
-        const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
+        const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
         $for N in range(0, NR, 4):
           $for M in range(MR):
-            vacc${M}x${ABC[N:N+4]} = wasm_v128_bitselect(vmin, vacc${M}x${ABC[N:N+4]}, wasm_f32x4_lt(vacc${M}x${ABC[N:N+4]}, vmin));
+            vacc${M}x${ABC[N:N+4]} = wasm_f32x4_pmax(vmin, vacc${M}x${ABC[N:N+4]});
+
+        const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
+        $for N in range(0, NR, 4):
+          $for M in range(MR):
+            vacc${M}x${ABC[N:N+4]} = wasm_f32x4_pmin(vmax, vacc${M}x${ABC[N:N+4]});
       $else:
         $for N in range(0, NR, 4):
           $for M in range(MR):
             vacc${M}x${ABC[N:N+4]} = wasm_f32x4_max(vacc${M}x${ABC[N:N+4]}, vmin);
 
-      $if X86:
-        const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
-        $for N in range(0, NR, 4):
-          $for M in range(MR):
-            vacc${M}x${ABC[N:N+4]} = wasm_v128_bitselect(vacc${M}x${ABC[N:N+4]}, vmax, wasm_f32x4_le(vacc${M}x${ABC[N:N+4]}, vmax));
-      $else:
         $for N in range(0, NR, 4):
           $for M in range(MR):
             vacc${M}x${ABC[N:N+4]} = wasm_f32x4_min(vacc${M}x${ABC[N:N+4]}, vmax);
     $elif ACTIVATION == "RELU":
-      const v128_t vzero = wasm_f32x4_splat(0.0f);
+      const v128_t vzero = wasm_i32x4_const_splat(0);
       $for N in range(0, NR, 4):
         $for M in range(MR):
           vacc${M}x${ABC[N:N+4]} = wasm_i32x4_max(vacc${M}x${ABC[N:N+4]}, vzero);

@@ -76,9 +76,11 @@ static const char *command_names[VIRGL_MAX_COMMANDS] = {
    "END_TRANSFERS",
    "COPY_TRANSFER3D",
    "TWEAK",
-   "CLEAR_TEXTURE"
+   "CLEAR_TEXTURE",
    "PIPE_RESOURCE_CREATE",
    "PIPE_RESOURCE_SET_TYPE",
+   "GET_MEMORY_INFO",
+   "SEND_STRING_MARKER",
 };
 
 static const char *object_type_names[VIRGL_MAX_OBJECTS] = {
@@ -92,7 +94,8 @@ static const char *object_type_names[VIRGL_MAX_OBJECTS] = {
    "SAMPLER_STATE",
    "SURFACE",
    "QUERY",
-   "STREAMOUT_TARGET"
+   "STREAMOUT_TARGET",
+   "MSAA_SURFACE"
 };
 
 const char *vrend_get_comand_name(enum virgl_context_cmd cmd)
@@ -124,6 +127,7 @@ static const struct debug_named_value vrend_debug_options[] = {
    {"tweak", dbg_tweak, "Log tweaks"},
    {"query", dbg_query, "Log queries"},
    {"gles", dbg_gles, "GLES host specific debug"},
+   {"bgra", dbg_bgra, "Debug specific to BGRA emulation on GLES hosts"},
    {"all", dbg_all, "Enable all debugging output"},
    {"guestallow", dbg_allow_guest_override, "Allow the guest to override the debug flags"},
    {"khr", dbg_khr, "Enable debug via KHR_debug extension"},
@@ -174,56 +178,3 @@ int  vrend_debug_can_override(void)
 {
    return vrend_debug_flags & dbg_allow_guest_override;
 }
-
-static
-void vrend_default_debug_callback(const char *fmt, va_list va)
-{
-   static FILE* fp = NULL;
-   if (NULL == fp) {
-      const char* log = getenv("VIRGL_LOG_FILE");
-      if (log) {
-         char *log_prefix = strdup(log);
-         char *log_suffix = strstr(log_prefix, "%PID%");
-         if (log_suffix) {
-            *log_suffix = 0;
-            log_suffix += 5;
-            int len = strlen(log) + 32;
-            char *name = malloc(len);
-            snprintf(name, len, "%s%d%s", log_prefix, getpid(), log_suffix);
-            fp = fopen(name, "a");
-            free(name);
-         } else {
-            fp = fopen(log, "a");
-         }
-         free(log_prefix);
-         if (NULL == fp) {
-            fprintf(stderr, "Can't open %s\n", log);
-            fp = stderr;
-         }
-      } else {
-            fp = stderr;
-      }
-   }
-   vfprintf(fp, fmt, va);
-   fflush(fp);
-}
-
-static virgl_debug_callback_type debug_callback = vrend_default_debug_callback;
-
-void vrend_printf(const char *fmt, ...)
-{
-   if (debug_callback) {
-      va_list va;
-      va_start(va, fmt);
-      debug_callback(fmt, va);
-      va_end(va);
-   }
-}
-
-virgl_debug_callback_type vrend_set_debug_callback(virgl_debug_callback_type cb)
-{
-   virgl_debug_callback_type retval = debug_callback;
-   debug_callback = cb;
-   return retval;
-}
-

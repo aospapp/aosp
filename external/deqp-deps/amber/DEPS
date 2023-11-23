@@ -8,23 +8,25 @@ vars = {
   'microsoft_git': 'https://github.com/Microsoft',
   'nlohmann_git': 'https://github.com/nlohmann',
   'swiftshader_git': 'https://swiftshader.googlesource.com',
+  'martinus_git': 'https://github.com/martinus',
 
-  'clspv_llvm_revision': '7e30989dabce9ddbca0cbad7a8f25fb4e756d334',
-  'clspv_revision': 'e0406e7053d1bb46b4bbeb57f0f2bbfca32f5612',
-  'cppdap_revision': '1fd23dda91e01550be1a421de307e6fedb2035a9',
+  'clspv_llvm_revision': 'b70366c9c430e1eadd59d5a1dfbb9c4d84f83de5',
+  'clspv_revision': 'f99809bdab1710846633b4ec24f5448263e75da7',
+  'cppdap_revision': '88e89520148b2f95e17ca9348587a28215ffc921',
   'cpplint_revision': '26470f9ccb354ff2f6d098f831271a1833701b28',
-  'dxc_revision': '489c2e4d32417cd6693db5673ab071d82e1f5974',
-  'glslang_revision': '7f6559d2802d0653541060f0909e33d137b9c8ba',
-  'googletest_revision': '0555b0eacbc56df1fd762c6aa87bb84be9e4ce7e',
-  'json_revision': '350ff4f7ced7c4117eae2fb93df02823c8021fcb',
-  'lodepng_revision': '7fdcc96a5e5864eee72911c3ca79b1d9f0d12292',
-  'shaderc_revision': '88f9156d7f6a2a30baed1ace196faa3bc5eccc05',
-  'spirv_headers_revision': '5ab5c96198f30804a6a29961b8905f292a8ae600',
-  'spirv_tools_revision': '1f2fcddd3963b9c29bf360daf7656c5977c2aadd',
-  'swiftshader_revision': '04515da400d5fbc22d852af1369c4d46bd54991e',
-  'vulkan_headers_revision': '11c6670b4a4f766ed4f1e777d1b3c3dc082dfa5f',
-  'vulkan_loader_revision': 'be6ccb9ecaf77dfef59246a1e8502e99c8e1a511',
-  'vulkan_validationlayers_revision': '0cb8cc8cfcb2b86a767c9516ac2d62edb4e38ebe',
+  'dxc_revision': 'c45db48d565a9edc14b025e43b90e62264d06eea',
+  'glslang_revision': '81cc10a498b25a90147cccd6e8939493c1e9e20e',
+  'googletest_revision': '16f637fbf4ffc3f7a01fa4eceb7906634565242f',
+  'json_revision': '4f8fba14066156b73f1189a2b8bd568bde5284c5',
+  'lodepng_revision': '5601b8272a6850b7c5d693dd0c0e16da50be8d8d',
+  'shaderc_revision': 'e72186b66bb90ed06aaf15cbdc9a053581a0616b',
+  'spirv_headers_revision': 'b42ba6d92faf6b4938e6f22ddd186dbdacc98d78',
+  'spirv_tools_revision': 'a73e724359a274d7cf4f4248eba5be1e7764fbfd',
+  'swiftshader_revision': 'bca23447ad4667a7b79973569ab5d8d905d211ac',
+  'vulkan_headers_revision': '1dace16d8044758d32736eb59802d171970e9448',
+  'vulkan_loader_revision': '8aad559a09388ceb5b968af64a2b965d3886e5a0',
+  'vulkan_validationlayers_revision': 'a6c1ddca49331d8addde052554487180ee8aec13',
+  'robin_hood_hashing_revision': '24b3f50f9532153edc23b29ae277dcccfd75a462',
 }
 
 deps = {
@@ -75,4 +77,7 @@ deps = {
 
   'third_party/vulkan-loader': Var('khronos_git') + '/Vulkan-Loader.git@' +
       Var('vulkan_loader_revision'),
+
+  'third_party/robin-hood-hashing': Var('martinus_git') + '/robin-hood-hashing.git@' +
+      Var('robin_hood_hashing_revision'),
 }

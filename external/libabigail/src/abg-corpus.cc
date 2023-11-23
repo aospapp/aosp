@@ -602,6 +602,8 @@ corpus::corpus(ir::environment* env, const string& path)
   init_format_version();
 }
 
+corpus::~corpus() = default;
+
 /// Getter of the enviroment of the corpus.
 ///
 /// @return the environment of this corpus.
@@ -1009,7 +1011,7 @@ corpus::is_empty() const
 	}
     }
   return (members_empty
-	  && !get_symtab()->has_symbols()
+	  && (!get_symtab() || !get_symtab()->has_symbols())
 	  && priv_->soname.empty()
 	  && priv_->needed.empty());
 }

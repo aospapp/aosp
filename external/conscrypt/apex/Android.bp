@@ -24,7 +24,6 @@ package {
 
 apex_defaults {
     name: "com.android.conscrypt-defaults",
-    updatable: true,
     androidManifest: ":com.android.conscrypt-androidManifest",
     compile_multilib: "both",
     bootclasspath_fragments: ["com.android.conscrypt-bootclasspath-fragment"],
@@ -37,15 +36,17 @@ apex_defaults {
     },
     key: "apex.conscrypt.key",
     certificate: ":com.android.conscrypt.certificate",
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible: true,
 
-    // IMPORTANT: For the APEX to be installed on Android 10,
-    // min_sdk_version should be 29. This enables the build system to make
+    // IMPORTANT: q-launched-apex-module enables the build system to make
     // sure the package compatible to Android 10 in two ways:
     // - build the APEX package compatible to Android 10
     //   so that the package can be installed.
     // - build artifacts (lib/javalib/bin) against Android 10 SDK
     //   so that the artifacts can run.
-    min_sdk_version: "29",
+    defaults: ["q-launched-apex-module"],
 }
 
 filegroup {
@@ -111,5 +112,19 @@ bootclasspath_fragment {
     // from the api stub libraries.
     hidden_api: {
         max_target_o_low_priority: ["hiddenapi/hiddenapi-max-target-o-low-priority.txt"],
+
+        // This module does not contain any split packages.
+        split_packages: [],
+
+        // The following packages and all their subpackages currently only
+        // contain classes from this bootclasspath_fragment. Listing a package
+        // here won't prevent other bootclasspath modules from adding classes in
+        // any of those packages but it will prevent them from adding those
+        // classes into an API surface, e.g. public, system, etc.. Doing so will
+        // result in a build failure due to inconsistent flags.
+        package_prefixes: [
+            "android.net.ssl",
+            "com.android.org.conscrypt",
+        ],
     },
 }

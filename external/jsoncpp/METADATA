@@ -3,13 +3,16 @@ description: "JsonCpp is a C++ library that allows manipulating JSON values, inc
 third_party {
   url {
     type: ARCHIVE
-    value: "https://github.com/open-source-parsers/jsoncpp/archive/1.9.4.tar.gz"
+    value: "https://github.com/open-source-parsers/jsoncpp/archive/1.9.5.tar.gz"
   }
-  version: "1.9.4"
+  version: "1.9.5"
   license_type: NOTICE
+  security {
+    tag: "NVD-CPE2.3:cpe:/a:jsoncpp_project:jsoncpp:1.9.4"
+  }
   last_upgrade_date {
     year: 2021
-    month: 2
-    day: 24
+    month: 12
+    day: 7
   }
 }

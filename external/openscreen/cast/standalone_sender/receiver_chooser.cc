@@ -27,28 +27,14 @@ ReceiverChooser::ReceiverChooser(const InterfaceInfo& interface,
                                  ResultCallback result_callback)
     : result_callback_(std::move(result_callback)),
       menu_alarm_(&Clock::now, task_runner) {
-  using discovery::Config;
-  Config config;
-  // TODO(miu): Remove AddressFamilies from the Config in a follow-up patch. No
-  // client uses this to do anything other than "enabled for all address
-  // families," and so it doesn't need to be configurable.
-  Config::NetworkInfo::AddressFamilies families =
-      Config::NetworkInfo::kNoAddressFamily;
-  if (interface.GetIpAddressV4()) {
-    families |= Config::NetworkInfo::kUseIpV4;
-  }
-  if (interface.GetIpAddressV6()) {
-    families |= Config::NetworkInfo::kUseIpV6;
-  }
-  config.network_info.push_back({interface, families});
-  config.enable_publication = false;
-  config.enable_querying = true;
-  service_ =
-      discovery::CreateDnsSdService(task_runner, this, std::move(config));
+  discovery::Config config{.network_info = {interface},
+                           .enable_publication = false,
+                           .enable_querying = true};
+  discovery::CreateDnsSdService(task_runner, this, std::move(config));
 
-  watcher_ = std::make_unique<discovery::DnsSdServiceWatcher<ServiceInfo>>(
-      service_.get(), kCastV2ServiceId, DnsSdInstanceEndpointToServiceInfo,
-      [this](std::vector<std::reference_wrapper<const ServiceInfo>> all) {
+  watcher_ = std::make_unique<discovery::DnsSdServiceWatcher<ReceiverInfo>>(
+      service_.get(), kCastV2ServiceId, DnsSdInstanceEndpointToReceiverInfo,
+      [this](std::vector<std::reference_wrapper<const ReceiverInfo>> all) {
         OnDnsWatcherUpdate(std::move(all));
       });
 
@@ -68,15 +54,15 @@ void ReceiverChooser::OnRecoverableError(Error error) {
 }
 
 void ReceiverChooser::OnDnsWatcherUpdate(
-    std::vector<std::reference_wrapper<const ServiceInfo>> all) {
+    std::vector<std::reference_wrapper<const ReceiverInfo>> all) {
   bool added_some = false;
-  for (const ServiceInfo& info : all) {
+  for (const ReceiverInfo& info : all) {
     if (!info.IsValid() || (!info.v4_address && !info.v6_address)) {
       continue;
     }
     const std::string& instance_id = info.GetInstanceId();
     if (std::any_of(discovered_receivers_.begin(), discovered_receivers_.end(),
-                    [&](const ServiceInfo& known) {
+                    [&](const ReceiverInfo& known) {
                       return known.GetInstanceId() == instance_id;
                     })) {
       continue;
@@ -101,7 +87,7 @@ void ReceiverChooser::PrintMenuAndHandleChoice() {
 
   std::cout << '\n';
   for (size_t i = 0; i < discovered_receivers_.size(); ++i) {
-    const ServiceInfo& info = discovered_receivers_[i];
+    const ReceiverInfo& info = discovered_receivers_[i];
     std::cout << '[' << i << "]: " << info.friendly_name << " @ ";
     if (info.v6_address) {
       std::cout << info.v6_address;
@@ -118,7 +104,7 @@ void ReceiverChooser::PrintMenuAndHandleChoice() {
     const auto callback_on_stack = std::move(result_callback_);
     if (menu_choice >= 0 &&
         menu_choice < static_cast<int>(discovered_receivers_.size())) {
-      const ServiceInfo& choice = discovered_receivers_[menu_choice];
+      const ReceiverInfo& choice = discovered_receivers_[menu_choice];
       if (choice.v6_address) {
         callback_on_stack(IPEndpoint{choice.v6_address, choice.port});
       } else {

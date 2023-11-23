@@ -1,10 +1,14 @@
+#ifndef OPENSSL_NO_ENGINE
+/* OpenSSL has ENGINE support so include all of this. */
 #ifdef _WIN32
   #include <Wincrypt.h>
 #else
   #include <fcntl.h>
   #include <unistd.h>
    /* for defined(BSD) */
-  #include <sys/param.h>
+  #ifndef __MVS__
+    #include <sys/param.h>
+  #endif
 
   #ifdef BSD
     /* for SYS_getentropy */
@@ -24,6 +28,20 @@
     #ifndef GRND_NONBLOCK
       #define GRND_NONBLOCK 0x0001
     #endif /* GRND_NONBLOCK */
+
+    #ifndef SYS_getrandom
+      /* We only bother to define the constants for platforms where we ship
+       * wheels, since that's the predominant way you get a situation where
+       * you don't have SYS_getrandom at compile time but do have the syscall
+       * at runtime */
+      #if defined(__x86_64__)
+        #define SYS_getrandom 318
+      #elif defined(__i386__)
+        #define SYS_getrandom 355
+      #elif defined(__aarch64__)
+        #define SYS_getrandom 278
+      #endif
+    #endif
   #endif /* __linux__ */
 #endif /* _WIN32 */
 
@@ -97,3 +115,4 @@ static void ERR_Cryptography_OSRandom_error(int function, int reason,
 #define CRYPTOGRAPHY_OSRANDOM_R_GETRANDOM_INIT_FAILED_UNEXPECTED 402
 #define CRYPTOGRAPHY_OSRANDOM_R_GETRANDOM_FAILED 403
 #define CRYPTOGRAPHY_OSRANDOM_R_GETRANDOM_NOT_INIT 404
+#endif

@@ -23,7 +23,7 @@
 #define THREAD_NUM 3
 #define TIMEOUT (THREAD_NUM * 2)
 
-struct testdata {
+static struct testdata {
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
 } td;
@@ -31,7 +31,7 @@ struct testdata {
 static int start_num;
 static int waken_num;
 
-static void *thr_func(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *thr_func(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	int rc;
 	struct timespec timeout;

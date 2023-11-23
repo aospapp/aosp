@@ -7,7 +7,7 @@ apply plugin: 'maven'
 
 apply from: rootProject.file('gradle/compile-options.gradle')
 
-ext.configureKotlin(org.jetbrains.kotlin.gradle.tasks.KotlinCompile)
+ext.configureKotlin()
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
@@ -51,6 +51,11 @@ task generatePomFile(dependsOn: [compileKotlin, ':atomicfu-transformer:publishTo
                         appendNode('repository').with {
                             appendNode('id', 'kotlin-dev')
                             appendNode('url', 'https://kotlin.bintray.com/kotlin-dev')
+                        }
+
+                        appendNode('repository').with {
+                            appendNode('id', 'dev')
+                            appendNode('url', 'https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev')
                         }
 
                         appendNode('repository').with {

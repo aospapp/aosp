@@ -37,7 +37,7 @@ typedef struct Arg_t {
 	uint32_t fat;
 	int markbad;
 	int setsize;
-	unsigned long size;
+	uint32_t size;
 	Fs_t *Fs;
 } Arg_t;
 
@@ -45,16 +45,16 @@ static int dos_doctorfat(direntry_t *entry, MainParam_t *mp)
 {
 	Fs_t *Fs = getFs(mp->File);
 	Arg_t *arg=(Arg_t *) mp->arg;
-	
+
 	if(!arg->markbad && entry->entry != -3) {
 		/* if not root directory, change it */
 		set_word(entry->dir.start, arg->fat & 0xffff);
 		set_word(entry->dir.startHi, arg->fat >> 16);
 		if(arg->setsize)
 			set_dword(entry->dir.size, arg->size);
-		dir_write(entry);		
+		dir_write(entry);
 	}
-	arg->Fs = Fs; 
+	arg->Fs = Fs;
 	return GOT_ONE;
 }
 
@@ -84,7 +84,7 @@ void mdoctorfat(int argc, char **argv, int mtype UNUSEDP)
 	char *number, *eptr;
 	int i;
 	unsigned int offset;
-	
+
 	/* get command line options */
 
 	init_clash_handling(& arg.ch);
@@ -112,14 +112,14 @@ void mdoctorfat(int argc, char **argv, int mtype UNUSEDP)
 				break;
 			case 's':
 				arg.setsize=1;
-				arg.size = strtoul(optarg,&endptr,0);
+				arg.size = strtou32(optarg,&endptr,0);
 				break;
 			case 'h':
 				usage(0);
 			case '?':
 				usage(1);
 		}
-		check_number_parse_errno(c, optarg, endptr);
+		check_number_parse_errno((char)c, optarg, endptr);
 	}
 
 	if (argc - optind < 2)
@@ -129,10 +129,10 @@ void mdoctorfat(int argc, char **argv, int mtype UNUSEDP)
 	/* only 1 file to copy... */
 	init_mp(&arg.mp);
 	arg.mp.arg = (void *) &arg;
-		
+
 	arg.mp.callback = dos_doctorfat;
 	arg.mp.unixcallback = unix_doctorfat;
-	
+
 	arg.mp.lookupflags = ACCEPT_PLAIN | ACCEPT_DIR | DO_OPEN;
 	arg.mp.openflags = O_RDWR;
 	arg.fat = strtoui(argv[optind+1], 0, 0) + offset;

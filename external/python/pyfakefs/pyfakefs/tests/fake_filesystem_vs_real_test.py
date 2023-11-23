@@ -23,6 +23,7 @@ import time
 import unittest
 
 from pyfakefs import fake_filesystem
+from pyfakefs.helpers import IS_PYPY
 
 
 def sep(path):
@@ -181,8 +182,8 @@ class FakeFilesystemVsRealTest(TestCase):
         real_err, real_value = self._get_real_value(method_name, path, real)
         fake_err, fake_value = self._get_fake_value(method_name, path, fake)
 
-        method_call = '%s' % method_name
-        method_call += '()' if path == () else '(%s)' % path
+        method_call = f'{method_name}'
+        method_call += '()' if path == () else '({path})'
         # We only compare on the error class because the acutal error contents
         # is almost always different because of the file paths.
         if _error_class(real_err) != _error_class(fake_err):
@@ -222,7 +223,11 @@ class FakeFilesystemVsRealTest(TestCase):
             if not callable(fake):
                 fake_method = getattr(fake, method_name)
             args = [] if path == () else [path]
-            fake_value = str(fake_method(*args))
+            result = fake_method(*args)
+            if isinstance(result, bytes):
+                fake_value = result.decode()
+            else:
+                fake_value = str(result)
         except Exception as e:  # pylint: disable-msg=W0703
             fake_err = e
         return fake_err, fake_value
@@ -237,7 +242,11 @@ class FakeFilesystemVsRealTest(TestCase):
             real_method = real
             if not callable(real):
                 real_method = getattr(real, method_name)
-            real_value = str(real_method(*args))
+            result = real_method(*args)
+            if isinstance(result, bytes):
+                real_value = result.decode()
+            else:
+                real_value = str(result)
         except Exception as e:  # pylint: disable-msg=W0703
             real_err = e
         return real_err, real_value
@@ -337,14 +346,12 @@ class FakeFilesystemVsRealTest(TestCase):
         path = sep(path)
         os_method_names = [] if self.is_windows else ['readlink']
         os_method_names_no_args = ['getcwd']
-        os_path_method_names = ['isabs',
-                                'isdir',
-                                'isfile',
-                                'exists'
-                                ]
+        os_path_method_names = ['isabs', 'isdir']
         if not self.is_windows:
-            os_path_method_names.append('islink')
-            os_path_method_names.append('lexists')
+            os_path_method_names += ['islink', 'lexists']
+        if not self.is_windows or not IS_PYPY:
+            os_path_method_names += ['isfile', 'exists']
+
         wrapped_methods = [
             ['access', self._access_real, self._access_fake],
             ['stat.size', self._stat_size_real, self._stat_size_fake],
@@ -391,6 +398,50 @@ class FakeFilesystemVsRealTest(TestCase):
         if differences:
             self.fail('Behaviors do not match for %s:\n    %s' %
                       (path, '\n    '.join(differences)))
+
+    def assertFileHandleOpenBehaviorsMatch(self, *args, **kwargs):
+        """Compare open() function invocation between real and fake.
+
+        Runs open(*args, **kwargs) on both real and fake.
+
+        Args:
+            *args: args to pass through to open()
+            **kwargs: kwargs to pass through to open().
+
+        Returns:
+            None.
+
+        Raises:
+            AssertionError if underlying open() behavior differs from fake.
+        """
+        real_err = None
+        fake_err = None
+        try:
+            with open(*args, **kwargs):
+                pass
+        except Exception as e:  # pylint: disable-msg=W0703
+            real_err = e
+
+        try:
+            with self.fake_open(*args, **kwargs):
+                pass
+        except Exception as e:  # pylint: disable-msg=W0703
+            fake_err = e
+
+        # default equal in case one is None and other is not.
+        is_exception_equal = (real_err == fake_err)
+        if real_err and fake_err:
+            # exception __eq__ doesn't evaluate equal ever, thus manual check.
+            is_exception_equal = (type(real_err) is type(fake_err) and
+                                  real_err.args == fake_err.args)
+
+        if not is_exception_equal:
+            msg = (
+                "Behaviors don't match on open with args %s & kwargs %s.\n" %
+                (args, kwargs))
+            real_err_msg = 'Real open results in: %s\n' % repr(real_err)
+            fake_err_msg = 'Fake open results in: %s\n' % repr(fake_err)
+            self.fail(msg + real_err_msg + fake_err_msg)
 
     # Helpers for checks which are not straight method calls.
     @staticmethod
@@ -627,6 +678,18 @@ class FakeFilesystemVsRealTest(TestCase):
         self.assertFileHandleBehaviorsMatch('read', 'rb', 'other contents')
         self.assertFileHandleBehaviorsMatch('write', 'wb', 'other contents')
         self.assertFileHandleBehaviorsMatch('append', 'ab', 'other contents')
+
+        # binary cannot have encoding
+        self.assertFileHandleOpenBehaviorsMatch('read', 'rb', encoding='enc')
+        self.assertFileHandleOpenBehaviorsMatch(
+            'write', mode='wb', encoding='enc')
+        self.assertFileHandleOpenBehaviorsMatch('append', 'ab', encoding='enc')
+
+        # text can have encoding
+        self.assertFileHandleOpenBehaviorsMatch('read', 'r', encoding='utf-8')
+        self.assertFileHandleOpenBehaviorsMatch('write', 'w', encoding='utf-8')
+        self.assertFileHandleOpenBehaviorsMatch(
+            'append', 'a', encoding='utf-8')
 
 
 def main(_):

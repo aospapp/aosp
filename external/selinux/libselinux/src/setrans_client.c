@@ -19,7 +19,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/uio.h>
-#include "dso.h"
 #include "selinux_internal.h"
 #include "setrans_internal.h"
 
@@ -260,7 +259,7 @@ static void setrans_thread_destructor(void __attribute__((unused)) *unused)
 
 void __attribute__((destructor)) setrans_lib_destructor(void);
 
-void hidden __attribute__((destructor)) setrans_lib_destructor(void)
+void  __attribute__((destructor)) setrans_lib_destructor(void)
 {
 	if (!has_setrans)
 		return;
@@ -273,7 +272,7 @@ static inline void init_thread_destructor(void)
 	if (!has_setrans)
 		return;
 	if (destructor_initialized == 0) {
-		__selinux_setspecific(destructor_key, (void *)1);
+		__selinux_setspecific(destructor_key, /* some valid address to please GCC */ &selinux_page_size);
 		destructor_initialized = 1;
 	}
 }
@@ -327,7 +326,6 @@ int selinux_trans_to_raw_context(const char * trans,
 	return *rawp ? 0 : -1;
 }
 
-hidden_def(selinux_trans_to_raw_context)
 
 int selinux_raw_to_trans_context(const char * raw,
 				 char ** transp)
@@ -369,7 +367,6 @@ int selinux_raw_to_trans_context(const char * raw,
 	return *transp ? 0 : -1;
 }
 
-hidden_def(selinux_raw_to_trans_context)
 
 int selinux_raw_context_to_color(const char * raw, char **transp)
 {
@@ -410,7 +407,6 @@ int selinux_raw_context_to_color(const char * raw, char **transp)
 	return *transp ? 0 : -1;
 }
 
-hidden_def(selinux_raw_context_to_color)
 #else /*DISABLE_SETRANS*/
 
 int selinux_trans_to_raw_context(const char * trans,
@@ -426,7 +422,6 @@ int selinux_trans_to_raw_context(const char * trans,
 	return *rawp ? 0 : -1;
 }
 
-hidden_def(selinux_trans_to_raw_context)
 
 int selinux_raw_to_trans_context(const char * raw,
 				 char ** transp)
@@ -440,5 +435,4 @@ int selinux_raw_to_trans_context(const char * raw,
 	return *transp ? 0 : -1;
 }
 
-hidden_def(selinux_raw_to_trans_context)
 #endif /*DISABLE_SETRANS*/

@@ -315,7 +315,7 @@ static void amdgpu_secure_bounce(void)
 				  SECURE_BUFFER_SIZE,
 				  page_size,
 				  AMDGPU_GEM_DOMAIN_VRAM,
-				  0 /* AMDGPU_GEM_CREATE_ENCRYPTED */,
+				  AMDGPU_GEM_CREATE_ENCRYPTED,
 				  &bob);
 	if (res) {
 		PRINT_ERROR(res);
@@ -323,9 +323,9 @@ static void amdgpu_secure_bounce(void)
 		goto Out_free_Alice;
 	}
 
-	/* sDMA clear copy from Alice to Bob.
+	/* sDMA TMZ copy from Alice to Bob.
 	 */
-	amdgpu_bo_lcopy(&sb_ctx, &bob, &alice, SECURE_BUFFER_SIZE, 0);
+	amdgpu_bo_lcopy(&sb_ctx, &bob, &alice, SECURE_BUFFER_SIZE, 1);
 
 	/* Move Bob to the GTT domain.
 	 */
@@ -336,9 +336,9 @@ static void amdgpu_secure_bounce(void)
 		goto Out_free_all;
 	}
 
-	/* sDMA clear copy from Bob to Alice.
+	/* sDMA TMZ copy from Bob to Alice.
 	 */
-	amdgpu_bo_lcopy(&sb_ctx, &alice, &bob, SECURE_BUFFER_SIZE, 0);
+	amdgpu_bo_lcopy(&sb_ctx, &alice, &bob, SECURE_BUFFER_SIZE, 1);
 
 	/* Verify the contents of Alice.
 	 */
@@ -432,7 +432,8 @@ CU_BOOL suite_security_tests_enable(void)
 				     &minor_version, &device_handle))
 		return CU_FALSE;
 
-	if (device_handle->info.family_id != AMDGPU_FAMILY_RV) {
+
+	if (!(device_handle->dev_info.ids_flags & AMDGPU_IDS_FLAGS_TMZ)) {
 		printf("\n\nDon't support TMZ (trust memory zone), security suite disabled\n");
 		enable = CU_FALSE;
 	}

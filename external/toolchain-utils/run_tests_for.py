@@ -74,21 +74,19 @@ def _gather_python_tests_in(rel_subdir, toolchain_utils):
   """Returns all files that appear to be Python tests in a given directory."""
   subdir = os.path.join(toolchain_utils, rel_subdir)
   test_files = (
-      os.path.join(subdir, file_name)
-      for file_name in os.listdir(subdir)
+      os.path.join(subdir, file_name) for file_name in os.listdir(subdir)
       if file_name.endswith('_test.py') or file_name.endswith('_unittest.py'))
   return _filter_python_tests(test_files, toolchain_utils)
 
 
 def _run_test(test_spec):
   """Runs a test."""
-  p = subprocess.Popen(
-      test_spec.command,
-      cwd=test_spec.directory,
-      stdin=open('/dev/null'),
-      stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
-      encoding='utf-8')
+  p = subprocess.Popen(test_spec.command,
+                       cwd=test_spec.directory,
+                       stdin=open('/dev/null'),
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT,
+                       encoding='utf-8')
   stdout, _ = p.communicate()
   exit_code = p.wait()
   return exit_code, stdout
@@ -115,12 +113,23 @@ def _autodetect_python_tests_for(test_file, toolchain_utils):
   if not test_file.endswith('.py'):
     return []
 
-  test_suffixes = ['_test.py', '_unittest.py']
-  if any(test_file.endswith(x) for x in test_suffixes):
+  test_prefixes = ('test_', 'unittest_')
+  test_suffixes = ('_test.py', '_unittest.py')
+
+  test_file_name = os.path.basename(test_file)
+  test_file_is_a_test = (
+      any(test_file_name.startswith(x) for x in test_prefixes)
+      or any(test_file_name.endswith(x) for x in test_suffixes))
+
+  if test_file_is_a_test:
     test_files = [test_file]
   else:
-    base = test_file[:-3]
-    candidates = (base + x for x in test_suffixes)
+    test_file_no_suffix = test_file[:-3]
+    candidates = [test_file_no_suffix + x for x in test_suffixes]
+
+    dir_name = os.path.dirname(test_file)
+    candidates += (os.path.join(dir_name, x + test_file_name)
+                   for x in test_prefixes)
     test_files = (x for x in candidates if os.path.exists(x))
   return _filter_python_tests(test_files, toolchain_utils)
 
@@ -128,7 +137,7 @@ def _autodetect_python_tests_for(test_file, toolchain_utils):
 def _run_test_scripts(all_tests, show_successful_output=False):
   """Runs a list of TestSpecs. Returns whether all of them succeeded."""
   with contextlib.closing(multiprocessing.pool.ThreadPool()) as pool:
-    results = [pool.apply_async(_run_test, (test,)) for test in all_tests]
+    results = [pool.apply_async(_run_test, (test, )) for test in all_tests]
 
   failures = []
   for i, (test, future) in enumerate(zip(all_tests, results)):
@@ -234,16 +243,15 @@ def main(argv):
   default_toolchain_utils = os.path.abspath(os.path.dirname(__file__))
 
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument(
-      '--show_all_output',
-      action='store_true',
-      help='show stdout of successful tests')
-  parser.add_argument(
-      '--toolchain_utils',
-      default=default_toolchain_utils,
-      help='directory of toolchain-utils. Often auto-detected')
-  parser.add_argument(
-      'file', nargs='*', help='a file that we should run tests for')
+  parser.add_argument('--show_all_output',
+                      action='store_true',
+                      help='show stdout of successful tests')
+  parser.add_argument('--toolchain_utils',
+                      default=default_toolchain_utils,
+                      help='directory of toolchain-utils. Often auto-detected')
+  parser.add_argument('file',
+                      nargs='*',
+                      help='a file that we should run tests for')
   args = parser.parse_args(argv)
 
   modified_files = [os.path.abspath(f) for f in args.file]

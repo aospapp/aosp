@@ -27,8 +27,8 @@ import android.os.Environment;
 import android.os.SystemClock;
 
 //import com.googlecode.android_scripting.R;
-import com.googlecode.android_scripting.facade.bluetooth.BluetoothMediaFacade;
 import com.googlecode.android_scripting.Log;
+import com.googlecode.android_scripting.facade.bluetooth.BluetoothMediaFacade;
 
 import java.io.File;
 import java.io.IOException;
@@ -347,6 +347,11 @@ public class BluetoothMediaPlayback {
                     retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS)));
             //newMetaData.putLong(CUSTOM_MUSIC_PROVIDER_RESOURCE_ID, resourceId);
             newMetaData.putString(CUSTOM_URL, song);
+            try {
+                retriever.release();
+            } catch (IOException e) {
+                // Ignore errors occurred while releasing the MediaMetadataRetriever.
+            }
             return newMetaData.build();
 
         }

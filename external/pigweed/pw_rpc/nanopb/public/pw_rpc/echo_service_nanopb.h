@@ -19,11 +19,10 @@
 
 namespace pw::rpc {
 
-class EchoService final : public generated::EchoService<EchoService> {
+class EchoService final
+    : public pw_rpc::nanopb::EchoService::Service<EchoService> {
  public:
-  Status Echo(ServerContext&,
-              const pw_rpc_EchoMessage& request,
-              pw_rpc_EchoMessage& response) {
+  Status Echo(const pw_rpc_EchoMessage& request, pw_rpc_EchoMessage& response) {
     std::strncpy(response.msg, request.msg, sizeof(response.msg));
     return OkStatus();
   }

@@ -10,12 +10,28 @@ the Kotlin IntelliJ IDEA plugin:
  - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/inline/MaxStackFrameSizeAndLocalsCalculator.java
      - License: BSD ([license/third_party/asm_license.txt][asm])
      - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
-
+   
  - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/inline/MaxLocalsCalculator.java
      - License: BSD ([license/third_party/asm_license.txt][asm])
      - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
 
- - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/common/MethodAnalyzer.kt
+ - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/common/FastMethodAnalyzer.kt
+     - License: BSD ([license/third_party/asm_license.txt][asm])
+     - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
+
+ - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/common/InstructionLivenessAnalyzer.kt
+     - License: BSD ([license/third_party/asm_license.txt][asm])
+     - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom 
+
+ - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/common/ControlFlowGraph.kt
+     - License: BSD ([license/third_party/asm_license.txt][asm])
+     - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
+
+ - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/fixStack/FastStackAnalyzer.kt
+     - License: BSD ([license/third_party/asm_license.txt][asm])
+     - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
+
+ - Path: compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/temporaryVals/FastStoreLoadAnalyzer.kt
      - License: BSD ([license/third_party/asm_license.txt][asm])
      - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
 
@@ -73,6 +89,10 @@ the Kotlin IntelliJ IDEA plugin:
       - License: Boost Software License 1.0 ([license/third_party/boost_LICENSE.txt][boost])
       - Origin: Derived from boost special math functions, Copyright Eric Ford & Hubert Holin 2001.
 
+ - Path: libraries/stdlib/wasm/internal/kotlin/wasm/internal/Number2String.kt
+      - License: Apache 2 ([third_party/assemblyscript_license.txt][assemblyscript])
+      - Origin: Derived from assemblyscript standard library
+
  - Path: plugins/lint/android-annotations
       - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
       - Origin: Copyright (C) 2011-15 The Android Open Source Project
@@ -122,13 +142,21 @@ any distributions of the compiler, libraries or plugin:
       - License: LGPL 2.1 ([license/third_party/testdata/findbugs_license.txt][findbugs])
       - Origin: Bytecode Analysis Framework, Copyright (C) 2005 University of Maryland
 
- - Path: third-party/jdk8-annotations/org/eclipse
+ - Path: third-party/java8-annotations/org/eclipse
       - License: Eclipse Public License v1.0 ([license/third_party/testdata/eclipse_license.txt][eclipse])
       - Origin: Eclipse JDT, Copyright (c) 2011, 2013 Stephan Herrmann and others.
 
  - Path: third-party/annotations/io/reactivex
       - License: Apache 2 ([license/third_party/testdata/rxjava_license.txt][rxjava])
       - Origin: RxJava, Copyright (c) 2016-present, RxJava Contributors
+
+ - Path: third-party/java8-annotations/org/jspecify
+      - License: Apache 2 ([license/third_party/testdata/jspecify_license.txt][jspecify])
+      - Origin: JSpecify, Copyright (C) 2020 The JSpecify Authors
+
+ - Path: third-party/java9-annotations/org/jspecify
+      - License: Apache 2 ([license/third_party/testdata/jspecify_license.txt][jspecify])
+      - Origin: JSpecify, Copyright (C) 2020 The JSpecify Authors
 
  - Path: third-party/annotations/lombok
       - License: MIT ([license/third_party/testdata/lombok_license.txt][lombok])
@@ -241,3 +269,4 @@ any distributions of the compiler, libraries or plugin:
 [rhino]: third_party/rhino_LICENSE.txt
 [rxjava]: third_party/testdata/rxjava_license.txt
 [spring]: third_party/testdata/spring_license.txt
+[assemblyscript]: third_party/assemblyscript_license.txt

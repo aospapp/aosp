@@ -13,12 +13,12 @@
 [package]
 edition = "2018"
 name = "mio"
-version = "0.7.11"
+version = "0.7.13"
 authors = ["Carl Lerche <me@carllerche.com>", "Thomas de Zeeuw <thomasdezeeuw@gmail.com>", "Tokio Contributors <team@tokio.rs>"]
 include = ["Cargo.toml", "LICENSE", "README.md", "CHANGELOG.md", "src/**/*.rs", "examples/**/*.rs"]
 description = "Lightweight non-blocking IO"
 homepage = "https://github.com/tokio-rs/mio"
-documentation = "https://docs.rs/mio/0.7.7"
+documentation = "https://docs.rs/mio/0.7.13"
 readme = "README.md"
 keywords = ["io", "async", "non-blocking"]
 categories = ["asynchronous"]

@@ -840,7 +840,7 @@ static int hostapd_ctrl_iface_bss_tm_req(struct hostapd_data *hapd,
 	const char *pos, *end;
 	int disassoc_timer = 0;
 	struct sta_info *sta;
-	u8 req_mode = 0, valid_int = 0x01;
+	u8 req_mode = 0, valid_int = 0x01, dialog_token = 0x01;
 	u8 bss_term_dur[12];
 	char *url = NULL;
 	int ret;
@@ -876,6 +876,12 @@ static int hostapd_ctrl_iface_bss_tm_req(struct hostapd_data *hapd,
 	if (pos) {
 		pos += 11;
 		valid_int = atoi(pos);
+	}
+
+	pos = os_strstr(cmd, " dialog_token=");
+	if (pos) {
+		pos += 14;
+		dialog_token = atoi(pos);
 	}
 
 	pos = os_strstr(cmd, " bss_term=");
@@ -984,7 +990,7 @@ static int hostapd_ctrl_iface_bss_tm_req(struct hostapd_data *hapd,
 #endif /* CONFIG_MBO */
 
 	ret = wnm_send_bss_tm_req(hapd, sta, req_mode, disassoc_timer,
-				  valid_int, bss_term_dur, url,
+				  valid_int, bss_term_dur, dialog_token, url,
 				  nei_len ? nei_rep : NULL, nei_len,
 				  mbo_len ? mbo : NULL, mbo_len);
 #ifdef CONFIG_MBO
@@ -1455,10 +1461,10 @@ static int hostapd_ctrl_iface_set(struct hostapd_data *hapd, char *cmd)
 				   wps_version_number & 0x0f);
 			hostapd_wps_update_ie(hapd);
 		}
-	} else if (os_strcasecmp(cmd, "wps_testing_dummy_cred") == 0) {
-		wps_testing_dummy_cred = atoi(value);
-		wpa_printf(MSG_DEBUG, "WPS: Testing - dummy_cred=%d",
-			   wps_testing_dummy_cred);
+	} else if (os_strcasecmp(cmd, "wps_testing_stub_cred") == 0) {
+		wps_testing_stub_cred = atoi(value);
+		wpa_printf(MSG_DEBUG, "WPS: Testing - stub_cred=%d",
+			   wps_testing_stub_cred);
 	} else if (os_strcasecmp(cmd, "wps_corrupt_pkhash") == 0) {
 		wps_corrupt_pkhash = atoi(value);
 		wpa_printf(MSG_DEBUG, "WPS: Testing - wps_corrupt_pkhash=%d",
@@ -1469,6 +1475,8 @@ static int hostapd_ctrl_iface_set(struct hostapd_data *hapd, char *cmd)
 		hapd->ext_mgmt_frame_handling = atoi(value);
 	} else if (os_strcasecmp(cmd, "ext_eapol_frame_io") == 0) {
 		hapd->ext_eapol_frame_io = atoi(value);
+	} else if (os_strcasecmp(cmd, "force_backlog_bytes") == 0) {
+		hapd->force_backlog_bytes = atoi(value);
 #ifdef CONFIG_DPP
 	} else if (os_strcasecmp(cmd, "dpp_config_obj_override") == 0) {
 		os_free(hapd->dpp_config_obj_override);
@@ -1496,7 +1504,7 @@ static int hostapd_ctrl_iface_set(struct hostapd_data *hapd, char *cmd)
 			return -1;
 
 		val = atoi(value);
-		if (val < 0 || val > 1)
+		if (val < 0 || val > MBO_ASSOC_DISALLOW_REASON_LOW_RSSI)
 			return -1;
 
 		hapd->mbo_assoc_disallow = val;
@@ -1511,6 +1519,16 @@ static int hostapd_ctrl_iface_set(struct hostapd_data *hapd, char *cmd)
 	} else if (os_strcasecmp(cmd, "dpp_configurator_params") == 0) {
 		os_free(hapd->dpp_configurator_params);
 		hapd->dpp_configurator_params = os_strdup(value);
+	} else if (os_strcasecmp(cmd, "dpp_init_max_tries") == 0) {
+		hapd->dpp_init_max_tries = atoi(value);
+	} else if (os_strcasecmp(cmd, "dpp_init_retry_time") == 0) {
+		hapd->dpp_init_retry_time = atoi(value);
+	} else if (os_strcasecmp(cmd, "dpp_resp_wait_time") == 0) {
+		hapd->dpp_resp_wait_time = atoi(value);
+	} else if (os_strcasecmp(cmd, "dpp_resp_max_tries") == 0) {
+		hapd->dpp_resp_max_tries = atoi(value);
+	} else if (os_strcasecmp(cmd, "dpp_resp_retry_time") == 0) {
+		hapd->dpp_resp_retry_time = atoi(value);
 #endif /* CONFIG_DPP */
 	} else if (os_strcasecmp(cmd, "setband") == 0) {
 		ret = hostapd_ctrl_iface_set_band(hapd, value);
@@ -1935,6 +1953,52 @@ static int hostapd_ctrl_iface_eapol_rx(struct hostapd_data *hapd, char *cmd)
 	os_free(buf);
 
 	return 0;
+}
+
+
+static int hostapd_ctrl_iface_eapol_tx(struct hostapd_data *hapd, char *cmd)
+{
+	char *pos, *pos2;
+	u8 dst[ETH_ALEN], *buf;
+	int used, ret;
+	size_t len;
+	unsigned int prev;
+	int encrypt = 0;
+
+	wpa_printf(MSG_DEBUG, "External EAPOL TX: %s", cmd);
+
+	pos = cmd;
+	used = hwaddr_aton2(pos, dst);
+	if (used < 0)
+		return -1;
+	pos += used;
+	while (*pos == ' ')
+		pos++;
+
+	pos2 = os_strchr(pos, ' ');
+	if (pos2) {
+		len = pos2 - pos;
+		encrypt = os_strstr(pos2, "encrypt=1") != NULL;
+	} else {
+		len = os_strlen(pos);
+	}
+	if (len & 1)
+		return -1;
+	len /= 2;
+
+	buf = os_malloc(len);
+	if (!buf || hexstr2bin(pos, buf, len) < 0) {
+		os_free(buf);
+		return -1;
+	}
+
+	prev = hapd->ext_eapol_frame_io;
+	hapd->ext_eapol_frame_io = 0;
+	ret = hostapd_wpa_auth_send_eapol(hapd, dst, buf, len, encrypt);
+	hapd->ext_eapol_frame_io = prev;
+	os_free(buf);
+
+	return ret;
 }
 
 
@@ -2516,6 +2580,22 @@ static int hostapd_ctrl_resend_group_m1(struct hostapd_data *hapd,
 }
 
 
+static int hostapd_ctrl_rekey_ptk(struct hostapd_data *hapd, const char *cmd)
+{
+	struct sta_info *sta;
+	u8 addr[ETH_ALEN];
+
+	if (hwaddr_aton(cmd, addr))
+		return -1;
+
+	sta = ap_get_sta(hapd, addr);
+	if (!sta || !sta->wpa_sm)
+		return -1;
+
+	return wpa_auth_rekey_ptk(hapd->wpa_auth, sta->wpa_sm);
+}
+
+
 static int hostapd_ctrl_get_pmksa_pmk(struct hostapd_data *hapd, const u8 *addr,
 				      char *buf, size_t buflen)
 {
@@ -2554,6 +2634,34 @@ static int hostapd_ctrl_get_pmk(struct hostapd_data *hapd, const char *cmd,
 	}
 
 	return wpa_snprintf_hex(buf, buflen, pmk, pmk_len);
+}
+
+
+static int hostapd_ctrl_register_frame(struct hostapd_data *hapd,
+				       const char *cmd)
+{
+	u16 type;
+	char *pos, *end;
+	u8 match[10];
+	size_t match_len;
+	bool multicast = false;
+
+	type = strtol(cmd, &pos, 16);
+	if (*pos != ' ')
+		return -1;
+	pos++;
+	end = os_strchr(pos, ' ');
+	if (end) {
+		match_len = end - pos;
+		multicast = os_strstr(end, "multicast") != NULL;
+	} else {
+		match_len = os_strlen(pos) / 2;
+	}
+	if (hexstr2bin(pos, match, match_len))
+		return -1;
+
+	return hostapd_drv_register_frame(hapd, type, match, match_len,
+					  multicast);
 }
 
 #endif /* CONFIG_TESTING_OPTIONS */
@@ -3087,8 +3195,9 @@ static int hostapd_ctrl_iface_set_neighbor(struct hostapd_data *hapd, char *buf)
 	u8 bssid[ETH_ALEN];
 	struct wpabuf *nr, *lci = NULL, *civic = NULL;
 	int stationary = 0;
+	int bss_parameters = 0;
 	char *tmp;
-	int ret;
+	int ret = -1;
 
 	if (!(hapd->conf->radio_measurements[0] &
 	      WLAN_RRM_CAPS_NEIGHBOR_REPORT)) {
@@ -3142,8 +3251,7 @@ static int hostapd_ctrl_iface_set_neighbor(struct hostapd_data *hapd, char *buf)
 		if (!lci) {
 			wpa_printf(MSG_ERROR,
 				   "CTRL: SET_NEIGHBOR: Bad LCI subelement");
-			wpabuf_free(nr);
-			return -1;
+			goto fail;
 		}
 	}
 
@@ -3159,9 +3267,7 @@ static int hostapd_ctrl_iface_set_neighbor(struct hostapd_data *hapd, char *buf)
 		if (!civic) {
 			wpa_printf(MSG_ERROR,
 				   "CTRL: SET_NEIGHBOR: Bad civic subelement");
-			wpabuf_free(nr);
-			wpabuf_free(lci);
-			return -1;
+			goto fail;
 		}
 	}
 
@@ -3171,10 +3277,21 @@ static int hostapd_ctrl_iface_set_neighbor(struct hostapd_data *hapd, char *buf)
 	if (os_strstr(buf, "stat"))
 		stationary = 1;
 
+	tmp = os_strstr(buf, "bss_parameter=");
+	if (tmp) {
+		bss_parameters = atoi(tmp + 14);
+		if (bss_parameters < 0 || bss_parameters > 0xff) {
+			wpa_printf(MSG_ERROR,
+				   "CTRL: SET_NEIGHBOR: Bad bss_parameters subelement");
+			goto fail;
+		}
+	}
+
 set:
 	ret = hostapd_neighbor_set(hapd, bssid, &ssid, nr, lci, civic,
-				   stationary);
+				   stationary, bss_parameters);
 
+fail:
 	wpabuf_free(nr);
 	wpabuf_free(lci);
 	wpabuf_free(civic);
@@ -3350,7 +3467,9 @@ static int hostapd_ctrl_iface_get_capability(struct hostapd_data *hapd,
 	if (os_strcmp(field, "dpp") == 0) {
 		int res;
 
-#ifdef CONFIG_DPP2
+#ifdef CONFIG_DPP3
+		res = os_snprintf(buf, buflen, "DPP=3");
+#elif defined(CONFIG_DPP2)
 		res = os_snprintf(buf, buflen, "DPP=2");
 #else /* CONFIG_DPP2 */
 		res = os_snprintf(buf, buflen, "DPP=1");
@@ -3366,6 +3485,23 @@ static int hostapd_ctrl_iface_get_capability(struct hostapd_data *hapd,
 
 	return -1;
 }
+
+
+#ifdef ANDROID
+static int hostapd_ctrl_iface_driver_cmd(struct hostapd_data *hapd, char *cmd,
+					 char *buf, size_t buflen)
+{
+	int ret;
+
+	ret = hostapd_drv_driver_cmd(hapd, cmd, buf, buflen);
+	if (ret == 0) {
+		ret = os_snprintf(buf, buflen, "%s\n", "OK");
+		if (os_snprintf_error(buflen, ret))
+			ret = -1;
+	}
+	return ret;
+}
+#endif /* ANDROID */
 
 
 static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
@@ -3582,6 +3718,9 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 	} else if (os_strncmp(buf, "EAPOL_RX ", 9) == 0) {
 		if (hostapd_ctrl_iface_eapol_rx(hapd, buf + 9) < 0)
 			reply_len = -1;
+	} else if (os_strncmp(buf, "EAPOL_TX ", 9) == 0) {
+		if (hostapd_ctrl_iface_eapol_tx(hapd, buf + 9) < 0)
+			reply_len = -1;
 	} else if (os_strncmp(buf, "DATA_TEST_CONFIG ", 17) == 0) {
 		if (hostapd_ctrl_iface_data_test_config(hapd, buf + 17) < 0)
 			reply_len = -1;
@@ -3617,12 +3756,18 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 	} else if (os_strncmp(buf, "RESEND_GROUP_M1 ", 16) == 0) {
 		if (hostapd_ctrl_resend_group_m1(hapd, buf + 16) < 0)
 			reply_len = -1;
+	} else if (os_strncmp(buf, "REKEY_PTK ", 10) == 0) {
+		if (hostapd_ctrl_rekey_ptk(hapd, buf + 10) < 0)
+			reply_len = -1;
 	} else if (os_strcmp(buf, "REKEY_GTK") == 0) {
 		if (wpa_auth_rekey_gtk(hapd->wpa_auth) < 0)
 			reply_len = -1;
 	} else if (os_strncmp(buf, "GET_PMK ", 8) == 0) {
 		reply_len = hostapd_ctrl_get_pmk(hapd, buf + 8, reply,
 						 reply_size);
+	} else if (os_strncmp(buf, "REGISTER_FRAME ", 15) == 0) {
+		if (hostapd_ctrl_register_frame(hapd, buf + 16) < 0)
+			reply_len = -1;
 #endif /* CONFIG_TESTING_OPTIONS */
 	} else if (os_strncmp(buf, "CHAN_SWITCH ", 12) == 0) {
 		if (hostapd_ctrl_iface_chan_switch(hapd->iface, buf + 12))
@@ -3870,6 +4015,11 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 	} else if (os_strcmp(buf, "PTKSA_CACHE_LIST") == 0) {
 		reply_len = ptksa_cache_list(hapd->ptksa, reply, reply_size);
 #endif /* CONFIG_PASN */
+#ifdef ANDROID
+	} else if (os_strncmp(buf, "DRIVER ", 7) == 0) {
+		reply_len = hostapd_ctrl_iface_driver_cmd(hapd, buf + 7, reply,
+							  reply_size);
+#endif /* ANDROID */
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;
@@ -4341,14 +4491,16 @@ static void hostapd_ctrl_iface_flush(struct hapd_interfaces *interfaces)
 {
 #ifdef CONFIG_WPS_TESTING
 	wps_version_number = 0x20;
-	wps_testing_dummy_cred = 0;
+	wps_testing_stub_cred = 0;
 	wps_corrupt_pkhash = 0;
 #endif /* CONFIG_WPS_TESTING */
 
 #ifdef CONFIG_TESTING_OPTIONS
 #ifdef CONFIG_DPP
 	dpp_test = DPP_TEST_DISABLED;
-#ifdef CONFIG_DPP2
+#ifdef CONFIG_DPP3
+	dpp_version_override = 3;
+#elif defined(CONFIG_DPP2)
 	dpp_version_override = 2;
 #else /* CONFIG_DPP2 */
 	dpp_version_override = 1;

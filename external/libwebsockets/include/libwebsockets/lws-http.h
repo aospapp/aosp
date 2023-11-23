@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -215,18 +215,18 @@ struct lws_tokens {
 enum lws_token_indexes {
 	WSI_TOKEN_GET_URI, /* 0 */
 	WSI_TOKEN_POST_URI,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_OPTIONS_URI,
 #endif
 	WSI_TOKEN_HOST,
 	WSI_TOKEN_CONNECTION,
 	WSI_TOKEN_UPGRADE, /* 5 */
 	WSI_TOKEN_ORIGIN,
-#if defined(LWS_ROLE_WS)
+#if defined(LWS_ROLE_WS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_DRAFT,
 #endif
 	WSI_TOKEN_CHALLENGE,
-#if defined(LWS_ROLE_WS)
+#if defined(LWS_ROLE_WS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_EXTENSIONS,
 	WSI_TOKEN_KEY1, /* 10 */
 	WSI_TOKEN_KEY2,
@@ -235,11 +235,11 @@ enum lws_token_indexes {
 	WSI_TOKEN_NONCE,
 #endif
 	WSI_TOKEN_HTTP,
-#if defined(LWS_ROLE_H2)
+#if defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP2_SETTINGS, /* 16 */
 #endif
 	WSI_TOKEN_HTTP_ACCEPT,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_AC_REQUEST_HEADERS,
 #endif
 	WSI_TOKEN_HTTP_IF_MODIFIED_SINCE,
@@ -254,15 +254,15 @@ enum lws_token_indexes {
 	WSI_TOKEN_HTTP_CONTENT_TYPE,
 	WSI_TOKEN_HTTP_DATE,
 	WSI_TOKEN_HTTP_RANGE,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_REFERER,
 #endif
-#if defined(LWS_ROLE_WS)
+#if defined(LWS_ROLE_WS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_KEY,
 	WSI_TOKEN_VERSION,
 	WSI_TOKEN_SWORIGIN,
 #endif
-#if defined(LWS_ROLE_H2)
+#if defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_COLON_AUTHORITY,
 	WSI_TOKEN_HTTP_COLON_METHOD,
 	WSI_TOKEN_HTTP_COLON_PATH,
@@ -270,11 +270,11 @@ enum lws_token_indexes {
 	WSI_TOKEN_HTTP_COLON_STATUS,
 #endif
 
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_ACCEPT_CHARSET,
 #endif
 	WSI_TOKEN_HTTP_ACCEPT_RANGES,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_ACCESS_CONTROL_ALLOW_ORIGIN,
 #endif
 	WSI_TOKEN_HTTP_AGE,
@@ -294,7 +294,7 @@ enum lws_token_indexes {
 	WSI_TOKEN_HTTP_LAST_MODIFIED,
 	WSI_TOKEN_HTTP_LINK,
 	WSI_TOKEN_HTTP_LOCATION,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_MAX_FORWARDS,
 	WSI_TOKEN_HTTP_PROXY_AUTHENTICATE,
 	WSI_TOKEN_HTTP_PROXY_AUTHORIZATION,
@@ -303,24 +303,24 @@ enum lws_token_indexes {
 	WSI_TOKEN_HTTP_RETRY_AFTER,
 	WSI_TOKEN_HTTP_SERVER,
 	WSI_TOKEN_HTTP_SET_COOKIE,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_STRICT_TRANSPORT_SECURITY,
 #endif
 	WSI_TOKEN_HTTP_TRANSFER_ENCODING,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_HTTP_USER_AGENT,
 	WSI_TOKEN_HTTP_VARY,
 	WSI_TOKEN_HTTP_VIA,
 	WSI_TOKEN_HTTP_WWW_AUTHENTICATE,
 #endif
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_PATCH_URI,
 	WSI_TOKEN_PUT_URI,
 	WSI_TOKEN_DELETE_URI,
 #endif
 
 	WSI_TOKEN_HTTP_URI_ARGS,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_PROXY,
 	WSI_TOKEN_HTTP_X_REAL_IP,
 #endif
@@ -328,14 +328,15 @@ enum lws_token_indexes {
 	WSI_TOKEN_X_FORWARDED_FOR,
 	WSI_TOKEN_CONNECT,
 	WSI_TOKEN_HEAD_URI,
-#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_TE,
 	WSI_TOKEN_REPLAY_NONCE, /* ACME */
 #endif
-#if defined(LWS_ROLE_H2)
+#if defined(LWS_ROLE_H2) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_COLON_PROTOCOL,
 #endif
 	WSI_TOKEN_X_AUTH_TOKEN,
+	WSI_TOKEN_DSS_SIGNATURE,
 
 	/****** add new things just above ---^ ******/
 
@@ -356,7 +357,7 @@ enum lws_token_indexes {
 
 	/* parser state additions, no storage associated */
 	WSI_TOKEN_NAME_PART,
-#if defined(LWS_WITH_CUSTOM_HEADERS)
+#if defined(LWS_WITH_CUSTOM_HEADERS) || defined(LWS_HTTP_HEADERS_ALL)
 	WSI_TOKEN_UNKNOWN_VALUE_PART,
 #endif
 	WSI_TOKEN_SKIPPING,
@@ -493,8 +494,55 @@ LWS_VISIBLE LWS_EXTERN int
 lws_hdr_custom_copy(struct lws *wsi, char *dst, int len, const char *name,
 		    int nlen);
 
+typedef void (*lws_hdr_custom_fe_cb_t)(const char *name, int nlen, void *opaque);
+/**
+ * lws_hdr_custom_name_foreach() - Iterate the custom header names
+ *
+ * \param wsi: websocket connection
+ * \param cb: callback for each custom header name
+ * \param opaque: ignored by lws except to pass to callback
+ *
+ * Lws knows about 100 common http headers, and parses them into indexes when
+ * it recognizes them.  When it meets a header that it doesn't know, it stores
+ * the name and value directly, and you can look them up using
+ * lws_hdr_custom_length() and lws_hdr_custom_copy().
+ * 
+ * This api returns -1 on error else 0. Use lws_hdr_custom_copy() to get the
+ * values of headers. Lws must be built with LWS_WITH_CUSTOM_HEADERS (on by
+ * default) to use this api.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_hdr_custom_name_foreach(struct lws *wsi, lws_hdr_custom_fe_cb_t cb, void *opaque);
+
+/**
+ * lws_get_urlarg_by_name_safe() - get copy and return length of y for x=y urlargs
+ *
+ * \param wsi: the connection to check
+ * \param name: the arg name, like "token" or "token="
+ * \param buf: the buffer to receive the urlarg (including the name= part)
+ * \param len: the length of the buffer to receive the urlarg
+ *
+ * Returns -1 if not present, else the length of y in the urlarg name=y.  If
+ * zero or greater, then buf contains a copy of the string y.  Any = after the
+ * name match is trimmed off if the name does not end with = itself.
+ *
+ * This returns the explicit length and so can deal with binary blobs that are
+ * percent-encoded.  It also makes sure buf has a NUL just after the valid
+ * length so it can work with NUL-based apis if you don't care about truncation.
+ *
+ * buf may have been written even when -1 is returned indicating no match.
+ *
+ * Use this in place of lws_get_urlarg_by_name() that does not return an
+ * explicit length.
+ *
+ * Use lws_get_urlarg_by_name_safe() instead of this, which returns the length.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_get_urlarg_by_name_safe(struct lws *wsi, const char *name, char *buf, int len);
+
 /**
  * lws_get_urlarg_by_name() - return pointer to arg value if present
+ *
  * \param wsi: the connection to check
  * \param name: the arg name, like "token="
  * \param buf: the buffer to receive the urlarg (including the name= part)
@@ -502,9 +550,16 @@ lws_hdr_custom_copy(struct lws *wsi, char *dst, int len, const char *name,
  *
  *     Returns NULL if not found or a pointer inside buf to just after the
  *     name= part.
+ *
+ * This assumed the argument can be represented with a NUL-terminated string.
+ * It can't correctly deal with binary values encoded with %XX, eg. %00 will
+ * be understood to terminate the string.
+ *
+ * Use lws_get_urlarg_by_name_safe() instead of this, which returns the length.
  */
 LWS_VISIBLE LWS_EXTERN const char *
-lws_get_urlarg_by_name(struct lws *wsi, const char *name, char *buf, int len);
+lws_get_urlarg_by_name(struct lws *wsi, const char *name, char *buf, int len)
+/* LWS_WARN_DEPRECATED */;
 ///@}
 
 /*! \defgroup HTTP-headers-create HTTP headers: create
@@ -548,7 +603,7 @@ lws_add_http_header_status(struct lws *wsi,
  * lws_add_http_header_by_name() - append named header and value
  *
  * \param wsi: the connection to check
- * \param name: the hdr name, like "my-header"
+ * \param name: the hdr name, like "my-header:"
  * \param value: the value after the = for this header
  * \param length: the length of the value
  * \param p: pointer to current position in buffer pointer
@@ -732,6 +787,53 @@ lws_urldecode(char *string, const char *escaped, int len);
 ///@}
 
 /**
+ * lws_http_date_render_from_unix() - render unixtime as RFC7231 date string
+ *
+ * \param buf:		Destination string buffer
+ * \param len:		avilable length of dest string buffer in bytes
+ * \param t:		pointer to the time_t to render
+ *
+ * Returns 0 if time_t is rendered into the string buffer successfully, else
+ * nonzero.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_http_date_render_from_unix(char *buf, size_t len, const time_t *t);
+
+/**
+ * lws_http_date_parse_unix() - parse a RFC7231 date string into unixtime
+ *
+ * \param b:		Source string buffer
+ * \param len:		avilable length of source string buffer in bytes
+ * \param t:		pointer to the destination time_t to set
+ *
+ * Returns 0 if string buffer parsed as RFC7231 time successfully, and
+ * *t set to the parsed unixtime, else return nonzero.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_http_date_parse_unix(const char *b, size_t len, time_t *t);
+
+/**
+ * lws_http_check_retry_after() - increase a timeout if retry-after present
+ *
+ * \param wsi:		http stream this relates to
+ * \param us_interval_in_out: default us retry interval on entry may be updated
+ *
+ * This function may extend the incoming retry interval if the server has
+ * requested that using retry-after: header.  It won't reduce the incoming
+ * retry interval, only leave it alone or increase it.
+ *
+ * *us_interval_in_out should be set to a default retry interval on entry, if
+ * the wsi has a retry-after time or interval that resolves to an interval
+ * longer than the entry *us_interval_in_out, that will be updated to the longer
+ * interval and return 0.
+ *
+ * If no usable retry-after or the time is now or in the past,
+ * *us_interval_in_out is left alone and the function returns nonzero.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_http_check_retry_after(struct lws *wsi, lws_usec_t *us_interval_in_out);
+
+/**
  * lws_return_http_status() - Return simple http status
  * \param wsi:		Websocket instance (available from user callback)
  * \param code:		Status index, eg, 404
@@ -764,7 +866,7 @@ lws_http_redirect(struct lws *wsi, int code, const unsigned char *loc, int len,
  * lws_http_transaction_completed() - wait for new http transaction or close
  * \param wsi:	websocket connection
  *
- *	Returns 1 if the HTTP connection must close now
+ *	Returns nonzero if the HTTP connection must close now
  *	Returns 0 and resets connection to wait for new HTTP header /
  *	  transaction if possible
  */
@@ -851,6 +953,36 @@ LWS_VISIBLE LWS_EXTERN int
 lws_http_is_redirected_to_get(struct lws *wsi);
 
 /**
+ * lws_http_cookie_get() - return copy of named cookie if present
+ *
+ * \param wsi: the wsi to check
+ * \param name: name of the cookie
+ * \param buf: buffer to store the cookie contents into
+ * \param max_len: on entry, maximum length of buf... on exit, used len of buf
+ *
+ * If no cookie header, or no cookie of the requested name, or the value is
+ * larger than can fit in buf, returns nonzero.
+ *
+ * If the cookie is found, copies its value into buf with a terminating NUL,
+ * sets *max_len to the used length, and returns 0.
+ *
+ * This handles the parsing of the possibly multi-cookie header string and
+ * terminating the requested cookie at the next ; if present.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_http_cookie_get(struct lws *wsi, const char *name, char *buf, size_t *max);
+
+/**
+ * lws_http_client_http_error() - determine if the response code indicates an error
+ *
+ * \param code: the response code to test
+ *
+ * Returns nonzero if the code indicates an error, else zero if reflects a
+ * non-error condition
+ */
+#define lws_http_client_http_resp_is_error(code) (!(code < 400))
+
+/**
  * lws_h2_update_peer_txcredit() - manually update stream peer tx credit
  *
  * \param wsi: the h2 child stream whose peer credit to change
@@ -877,7 +1009,7 @@ lws_http_is_redirected_to_get(struct lws *wsi);
  */
 #define LWS_H2_STREAM_SID -1
 LWS_VISIBLE LWS_EXTERN int
-lws_h2_update_peer_txcredit(struct lws *wsi, int sid, int bump);
+lws_h2_update_peer_txcredit(struct lws *wsi, unsigned int sid, int bump);
 
 
 /**

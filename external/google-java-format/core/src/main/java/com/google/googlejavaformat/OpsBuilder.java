@@ -14,7 +14,12 @@
 
 package com.google.googlejavaformat;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -39,14 +44,14 @@ public final class OpsBuilder {
     int start = startToken.getTok().getPosition();
     for (Tok tok : startToken.getToksBefore()) {
       if (tok.isComment()) {
-        start = Math.min(start, tok.getPosition());
+        start = min(start, tok.getPosition());
       }
     }
     Token endToken = input.getPositionTokenMap().get(position + length - 1);
     int end = endToken.getTok().getPosition() + endToken.getTok().length();
     for (Tok tok : endToken.getToksAfter()) {
       if (tok.isComment()) {
-        end = Math.max(end, tok.getPosition() + tok.length());
+        end = max(end, tok.getPosition() + tok.length());
       }
     }
     return end - start;
@@ -62,7 +67,7 @@ public final class OpsBuilder {
         return start;
       }
       if (tok.isComment()) {
-        start = Math.min(start, tok.getPosition());
+        start = min(start, tok.getPosition());
       }
     }
     return start;
@@ -276,6 +281,28 @@ public final class OpsBuilder {
     return idx < tokens.size()
         ? Optional.of(tokens.get(idx).getTok().getOriginalText())
         : Optional.empty();
+  }
+
+  /**
+   * Returns the {@link Input.Tok}s starting at the current source position, which are satisfied by
+   * the given predicate.
+   */
+  public ImmutableList<Tok> peekTokens(int startPosition, Predicate<Input.Tok> predicate) {
+    ImmutableList<? extends Input.Token> tokens = input.getTokens();
+    Preconditions.checkState(
+        tokens.get(tokenI).getTok().getPosition() == startPosition,
+        "Expected the current token to be at position %s, found: %s",
+        startPosition,
+        tokens.get(tokenI));
+    ImmutableList.Builder<Tok> result = ImmutableList.builder();
+    for (int idx = tokenI; idx < tokens.size(); idx++) {
+      Tok tok = tokens.get(idx).getTok();
+      if (!predicate.apply(tok)) {
+        break;
+      }
+      result.add(tok);
+    }
+    return result.build();
   }
 
   /**

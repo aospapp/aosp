@@ -73,6 +73,9 @@ pub enum State {
 
     /// Reading and discarding data.
     Drain,
+
+    /// All data has been read.
+    Finished,
 }
 
 impl Type {
@@ -135,6 +138,9 @@ pub struct Stream {
 
     /// Whether the stream has been locally initialized.
     local_initialized: bool,
+
+    /// Whether a `Data` event has been triggered for this stream.
+    data_event_triggered: bool,
 }
 
 impl Stream {
@@ -171,7 +177,13 @@ impl Stream {
             is_local,
             remote_initialized: false,
             local_initialized: false,
+
+            data_event_triggered: false,
         }
+    }
+
+    pub fn ty(&self) -> Option<Type> {
+        self.ty
     }
 
     pub fn state(&self) -> State {
@@ -261,6 +273,9 @@ impl Stream {
                         (frame::HEADERS_FRAME_TYPE_ID, false) =>
                             self.remote_initialized = true,
 
+                        (frame::DATA_FRAME_TYPE_ID, false) =>
+                            return Err(Error::FrameUnexpected),
+
                         (frame::CANCEL_PUSH_FRAME_TYPE_ID, _) =>
                             return Err(Error::FrameUnexpected),
 
@@ -275,9 +290,7 @@ impl Stream {
 
                         // All other frames can be ignored regardless of stream
                         // state.
-                        (_, false) => (),
-
-                        (_, true) => (),
+                        _ => (),
                     }
                 }
             },
@@ -347,7 +360,18 @@ impl Stream {
     ) -> Result<()> {
         let buf = &mut self.state_buf[self.state_off..self.state_len];
 
-        let (read, _) = conn.stream_recv(self.id, buf)?;
+        let read = match conn.stream_recv(self.id, buf) {
+            Ok((len, _)) => len,
+
+            Err(e) => {
+                // The stream is not readable anymore, so re-arm the Data event.
+                if e == crate::Error::Done {
+                    self.reset_data_event();
+                }
+
+                return Err(e.into());
+            },
+        };
 
         trace!(
             "{} read {} bytes on stream {}",
@@ -359,6 +383,8 @@ impl Stream {
         self.state_off += read;
 
         if !self.state_buffer_complete() {
+            self.reset_data_event();
+
             return Err(Error::Done);
         }
 
@@ -416,6 +442,9 @@ impl Stream {
 
     /// Tries to parse a frame from the state buffer.
     pub fn try_consume_frame(&mut self) -> Result<frame::Frame> {
+        // Processing a frame other than DATA, so re-arm the Data event.
+        self.reset_data_event();
+
         // TODO: properly propagate frame parsing errors.
         let frame = frame::Frame::from_bytes(
             self.frame_type.unwrap(),
@@ -431,18 +460,39 @@ impl Stream {
     /// Tries to read DATA payload from the transport stream.
     pub fn try_consume_data(
         &mut self, conn: &mut crate::Connection, out: &mut [u8],
-    ) -> Result<usize> {
+    ) -> Result<(usize, bool)> {
         let left = std::cmp::min(out.len(), self.state_len - self.state_off);
 
-        let (len, _) = conn.stream_recv(self.id, &mut out[..left])?;
+        let (len, fin) = match conn.stream_recv(self.id, &mut out[..left]) {
+            Ok(v) => v,
+
+            Err(e) => {
+                // The stream is not readable anymore, so re-arm the Data event.
+                if e == crate::Error::Done {
+                    self.reset_data_event();
+                }
+
+                return Err(e.into());
+            },
+        };
 
         self.state_off += len;
+
+        // The stream is not readable anymore, so re-arm the Data event.
+        if !conn.stream_readable(self.id) {
+            self.reset_data_event();
+        }
 
         if self.state_buffer_complete() {
             self.state_transition(State::FrameType, 1, true)?;
         }
 
-        Ok(len)
+        Ok((len, fin))
+    }
+
+    /// Marks the stream as finished.
+    pub fn finished(&mut self) {
+        let _ = self.state_transition(State::Finished, 0, false);
     }
 
     /// Tries to read DATA payload from the given cursor.
@@ -464,6 +514,25 @@ impl Stream {
         }
 
         Ok(len)
+    }
+
+    /// Tries to update the data triggered state for the stream.
+    ///
+    /// This returns `true` if a Data event was not already triggered before
+    /// the last reset, and updates the state. Returns `false` otherwise.
+    pub fn try_trigger_data_event(&mut self) -> bool {
+        if self.data_event_triggered {
+            return false;
+        }
+
+        self.data_event_triggered = true;
+
+        true
+    }
+
+    /// Resets the data triggered state.
+    fn reset_data_event(&mut self) {
+        self.data_event_triggered = false;
     }
 
     /// Returns true if the state buffer has enough data to complete the state.
@@ -514,6 +583,7 @@ mod tests {
             max_header_list_size: Some(0),
             qpack_max_table_capacity: Some(0),
             qpack_blocked_streams: Some(0),
+            h3_datagram: None,
             grease: None,
         };
 
@@ -569,6 +639,7 @@ mod tests {
             max_header_list_size: Some(0),
             qpack_max_table_capacity: Some(0),
             qpack_blocked_streams: Some(0),
+            h3_datagram: None,
             grease: None,
         };
 
@@ -633,6 +704,7 @@ mod tests {
             max_header_list_size: Some(0),
             qpack_max_table_capacity: Some(0),
             qpack_blocked_streams: Some(0),
+            h3_datagram: None,
             grease: None,
         };
 
@@ -675,6 +747,7 @@ mod tests {
             max_header_list_size: Some(0),
             qpack_max_table_capacity: Some(0),
             qpack_blocked_streams: Some(0),
+            h3_datagram: None,
             grease: None,
         };
 
@@ -909,5 +982,29 @@ mod tests {
             .set_ty(Type::deserialize(stream_ty).unwrap())
             .unwrap();
         assert_eq!(stream.state, State::Drain);
+    }
+
+    #[test]
+    fn data_before_headers() {
+        let mut stream = Stream::new(0, false);
+
+        let mut d = vec![42; 128];
+        let mut b = octets::OctetsMut::with_slice(&mut d);
+
+        let data = frame::Frame::Data {
+            payload: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        };
+
+        data.to_bytes(&mut b).unwrap();
+
+        let mut cursor = std::io::Cursor::new(d);
+
+        // Parse the DATA frame type.
+        stream.try_fill_buffer_for_tests(&mut cursor).unwrap();
+
+        let frame_ty = stream.try_consume_varint().unwrap();
+        assert_eq!(frame_ty, frame::DATA_FRAME_TYPE_ID);
+
+        assert_eq!(stream.set_frame_type(frame_ty), Err(Error::FrameUnexpected));
     }
 }

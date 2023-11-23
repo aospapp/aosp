@@ -1,4 +1,3 @@
-from fontTools.misc.py23 import bytesjoin, tobytes, tostr
 from fontTools.misc.fixedTools import (
 	fixedToFloat as fi2fl,
 	floatToFixed as fl2fi,
@@ -7,14 +6,15 @@ from fontTools.misc.fixedTools import (
 	ensureVersionIsLong as fi2ve,
 	versionToFixed as ve2fi,
 )
-from fontTools.misc.textTools import pad, safeEval
+from fontTools.misc.roundTools import nearestMultipleShortestRepr, otRound
+from fontTools.misc.textTools import bytesjoin, tobytes, tostr, pad, safeEval
 from fontTools.ttLib import getSearchRange
 from .otBase import (CountReference, FormatSwitchingBaseTable,
                      OTTableReader, OTTableWriter, ValueRecordFactory)
 from .otTables import (lookupTypes, AATStateTable, AATState, AATAction,
                        ContextualMorphAction, LigatureMorphAction,
-                       InsertionMorphAction, MorxSubtable, VariableFloat,
-                       VariableInt, ExtendMode as _ExtendMode,
+                       InsertionMorphAction, MorxSubtable,
+                       ExtendMode as _ExtendMode,
                        CompositeMode as _CompositeMode)
 from itertools import zip_longest
 from functools import partial
@@ -192,8 +192,12 @@ class BaseConverter(object):
 		raise NotImplementedError(self)
 
 	def writeArray(self, writer, font, tableDict, values):
-		for i, value in enumerate(values):
-			self.write(writer, font, tableDict, value, i)
+		try:
+			for i, value in enumerate(values):
+				self.write(writer, font, tableDict, value, i)
+		except Exception as e:
+			e.args = e.args + (i,)
+			raise
 
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		"""Write a value to the writer."""
@@ -221,6 +225,18 @@ class SimpleValue(BaseConverter):
 	def xmlRead(self, attrs, content, font):
 		return self.fromString(attrs["value"])
 
+class OptionalValue(SimpleValue):
+	DEFAULT = None
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		if value != self.DEFAULT:
+			attrs.append(("value", self.toString(value)))
+		xmlWriter.simpletag(name, attrs)
+		xmlWriter.newline()
+	def xmlRead(self, attrs, content, font):
+		if "value" in attrs:
+			return self.fromString(attrs["value"])
+		return self.DEFAULT
+
 class IntValue(SimpleValue):
 	@staticmethod
 	def fromString(value):
@@ -230,48 +246,75 @@ class Long(IntValue):
 	staticSize = 4
 	def read(self, reader, font, tableDict):
 		return reader.readLong()
+	def readArray(self, reader, font, tableDict, count):
+		return reader.readLongArray(count)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeLong(value)
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeLongArray(values)
 
 class ULong(IntValue):
 	staticSize = 4
 	def read(self, reader, font, tableDict):
 		return reader.readULong()
+	def readArray(self, reader, font, tableDict, count):
+		return reader.readULongArray(count)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeULong(value)
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeULongArray(values)
 
 class Flags32(ULong):
 	@staticmethod
 	def toString(value):
 		return "0x%08X" % value
 
+class VarIndex(OptionalValue, ULong):
+	DEFAULT = 0xFFFFFFFF
+
 class Short(IntValue):
 	staticSize = 2
 	def read(self, reader, font, tableDict):
 		return reader.readShort()
+	def readArray(self, reader, font, tableDict, count):
+		return reader.readShortArray(count)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeShort(value)
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeShortArray(values)
 
 class UShort(IntValue):
 	staticSize = 2
 	def read(self, reader, font, tableDict):
 		return reader.readUShort()
+	def readArray(self, reader, font, tableDict, count):
+		return reader.readUShortArray(count)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeUShort(value)
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeUShortArray(values)
 
 class Int8(IntValue):
 	staticSize = 1
 	def read(self, reader, font, tableDict):
 		return reader.readInt8()
+	def readArray(self, reader, font, tableDict, count):
+		return reader.readInt8Array(count)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeInt8(value)
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeInt8Array(values)
 
 class UInt8(IntValue):
 	staticSize = 1
 	def read(self, reader, font, tableDict):
 		return reader.readUInt8()
+	def readArray(self, reader, font, tableDict, count):
+		return reader.readUInt8Array(count)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeUInt8(value)
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeUInt8Array(values)
 
 class UInt24(IntValue):
 	staticSize = 3
@@ -304,16 +347,11 @@ class GlyphID(SimpleValue):
 	staticSize = 2
 	typecode = "H"
 	def readArray(self, reader, font, tableDict, count):
-		glyphOrder = font.getGlyphOrder()
-		gids = reader.readArray(self.typecode, self.staticSize, count)
-		try:
-			l = [glyphOrder[gid] for gid in gids]
-		except IndexError:
-			# Slower, but will not throw an IndexError on an invalid glyph id.
-			l = [font.getGlyphName(gid) for gid in gids]
-		return l
+		return font.getGlyphNameMany(reader.readArray(self.typecode, self.staticSize, count))
 	def read(self, reader, font, tableDict):
 		return font.getGlyphName(reader.readValue(self.typecode, self.staticSize))
+	def writeArray(self, writer, font, tableDict, values):
+		writer.writeArray(self.typecode, font.getGlyphIDMany(values))
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeValue(self.typecode, font.getGlyphID(value))
 
@@ -389,6 +427,22 @@ class F2Dot14(FloatValue):
 	@staticmethod
 	def toString(value):
 		return fl2str(value, 14)
+
+class Angle(F2Dot14):
+	# angles are specified in degrees, and encoded as F2Dot14 fractions of half
+	# circle: e.g. 1.0 => 180, -0.5 => -90, -2.0 => -360, etc.
+	factor = 1.0/(1<<14) * 180  # 0.010986328125
+	def read(self, reader, font, tableDict):
+		return super().read(reader, font, tableDict) * 180
+	def write(self, writer, font, tableDict, value, repeatIndex=None):
+		super().write(writer, font, tableDict, value / 180, repeatIndex=repeatIndex)
+	@classmethod
+	def fromString(cls, value):
+		# quantize to nearest multiples of minimum fixed-precision angle
+		return otRound(float(value) / cls.factor) * cls.factor
+	@classmethod
+	def toString(cls, value):
+		return nearestMultipleShortestRepr(value, cls.factor)
 
 class Version(SimpleValue):
 	staticSize = 4
@@ -1155,8 +1209,7 @@ class STXHeader(BaseConverter):
 	def _readLigatures(self, reader, font):
 		limit = len(reader.data)
 		numLigatureGlyphs = (limit - reader.pos) // 2
-		return [font.getGlyphName(g)
-		        for g in reader.readUShortArray(numLigatureGlyphs)]
+		return font.getGlyphNameMany(reader.readUShortArray(numLigatureGlyphs))
 
 	def _countPerGlyphLookups(self, table):
 		# Somewhat annoyingly, the morx table does not encode
@@ -1551,20 +1604,15 @@ class VarIdxMapValue(BaseConverter):
 		outerShift = 16 - innerBits
 
 		entrySize = 1 + ((fmt & 0x0030) >> 4)
-		read = {
-			1: reader.readUInt8,
-			2: reader.readUShort,
-			3: reader.readUInt24,
-			4: reader.readULong,
+		readArray = {
+			1: reader.readUInt8Array,
+			2: reader.readUShortArray,
+			3: reader.readUInt24Array,
+			4: reader.readULongArray,
 		}[entrySize]
 
-		mapping = []
-		for i in range(nItems):
-			raw = read()
-			idx = ((raw & outerMask) << outerShift) | (raw & innerMask)
-			mapping.append(idx)
-
-		return mapping
+		return [(((raw & outerMask) << outerShift) | (raw & innerMask))
+			for raw in readArray(nItems)]
 
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		fmt = tableDict['EntryFormat']
@@ -1576,16 +1624,15 @@ class VarIdxMapValue(BaseConverter):
 		outerShift = 16 - innerBits
 
 		entrySize = 1 + ((fmt & 0x0030) >> 4)
-		write = {
-			1: writer.writeUInt8,
-			2: writer.writeUShort,
-			3: writer.writeUInt24,
-			4: writer.writeULong,
+		writeArray = {
+			1: writer.writeUInt8Array,
+			2: writer.writeUShortArray,
+			3: writer.writeUInt24Array,
+			4: writer.writeULongArray,
 		}[entrySize]
 
-		for idx in mapping:
-			raw = ((idx & 0xFFFF0000) >> outerShift) | (idx & innerMask)
-			write(raw)
+		writeArray([(((idx & 0xFFFF0000) >> outerShift) | (idx & innerMask))
+			    for idx in mapping])
 
 
 class VarDataValue(BaseConverter):
@@ -1594,27 +1641,43 @@ class VarDataValue(BaseConverter):
 		values = []
 
 		regionCount = tableDict["VarRegionCount"]
-		shortCount = tableDict["NumShorts"]
+		wordCount = tableDict["NumShorts"]
 
-		for i in range(min(regionCount, shortCount)):
-			values.append(reader.readShort())
-		for i in range(min(regionCount, shortCount), regionCount):
-			values.append(reader.readInt8())
-		for i in range(regionCount, shortCount):
-			reader.readInt8()
+		# https://github.com/fonttools/fonttools/issues/2279
+		longWords = bool(wordCount & 0x8000)
+		wordCount = wordCount & 0x7FFF
+
+		if longWords:
+			readBigArray, readSmallArray = reader.readLongArray, reader.readShortArray
+		else:
+			readBigArray, readSmallArray = reader.readShortArray, reader.readInt8Array
+
+		n1, n2 = min(regionCount, wordCount), max(regionCount, wordCount)
+		values.extend(readBigArray(n1))
+		values.extend(readSmallArray(n2 - n1))
+		if n2 > regionCount: # Padding
+			del values[regionCount:]
 
 		return values
 
-	def write(self, writer, font, tableDict, value, repeatIndex=None):
+	def write(self, writer, font, tableDict, values, repeatIndex=None):
 		regionCount = tableDict["VarRegionCount"]
-		shortCount = tableDict["NumShorts"]
+		wordCount = tableDict["NumShorts"]
 
-		for i in range(min(regionCount, shortCount)):
-			writer.writeShort(value[i])
-		for i in range(min(regionCount, shortCount), regionCount):
-			writer.writeInt8(value[i])
-		for i in range(regionCount, shortCount):
-			writer.writeInt8(0)
+		# https://github.com/fonttools/fonttools/issues/2279
+		longWords = bool(wordCount & 0x8000)
+		wordCount = wordCount & 0x7FFF
+
+		(writeBigArray, writeSmallArray) = {
+			False: (writer.writeShortArray, writer.writeInt8Array),
+			True:  (writer.writeLongArray,  writer.writeShortArray),
+		}[longWords]
+
+		n1, n2 = min(regionCount, wordCount), max(regionCount, wordCount)
+		writeBigArray(values[:n1])
+		writeSmallArray(values[n1:regionCount])
+		if n2 > regionCount: # Padding
+			writer.writeSmallArray([0] * (n2 - regionCount))
 
 	def xmlWrite(self, xmlWriter, font, value, name, attrs):
 		xmlWriter.simpletag(name, attrs + [("value", value)])
@@ -1636,99 +1699,6 @@ class LookupFlag(UShort):
 		if flags:
 			xmlWriter.comment(" ".join(flags))
 		xmlWriter.newline()
-
-def _issubclass_namedtuple(x):
-	return (
-		issubclass(x, tuple)
-		and getattr(x, "_fields", None) is not None
-	)
-
-
-class _NamedTupleConverter(BaseConverter):
-	# subclasses must override this
-	tupleClass = NotImplemented
-	# List[SimpleValue]
-	converterClasses = NotImplemented
-
-	def __init__(self, name, repeat, aux, tableClass=None):
-		# we expect all converters to be subclasses of SimpleValue
-		assert all(issubclass(klass, SimpleValue) for klass in self.converterClasses)
-		assert _issubclass_namedtuple(self.tupleClass), repr(self.tupleClass)
-		assert len(self.tupleClass._fields) == len(self.converterClasses)
-		assert tableClass is None  # tableClass is unused by SimplValues
-		BaseConverter.__init__(self, name, repeat, aux)
-		self.converters = [
-			klass(name=name, repeat=None, aux=None)
-			for name, klass in zip(self.tupleClass._fields, self.converterClasses)
-		]
-		self.convertersByName = {conv.name: conv for conv in self.converters}
-		# returned by getRecordSize method
-		self.staticSize = sum(c.staticSize for c in self.converters)
-
-	def read(self, reader, font, tableDict):
-		kwargs = {
-			conv.name: conv.read(reader, font, tableDict)
-			for conv in self.converters
-		}
-		return self.tupleClass(**kwargs)
-
-	def write(self, writer, font, tableDict, value, repeatIndex=None):
-		for conv in self.converters:
-			v = getattr(value, conv.name)
-			# repeatIndex is unused for SimpleValues
-			conv.write(writer, font, tableDict, v, repeatIndex=None)
-
-	def xmlWrite(self, xmlWriter, font, value, name, attrs):
-		assert value is not None
-		defaults = value.__new__.__defaults__ or ()
-		assert len(self.converters) >= len(defaults)
-		values = {}
-		required = object()
-		for conv, default in zip_longest(
-			reversed(self.converters),
-			reversed(defaults),
-			fillvalue=required,
-		):
-			v = getattr(value, conv.name)
-			if default is required or v != default:
-				values[conv.name] = conv.toString(v)
-		if attrs is None:
-			attrs = []
-		attrs.extend(
-			(conv.name, values[conv.name])
-			for conv in self.converters
-			if conv.name in values
-		)
-		xmlWriter.simpletag(name, attrs)
-		xmlWriter.newline()
-
-	def xmlRead(self, attrs, content, font):
-		converters = self.convertersByName
-		kwargs = {
-			k: converters[k].fromString(v)
-			for k, v in attrs.items()
-		}
-		return self.tupleClass(**kwargs)
-
-
-class VarFixed(_NamedTupleConverter):
-	tupleClass = VariableFloat
-	converterClasses = [Fixed, ULong]
-
-
-class VarF2Dot14(_NamedTupleConverter):
-	tupleClass = VariableFloat
-	converterClasses = [F2Dot14, ULong]
-
-
-class VarInt16(_NamedTupleConverter):
-	tupleClass = VariableInt
-	converterClasses = [Short, ULong]
-
-
-class VarUInt16(_NamedTupleConverter):
-	tupleClass = VariableInt
-	converterClasses = [UShort, ULong]
 
 
 class _UInt8Enum(UInt8):
@@ -1762,6 +1732,7 @@ converterMapping = {
 	"uint32":	ULong,
 	"char64":	Char64,
 	"Flags32":	Flags32,
+	"VarIndex":	VarIndex,
 	"Version":	Version,
 	"Tag":		Tag,
 	"GlyphID":	GlyphID,
@@ -1770,6 +1741,7 @@ converterMapping = {
 	"DeciPoints":	DeciPoints,
 	"Fixed":	Fixed,
 	"F2Dot14":	F2Dot14,
+	"Angle":	Angle,
 	"struct":	Struct,
 	"Offset":	Table,
 	"LOffset":	LTable,
@@ -1798,10 +1770,4 @@ converterMapping = {
 	"OffsetTo":	lambda C: partial(Table, tableClass=C),
 	"LOffsetTo":	lambda C: partial(LTable, tableClass=C),
 	"LOffset24To":	lambda C: partial(Table24, tableClass=C),
-
-	# Variable types
-	"VarFixed": VarFixed,
-	"VarF2Dot14": VarF2Dot14,
-	"VarInt16": VarInt16,
-	"VarUInt16": VarUInt16,
 }

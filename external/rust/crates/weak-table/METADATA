@@ -1,7 +1,5 @@
 name: "weak-table"
-description:
-    "Weak hash maps and sets"
-
+description: "Weak hash maps and sets"
 third_party {
   url {
     type: HOMEPAGE
@@ -9,9 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/weak-table/weak-table-0.3.0.crate"
+    value: "https://static.crates.io/crates/weak-table/weak-table-0.3.2.crate"
   }
-  version: "0.3.0"
-  last_upgrade_date { year: 2020 month: 10 day: 9 }
+  version: "0.3.2"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 3
+    day: 1
+  }
 }

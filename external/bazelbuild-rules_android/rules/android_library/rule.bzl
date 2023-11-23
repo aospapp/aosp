@@ -14,6 +14,7 @@
 
 """android_library rule."""
 
+load("@rules_android//rules:acls.bzl", "acls")
 load(":attrs.bzl", _ATTRS = "ATTRS")
 load(":impl.bzl", _impl = "impl")
 load(
@@ -21,7 +22,7 @@ load(
     _attrs = "attrs",
 )
 
-def _outputs(_defined_local_resources):
+def _outputs(name, _package_name, _defined_local_resources):
     outputs = dict(
         lib_jar = "lib%{name}.jar",
         lib_src_jar = "lib%{name}-src.jar",
@@ -31,11 +32,16 @@ def _outputs(_defined_local_resources):
     if _defined_local_resources:
         # TODO(b/177261846): resource-related predeclared outputs need to be re-pointed at the
         # corresponding artifacts in the Starlark pipeline.
+        label = "//" + _package_name + ":" + name
+        if acls.in_android_library_starlark_resource_outputs_rollout(label):
+            path_prefix = "_migrated/"
+        else:
+            path_prefix = ""
         outputs.update(
             dict(
-                resources_src_jar = "_migrated/%{name}.srcjar",
-                resources_txt = "_migrated/%{name}_symbols/R.txt",
-                resources_jar = "_migrated/%{name}_resources.jar",
+                resources_src_jar = path_prefix + "%{name}.srcjar",
+                resources_txt = path_prefix + "%{name}_symbols/R.txt",
+                resources_jar = path_prefix + "%{name}_resources.jar",
             ),
         )
 
@@ -51,6 +57,8 @@ def make_rule(
     Args:
       attrs: A dict. The attributes for the rule.
       implementation: A function. The rule's implementation method.
+      outputs: A dict, function, or None. The rule's outputs.
+      additional_toolchains: A list. Additional toolchains passed to pass to rule(toolchains).
 
     Returns:
       A rule.
@@ -122,6 +130,11 @@ def attrs_metadata(attrs):
     attrs["$defined_idl_import_root"] = _is_defined("idl_import_root", attrs)
     attrs["$defined_idl_parcelables"] = _is_defined("idl_parcelables", attrs)
     attrs["$defined_idl_srcs"] = _is_defined("idl_srcs", attrs)
+
+    # Required for ACLs check in _outputs(), since the callback can't access
+    # the native module.
+    attrs["$package_name"] = native.package_name()
+
     return attrs
 
 def android_library_macro(**attrs):

@@ -9,7 +9,7 @@
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
-.\" * are also available at https://curl.haxx.se/docs/copyright.html.
+.\" * are also available at https://curl.se/docs/copyright.html.
 .\" *
 .\" * You may opt to use, copy, modify, merge, publish, distribute and/or sell
 .\" * copies of the Software, and permit persons to whom the Software is
@@ -20,7 +20,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH CURLINFO_TLS_SSL_PTR 3 "August 07, 2020" "libcurl 7.73.0" "curl_easy_getinfo options"
+.TH CURLINFO_TLS_SSL_PTR 3 "October 31, 2021" "libcurl 7.80.0" "curl_easy_getinfo options"
 
 .SH NAME
 CURLINFO_TLS_SESSION, CURLINFO_TLS_SSL_PTR \- get TLS session info
@@ -117,7 +117,7 @@ pointer, with the (possibly) changed certificate information.
 
 If you are using OpenSSL or wolfSSL then \fICURLOPT_SSL_CTX_FUNCTION(3)\fP can
 be used to set a certificate verification callback in the CTX. That is safer
-than using this option to poll for certificate changes and doesn't suffer from
+than using this option to poll for certificate changes and does not suffer from
 any of the problems above. There is currently no way in libcurl to set a
 verification callback for the other SSL backends.
 

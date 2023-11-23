@@ -16,12 +16,13 @@
 
 package com.google.turbine.binder.bound;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.FieldSymbol;
 import com.google.turbine.binder.sym.MethodSymbol;
 import com.google.turbine.binder.sym.ParamSymbol;
+import com.google.turbine.binder.sym.RecordComponentSymbol;
 import com.google.turbine.binder.sym.TyVarSymbol;
 import com.google.turbine.model.Const;
 import com.google.turbine.model.TurbineFlag;
@@ -31,16 +32,20 @@ import com.google.turbine.type.AnnoInfo;
 import com.google.turbine.type.Type;
 import com.google.turbine.type.Type.IntersectionTy;
 import com.google.turbine.type.Type.MethodTy;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** A bound node that augments {@link HeaderBoundClass} with type information. */
 public interface TypeBoundClass extends HeaderBoundClass {
 
   /** The super-class type. */
+  @Nullable
   Type superClassType();
 
   /** Implemented interface types. */
   ImmutableList<Type> interfaceTypes();
+
+  /** The permitted direct subclasses. */
+  ImmutableList<ClassSymbol> permits();
 
   ImmutableMap<TyVarSymbol, TyVarInfo> typeParameterTypes();
 
@@ -50,10 +55,14 @@ public interface TypeBoundClass extends HeaderBoundClass {
   /** Declared methods. */
   ImmutableList<MethodInfo> methods();
 
+  /** Record components. */
+  ImmutableList<RecordComponentInfo> components();
+
   /**
-   * Annotation metadata, e.g. from {@link @java.lang.annotation.Target}, {@link
+   * Annotation metadata, e.g. from {@link java.lang.annotation.Target}, {@link
    * java.lang.annotation.Retention}, and {@link java.lang.annotation.Repeatable}.
    */
+  @Nullable
   AnnotationMetadata annotationMetadata();
 
   /** Declaration annotations. */
@@ -62,7 +71,7 @@ public interface TypeBoundClass extends HeaderBoundClass {
   /** A type parameter declaration. */
   class TyVarInfo {
     private final IntersectionTy upperBound;
-    @Nullable private final Type lowerBound;
+    private final @Nullable Type lowerBound;
     private final ImmutableList<AnnoInfo> annotations;
 
     public TyVarInfo(
@@ -81,8 +90,7 @@ public interface TypeBoundClass extends HeaderBoundClass {
     }
 
     /** The lower bound. */
-    @Nullable
-    public Type lowerBound() {
+    public @Nullable Type lowerBound() {
       return lowerBound;
     }
 
@@ -99,16 +107,16 @@ public interface TypeBoundClass extends HeaderBoundClass {
     private final int access;
     private final ImmutableList<AnnoInfo> annotations;
 
-    private final Tree.VarDecl decl;
-    private final Const.Value value;
+    private final Tree.@Nullable VarDecl decl;
+    private final Const.@Nullable Value value;
 
     public FieldInfo(
         FieldSymbol sym,
         Type type,
         int access,
         ImmutableList<AnnoInfo> annotations,
-        Tree.VarDecl decl,
-        Const.Value value) {
+        Tree.@Nullable VarDecl decl,
+        Const.@Nullable Value value) {
       this.sym = sym;
       this.type = type;
       this.access = access;
@@ -138,12 +146,12 @@ public interface TypeBoundClass extends HeaderBoundClass {
     }
 
     /** The field's declaration. */
-    public Tree.VarDecl decl() {
+    public Tree.@Nullable VarDecl decl() {
       return decl;
     }
 
     /** The constant field value. */
-    public Const.Value value() {
+    public Const.@Nullable Value value() {
       return value;
     }
 
@@ -161,8 +169,8 @@ public interface TypeBoundClass extends HeaderBoundClass {
     private final ImmutableList<ParamInfo> parameters;
     private final ImmutableList<Type> exceptions;
     private final int access;
-    private final Const defaultValue;
-    private final MethDecl decl;
+    private final @Nullable Const defaultValue;
+    private final @Nullable MethDecl decl;
     private final ImmutableList<AnnoInfo> annotations;
     private final @Nullable ParamInfo receiver;
 
@@ -173,8 +181,8 @@ public interface TypeBoundClass extends HeaderBoundClass {
         ImmutableList<ParamInfo> parameters,
         ImmutableList<Type> exceptions,
         int access,
-        Const defaultValue,
-        MethDecl decl,
+        @Nullable Const defaultValue,
+        @Nullable MethDecl decl,
         ImmutableList<AnnoInfo> annotations,
         @Nullable ParamInfo receiver) {
       this.sym = sym;
@@ -225,12 +233,20 @@ public interface TypeBoundClass extends HeaderBoundClass {
     }
 
     /** The default value of an annotation interface method. */
-    public Const defaultValue() {
+    public @Nullable Const defaultValue() {
       return defaultValue;
     }
 
+    /**
+     * Returns true for annotation members with a default value. The default value may not have been
+     * bound yet, in which case {@link #defaultValue} may still return {@code null}.
+     */
+    public boolean hasDefaultValue() {
+      return decl() != null ? decl().defaultValue().isPresent() : defaultValue() != null;
+    }
+
     /** The declaration. */
-    public MethDecl decl() {
+    public @Nullable MethDecl decl() {
       return decl;
     }
 
@@ -307,6 +323,47 @@ public interface TypeBoundClass extends HeaderBoundClass {
     }
 
     /** The parameter's modifiers. */
+    public int access() {
+      return access;
+    }
+  }
+
+  /** A record component. */
+  class RecordComponentInfo {
+    private final RecordComponentSymbol sym;
+    private final Type type;
+    private final int access;
+    private final ImmutableList<AnnoInfo> annotations;
+
+    public RecordComponentInfo(
+        RecordComponentSymbol sym, Type type, ImmutableList<AnnoInfo> annotations, int access) {
+      this.sym = sym;
+      this.type = type;
+      this.access = access;
+      this.annotations = annotations;
+    }
+
+    /** The record component's symbol. */
+    public RecordComponentSymbol sym() {
+      return sym;
+    }
+
+    /** The record component type. */
+    public Type type() {
+      return type;
+    }
+
+    /** Record component annotations. */
+    public ImmutableList<AnnoInfo> annotations() {
+      return annotations;
+    }
+
+    /** The Record component's name. */
+    public String name() {
+      return sym.name();
+    }
+
+    /** The Record component's modifiers. */
     public int access() {
       return access;
     }

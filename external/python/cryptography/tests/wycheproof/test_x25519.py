@@ -8,20 +8,22 @@ import binascii
 
 import pytest
 
-from cryptography.hazmat.backends.interfaces import DHBackend
 from cryptography.hazmat.primitives.asymmetric.x25519 import (
-    X25519PrivateKey, X25519PublicKey
+    X25519PrivateKey,
+    X25519PublicKey,
 )
 
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.x25519_supported(),
-    skip_message="Requires OpenSSL with X25519 support"
+    skip_message="Requires OpenSSL with X25519 support",
 )
-@pytest.mark.requires_backend_interface(interface=DHBackend)
 @pytest.mark.wycheproof_tests("x25519_test.json")
 def test_x25519(backend, wycheproof):
-    assert list(wycheproof.testgroup.items()) == [("curve", "curve25519")]
+    assert set(wycheproof.testgroup.items()) == {
+        ("curve", "curve25519"),
+        ("type", "XdhComp"),
+    }
 
     private_key = X25519PrivateKey.from_private_bytes(
         binascii.unhexlify(wycheproof.testcase["private"])

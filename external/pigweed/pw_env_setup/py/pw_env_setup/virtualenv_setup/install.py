@@ -15,34 +15,27 @@
 
 from __future__ import print_function
 
+import contextlib
+import datetime
 import glob
-import hashlib
 import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+
+# Grabbing datetime string once so it will always be the same for all GnTarget
+# objects.
+_DATETIME_STRING = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
 
 class GnTarget(object):  # pylint: disable=useless-object-inheritance
     def __init__(self, val):
         self.directory, self.target = val.split('#', 1)
-        # hash() doesn't necessarily give the same value in new runs of Python,
-        # so compute a unique id for this object that's consistent from run to
-        # run.
-        try:
-            val = val.encode()
-        except AttributeError:
-            pass
-        self._unique_id = hashlib.md5(val).hexdigest()
-
-    @property
-    def name(self):
-        """A reasonably stable and unique name for each pair."""
-        result = '{}-{}'.format(
-            os.path.basename(os.path.normpath(self.directory)),
-            self._unique_id)
-        return re.sub(r'[:/#_]+', '_', result)
+        self.name = '-'.join(
+            (re.sub(r'\W+', '_', self.target).strip('_'), _DATETIME_STRING))
 
 
 def git_stdout(*args, **kwargs):
@@ -115,15 +108,40 @@ def _find_files_by_name(roots, name, allow_nesting=False):
     return matches
 
 
-def install(
-        project_root,
-        venv_path,
-        full_envsetup=True,
-        requirements=(),
-        gn_targets=(),
-        gn_out_dir=None,
-        python=sys.executable,
-        env=None,
+def _check_venv(python, version, venv_path, pyvenv_cfg):
+    # TODO(pwbug/400) Re-enable this check on Windows.
+    if platform.system().lower() == 'windows':
+        return
+
+    # Check if the python location and version used for the existing virtualenv
+    # is the same as the python we're using. If it doesn't match, we need to
+    # delete the existing virtualenv and start again.
+    if os.path.exists(pyvenv_cfg):
+        pyvenv_values = {}
+        with open(pyvenv_cfg, 'r') as ins:
+            for line in ins:
+                key, value = line.strip().split(' = ', 1)
+                pyvenv_values[key] = value
+        pydir = os.path.dirname(python)
+        home = pyvenv_values.get('home')
+        if pydir != home and not pydir.startswith(venv_path):
+            shutil.rmtree(venv_path)
+        elif pyvenv_values.get('version') not in version:
+            shutil.rmtree(venv_path)
+
+
+def install(  # pylint: disable=too-many-arguments
+    project_root,
+    venv_path,
+    full_envsetup=True,
+    requirements=(),
+    gn_args=(),
+    gn_targets=(),
+    gn_out_dir=None,
+    python=sys.executable,
+    env=None,
+    system_packages=False,
+    use_pinned_pip_packages=True,
 ):
     """Creates a venv and installs all packages in this Git repo."""
 
@@ -140,6 +158,14 @@ def install(
     # The bin/ directory is called Scripts/ on Windows. Don't ask.
     venv_bin = os.path.join(venv_path, 'Scripts' if os.name == 'nt' else 'bin')
 
+    if env:
+        env.set('VIRTUAL_ENV', venv_path)
+        env.prepend('PATH', venv_bin)
+        env.clear('PYTHONHOME')
+        env.clear('__PYVENV_LAUNCHER__')
+    else:
+        env = contextlib.nullcontext()
+
     # Delete activation scripts. Typically they're created read-only and venv
     # will complain when trying to write over them fails.
     if os.path.isdir(venv_bin):
@@ -148,6 +174,9 @@ def install(
                 os.unlink(os.path.join(venv_bin, entry))
 
     pyvenv_cfg = os.path.join(venv_path, 'pyvenv.cfg')
+
+    _check_venv(python, version, venv_path, pyvenv_cfg)
+
     if full_envsetup or not os.path.exists(pyvenv_cfg):
         # On Mac sometimes the CIPD Python has __PYVENV_LAUNCHER__ set to
         # point to the system Python, which causes CIPD Python to create
@@ -157,7 +186,12 @@ def install(
         if '__PYVENV_LAUNCHER__' in envcopy:
             del envcopy['__PYVENV_LAUNCHER__']
 
-        cmd = (python, '-m', 'venv', '--upgrade', venv_path)
+        # TODO(spang): Pass --upgrade-deps and remove pip & setuptools
+        # upgrade below. This can only be done once the minimum python
+        # version is at least 3.9.
+        cmd = [python, '-m', 'venv', '--upgrade']
+        cmd += ['--system-site-packages'] if system_packages else []
+        cmd += [venv_path]
         _check_call(cmd, env=envcopy)
 
     venv_python = os.path.join(venv_bin, 'python')
@@ -179,10 +213,19 @@ def install(
         os.unlink(egg_link)
 
     def pip_install(*args):
-        cmd = [venv_python, '-m', 'pip', 'install'] + list(args)
-        return _check_call(cmd)
+        with env():
+            cmd = [venv_python, '-m', 'pip', 'install'] + list(args)
+            return _check_call(cmd)
 
-    pip_install('--upgrade', 'pip')
+    pip_install(
+        '--log',
+        os.path.join(venv_path, 'pip-upgrade.log'),
+        '--upgrade',
+        'pip',
+        'setuptools',
+        # Include wheel so pip installs can be done without build
+        # isolation.
+        'wheel')
 
     if requirements:
         requirement_args = tuple('--requirement={}'.format(req)
@@ -192,7 +235,7 @@ def install(
 
     def install_packages(gn_target):
         if gn_out_dir is None:
-            build_dir = os.path.join(venv_path, gn_target.name)
+            build_dir = os.path.join(venv_path, 'gn-install-dir')
         else:
             build_dir = gn_out_dir
 
@@ -213,12 +256,15 @@ def install(
         gn_log_path = os.path.join(venv_path, gn_log)
         try:
             with open(gn_log_path, 'w') as outs:
-                gn_cmd = (
-                    'gn',
-                    'gen',
-                    build_dir,
-                    '--args=dir_pigweed="{}"'.format(pw_root),
-                )
+                gn_cmd = ['gn', 'gen', build_dir]
+
+                args = list(gn_args)
+                if not use_pinned_pip_packages:
+                    args.append('pw_build_PIP_CONSTRAINTS=[]')
+
+                args.append('dir_pigweed="{}"'.format(pw_root))
+                gn_cmd.append('--args={}'.format(' '.join(args)))
+
                 print(gn_cmd, file=outs)
                 subprocess.check_call(gn_cmd,
                                       cwd=os.path.join(project_root,
@@ -234,7 +280,7 @@ def install(
         ninja_log_path = os.path.join(venv_path, ninja_log)
         try:
             with open(ninja_log_path, 'w') as outs:
-                ninja_cmd = ['ninja', '-C', build_dir]
+                ninja_cmd = ['ninja', '-C', build_dir, '-v']
                 ninja_cmd.append(gn_target.target)
                 print(ninja_cmd, file=outs)
                 subprocess.check_call(ninja_cmd, stdout=outs, stderr=outs)
@@ -250,14 +296,7 @@ def install(
             )
 
     if gn_targets:
-        if env:
-            env.set('VIRTUAL_ENV', venv_path)
-            env.prepend('PATH', venv_bin)
-            env.clear('PYTHONHOME')
-            with env():
-                for gn_target in gn_targets:
-                    install_packages(gn_target)
-        else:
+        with env():
             for gn_target in gn_targets:
                 install_packages(gn_target)
 

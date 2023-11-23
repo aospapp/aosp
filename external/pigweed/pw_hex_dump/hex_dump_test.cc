@@ -137,7 +137,7 @@ TEST_F(HexDump, FormattedHexDump_Defaults) {
 
 TEST_F(HexDump, FormattedHexDump_DefaultHeader) {
   constexpr const char* expected =
-      " 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f";
+      "00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f";
 
   default_flags_.show_header = true;
   dumper_ = FormattedHexDumper(dest_, default_flags_);
@@ -223,6 +223,27 @@ TEST_F(HexDump, FormattedHexDump_TwoLines) {
   EXPECT_STREQ(expected2, dest_.data());
 }
 
+TEST_F(HexDump, FormattedHexDump_LastLineCheck) {
+  constexpr const char* expected1 = "a4cc32629b46381a 231a2a7abce240a0";
+  constexpr const char* expected2 = "ff33e52b9e9f6b3c be9b893c7e4a7a48";
+  constexpr const char* expected3 = "18";
+
+  default_flags_.bytes_per_line = 16;
+  default_flags_.group_every = 8;
+  dumper_ = FormattedHexDumper(dest_, default_flags_);
+
+  EXPECT_TRUE(dumper_.BeginDump(source_data).ok());
+  // Dump first line.
+  EXPECT_TRUE(dumper_.DumpLine().ok());
+  EXPECT_STREQ(expected1, dest_.data());
+  // Dump second line.
+  EXPECT_TRUE(dumper_.DumpLine().ok());
+  EXPECT_STREQ(expected2, dest_.data());
+  // Dump third line.
+  EXPECT_TRUE(dumper_.DumpLine().ok());
+  EXPECT_STREQ(expected3, dest_.data());
+}
+
 TEST_F(HexDump, FormattedHexDump_Ascii) {
   constexpr const char* expected1 = "6d 79 20 74 65 73 74 20  my test ";
   constexpr const char* expected2 = "73 74 72 69 6e 67 0a     string.";
@@ -241,7 +262,7 @@ TEST_F(HexDump, FormattedHexDump_Ascii) {
 }
 
 TEST_F(HexDump, FormattedHexDump_AsciiHeader) {
-  constexpr const char* expected0 = " 0        4        Text";
+  constexpr const char* expected0 = "00       04        Text";
   constexpr const char* expected1 = "6d792074 65737420  my test ";
   constexpr const char* expected2 = "73747269 6e670a    string.";
 
@@ -264,7 +285,7 @@ TEST_F(HexDump, FormattedHexDump_AsciiHeader) {
 }
 
 TEST_F(HexDump, FormattedHexDump_AsciiHeaderGroupEvery) {
-  constexpr const char* expected0 = " 0  1  2  3  4  5  6  7  Text";
+  constexpr const char* expected0 = "00 01 02 03 04 05 06 07  Text";
   constexpr const char* expected1 = "6d 79 20 74 65 73 74 20  my test ";
   constexpr const char* expected2 = "73 74 72 69 6e 67 0a     string.";
 
@@ -312,8 +333,10 @@ TEST_F(HexDump, FormattedHexDump_AbsolutePrefix) {
   constexpr size_t kTestBytesPerLine = 16;
   std::array<char, kHexAddrStringSize + 1> expected1;
   std::array<char, kHexAddrStringSize + 1> expected2;
-  DumpAddr(expected1, source_data.data());
-  DumpAddr(expected2, source_data.data() + kTestBytesPerLine);
+  DumpAddr(expected1, source_data.data())
+      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+  DumpAddr(expected2, source_data.data() + kTestBytesPerLine)
+      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
 
   default_flags_.bytes_per_line = kTestBytesPerLine;
   default_flags_.prefix_mode = FormattedHexDumper::AddressMode::kAbsolute;

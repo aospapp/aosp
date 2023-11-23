@@ -52,8 +52,15 @@ android_library {
 // Similar to TextClassifierServiceLib, but without the AndroidManifest.
 android_library {
     name: "TextClassifierServiceLibNoManifest",
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.aidl",
+    ],
     manifest: "LibNoManifest_AndroidManifest.xml",
+    plugins: [
+        "auto_value_plugin",
+        "androidx.room_room-compiler-plugin",
+    ],
     static_libs: [
         "androidx.core_core",
         "libtextclassifier-java",
@@ -61,6 +68,13 @@ android_library {
         "guava",
         "textclassifier-statsd",
         "error_prone_annotations",
+        "androidx.work_work-runtime",
+        "android_downloader_lib",
+        "textclassifier-statsd",
+        "textclassifier-java-proto-lite",
+        "androidx.concurrent_concurrent-futures",
+        "auto_value_annotations",
+        "androidx.room_room-runtime",
     ],
     sdk_version: "system_current",
     min_sdk_version: "30",

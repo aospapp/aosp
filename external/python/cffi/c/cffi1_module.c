@@ -26,11 +26,6 @@ static int init_ffi_lib(PyObject *m)
     int i, res;
     static char init_done = 0;
 
-    if (PyType_Ready(&FFI_Type) < 0)
-        return -1;
-    if (PyType_Ready(&Lib_Type) < 0)
-        return -1;
-
     if (!init_done) {
         if (init_global_types_dict(FFI_Type.tp_dict) < 0)
             return -1;
@@ -62,16 +57,6 @@ static int init_ffi_lib(PyObject *m)
         }
         init_done = 1;
     }
-
-    x = (PyObject *)&FFI_Type;
-    Py_INCREF(x);
-    if (PyModule_AddObject(m, "FFI", x) < 0)
-        return -1;
-    x = (PyObject *)&Lib_Type;
-    Py_INCREF(x);
-    if (PyModule_AddObject(m, "Lib", x) < 0)
-        return -1;
-
     return 0;
 }
 
@@ -199,7 +184,7 @@ static PyObject *b_init_cffi_1_0_external_module(PyObject *self, PyObject *arg)
     if (ffi == NULL || PyModule_AddObject(m, "ffi", (PyObject *)ffi) < 0)
         return NULL;
 
-    lib = lib_internal_new(ffi, module_name, NULL);
+    lib = lib_internal_new(ffi, module_name, NULL, 0);
     if (lib == NULL || PyModule_AddObject(m, "lib", (PyObject *)lib) < 0)
         return NULL;
 

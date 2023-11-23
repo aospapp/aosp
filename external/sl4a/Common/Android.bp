@@ -33,12 +33,17 @@ java_library {
         "sl4a.Utils",
         "junit",
         "modules-utils-build",
+        "aosp_test_rcs_client_base",
+        "com.uwb.support.fira",
     ],
 
     sdk_version: "core_platform",
     libs: [
         "framework-wifi.impl", // allow SL4A to access @hide Wifi APIs
         "framework-connectivity.impl",
+        "framework-connectivity-t.impl",
+        "framework-uwb.impl",
+        "framework-bluetooth.impl",
         "framework",
 
         "telephony-common",

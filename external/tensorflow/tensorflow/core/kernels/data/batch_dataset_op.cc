@@ -17,12 +17,12 @@ limitations under the License.
 #include <algorithm>
 #include <utility>
 
+#include "tensorflow/core/data/dataset_utils.h"
+#include "tensorflow/core/data/name_utils.h"
 #include "tensorflow/core/framework/dataset.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/partial_tensor_shape.h"
 #include "tensorflow/core/framework/tensor.h"
-#include "tensorflow/core/kernels/data/dataset_utils.h"
-#include "tensorflow/core/kernels/data/name_utils.h"
 #include "tensorflow/core/lib/gtl/cleanup.h"
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/stringprintf.h"
@@ -47,7 +47,7 @@ constexpr char kBatchDataset[] = "BatchDataset";
 
 class BatchDatasetOp::Dataset : public DatasetBase {
  public:
-  Dataset(OpKernelContext* ctx, int64 batch_size, bool drop_remainder,
+  Dataset(OpKernelContext* ctx, int64_t batch_size, bool drop_remainder,
           bool parallel_copy, const DatasetBase* input, int op_version)
       : DatasetBase(DatasetContext(ctx)),
         batch_size_(batch_size),
@@ -110,7 +110,7 @@ class BatchDatasetOp::Dataset : public DatasetBase {
   }
 
   int64 Cardinality() const override {
-    int64 n = input_->Cardinality();
+    int64_t n = input_->Cardinality();
     if (n == kInfiniteCardinality || n == kUnknownCardinality) {
       return n;
     }
@@ -199,8 +199,9 @@ class BatchDatasetOp::Dataset : public DatasetBase {
       // respective slice locations. This would require a different GetNext()
       // overload that supports zero-copy, and might make sense in an
       // optimization pass.
-      TF_RETURN_IF_ERROR(CopyBatch(/*parallel_copy=*/dataset()->parallel_copy_,
-                                   ctx, out_tensors, &batch_elements));
+      TF_RETURN_IF_ERROR(
+          CopyBatch(ctx, batch_elements, dataset()->parallel_copy_,
+                    /*allocation_callback=*/nullptr, out_tensors));
 
       *end_of_sequence = false;
       return Status::OK();
@@ -263,7 +264,7 @@ BatchDatasetOp::BatchDatasetOp(OpKernelConstruction* ctx)
 
 void BatchDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase* input,
                                  DatasetBase** output) {
-  int64 batch_size = 0;
+  int64_t batch_size = 0;
   OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kBatchSize, &batch_size));
   OP_REQUIRES(ctx, batch_size > 0,
               errors::InvalidArgument("Batch size must be greater than zero."));

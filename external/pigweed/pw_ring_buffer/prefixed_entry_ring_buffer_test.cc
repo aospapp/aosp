@@ -17,7 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "pw_assert/assert.h"
+#include "pw_assert/check.h"
 #include "pw_containers/vector.h"
 #include "pw_unit_test/framework.h"
 
@@ -26,6 +26,8 @@ using std::byte;
 namespace pw {
 namespace ring_buffer {
 namespace {
+using Entry = PrefixedEntryRingBufferMulti::Entry;
+using iterator = PrefixedEntryRingBufferMulti::iterator;
 
 TEST(PrefixedEntryRingBuffer, NoBuffer) {
   PrefixedEntryRingBuffer ring(false);
@@ -88,9 +90,6 @@ void SingleEntryWriteReadTest(bool user_data) {
 
   EXPECT_EQ(ring.EntryCount(), 0u);
   EXPECT_EQ(ring.PopFront(), Status::OutOfRange());
-  EXPECT_EQ(ring.EntryCount(), 0u);
-  EXPECT_EQ(ring.PushBack(std::span(single_entry_data, 0u)),
-            Status::InvalidArgument());
   EXPECT_EQ(ring.EntryCount(), 0u);
   EXPECT_EQ(
       ring.PushBack(std::span(single_entry_data, sizeof(test_buffer) + 5)),
@@ -335,7 +334,8 @@ void DeringTest(bool preload) {
       // wrapped.
       for (i = 0; i < (kTotalEntryCount * (main_loop_count % 64u)); i++) {
         memset(single_entry_buffer, i, sizeof(single_entry_buffer));
-        ring.PushBack(single_entry_buffer);
+        ring.PushBack(single_entry_buffer)
+            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
       }
     }
 
@@ -353,7 +353,8 @@ void DeringTest(bool preload) {
       }
 
       // The ring buffer internally pushes the varint size byte.
-      ring.PushBack(single_entry_buffer);
+      ring.PushBack(single_entry_buffer)
+          .IgnoreError();  // TODO(pwbug/387): Handle Status properly
     }
 
     // Check values before doing the dering.
@@ -395,35 +396,94 @@ TEST(PrefixedEntryRingBuffer, Dering) { DeringTest(true); }
 TEST(PrefixedEntryRingBuffer, DeringNoPreload) { DeringTest(false); }
 
 template <typename T>
-Status PushBack(PrefixedEntryRingBufferMulti& ring, T element) {
+Status PushBack(PrefixedEntryRingBufferMulti& ring,
+                T element,
+                uint32_t user_preamble = 0) {
   union {
     std::array<byte, sizeof(element)> buffer;
     T item;
   } aliased;
   aliased.item = element;
-  return ring.PushBack(aliased.buffer);
+  return ring.PushBack(aliased.buffer, user_preamble);
 }
 
 template <typename T>
-Status TryPushBack(PrefixedEntryRingBufferMulti& ring, T element) {
+Status TryPushBack(PrefixedEntryRingBufferMulti& ring,
+                   T element,
+                   uint32_t user_preamble = 0) {
   union {
     std::array<byte, sizeof(element)> buffer;
     T item;
   } aliased;
   aliased.item = element;
-  return ring.TryPushBack(aliased.buffer);
+  return ring.TryPushBack(aliased.buffer, user_preamble);
 }
 
 template <typename T>
-T PeekFront(PrefixedEntryRingBufferMulti::Reader& reader) {
+T PeekFront(PrefixedEntryRingBufferMulti::Reader& reader,
+            uint32_t* user_preamble_out = nullptr) {
   union {
     std::array<byte, sizeof(T)> buffer;
     T item;
   } aliased;
   size_t bytes_read = 0;
-  PW_CHECK_OK(reader.PeekFront(aliased.buffer, &bytes_read));
+  uint32_t user_preamble = 0;
+  PW_CHECK_OK(
+      reader.PeekFrontWithPreamble(aliased.buffer, user_preamble, bytes_read));
   PW_CHECK_INT_EQ(bytes_read, sizeof(T));
+  if (user_preamble_out) {
+    *user_preamble_out = user_preamble;
+  }
   return aliased.item;
+}
+
+template <typename T>
+T GetEntry(std::span<const std::byte> lhs) {
+  union {
+    std::array<byte, sizeof(T)> buffer;
+    T item;
+  } aliased;
+  std::memcpy(aliased.buffer.data(), lhs.data(), lhs.size_bytes());
+  return aliased.item;
+}
+
+void EmptyDataPushBackTest(bool user_data) {
+  PrefixedEntryRingBuffer ring(user_data);
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  // Push back an empty span and a non-empty span.
+  EXPECT_EQ(ring.PushBack(std::span<std::byte>(), 1u), OkStatus());
+  EXPECT_EQ(ring.EntryCount(), 1u);
+  EXPECT_EQ(ring.PushBack(single_entry_data, 2u), OkStatus());
+  EXPECT_EQ(ring.EntryCount(), 2u);
+
+  // Confirm that both entries can be read back.
+  byte entry_buffer[kTestBufferSize];
+  uint32_t user_preamble = 0;
+  size_t bytes_read = 0;
+  // Read empty span.
+  EXPECT_EQ(ring.PeekFrontWithPreamble(entry_buffer, user_preamble, bytes_read),
+            OkStatus());
+  EXPECT_EQ(user_preamble, user_data ? 1u : 0u);
+  EXPECT_EQ(bytes_read, 0u);
+  EXPECT_EQ(ring.PopFront(), OkStatus());
+  EXPECT_EQ(ring.EntryCount(), 1u);
+  // Read non-empty span.
+  EXPECT_EQ(ring.PeekFrontWithPreamble(entry_buffer, user_preamble, bytes_read),
+            OkStatus());
+  EXPECT_EQ(user_preamble, user_data ? 2u : 0u);
+  ASSERT_EQ(bytes_read, sizeof(single_entry_data));
+  EXPECT_EQ(memcmp(entry_buffer, single_entry_data, bytes_read), 0);
+  EXPECT_EQ(ring.PopFront(), OkStatus());
+  EXPECT_EQ(ring.EntryCount(), 0u);
+}
+
+TEST(PrefixedEntryRingBuffer, EmptyDataPushBackTestWithPreamble) {
+  EmptyDataPushBackTest(true);
+}
+TEST(PrefixedEntryRingBuffer, EmptyDataPushBackTestNoPreamble) {
+  EmptyDataPushBackTest(false);
 }
 
 TEST(PrefixedEntryRingBuffer, TryPushBack) {
@@ -457,6 +517,27 @@ TEST(PrefixedEntryRingBuffer, TryPushBack) {
   EXPECT_EQ(PeekFront<int>(ring), 100);
 }
 
+TEST(PrefixedEntryRingBuffer, Iterator) {
+  PrefixedEntryRingBuffer ring;
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  // Fill up the ring buffer with a constant value.
+  size_t entry_count = 0;
+  while (TryPushBack<size_t>(ring, entry_count).ok()) {
+    entry_count++;
+  }
+
+  // Iterate over all entries and confirm entry count.
+  size_t validated_entries = 0;
+  for (Result<const Entry> entry_info : ring) {
+    EXPECT_TRUE(entry_info.status().ok());
+    EXPECT_EQ(GetEntry<size_t>(entry_info.value().buffer), validated_entries);
+    validated_entries++;
+  }
+  EXPECT_EQ(validated_entries, entry_count);
+}
+
 TEST(PrefixedEntryRingBufferMulti, TryPushBack) {
   PrefixedEntryRingBufferMulti ring;
   byte test_buffer[kTestBufferSize];
@@ -481,15 +562,20 @@ TEST(PrefixedEntryRingBufferMulti, TryPushBack) {
   }
 
   // Run fast reader twice as fast as the slow reader.
+  size_t total_used_bytes = ring.TotalUsedBytes();
   for (int i = 0; i < total_items; ++i) {
+    EXPECT_EQ(PeekFront<int>(fast_reader), i);
+    EXPECT_EQ(fast_reader.PopFront(), OkStatus());
+    EXPECT_EQ(ring.TotalUsedBytes(), total_used_bytes);
     if (i % 2 == 0) {
       EXPECT_EQ(PeekFront<int>(slow_reader), i / 2);
       EXPECT_EQ(slow_reader.PopFront(), OkStatus());
+      EXPECT_TRUE(ring.TotalUsedBytes() < total_used_bytes);
     }
-    EXPECT_EQ(PeekFront<int>(fast_reader), i);
-    EXPECT_EQ(fast_reader.PopFront(), OkStatus());
+    total_used_bytes = ring.TotalUsedBytes();
   }
   EXPECT_EQ(fast_reader.PopFront(), Status::OutOfRange());
+  EXPECT_TRUE(ring.TotalUsedBytes() > 0u);
 
   // Fill the buffer again, expect that the fast reader
   // only sees half the entries as the slow reader.
@@ -516,6 +602,7 @@ TEST(PrefixedEntryRingBufferMulti, TryPushBack) {
   }
   EXPECT_EQ(slow_reader.PopFront(), Status::OutOfRange());
   EXPECT_EQ(fast_reader.PopFront(), Status::OutOfRange());
+  EXPECT_EQ(ring.TotalUsedBytes(), 0u);
 }
 
 TEST(PrefixedEntryRingBufferMulti, PushBack) {
@@ -568,9 +655,9 @@ TEST(PrefixedEntryRingBufferMulti, ReaderAddRemove) {
   EXPECT_EQ(ring.AttachReader(reader), OkStatus());
 
   // Fill up the ring buffer with a constant value.
-  int total_items = 0;
+  size_t total_items = 0;
   while (true) {
-    Status status = TryPushBack<int>(ring, 5);
+    Status status = TryPushBack<size_t>(ring, total_items);
     if (status.ok()) {
       total_items++;
     } else {
@@ -578,21 +665,30 @@ TEST(PrefixedEntryRingBufferMulti, ReaderAddRemove) {
       break;
     }
   }
-  EXPECT_EQ(reader.EntryCount(), static_cast<size_t>(total_items));
+  EXPECT_EQ(reader.EntryCount(), total_items);
 
   // Add new reader after filling the buffer.
   EXPECT_EQ(ring.AttachReader(transient_reader), OkStatus());
+  EXPECT_EQ(transient_reader.EntryCount(), total_items);
+
+  // Confirm that the transient reader observes all values, even though it was
+  // attached after entries were pushed.
+  for (size_t i = 0; i < total_items; i++) {
+    EXPECT_EQ(PeekFront<size_t>(transient_reader), i);
+    EXPECT_EQ(transient_reader.PopFront(), OkStatus());
+  }
   EXPECT_EQ(transient_reader.EntryCount(), 0u);
 
-  // Push a value into the buffer and confirm the transient reader
-  // sees that value, and only that value.
-  EXPECT_EQ(PushBack<int>(ring, 1), OkStatus());
-  EXPECT_EQ(PeekFront<int>(transient_reader), 1);
-  EXPECT_EQ(transient_reader.EntryCount(), 1u);
-
-  // Confirm that detaching and attaching a reader resets its state.
+  // Confirm that re-attaching the reader resets it back to the oldest
+  // available entry.
   EXPECT_EQ(ring.DetachReader(transient_reader), OkStatus());
   EXPECT_EQ(ring.AttachReader(transient_reader), OkStatus());
+  EXPECT_EQ(transient_reader.EntryCount(), total_items);
+
+  for (size_t i = 0; i < total_items; i++) {
+    EXPECT_EQ(PeekFront<size_t>(transient_reader), i);
+    EXPECT_EQ(transient_reader.PopFront(), OkStatus());
+  }
   EXPECT_EQ(transient_reader.EntryCount(), 0u);
 }
 
@@ -609,6 +705,185 @@ TEST(PrefixedEntryRingBufferMulti, SingleBufferPerReader) {
   EXPECT_EQ(ring_one.DetachReader(reader), OkStatus());
   EXPECT_EQ(ring_two.AttachReader(reader), OkStatus());
   EXPECT_EQ(ring_one.AttachReader(reader), Status::InvalidArgument());
+}
+
+TEST(PrefixedEntryRingBufferMulti, IteratorEmptyBuffer) {
+  PrefixedEntryRingBufferMulti ring;
+  // Pick a buffer that can't contain any valid sections.
+  byte test_buffer[1] = {std::byte(0xFF)};
+
+  PrefixedEntryRingBufferMulti::Reader reader;
+  EXPECT_EQ(ring.AttachReader(reader), OkStatus());
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  EXPECT_EQ(ring.begin(), ring.end());
+}
+
+TEST(PrefixedEntryRingBufferMulti, IteratorValidEntries) {
+  PrefixedEntryRingBufferMulti ring;
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  PrefixedEntryRingBufferMulti::Reader reader;
+  EXPECT_EQ(ring.AttachReader(reader), OkStatus());
+
+  // Buffer only contains valid entries. This happens after populating
+  // the buffer and no entries have been read.
+  // E.g. [VALID|VALID|VALID|INVALID]
+
+  // Fill up the ring buffer with a constant value.
+  size_t entry_count = 0;
+  while (TryPushBack<size_t>(ring, entry_count).ok()) {
+    entry_count++;
+  }
+
+  // Iterate over all entries and confirm entry count.
+  size_t validated_entries = 0;
+  for (const Entry& entry_info : ring) {
+    EXPECT_EQ(GetEntry<size_t>(entry_info.buffer), validated_entries);
+    validated_entries++;
+  }
+  EXPECT_EQ(validated_entries, entry_count);
+}
+
+TEST(PrefixedEntryRingBufferMulti, IteratorValidEntriesWithPreamble) {
+  PrefixedEntryRingBufferMulti ring(true);
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  PrefixedEntryRingBufferMulti::Reader reader;
+  EXPECT_EQ(ring.AttachReader(reader), OkStatus());
+
+  // Buffer only contains valid entries. This happens after populating
+  // the buffer and no entries have been read.
+  // E.g. [VALID|VALID|VALID|INVALID]
+
+  // Fill up the ring buffer with a constant value.
+  size_t entry_count = 0;
+  while (TryPushBack<size_t>(ring, entry_count, entry_count).ok()) {
+    entry_count++;
+  }
+
+  // Iterate over all entries and confirm entry count.
+  size_t validated_entries = 0;
+  for (const Entry& entry_info : ring) {
+    EXPECT_EQ(GetEntry<size_t>(entry_info.buffer), validated_entries);
+    EXPECT_EQ(entry_info.preamble, validated_entries);
+    validated_entries++;
+  }
+  EXPECT_EQ(validated_entries, entry_count);
+}
+
+TEST(PrefixedEntryRingBufferMulti, IteratorStaleEntries) {
+  PrefixedEntryRingBufferMulti ring;
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  // Buffer only contains stale, valid entries. This happens when after
+  // populating the buffer, all entries are read. The buffer retains the
+  // data but has an entry count of zero.
+  // E.g. [STALE|STALE|STALE]
+  PrefixedEntryRingBufferMulti::Reader trailing_reader;
+  EXPECT_EQ(ring.AttachReader(trailing_reader), OkStatus());
+
+  PrefixedEntryRingBufferMulti::Reader reader;
+  EXPECT_EQ(ring.AttachReader(reader), OkStatus());
+
+  // Push and pop all the entries.
+  size_t entry_count = 0;
+  while (TryPushBack<size_t>(ring, entry_count).ok()) {
+    entry_count++;
+  }
+
+  while (reader.PopFront().ok()) {
+  }
+
+  // Iterate over all entries and confirm entry count.
+  size_t validated_entries = 0;
+  for (const Entry& entry_info : ring) {
+    EXPECT_EQ(GetEntry<size_t>(entry_info.buffer), validated_entries);
+    validated_entries++;
+  }
+  EXPECT_EQ(validated_entries, entry_count);
+}
+
+TEST(PrefixedEntryRingBufferMulti, IteratorValidStaleEntries) {
+  PrefixedEntryRingBufferMulti ring;
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  // Buffer contains both valid and stale entries. This happens when after
+  // populating the buffer, only some of the entries are read.
+  // E.g. [VALID|INVALID|STALE|STALE]
+  PrefixedEntryRingBufferMulti::Reader trailing_reader;
+  EXPECT_EQ(ring.AttachReader(trailing_reader), OkStatus());
+
+  PrefixedEntryRingBufferMulti::Reader reader;
+  EXPECT_EQ(ring.AttachReader(reader), OkStatus());
+
+  // Fill the buffer with entries.
+  size_t entry_count = 0;
+  while (TryPushBack<size_t>(ring, entry_count).ok()) {
+    entry_count++;
+  }
+
+  // Pop roughly half the entries.
+  while (reader.EntryCount() > (entry_count / 2)) {
+    EXPECT_TRUE(reader.PopFront().ok());
+  }
+
+  // Iterate over all entries and confirm entry count.
+  size_t validated_entries = 0;
+  for (const Entry& entry_info : ring) {
+    EXPECT_EQ(GetEntry<size_t>(entry_info.buffer), validated_entries);
+    validated_entries++;
+  }
+  EXPECT_EQ(validated_entries, entry_count);
+}
+
+TEST(PrefixedEntryRingBufferMulti, IteratorBufferCorruption) {
+  PrefixedEntryRingBufferMulti ring;
+  byte test_buffer[kTestBufferSize];
+  EXPECT_EQ(ring.SetBuffer(test_buffer), OkStatus());
+
+  // Buffer contains partially written entries. This may happen if writing
+  // is pre-empted (e.g. a crash occurs). In this state, we expect a series
+  // of valid entries followed by an invalid entry.
+  PrefixedEntryRingBufferMulti::Reader trailing_reader;
+  EXPECT_EQ(ring.AttachReader(trailing_reader), OkStatus());
+
+  // Add one entry to capture the second entry index.
+  size_t entry_count = 0;
+  EXPECT_TRUE(TryPushBack<size_t>(ring, entry_count++).ok());
+  size_t entry_size = ring.TotalUsedBytes();
+
+  // Fill the buffer with entries.
+  while (TryPushBack<size_t>(ring, entry_count++).ok()) {
+  }
+
+  // Push another entry to move the write index forward and force the oldest
+  // reader forward. This will require the iterator to dering.
+  EXPECT_TRUE(PushBack<size_t>(ring, 0).ok());
+  EXPECT_TRUE(ring.CheckForCorruption().ok());
+
+  // The first entry is overwritten. Corrupt all data past the fifth entry.
+  // Note that because the first entry has shifted, the entry_count recorded
+  // in each entry is shifted by 1.
+  constexpr size_t valid_entries = 5;
+  size_t offset = valid_entries * entry_size;
+  memset(test_buffer + offset, 0xFF, kTestBufferSize - offset);
+  EXPECT_FALSE(ring.CheckForCorruption().ok());
+
+  // Iterate over all entries and confirm entry count.
+  size_t validated_entries = 0;
+  iterator it = ring.begin();
+  for (; it != ring.end(); it++) {
+    EXPECT_EQ(GetEntry<size_t>(it->buffer), validated_entries + 1);
+    validated_entries++;
+  }
+  // The final entry will fail to be read.
+  EXPECT_EQ(it.status(), Status::DataLoss());
+  EXPECT_EQ(validated_entries, valid_entries);
 }
 
 }  // namespace

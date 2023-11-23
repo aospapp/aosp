@@ -14,6 +14,7 @@
 
 #ifdef PLAT_a3700
 #include <drivers/marvell/uart/a3700_console.h>
+#define PLAT_MARVELL_UART_CLK_IN_HZ (get_ref_clk() * 1000000)
 #define console_marvell_register console_a3700_register
 #else
 #include <drivers/ti/uart/uart_16550.h>
@@ -31,8 +32,8 @@ static console_t marvell_runtime_console;
 void marvell_console_boot_init(void)
 {
 	int rc =
-	console_marvell_register(PLAT_MARVELL_BOOT_UART_BASE,
-				 PLAT_MARVELL_BOOT_UART_CLK_IN_HZ,
+	console_marvell_register(PLAT_MARVELL_UART_BASE,
+				 PLAT_MARVELL_UART_CLK_IN_HZ,
 				 MARVELL_CONSOLE_BAUDRATE,
 				 &marvell_boot_console);
 	if (rc == 0) {
@@ -58,8 +59,8 @@ void marvell_console_boot_end(void)
 void marvell_console_runtime_init(void)
 {
 	int rc =
-	console_marvell_register(PLAT_MARVELL_BOOT_UART_BASE,
-				 PLAT_MARVELL_BOOT_UART_CLK_IN_HZ,
+	console_marvell_register(PLAT_MARVELL_UART_BASE,
+				 PLAT_MARVELL_UART_CLK_IN_HZ,
 				 MARVELL_CONSOLE_BAUDRATE,
 				 &marvell_runtime_console);
 	if (rc == 0)

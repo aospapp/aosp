@@ -35,7 +35,7 @@ int file_read(FILE *fp, Stream_t *Source, int textmode, int stripmode)
 		fprintf(stderr,"Couldn't open source file\n");
 		return -1;
 	}
-	
+
 	pos = 0;
 	while(1){
 		ret = Source->Class->read(Source, buffer, pos, 16384);

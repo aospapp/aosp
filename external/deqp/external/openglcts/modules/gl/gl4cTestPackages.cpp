@@ -32,7 +32,6 @@
 #include "gl4cCopyImageTests.hpp"
 #include "gl4cDirectStateAccessTests.hpp"
 #include "gl4cES31CompatibilityTests.hpp"
-#include "gl4cEnhancedLayoutsTests.hpp"
 #include "gl4cGPUShaderFP64Tests.hpp"
 #include "gl4cGetTextureSubImageTests.hpp"
 #include "gl4cGlSpirvTests.hpp"
@@ -86,7 +85,6 @@
 #include "glcViewportArrayTests.hpp"
 #include "glcPixelStorageModesTests.hpp"
 
-#include "../gles31/es31cArrayOfArraysTests.hpp"
 #include "../gles31/es31cDrawIndirectTests.hpp"
 #include "../gles31/es31cExplicitUniformLocationTest.hpp"
 #include "../gles31/es31cLayoutBindingTests.hpp"
@@ -224,6 +222,55 @@ void GL42TestPackage::init(void)
 	}
 }
 
+// GL42CompatTestPackage
+
+class GL42CompatShaderTests : public deqp::TestCaseGroup
+{
+public:
+	GL42CompatShaderTests(deqp::Context& context) : TestCaseGroup(context, "shaders42", "Shading Language Tests")
+	{
+	}
+
+	void init(void)
+	{
+                addChild(new deqp::ShaderLibraryGroup(m_context, "builtin", "Builtin Tests", "gl42-compat/builtins.test"));
+                addChild(new deqp::ShaderLibraryGroup(m_context, "varying", "Varying Tests", "gl42-compat/varyings.test"));
+	}
+};
+
+GL42CompatTestPackage::GL42CompatTestPackage(tcu::TestContext& testCtx, const char* packageName, const char* description,
+								 glu::ContextType renderContextType)
+	: TestPackage(testCtx, packageName, packageName, renderContextType, "gl_cts/data/")
+{
+	(void)description;
+}
+
+GL42CompatTestPackage::~GL42CompatTestPackage(void)
+{
+}
+
+void GL42CompatTestPackage::init(void)
+{
+	// Call init() in parent - this creates context.
+	TestPackage::init();
+
+	try
+	{
+		addChild(new GL42CompatShaderTests(getContext()));
+	}
+	catch (...)
+	{
+		// Destroy context.
+		TestPackage::deinit();
+		throw;
+	}
+}
+
+tcu::TestCaseExecutor* GL42CompatTestPackage::createExecutor(void) const
+{
+	return new gl3cts::TestCaseWrapper(const_cast<GL42CompatTestPackage&>(*this), m_waiverMechanism);
+}
+
 // GL43TestPackage
 
 GL43TestPackage::GL43TestPackage(tcu::TestContext& testCtx, const char* packageName, const char* description,
@@ -244,7 +291,6 @@ void GL43TestPackage::init(void)
 
 	try
 	{
-		addChild(new glcts::ArrayOfArraysTestGroupGL(getContext()));
 		addChild(new gl4cts::CopyImageTests(getContext()));
 		addChild(new glcts::DrawIndirectTestsGL43(getContext()));
 		addChild(new gl4cts::ProgramInterfaceQueryTests(getContext()));
@@ -307,7 +353,6 @@ void GL44TestPackage::init(void)
 	{
 		addChild(new GL44ShaderTests(getContext()));
 		addChild(new gl4cts::BufferStorageTests(getContext()));
-		addChild(new gl4cts::EnhancedLayoutsTests(getContext()));
 		addChild(new glcts::LayoutBindingTests(getContext(), glu::GLSL_VERSION_440));
 		addChild(new gl4cts::MultiBindTests(getContext()));
 		addChild(new glcts::SeparateShaderObjsTests(getContext(), glu::GLSL_VERSION_440));

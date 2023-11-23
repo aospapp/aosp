@@ -12,7 +12,7 @@
 #include "puffin/src/include/puffin/puffpatch.h"
 #include "puffin/src/include/puffin/utils.h"
 #include "puffin/src/logging.h"
-#include "puffin/src/memory_stream.h"
+#include "puffin/memory_stream.h"
 #include "puffin/src/puffin_stream.h"
 #include "puffin/src/unittest_common.h"
 

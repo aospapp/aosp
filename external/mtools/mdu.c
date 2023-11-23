@@ -69,7 +69,7 @@ static int dir_mdu(direntry_t *entry, MainParam_t *mp)
 	Arg_t *parentArg = (Arg_t *) (mp->arg);
 	Arg_t arg;
 	int ret;
-	
+
 	arg = *parentArg;
 	arg.mp.arg = (void *) &arg;
 	arg.parent = parentArg;

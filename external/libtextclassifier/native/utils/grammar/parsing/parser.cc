@@ -16,6 +16,7 @@
 
 #include "utils/grammar/parsing/parser.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 #include "utils/grammar/parsing/parse-tree.h"
@@ -177,14 +178,14 @@ std::vector<Symbol> Parser::SortedSymbolsForInput(const TextContext& input,
     }
   }
 
-  std::sort(symbols.begin(), symbols.end(),
-            [](const Symbol& a, const Symbol& b) {
-              // Sort by increasing (end, start) position to guarantee the
-              // matcher requirement that the tokens are fed in non-decreasing
-              // end position order.
-              return std::tie(a.codepoint_span.second, a.codepoint_span.first) <
-                     std::tie(b.codepoint_span.second, b.codepoint_span.first);
-            });
+  std::stable_sort(
+      symbols.begin(), symbols.end(), [](const Symbol& a, const Symbol& b) {
+        // Sort by increasing (end, start) position to guarantee the
+        // matcher requirement that the tokens are fed in non-decreasing
+        // end position order.
+        return std::tie(a.codepoint_span.second, a.codepoint_span.first) <
+               std::tie(b.codepoint_span.second, b.codepoint_span.first);
+      });
 
   return symbols;
 }

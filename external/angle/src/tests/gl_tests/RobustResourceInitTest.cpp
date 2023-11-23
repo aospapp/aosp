@@ -9,6 +9,7 @@
 
 #include "test_utils/gl_raii.h"
 #include "util/EGLWindow.h"
+#include "util/gles_loader_autogen.h"
 
 namespace angle
 {
@@ -312,8 +313,8 @@ class RobustResourceInitTestES31 : public RobustResourceInitTest
 // it only works on the implemented renderers
 TEST_P(RobustResourceInitTest, ExpectedRendererSupport)
 {
-    bool shouldHaveSupport = IsD3D11() || IsD3D11_FL93() || IsD3D9() || IsOpenGL() ||
-                             IsOpenGLES() || IsVulkan() || IsMetal();
+    bool shouldHaveSupport =
+        IsD3D11() || IsD3D9() || IsOpenGL() || IsOpenGLES() || IsVulkan() || IsMetal();
     EXPECT_EQ(shouldHaveSupport, hasGLExtension());
     EXPECT_EQ(shouldHaveSupport, hasEGLExtension());
     EXPECT_EQ(shouldHaveSupport, hasRobustSurfaceInit());
@@ -425,6 +426,256 @@ TEST_P(RobustResourceInitTest, BufferDataZeroSize)
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
 }
 
+// Draw out-of-bounds beginning with the start offset passed in.
+// Ensure that drawArrays flags either no error or INVALID_OPERATION. In the case of
+// INVALID_OPERATION, no canvas pixels can be touched.  In the case of NO_ERROR, all written values
+// must either be the zero vertex or a value in the vertex buffer.  See vsCheckOutOfBounds shader.
+void DrawAndVerifyOutOfBoundsArrays(int first, int count)
+{
+    glClearColor(0.0, 0.0, 1.0, 1.0);  // Start with blue to indicate no pixels touched.
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glDrawArrays(GL_TRIANGLES, first, count);
+    GLenum error = glGetError();
+    if (error == GL_INVALID_OPERATION)
+    {
+        // testPassed. drawArrays flagged INVALID_OPERATION, which is valid so long as all canvas
+        // pixels were not touched.
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+    }
+    else
+    {
+        ASSERT_GL_NO_ERROR();
+        // testPassed. drawArrays flagged NO_ERROR, which is valid so long as all canvas pixels are
+        // green.
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    }
+}
+
+// Adapted from WebGL test
+// conformance/rendering/out-of-bounds-array-buffers.html
+// This test verifies that out-of-bounds array buffers behave according to spec.
+TEST_P(RobustResourceInitTest, OutOfBoundsArrayBuffers)
+{
+    ANGLE_SKIP_TEST_IF(!hasGLExtension());
+
+    constexpr char vsCheckOutOfBounds[] =
+        "precision mediump float;\n"
+        "attribute vec2 position;\n"
+        "attribute vec4 vecRandom;\n"
+        "varying vec4 v_color;\n"
+        "\n"
+        "// Per the spec, each component can either contain existing contents\n"
+        "// of the buffer or 0.\n"
+        "bool testFloatComponent(float component) {\n"
+        "   return (component == 0.2 || component == 0.0);\n"
+        "}\n"
+        ""  // The last component is additionally allowed to be 1.0.\n"
+        "bool testLastFloatComponent(float component) {\n"
+        "   return testFloatComponent(component) || component == 1.0;\n"
+        "}\n"
+        "\n"
+        "void main() {\n"
+        "   if (testFloatComponent(vecRandom.x) &&\n"
+        "       testFloatComponent(vecRandom.y) &&\n"
+        "       testFloatComponent(vecRandom.z) &&\n"
+        "       testLastFloatComponent(vecRandom.w)) {\n"
+        "           v_color = vec4(0.0, 1.0, 0.0, 1.0); // green -- We're good\n"
+        "       } else {\n"
+        "           v_color = vec4(1.0, 0.0, 0.0, 1.0); // red -- Unexpected value\n"
+        "       }\n"
+        "   gl_Position = vec4(position, 0.0, 1.0);\n"
+        "}\n";
+
+    constexpr char simpleVertexColorFragmentShader[] =
+        "precision mediump float;\n"
+        "varying vec4 v_color;\n"
+        "void main() {\n"
+        "    gl_FragColor = v_color;\n"
+        "}";
+
+    // Setup the verification program.
+    ANGLE_GL_PROGRAM(program, vsCheckOutOfBounds, simpleVertexColorFragmentShader);
+    glUseProgram(program);
+
+    GLint kPosLoc = glGetAttribLocation(program, "position");
+    ASSERT_NE(kPosLoc, -1);
+    GLint kRandomLoc = glGetAttribLocation(program, "vecRandom");
+    ASSERT_NE(kRandomLoc, -1);
+
+    // Create a buffer of 200 valid sets of quad lists.
+    constexpr size_t numberOfQuads = 200;
+    // Create a vertex buffer with 200 properly formed triangle quads. These quads will cover the
+    // canvas texture such that every single pixel is touched by the fragment shader.
+    GLBuffer glQuadBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, glQuadBuffer);
+    std::array<float, numberOfQuads * 2 * 6> quadPositions;
+    for (unsigned int i = 0; i < quadPositions.size(); i += 2 * 6)
+    {
+        quadPositions[i + 0]  = -1.0;  // upper left
+        quadPositions[i + 1]  = 1.0;
+        quadPositions[i + 2]  = 1.0;  // upper right
+        quadPositions[i + 3]  = 1.0;
+        quadPositions[i + 4]  = -1.0;  // lower left
+        quadPositions[i + 5]  = -1.0;
+        quadPositions[i + 6]  = 1.0;  // upper right
+        quadPositions[i + 7]  = 1.0;
+        quadPositions[i + 8]  = 1.0;  // lower right
+        quadPositions[i + 9]  = -1.0;
+        quadPositions[i + 10] = -1.0;  // lower left
+        quadPositions[i + 11] = -1.0;
+    }
+    glBufferData(GL_ARRAY_BUFFER, quadPositions.size() * sizeof(float), quadPositions.data(),
+                 GL_STATIC_DRAW);
+    glEnableVertexAttribArray(kPosLoc);
+    glVertexAttribPointer(kPosLoc, 2, GL_FLOAT, false, 0, 0);
+
+    // Create a small vertex buffer with determined-ahead-of-time "random" values (0.2). This buffer
+    // will be the one read past the end.
+    GLBuffer glVertexBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, glVertexBuffer);
+    std::array<float, 6> vertexData = {0.2, 0.2, 0.2, 0.2, 0.2, 0.2};
+    glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(),
+                 GL_STATIC_DRAW);
+    glEnableVertexAttribArray(kRandomLoc);
+    glVertexAttribPointer(kRandomLoc, 4, GL_FLOAT, false, 0, 0);
+
+    // Test -- Draw off the end of the vertex buffer near the beginning of the out of bounds area.
+    DrawAndVerifyOutOfBoundsArrays(/*first*/ 6, /*count*/ 6);
+
+    // Test -- Draw off the end of the vertex buffer near the end of the out of bounds area.
+    DrawAndVerifyOutOfBoundsArrays(/*first*/ (numberOfQuads - 1) * 6, /*count*/ 6);
+}
+
+// Prepare an element array buffer that indexes out-of-bounds beginning with the start index passed
+// in. Ensure that drawElements flags either no error or INVALID_OPERATION. In the case of
+// INVALID_OPERATION, no canvas pixels can be touched.  In the case of NO_ERROR, all written values
+// must either be the zero vertex or a value in the vertex buffer.  See vsCheckOutOfBounds shader.
+void DrawAndVerifyOutOfBoundsIndex(int startIndex)
+{
+    glClearColor(0.0, 0.0, 1.0, 1.0);  // Start with blue to indicate no pixels touched.
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Create an element array buffer with a tri-strip that starts at startIndex and make
+    // it the active element array buffer.
+    GLBuffer glElementArrayBuffer;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glElementArrayBuffer);
+    std::array<uint16_t, 4> quadIndices;
+    for (unsigned int i = 0; i < quadIndices.size(); i++)
+    {
+        quadIndices[i] = startIndex + i;
+    }
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, quadIndices.size() * sizeof(uint16_t), quadIndices.data(),
+                 GL_STATIC_DRAW);
+
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, /*offset*/ 0);
+    GLenum error = glGetError();
+    if (error == GL_INVALID_OPERATION)
+    {
+        // testPassed. drawElements flagged INVALID_OPERATION, which is valid so long as all canvas
+        // pixels were not touched.
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+    }
+    else
+    {
+        ASSERT_GL_NO_ERROR();
+        // testPassed. drawElements flagged NO_ERROR, which is valid so long as all canvas pixels
+        // are green.
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    }
+}
+
+// Adapted from WebGL test
+// conformance/rendering/out-of-bounds-index-buffers.html
+// This test verifies that out-of-bounds index buffers behave according to spec.
+TEST_P(RobustResourceInitTest, OutOfBoundsIndexBuffers)
+{
+    ANGLE_SKIP_TEST_IF(!hasGLExtension());
+
+    constexpr char vsCheckOutOfBounds[] =
+        "precision mediump float;\n"
+        "attribute vec2 position;\n"
+        "attribute vec4 vecRandom;\n"
+        "varying vec4 v_color;\n"
+        "\n"
+        "// Per the spec, each component can either contain existing contents\n"
+        "// of the buffer or 0.\n"
+        "bool testFloatComponent(float component) {\n"
+        "   return (component == 0.2 || component == 0.0);\n"
+        "}\n"
+        ""  // The last component is additionally allowed to be 1.0.\n"
+        "bool testLastFloatComponent(float component) {\n"
+        "   return testFloatComponent(component) || component == 1.0;\n"
+        "}\n"
+        "\n"
+        "void main() {\n"
+        "   if (testFloatComponent(vecRandom.x) &&\n"
+        "       testFloatComponent(vecRandom.y) &&\n"
+        "       testFloatComponent(vecRandom.z) &&\n"
+        "       testLastFloatComponent(vecRandom.w)) {\n"
+        "           v_color = vec4(0.0, 1.0, 0.0, 1.0); // green -- We're good\n"
+        "       } else {\n"
+        "           v_color = vec4(1.0, 0.0, 0.0, 1.0); // red -- Unexpected value\n"
+        "       }\n"
+        "   gl_Position = vec4(position, 0.0, 1.0);\n"
+        "}\n";
+
+    constexpr char simpleVertexColorFragmentShader[] =
+        "precision mediump float;\n"
+        "varying vec4 v_color;\n"
+        "void main() {\n"
+        "    gl_FragColor = v_color;\n"
+        "}";
+
+    // Setup the verification program.
+    ANGLE_GL_PROGRAM(program, vsCheckOutOfBounds, simpleVertexColorFragmentShader);
+    glUseProgram(program);
+
+    GLint kPosLoc = glGetAttribLocation(program, "position");
+    ASSERT_NE(kPosLoc, -1);
+    GLint kRandomLoc = glGetAttribLocation(program, "vecRandom");
+    ASSERT_NE(kRandomLoc, -1);
+
+    // Create a buffer of 200 valid sets of quad lists.
+    constexpr size_t numberOfQuads = 200;
+    // Create a vertex buffer with 200 properly formed tri-strip quads. These quads will cover the
+    // canvas texture such that every single pixel is touched by the fragment shader.
+    GLBuffer glQuadBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, glQuadBuffer);
+    std::array<float, numberOfQuads * 2 * 4> quadPositions;
+    for (unsigned int i = 0; i < quadPositions.size(); i += 2 * 4)
+    {
+        quadPositions[i + 0] = -1.0;  // upper left
+        quadPositions[i + 1] = 1.0;
+        quadPositions[i + 2] = 1.0;  // upper right
+        quadPositions[i + 3] = 1.0;
+        quadPositions[i + 4] = -1.0;  // lower left
+        quadPositions[i + 5] = -1.0;
+        quadPositions[i + 6] = 1.0;  // lower right
+        quadPositions[i + 7] = -1.0;
+    }
+    glBufferData(GL_ARRAY_BUFFER, quadPositions.size() * sizeof(float), quadPositions.data(),
+                 GL_STATIC_DRAW);
+    glEnableVertexAttribArray(kPosLoc);
+    glVertexAttribPointer(kPosLoc, 2, GL_FLOAT, false, 0, 0);
+
+    // Create a small vertex buffer with determined-ahead-of-time "random" values (0.2). This buffer
+    // will be the one indexed off the end.
+    GLBuffer glVertexBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, glVertexBuffer);
+    std::array<float, 4> vertexData = {0.2, 0.2, 0.2, 0.2};
+    glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(),
+                 GL_STATIC_DRAW);
+    glEnableVertexAttribArray(kRandomLoc);
+    glVertexAttribPointer(kRandomLoc, 4, GL_FLOAT, false, 0, 0);
+
+    // Test -- Index off the end of the vertex buffer near the beginning of the out of bounds area.
+    DrawAndVerifyOutOfBoundsIndex(/*StartIndex*/ 4);
+
+    // Test -- Index off the end of the vertex buffer near the end of the out of bounds area.
+    DrawAndVerifyOutOfBoundsIndex(/*StartIndex*/ numberOfQuads - 4);
+}
+
 // Regression test for images being recovered from storage not re-syncing to storage after being
 // initialized
 TEST_P(RobustResourceInitTestES3, D3D11RecoverFromStorageBug)
@@ -435,10 +686,6 @@ TEST_P(RobustResourceInitTestES3, D3D11RecoverFromStorageBug)
     // http://anglebug.com/5770
     // Vulkan uses incorrect copy sizes when redefining/zero initializing NPOT compressed textures.
     ANGLE_SKIP_TEST_IF(IsVulkan());
-
-    // http://anglebug.com/4929
-    // Metal doesn't support robust resource init with compressed textures yet.
-    ANGLE_SKIP_TEST_IF(IsMetal());
 
     static constexpr uint8_t img_8x8_rgb_dxt1[] = {
         0xe0, 0x07, 0x00, 0xf8, 0x11, 0x10, 0x15, 0x00, 0x1f, 0x00, 0xe0,
@@ -1532,6 +1779,7 @@ void RobustResourceInitTest::maskedDepthClear(ClearFunc clearFunc)
     // Draw red with a depth function that checks for the clear value.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_EQUAL);
+    glViewport(0, 0, kSize, kSize);
 
     ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
 
@@ -1614,6 +1862,7 @@ void RobustResourceInitTest::maskedStencilClear(ClearFunc clearFunc)
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_EQUAL, 0x00, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glViewport(0, 0, kSize, kSize);
 
     ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
 
@@ -1626,7 +1875,6 @@ void RobustResourceInitTest::maskedStencilClear(ClearFunc clearFunc)
 TEST_P(RobustResourceInitTest, MaskedStencilClear)
 {
     ANGLE_SKIP_TEST_IF(!hasGLExtension());
-    ANGLE_SKIP_TEST_IF(IsD3D11_FL93());
 
     // http://anglebug.com/2407, but only fails on Nexus devices
     ANGLE_SKIP_TEST_IF(IsNexus5X() && IsOpenGLES());
@@ -1690,7 +1938,6 @@ void VerifyRGBA8PixelRect(InitializedTest inInitialized)
 TEST_P(RobustResourceInitTest, CopyTexSubImage2D)
 {
     ANGLE_SKIP_TEST_IF(!hasGLExtension());
-    ANGLE_SKIP_TEST_IF(IsD3D11_FL93());
 
     static constexpr int kDestSize = 4;
     constexpr int kSrcSize         = kDestSize / 2;
@@ -1906,10 +2153,6 @@ TEST_P(RobustResourceInitTestES3, CompressedSubImage)
     ANGLE_SKIP_TEST_IF(!hasGLExtension());
     ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_compression_dxt1"));
 
-    // http://anglebug.com/4929
-    // Metal doesn't support robust resource init with compressed textures yet.
-    ANGLE_SKIP_TEST_IF(IsMetal());
-
     constexpr int width     = 8;
     constexpr int height    = 8;
     constexpr int subX0     = 0;
@@ -2029,9 +2272,6 @@ TEST_P(RobustResourceInitTest, SurfaceInitialized)
 TEST_P(RobustResourceInitTest, SurfaceInitializedAfterSwap)
 {
     ANGLE_SKIP_TEST_IF(!hasRobustSurfaceInit());
-
-    // Test failure introduced by Apple's changes (anglebug.com/5505)
-    ANGLE_SKIP_TEST_IF(IsMetal() && IsAMD());
 
     EGLint swapBehaviour = 0;
     ASSERT_TRUE(eglQuerySurface(getEGLWindow()->getDisplay(), getEGLWindow()->getSurface(),
@@ -2292,25 +2532,132 @@ TEST_P(RobustResourceInitTest, CopyTexImageToOffsetCubeMap)
     EXPECT_PIXEL_COLOR_EQ(1, 1, GLColor::red);
 }
 
+TEST_P(RobustResourceInitTestES3, CheckDepthStencilRenderbufferIsCleared)
+{
+    ANGLE_SKIP_TEST_IF(!hasRobustSurfaceInit());
+
+    GLRenderbuffer colorRb;
+    GLFramebuffer fb;
+    GLRenderbuffer depthStencilRb;
+
+    // Make a framebuffer with RGBA + DEPTH_STENCIL
+    glBindRenderbuffer(GL_RENDERBUFFER, colorRb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, kWidth, kHeight);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, kWidth, kHeight);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorRb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                              depthStencilRb);
+    ASSERT_GL_NO_ERROR();
+
+    // Render a quad at Z = 1.0 with depth test on and depth function set to GL_EQUAL.
+    // If the depth buffer is not cleared to 1.0 this will fail
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_EQUAL);
+
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 1.0f, 1.0f, true);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::green);
+
+    // Render with stencil test on and stencil function set to GL_EQUAL
+    // If the stencil is not zero this will fail.
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 1.0f, 1.0f, true);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+TEST_P(RobustResourceInitTestES3, CheckMultisampleDepthStencilRenderbufferIsCleared)
+{
+    ANGLE_SKIP_TEST_IF(!hasRobustSurfaceInit());
+
+    GLRenderbuffer colorRb;
+    GLFramebuffer fb;
+
+    // Make a framebuffer with RGBA
+    glBindRenderbuffer(GL_RENDERBUFFER, colorRb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, kWidth, kHeight);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorRb);
+    ASSERT_GL_NO_ERROR();
+
+    // Make a corresponding multisample framebuffer with RGBA + DEPTH_STENCIL
+    constexpr int kSamples = 4;
+    GLRenderbuffer multisampleColorRb;
+    GLFramebuffer multisampleFb;
+    GLRenderbuffer multisampleDepthStencilRb;
+
+    // Make a framebuffer with RGBA + DEPTH_STENCIL
+    glBindRenderbuffer(GL_RENDERBUFFER, multisampleColorRb);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, kSamples, GL_RGBA8, kWidth, kHeight);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, multisampleDepthStencilRb);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, kSamples, GL_DEPTH24_STENCIL8, kWidth,
+                                     kHeight);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, multisampleFb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                              multisampleColorRb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                              multisampleDepthStencilRb);
+    ASSERT_GL_NO_ERROR();
+
+    // Render a quad at Z = 1.0 with depth test on and depth function set to GL_EQUAL.
+    // If the depth buffer is not cleared to 1.0 this will fail
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_EQUAL);
+
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 1.0f, 1.0f, true);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
+    glBlitFramebuffer(0, 0, kWidth, kHeight, 0, 0, kWidth, kHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fb);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::green);
+
+    // Render with stencil test on and stencil function set to GL_EQUAL
+    // If the stencil is not zero this will fail.
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    glBindFramebuffer(GL_FRAMEBUFFER, multisampleFb);
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 1.0f, 1.0f, true);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
+    glBlitFramebuffer(0, 0, kWidth, kHeight, 0, 0, kWidth, kHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fb);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
 // Test that blit between two depth/stencil buffers after glClearBufferfi works.  The blit is done
 // once expecting robust resource init value, then clear is called with the same value as the robust
 // init, and blit is done again.  This triggers an optimization in the Vulkan backend where the
 // second clear is no-oped.
 TEST_P(RobustResourceInitTestES3, BlitDepthStencilAfterClearBuffer)
 {
+    ANGLE_SKIP_TEST_IF(!hasRobustSurfaceInit());
+
     // http://anglebug.com/5301
     ANGLE_SKIP_TEST_IF(IsAndroid() && IsOpenGLES());
 
     // http://anglebug.com/5300
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
-    // http://anglebug.com/4919
-    ANGLE_SKIP_TEST_IF(IsIntel() && IsMetal());
-
-    // Test failure introduced by Apple's changes (anglebug.com/5505)
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsARM64() && IsMetal());
-
     constexpr GLsizei kSize = 16;
+    glViewport(0, 0, kSize, kSize);
 
     GLFramebuffer readFbo, drawFbo;
     GLRenderbuffer readDepthStencil, drawDepthStencil;
@@ -2385,13 +2732,14 @@ TEST_P(RobustResourceInitTestES3, BlitDepthStencilAfterClearBuffer)
 }
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(RobustResourceInitTest,
-                                       WithAllocateNonZeroMemory(ES2_VULKAN()));
+                                       ES2_VULKAN().enable(Feature::AllocateNonZeroMemory));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(RobustResourceInitTestES3);
-ANGLE_INSTANTIATE_TEST_ES3_AND(RobustResourceInitTestES3, WithAllocateNonZeroMemory(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(RobustResourceInitTestES3,
+                               ES3_VULKAN().enable(Feature::AllocateNonZeroMemory));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(RobustResourceInitTestES31);
 ANGLE_INSTANTIATE_TEST_ES31_AND(RobustResourceInitTestES31,
-                                WithAllocateNonZeroMemory(ES31_VULKAN()));
+                                ES31_VULKAN().enable(Feature::AllocateNonZeroMemory));
 
 }  // namespace angle

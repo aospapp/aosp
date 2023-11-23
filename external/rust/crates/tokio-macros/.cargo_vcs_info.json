@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "d41882e2a18ea4459d8f3a3c7ba61c4c20b806b4"
-  }
+    "sha1": "f64673580dfc649954eb744eb2734f2f118baa47"
+  },
+  "path_in_vcs": "tokio-macros"
 }

@@ -42,7 +42,7 @@
 
 #ifndef MINIGBM
 
-#define GBM_BO_USE_TEXTURING (1 << 5),
+#define GBM_BO_USE_TEXTURING (1 << 5)
 #define GBM_BO_USE_CAMERA_WRITE (1 << 6)
 #define GBM_BO_USE_CAMERA_READ (1 << 7)
 #define GBM_BO_USE_PROTECTED (1 << 8)
@@ -55,6 +55,41 @@
 #define GBM_TEST_ALLOC (1 << 15)
 
 #endif
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+
+#define GBM_DEV_TYPE_FLAG_DISCRETE (1u << 0) /* Discrete GPU. Separate chip, dedicated VRAM. */
+#define GBM_DEV_TYPE_FLAG_DISPLAY (1u << 1) /* Device capable of display. */
+#define GBM_DEV_TYPE_FLAG_3D (1u << 2) /* Device capable or 3D rendering. */
+#define GBM_DEV_TYPE_FLAG_ARMSOC (1u << 3) /* Device on ARM SOC. */
+#define GBM_DEV_TYPE_FLAG_USB (1u << 4) /* USB device, udl, evdi. */
+#define GBM_DEV_TYPE_FLAG_BLOCKED (1u << 5) /* Unsuitable device e.g. vgem, udl, evdi. */
+#define GBM_DEV_TYPE_FLAG_INTERNAL_LCD (1u << 6) /* Device is driving internal LCD. */
+
+struct gbm_device_info {
+	uint32_t dev_type_flags;
+	int dri_node_num; /* DRI node number (0..63), for easy matching of devices. */
+	unsigned int connectors;
+	unsigned int connected;
+};
+
+#define GBM_DETECT_FLAG_CONNECTED (1u << 0) /* Check if any connectors are connected. SLOW! */
+
+#ifdef MINIGBM
+int gbm_detect_device_info(unsigned int detect_flags, int fd, struct gbm_device_info *info);
+int gbm_detect_device_info_path(unsigned int detect_flags, const char *dev_node,
+				struct gbm_device_info *info);
+
+/*
+ * Select "default" device to use for graphics memory allocator.
+ */
+int gbm_get_default_device_fd(void);
+#else
+#define gbm_detect_device_info(detect_flags, fd, info) -1
+#define gbm_detect_device_info_path(detect_flags, dev_node, info) -1
+#define gbm_get_default_device_fd() -1
+#endif /* MINIGBM */
+#endif /* ENABLE_MINIGBM_ALLOCATION */
 
 /*
  * If fd >= 0, virglrenderer owns the fd since it was opened via a rendernode

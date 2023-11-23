@@ -19,7 +19,7 @@ void xnn_f32_gavgpool_minmax_ukernel_7p7x__wasmsimd_x86_c4(
     const float* zero,
     float* buffer,
     float* output,
-    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(rows > 7);
   assert(channels != 0);
@@ -130,9 +130,9 @@ void xnn_f32_gavgpool_minmax_ukernel_7p7x__wasmsimd_x86_c4(
   if (rows <= 6) {
     i6 = zero;
   }
-  const v128_t vscale = wasm_v32x4_load_splat(&params->scalar.scale);
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+  const v128_t vscale = wasm_v128_load32_splat(&params->scalar.scale);
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
 
   b = buffer;
   while (channels >= 4) {
@@ -164,8 +164,8 @@ void xnn_f32_gavgpool_minmax_ukernel_7p7x__wasmsimd_x86_c4(
     const v128_t vsum = wasm_f32x4_add(vsum0123, vsum456a);
 
     v128_t vout = wasm_f32x4_mul(vsum, vscale);
-    vout = wasm_f32x4_max(vout, vmin);
-    vout = wasm_f32x4_min(vout, vmax);
+    vout = wasm_f32x4_pmax(vmin, vout);
+    vout = wasm_f32x4_pmin(vmax, vout);
 
     wasm_v128_store(output, vout);
     output += 4;
@@ -193,8 +193,8 @@ void xnn_f32_gavgpool_minmax_ukernel_7p7x__wasmsimd_x86_c4(
     const v128_t vsum = wasm_f32x4_add(vsum0123, vsum456a);
 
     v128_t vout = wasm_f32x4_mul(vsum, vscale);
-    vout = wasm_f32x4_max(vout, vmin);
-    vout = wasm_f32x4_min(vout, vmax);
+    vout = wasm_f32x4_pmax(vmin, vout);
+    vout = wasm_f32x4_pmin(vmax, vout);
 
     if (channels & 2) {
       *((double*) output) = wasm_f64x2_extract_lane(vout, 0);

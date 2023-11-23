@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 # @lint-avoid-python-3-compatibility-imports
 #
 # tcpstates   Trace the TCP session state changes with durations.
 #             For Linux, uses BCC, BPF. Embedded C.
 #
-# USAGE: tcpstates [-h] [-C] [-S] [interval [count]]
+# USAGE: tcpstates [-h] [-C] [-S] [interval [count]] [-4 | -6]
 #
 # This uses the sock:inet_sock_set_state tracepoint, added to Linux 4.16.
 # Linux 4.16 also adds more state transitions so that they can be traced.
@@ -20,7 +20,6 @@ from bcc import BPF
 import argparse
 from socket import inet_ntop, AF_INET, AF_INET6
 from struct import pack
-import ctypes as ct
 from time import strftime, time
 from os import getuid
 
@@ -29,12 +28,14 @@ examples = """examples:
     ./tcpstates           # trace all TCP state changes
     ./tcpstates -t        # include timestamp column
     ./tcpstates -T        # include time column (HH:MM:SS)
-    ./tcpstates -w        # wider colums (fit IPv6)
+    ./tcpstates -w        # wider columns (fit IPv6)
     ./tcpstates -stT      # csv output, with times & timestamps
     ./tcpstates -Y        # log events to the systemd journal
     ./tcpstates -L 80     # only trace local port 80
     ./tcpstates -L 80,81  # only trace local ports 80 and 81
     ./tcpstates -D 80     # only trace remote port 80
+    ./tcpstates -4        # trace IPv4 family only
+    ./tcpstates -6        # trace IPv6 family only
 """
 parser = argparse.ArgumentParser(
     description="Trace TCP session state changes and durations",
@@ -56,13 +57,17 @@ parser.add_argument("--ebpf", action="store_true",
     help=argparse.SUPPRESS)
 parser.add_argument("-Y", "--journal", action="store_true",
     help="log session state changes to the systemd journal")
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-4", "--ipv4", action="store_true",
+    help="trace IPv4 family only")
+group.add_argument("-6", "--ipv6", action="store_true",
+    help="trace IPv6 family only")
 args = parser.parse_args()
 debug = 0
 
 # define BPF program
-bpf_text = """
+bpf_header = """
 #include <uapi/linux/ptrace.h>
-#define KBUILD_MODNAME "foo"
 #include <linux/tcp.h>
 #include <net/sock.h>
 #include <bcc/proto.h>
@@ -97,12 +102,9 @@ struct ipv6_data_t {
     char task[TASK_COMM_LEN];
 };
 BPF_PERF_OUTPUT(ipv6_events);
+"""
 
-struct id_t {
-    u32 pid;
-    char task[TASK_COMM_LEN];
-};
-
+bpf_text_tracepoint = """
 TRACEPOINT_PROBE(sock, inet_sock_set_state)
 {
     if (args->protocol != IPPROTO_TCP)
@@ -127,6 +129,8 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state)
         delta_us = 0;
     else
         delta_us = (bpf_ktime_get_ns() - *tsp) / 1000;
+    u16 family = args->family;
+    FILTER_FAMILY
 
     if (args->family == AF_INET) {
         struct ipv4_data_t data4 = {
@@ -138,7 +142,7 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state)
         __builtin_memcpy(&data4.saddr, args->saddr, sizeof(data4.saddr));
         __builtin_memcpy(&data4.daddr, args->daddr, sizeof(data4.daddr));
         // a workaround until data4 compiles with separate lport/dport
-        data4.ports = dport + ((0ULL + lport) << 32);
+        data4.ports = dport + ((0ULL + lport) << 16);
         data4.pid = pid;
 
         bpf_get_current_comm(&data4.task, sizeof(data4.task));
@@ -154,23 +158,100 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state)
         __builtin_memcpy(&data6.saddr, args->saddr_v6, sizeof(data6.saddr));
         __builtin_memcpy(&data6.daddr, args->daddr_v6, sizeof(data6.daddr));
         // a workaround until data6 compiles with separate lport/dport
-        data6.ports = dport + ((0ULL + lport) << 32);
+        data6.ports = dport + ((0ULL + lport) << 16);
         data6.pid = pid;
         bpf_get_current_comm(&data6.task, sizeof(data6.task));
         ipv6_events.perf_submit(args, &data6, sizeof(data6));
     }
 
-    u64 ts = bpf_ktime_get_ns();
-    last.update(&sk, &ts);
+    if (args->newstate == TCP_CLOSE) {
+        last.delete(&sk);
+    } else {
+        u64 ts = bpf_ktime_get_ns();
+        last.update(&sk, &ts);
+    }
 
     return 0;
 }
 """
 
-if (not BPF.tracepoint_exists("sock", "inet_sock_set_state")):
-    print("ERROR: tracepoint sock:inet_sock_set_state missing "
-        "(added in Linux 4.16). Exiting")
-    exit()
+bpf_text_kprobe = """
+int kprobe__tcp_set_state(struct pt_regs *ctx, struct sock *sk, int state)
+{
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    // sk is used as a UUID
+
+    // lport is either used in a filter here, or later
+    u16 lport = sk->__sk_common.skc_num;
+    FILTER_LPORT
+
+    // dport is either used in a filter here, or later
+    u16 dport = sk->__sk_common.skc_dport;
+    dport = ntohs(dport);
+    FILTER_DPORT
+
+    // calculate delta
+    u64 *tsp, delta_us;
+    tsp = last.lookup(&sk);
+    if (tsp == 0)
+        delta_us = 0;
+    else
+        delta_us = (bpf_ktime_get_ns() - *tsp) / 1000;
+
+    u16 family = sk->__sk_common.skc_family;
+    FILTER_FAMILY
+
+    if (family == AF_INET) {
+        struct ipv4_data_t data4 = {
+            .span_us = delta_us,
+            .oldstate = sk->__sk_common.skc_state,
+            .newstate = state };
+        data4.skaddr = (u64)sk;
+        data4.ts_us = bpf_ktime_get_ns() / 1000;
+        data4.saddr = sk->__sk_common.skc_rcv_saddr;
+        data4.daddr = sk->__sk_common.skc_daddr;
+        // a workaround until data4 compiles with separate lport/dport
+        data4.ports = dport + ((0ULL + lport) << 16);
+        data4.pid = pid;
+
+        bpf_get_current_comm(&data4.task, sizeof(data4.task));
+        ipv4_events.perf_submit(ctx, &data4, sizeof(data4));
+
+    } else /* 6 */ {
+        struct ipv6_data_t data6 = {
+            .span_us = delta_us,
+            .oldstate = sk->__sk_common.skc_state,
+            .newstate = state };
+        data6.skaddr = (u64)sk;
+        data6.ts_us = bpf_ktime_get_ns() / 1000;
+        bpf_probe_read_kernel(&data6.saddr, sizeof(data6.saddr),
+            sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
+        bpf_probe_read_kernel(&data6.daddr, sizeof(data6.daddr),
+            sk->__sk_common.skc_v6_daddr.in6_u.u6_addr32);
+        // a workaround until data6 compiles with separate lport/dport
+        data6.ports = dport + ((0ULL + lport) << 16);
+        data6.pid = pid;
+        bpf_get_current_comm(&data6.task, sizeof(data6.task));
+        ipv6_events.perf_submit(ctx, &data6, sizeof(data6));
+    }
+
+    if (state == TCP_CLOSE) {
+        last.delete(&sk);
+    } else {
+        u64 ts = bpf_ktime_get_ns();
+        last.update(&sk, &ts);
+    }
+
+    return 0;
+
+};
+"""
+
+bpf_text = bpf_header
+if BPF.tracepoint_exists("sock", "inet_sock_set_state"):
+    bpf_text += bpf_text_tracepoint
+else:
+    bpf_text += bpf_text_kprobe
 
 # code substitutions
 if args.remoteport:
@@ -183,6 +264,13 @@ if args.localport:
     lports_if = ' && '.join(['lport != %d' % lport for lport in lports])
     bpf_text = bpf_text.replace('FILTER_LPORT',
         'if (%s) { last.delete(&sk); return 0; }' % lports_if)
+if args.ipv4:
+    bpf_text = bpf_text.replace('FILTER_FAMILY',
+        'if (family != AF_INET) { return 0; }')
+elif args.ipv6:
+    bpf_text = bpf_text.replace('FILTER_FAMILY',
+        'if (family != AF_INET6) { return 0; }')
+bpf_text = bpf_text.replace('FILTER_FAMILY', '')
 bpf_text = bpf_text.replace('FILTER_DPORT', '')
 bpf_text = bpf_text.replace('FILTER_LPORT', '')
 
@@ -190,37 +278,6 @@ if debug or args.ebpf:
     print(bpf_text)
     if args.ebpf:
         exit()
-
-# event data
-TASK_COMM_LEN = 16      # linux/sched.h
-
-class Data_ipv4(ct.Structure):
-    _fields_ = [
-        ("ts_us", ct.c_ulonglong),
-        ("skaddr", ct.c_ulonglong),
-        ("saddr", ct.c_uint),
-        ("daddr", ct.c_uint),
-        ("span_us", ct.c_ulonglong),
-        ("pid", ct.c_uint),
-        ("ports", ct.c_uint),
-        ("oldstate", ct.c_uint),
-        ("newstate", ct.c_uint),
-        ("task", ct.c_char * TASK_COMM_LEN)
-    ]
-
-class Data_ipv6(ct.Structure):
-    _fields_ = [
-        ("ts_us", ct.c_ulonglong),
-        ("skaddr", ct.c_ulonglong),
-        ("saddr", (ct.c_ulonglong * 2)),
-        ("daddr", (ct.c_ulonglong * 2)),
-        ("span_us", ct.c_ulonglong),
-        ("pid", ct.c_uint),
-        ("ports", ct.c_uint),
-        ("oldstate", ct.c_uint),
-        ("newstate", ct.c_uint),
-        ("task", ct.c_char * TASK_COMM_LEN)
-    ]
 
 #
 # Setup output formats
@@ -289,9 +346,9 @@ def journal_fields(event, addr_family):
         'OBJECT_COMM': event.task.decode('utf-8', 'replace'),
         # Custom fields, aka "stuff we sort of made up".
         'OBJECT_' + addr_pfx + '_SOURCE_ADDRESS': inet_ntop(addr_family, pack("I", event.saddr)),
-        'OBJECT_TCP_SOURCE_PORT': str(event.ports >> 32),
+        'OBJECT_TCP_SOURCE_PORT': str(event.ports >> 16),
         'OBJECT_' + addr_pfx + '_DESTINATION_ADDRESS': inet_ntop(addr_family, pack("I", event.daddr)),
-        'OBJECT_TCP_DESTINATION_PORT': str(event.ports & 0xffffffff),
+        'OBJECT_TCP_DESTINATION_PORT': str(event.ports & 0xffff),
         'OBJECT_TCP_OLD_STATE': tcpstate2str(event.oldstate),
         'OBJECT_TCP_NEW_STATE': tcpstate2str(event.newstate),
         'OBJECT_TCP_SPAN_TIME': str(event.span_us)
@@ -312,7 +369,7 @@ def journal_fields(event, addr_family):
 
 # process event
 def print_ipv4_event(cpu, data, size):
-    event = ct.cast(data, ct.POINTER(Data_ipv4)).contents
+    event = b["ipv4_events"].event(data)
     global start_ts
     if args.time:
         if args.csv:
@@ -329,15 +386,15 @@ def print_ipv4_event(cpu, data, size):
             print("%-9.6f " % delta_s, end="")
     print(format_string % (event.skaddr, event.pid, event.task.decode('utf-8', 'replace'),
         "4" if args.wide or args.csv else "",
-        inet_ntop(AF_INET, pack("I", event.saddr)), event.ports >> 32,
-        inet_ntop(AF_INET, pack("I", event.daddr)), event.ports & 0xffffffff,
+        inet_ntop(AF_INET, pack("I", event.saddr)), event.ports >> 16,
+        inet_ntop(AF_INET, pack("I", event.daddr)), event.ports & 0xffff,
         tcpstate2str(event.oldstate), tcpstate2str(event.newstate),
         float(event.span_us) / 1000))
     if args.journal:
         journal.send(**journal_fields(event, AF_INET))
 
 def print_ipv6_event(cpu, data, size):
-    event = ct.cast(data, ct.POINTER(Data_ipv6)).contents
+    event = b["ipv6_events"].event(data)
     global start_ts
     if args.time:
         if args.csv:
@@ -354,8 +411,8 @@ def print_ipv6_event(cpu, data, size):
             print("%-9.6f " % delta_s, end="")
     print(format_string % (event.skaddr, event.pid, event.task.decode('utf-8', 'replace'),
         "6" if args.wide or args.csv else "",
-        inet_ntop(AF_INET6, event.saddr), event.ports >> 32,
-        inet_ntop(AF_INET6, event.daddr), event.ports & 0xffffffff,
+        inet_ntop(AF_INET6, event.saddr), event.ports >> 16,
+        inet_ntop(AF_INET6, event.daddr), event.ports & 0xffff,
         tcpstate2str(event.oldstate), tcpstate2str(event.newstate),
         float(event.span_us) / 1000))
     if args.journal:

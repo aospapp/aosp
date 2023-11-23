@@ -27,6 +27,7 @@
 #ifdef LWS_HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
+#include <signal.h>
 
 void
 lws_ser_wu16be(uint8_t *b, uint16_t u)
@@ -54,13 +55,13 @@ lws_ser_wu64be(uint8_t *b, uint64_t u64)
 uint16_t
 lws_ser_ru16be(const uint8_t *b)
 {
-	return (b[0] << 8) | b[1];
+	return (uint16_t)((b[0] << 8) | b[1]);
 }
 
 uint32_t
 lws_ser_ru32be(const uint8_t *b)
 {
-	return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
+	return (unsigned int)((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]);
 }
 
 uint64_t
@@ -117,15 +118,15 @@ lws_vbi_decode(const void *buf, uint64_t *value, size_t len)
 signed char char_to_hex(const char c)
 {
 	if (c >= '0' && c <= '9')
-		return c - '0';
+		return (signed char)(c - '0');
 
 	if (c >= 'a' && c <= 'f')
-		return c - 'a' + 10;
+		return (signed char)(c - 'a' + 10);
 
 	if (c >= 'A' && c <= 'F')
-		return c - 'A' + 10;
+		return (signed char)(c - 'A' + 10);
 
-	return -1;
+	return (signed char)-1;
 }
 
 int
@@ -143,7 +144,7 @@ lws_hex_to_byte_array(const char *h, uint8_t *dest, int max)
 		if (t1 < 0)
 			return -1;
 
-		*dest++ = (t << 4) | t1;
+		*dest++ = (uint8_t)((t << 4) | t1);
 	}
 
 	if (max < 0)
@@ -152,6 +153,47 @@ lws_hex_to_byte_array(const char *h, uint8_t *dest, int max)
 	return lws_ptr_diff(dest, odest);
 }
 
+static char *hexch = "0123456789abcdef";
+
+void
+lws_hex_from_byte_array(const uint8_t *src, size_t slen, char *dest, size_t len)
+{
+	char *end = &dest[len - 1];
+
+	while (slen-- && dest != end) {
+		uint8_t b = *src++;
+		*dest++ = hexch[b >> 4];
+		if (dest == end)
+			break;
+		*dest++ = hexch[b & 0xf];
+	}
+
+	*dest = '\0';
+}
+
+int
+lws_hex_random(struct lws_context *context, char *dest, size_t len)
+{
+	size_t n = ((len - 1) / 2) + 1;
+	uint8_t b, *r = (uint8_t *)dest + len - n;
+
+	if (lws_get_random(context, r, n) != n)
+		return 1;
+
+	while (len >= 3) {
+		b = *r++;
+		*dest++ = hexch[b >> 4];
+		*dest++ = hexch[b & 0xf];
+		len -= 2;
+	}
+
+	if (len == 2)
+		*dest++ = hexch[(*r) >> 4];
+
+	*dest = '\0';
+
+	return 0;
+}
 
 #if !defined(LWS_PLAT_OPTEE)
 
@@ -167,8 +209,18 @@ int lws_open(const char *__file, int __oflag, ...)
 		|| ((__oflag & O_TMPFILE) == O_TMPFILE)
 #endif
 	)
+#if defined(WIN32)
 		/* last arg is really a mode_t.  But windows... */
 		n = open(__file, __oflag, va_arg(ap, uint32_t));
+#else
+		/* ... and some other toolchains...
+		 *
+		 * error: second argument to 'va_arg' is of promotable type 'mode_t'
+		 * (aka 'unsigned short'); this va_arg has undefined behavior because
+		 * arguments will be promoted to 'int'
+		 */
+		n = open(__file, __oflag, (mode_t)va_arg(ap, unsigned int));
+#endif
 	else
 		n = open(__file, __oflag);
 	va_end(ap);
@@ -191,6 +243,10 @@ lws_pthread_self_to_tsi(struct lws_context *context)
 	pthread_t ps = pthread_self();
 	struct lws_context_per_thread *pt = &context->pt[0];
 	int n;
+
+	/* case that we have SMP build, but don't use it */
+	if (context->count_threads == 1)
+		return 0;
 
 	for (n = 0; n < context->count_threads; n++) {
 		if (pthread_equal(ps, pt->self))
@@ -232,7 +288,7 @@ lws_now_secs(void)
 
 	gettimeofday(&tv, NULL);
 
-	return tv.tv_sec;
+	return (unsigned long)tv.tv_sec;
 }
 
 #endif
@@ -344,10 +400,118 @@ lws_strdup(const char *s)
 	return d;
 }
 
+const char *
+lws_nstrstr(const char *buf, size_t len, const char *name, size_t nl)
+{
+	const char *end = buf + len - nl + 1;
+	size_t n;
+
+	if (nl > len)
+		/* it cannot be found if the needle is longer than the haystack */
+		return NULL;
+
+	while (buf < end) {
+		if (*buf != name[0]) {
+			buf++;
+			continue;
+		}
+
+		if (nl == 1)
+			/* single char match, we are done */
+			return buf;
+
+		if (buf[nl - 1] == name[nl - 1]) {
+			/*
+			 * This is looking interesting then... the first
+			 * and last chars match, let's check the insides
+			 */
+			n = 1;
+			while (n < nl && buf[n] == name[n])
+				n++;
+
+			if (n == nl)
+				/* it's a hit */
+				return buf;
+		}
+
+		buf++;
+	}
+
+	return NULL;
+}
+
+/*
+ * name wants to be something like "\"myname\":"
+ */
+
+const char *
+lws_json_simple_find(const char *buf, size_t len, const char *name, size_t *alen)
+{
+	size_t nl = strlen(name);
+	const char *np = lws_nstrstr(buf, len, name, nl),
+		   *end = buf + len, *as;
+	int qu = 0;
+
+	if (!np)
+		return NULL;
+
+	np += nl;
+
+	while (np < end && (*np == ' ' || *np == '\t'))
+		np++;
+
+	if (np >= end)
+		return NULL;
+
+	/*
+	 * The arg could be lots of things after "name": with JSON, commonly a
+	 * string like "mystring", true, false, null, [...] or {...} ... we want
+	 * to handle common, simple cases cheaply with this; the user can choose
+	 * a full JSON parser like lejp if it's complicated.  So if no opening
+	 * quote, return until a terminator like , ] }.  If there's an opening
+	 * quote, return until closing quote, handling escaped quotes.
+	 */
+
+	if (*np == '\"') {
+		qu = 1;
+		np++;
+	}
+
+	as = np;
+	while (np < end &&
+	       (!qu || *np != '\"') && /* end quote is EOT if quoted */
+	       (qu || (*np != '}' && *np != ']' && *np != ',')) /* delimiters */
+	) {
+		if (qu && *np == '\\') /* skip next char if quoted escape */
+			np++;
+		np++;
+	}
+
+	*alen = (unsigned int)lws_ptr_diff(np, as);
+
+	return as;
+}
+
+int
+lws_json_simple_strcmp(const char *buf, size_t len, const char *name,
+		       const char *comp)
+{
+	size_t al;
+	const char *hit = lws_json_simple_find(buf, len, name, &al);
+
+	if (!hit)
+		return -1;
+
+	if (al != strlen(comp))
+		return -1;
+
+	return strncmp(hit, comp, al);
+}
+
 static const char *hex = "0123456789ABCDEF";
 
 const char *
-lws_sql_purify(char *escaped, const char *string, int len)
+lws_sql_purify(char *escaped, const char *string, size_t len)
 {
 	const char *p = string;
 	char *q = escaped;
@@ -413,7 +577,14 @@ lws_json_purify(char *escaped, const char *string, int len, int *in_used)
 			continue;
 		}
 
-		if (*p == '\"' || *p == '\\' || *p < 0x20) {
+		if (*p == '\\') {
+			p++;
+			*q++ = '\\';
+			*q++ = '\\';
+			continue;
+		}
+
+		if (*p == '\"' || *p < 0x20) {
 			*q++ = '\\';
 			*q++ = 'u';
 			*q++ = '0';
@@ -469,7 +640,9 @@ lws_filename_purify_inplace(char *filename)
 		}
 
 		if (*filename == ':' ||
+#if !defined(WIN32)
 		    *filename == '\\' ||
+#endif
 		    *filename == '$' ||
 		    *filename == '%')
 			*filename = '_';
@@ -536,7 +709,7 @@ lws_urldecode(char *string, const char *escaped, int len)
 			if (n < 0)
 				return -1;
 			escaped++;
-			sum = n << 4;
+			sum = (char)(n << 4);
 			state++;
 			break;
 
@@ -545,7 +718,7 @@ lws_urldecode(char *string, const char *escaped, int len)
 			if (n < 0)
 				return -1;
 			escaped++;
-			*string++ = sum | n;
+			*string++ = (char)(sum | n);
 			len--;
 			state = 0;
 			break;
@@ -567,12 +740,14 @@ lws_finalize_startup(struct lws_context *context)
 	return 0;
 }
 
+#if !defined(LWS_PLAT_FREERTOS)
 void
-lws_get_effective_uid_gid(struct lws_context *context, int *uid, int *gid)
+lws_get_effective_uid_gid(struct lws_context *context, uid_t *uid, gid_t *gid)
 {
 	*uid = context->uid;
 	*gid = context->gid;
 }
+#endif
 
 int
 lws_snprintf(char *str, size_t size, const char *format, ...)
@@ -609,7 +784,7 @@ lws_timingsafe_bcmp(const void *a, const void *b, uint32_t len)
 	uint8_t sum = 0;
 
 	while (len--)
-		sum |= (*pa++ ^ *pb++);
+		sum |= (uint8_t)(*pa++ ^ *pb++);
 
 	return sum;
 }
@@ -627,8 +802,8 @@ lws_tokenize(struct lws_tokenize *ts)
 {
 	const char *rfc7230_delims = "(),/:;<=>?@[\\]{}";
 	lws_tokenize_state state = LWS_TOKZS_LEADING_WHITESPACE;
-	char c, flo = 0, d_minus = '-', d_dot = '.', s_minus = '\0',
-	     s_dot = '\0', skipping = 0;
+	char c, flo = 0, d_minus = '-', d_dot = '.', d_star = '*', s_minus = '\0',
+	     s_dot = '\0', s_star = '\0', d_eq = '=', s_eq = '\0', skipping = 0;
 	signed char num = (ts->flags & LWS_TOKENIZE_F_NO_INTEGERS) ? 0 : -1;
 	int utf8 = 0;
 
@@ -642,6 +817,14 @@ lws_tokenize(struct lws_tokenize *ts)
 		d_dot = '\0';
 		s_dot = '.';
 	}
+	if (ts->flags & LWS_TOKENIZE_F_ASTERISK_NONTERM) {
+		d_star = '\0';
+		s_star = '*';
+	}
+	if (ts->flags & LWS_TOKENIZE_F_EQUALS_NONTERM) {
+		d_eq = '\0';
+		s_eq = '=';
+	}
 
 	ts->token = NULL;
 	ts->token_len = 0;
@@ -650,7 +833,7 @@ lws_tokenize(struct lws_tokenize *ts)
 		c = *ts->start++;
 		ts->len--;
 
-		utf8 = lws_check_byte_utf8((unsigned char)utf8, c);
+		utf8 = lws_check_byte_utf8((unsigned char)utf8, (unsigned char)c);
 		if (utf8 < 0)
 			return LWS_TOKZE_ERR_BROKEN_UTF8;
 
@@ -715,7 +898,8 @@ lws_tokenize(struct lws_tokenize *ts)
 
 		/* token= aggregation */
 
-		if (c == '=' && (state == LWS_TOKZS_TOKEN_POST_TERMINAL ||
+		if (!(ts->flags & LWS_TOKENIZE_F_EQUALS_NONTERM) &&
+		    c == '=' && (state == LWS_TOKZS_TOKEN_POST_TERMINAL ||
 				 state == LWS_TOKZS_TOKEN)) {
 			if (num == 1)
 				return LWS_TOKZE_ERR_NUM_ON_LHS;
@@ -764,8 +948,8 @@ lws_tokenize(struct lws_tokenize *ts)
 		    ((!(ts->flags & LWS_TOKENIZE_F_RFC7230_DELIMS) &&
 		     (c < '0' || c > '9') && (c < 'A' || c > 'Z') &&
 		     (c < 'a' || c > 'z') && c != '_') &&
-		     c != s_minus && c != s_dot) ||
-		    c == d_minus || c == d_dot
+		     c != s_minus && c != s_dot && c != s_star && c != s_eq) ||
+		    c == d_minus || c == d_dot || c == d_star || c == d_eq
 		    ) &&
 		    !((ts->flags & LWS_TOKENIZE_F_SLASH_NONTERM) && c == '/')) {
 			switch (state) {
@@ -878,7 +1062,7 @@ lws_tokenize_init(struct lws_tokenize *ts, const char *start, int flags)
 {
 	ts->start = start;
 	ts->len = 0x7fffffff;
-	ts->flags = flags;
+	ts->flags = (uint16_t)(unsigned int)flags;
 	ts->delim = LWSTZ_DT_NEED_FIRST_CONTENT;
 }
 
@@ -926,7 +1110,9 @@ lws_strexp_expand(lws_strexp_t *exp, const char *in, size_t len,
 				break;
 			}
 
-			exp->out[exp->pos++] = *in;
+			if (exp->out)
+				exp->out[exp->pos] = *in;
+			exp->pos++;
 			if (exp->olen - exp->pos < 1) {
 				*pused_in = used + 1;
 				*pused_out = exp->pos;
@@ -938,14 +1124,18 @@ lws_strexp_expand(lws_strexp_t *exp, const char *in, size_t len,
 			if (*in == '{') {
 				exp->state = LWS_EXPS_NAME_OR_CLOSE;
 				exp->name_pos = 0;
+				exp->exp_ofs = 0;
 				break;
 			}
 			/* treat as a literal */
 			if (exp->olen - exp->pos < 3)
 				return -1;
 
-			exp->out[exp->pos++] = '$';
-			exp->out[exp->pos++] = *in;
+			if (exp->out) {
+				exp->out[exp->pos++] = '$';
+				exp->out[exp->pos++] = *in;
+			} else
+				exp->pos += 2;
 			if (*in != '$')
 				exp->state = LWS_EXPS_LITERAL;
 			break;
@@ -980,13 +1170,96 @@ drain:
 		in++;
 	}
 
-	exp->out[exp->pos] = '\0';
+	if (exp->out)
+		exp->out[exp->pos] = '\0';
 	*pused_in = used;
 	*pused_out = exp->pos;
 
 	return LSTRX_DONE;
 }
 
+int
+lws_strcmp_wildcard(const char *wildcard, size_t wlen, const char *check,
+		    size_t clen)
+{
+	const char *match[3], *wc[3], *wc_end = wildcard + wlen,
+		   *cend = check + clen;
+	int sp = 0;
+
+	do {
+
+		if (wildcard == wc_end) {
+			/*
+			 * We reached the end of wildcard, but not of check,
+			 * and the last thing in wildcard was not a * or we
+			 * would have completed already... if we can rewind,
+			 * let's try that...
+			 */
+			if (sp) {
+				wildcard = wc[sp - 1];
+				check = match[--sp];
+
+				continue;
+			}
+
+			/* otherwise it's the end of the road for this one */
+
+			return 1;
+		}
+
+		if (*wildcard == '*') {
+
+			if (++wildcard == wc_end)
+				 /*
+				  * Wildcard ended on a *, so we know we will
+				  * match unconditionally
+				  */
+				return 0;
+
+			/*
+			 * Now we need to stick wildcard here and see if there
+			 * is any remaining match exists, for eg b of "a*b"
+			 */
+
+			if (sp == LWS_ARRAY_SIZE(match)) {
+				lwsl_err("%s: exceeds * stack\n", __func__);
+				return 1; /* we can't deal with it */
+			}
+
+			wc[sp] = wildcard;
+			/* if we ever pop and come back here, pick up from +1 */
+			match[sp++] = check + 1;
+			continue;
+		}
+
+		if (*(check++) == *wildcard) {
+
+			if (wildcard == wc_end)
+				return 0;
+			/*
+			 * We're still compatible with wildcard... keep going
+			 */
+			wildcard++;
+
+			continue;
+		}
+
+		if (!sp)
+			/*
+			 * We're just trying to match literals, and failed...
+			 */
+			return 1;
+
+		/* we're looking for a post-* match... keep looking... */
+
+	} while (check < cend);
+
+	/*
+	 * We reached the end of check, if also at end of wildcard we're OK
+	 */
+
+	return wildcard != wc_end;
+}
 
 #if LWS_MAX_SMP > 1
 
@@ -997,7 +1270,13 @@ lws_mutex_refcount_init(struct lws_mutex_refcount *mr)
 	mr->last_lock_reason = NULL;
 	mr->lock_depth = 0;
 	mr->metadata = 0;
+#ifdef __PTW32_H
+	/* If we use implementation of PThreads for Win that is
+	 * distributed by VCPKG */
+	memset(&mr->lock_owner, 0, sizeof(pthread_t));
+#else
 	mr->lock_owner = 0;
+#endif
 }
 
 void
@@ -1019,7 +1298,14 @@ lws_mutex_refcount_lock(struct lws_mutex_refcount *mr, const char *reason)
 	 *
 	 *  - it can be false and change to a different tid that is also false
 	 */
-	if (mr->lock_owner == pthread_self()) {
+#ifdef __PTW32_H
+	/* If we use implementation of PThreads for Win that is
+	 * distributed by VCPKG */
+	if (pthread_equal(mr->lock_owner, pthread_self()))
+#else
+	if (mr->lock_owner == pthread_self())
+#endif
+	{
 		/* atomic because we only change it if we own the lock */
 		mr->lock_depth++;
 		return;
@@ -1041,9 +1327,27 @@ lws_mutex_refcount_unlock(struct lws_mutex_refcount *mr)
 		return;
 
 	mr->last_lock_reason = "free";
+#ifdef __PTW32_H
+	/* If we use implementation of PThreads for Win that is
+	 * distributed by VCPKG */
+	memset(&mr->lock_owner, 0, sizeof(pthread_t));
+#else
 	mr->lock_owner = 0;
-	//lwsl_notice("tid %d: unlock %s\n", mr->tid, mr->last_lock_reason);
+#endif
+	// lwsl_notice("tid %d: unlock %s\n", mr->tid, mr->last_lock_reason);
 	pthread_mutex_unlock(&mr->lock);
+}
+
+void
+lws_mutex_refcount_assert_held(struct lws_mutex_refcount *mr)
+{
+#ifdef __PTW32_H
+	/* If we use implementation of PThreads for Win that is
+	 * distributed by VCPKG */
+	assert(pthread_equal(mr->lock_owner, pthread_self()) && mr->lock_depth);
+#else
+	assert(mr->lock_owner == pthread_self() && mr->lock_depth);
+#endif
 }
 
 #endif /* SMP */
@@ -1052,7 +1356,8 @@ lws_mutex_refcount_unlock(struct lws_mutex_refcount *mr)
 const char *
 lws_cmdline_option(int argc, const char **argv, const char *val)
 {
-	int n = (int)strlen(val), c = argc;
+	size_t n = strlen(val);
+	int c = argc;
 
 	while (--c > 0) {
 
@@ -1075,9 +1380,24 @@ lws_cmdline_option(int argc, const char **argv, const char *val)
 
 static const char * const builtins[] = {
 	"-d",
-	"--udp-tx-loss",
-	"--udp-rx-loss"
+	"--fault-injection",
+	"--fault-seed",
+	"--ignore-sigterm"
 };
+
+enum opts {
+	OPT_DEBUGLEVEL,
+	OPT_FAULTINJECTION,
+	OPT_FAULT_SEED,
+	OPT_IGNORE_SIGTERM,
+};
+
+#if !defined(LWS_PLAT_FREERTOS)
+static void
+lws_sigterm_catch(int sig)
+{
+}
+#endif
 
 void
 lws_cmdline_option_handle_builtin(int argc, const char **argv,
@@ -1085,6 +1405,9 @@ lws_cmdline_option_handle_builtin(int argc, const char **argv,
 {
 	const char *p;
 	int n, m, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE;
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	uint64_t seed = (uint64_t)lws_now_usecs();
+#endif
 
 	for (n = 0; n < (int)LWS_ARRAY_SIZE(builtins); n++) {
 		p = lws_cmdline_option(argc, argv, builtins[n]);
@@ -1094,89 +1417,117 @@ lws_cmdline_option_handle_builtin(int argc, const char **argv,
 		m = atoi(p);
 
 		switch (n) {
-		case 0:
+		case OPT_DEBUGLEVEL:
 			logs = m;
 			break;
-		case 1:
-			info->udp_loss_sim_tx_pc = m;
+
+		case OPT_FAULTINJECTION:
+#if !defined(LWS_WITH_SYS_FAULT_INJECTION)
+			lwsl_err("%s: FAULT_INJECTION not built\n", __func__);
+#endif
+			lws_fi_deserialize(&info->fic, p);
 			break;
-		case 2:
-			info->udp_loss_sim_rx_pc = m;
+
+		case OPT_FAULT_SEED:
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+			seed = (uint64_t)atoll(p);
+#endif
+			break;
+
+		case OPT_IGNORE_SIGTERM:
+#if !defined(LWS_PLAT_FREERTOS)
+			signal(SIGTERM, lws_sigterm_catch);
+#endif
 			break;
 		}
 	}
 
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	lws_xos_init(&info->fic.xos, seed);
+#endif
 	lws_set_log_level(logs, NULL);
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	if (info->fic.fi_owner.count)
+		lwsl_notice("%s: Fault Injection seed %llu\n", __func__,
+				(unsigned long long)seed);
+#endif
 }
 
 
 const lws_humanize_unit_t humanize_schema_si[] = {
-	{ "Pi ", LWS_PI }, { "Ti ", LWS_TI }, { "Gi ", LWS_GI },
-	{ "Mi ", LWS_MI }, { "Ki ", LWS_KI }, { "   ", 1 },
+	{ "Pi", LWS_PI }, { "Ti", LWS_TI }, { "Gi", LWS_GI },
+	{ "Mi", LWS_MI }, { "Ki", LWS_KI }, { "", 1 },
 	{ NULL, 0 }
 };
 const lws_humanize_unit_t humanize_schema_si_bytes[] = {
 	{ "PiB", LWS_PI }, { "TiB", LWS_TI }, { "GiB", LWS_GI },
-	{ "MiB", LWS_MI }, { "KiB", LWS_KI }, { "B  ", 1 },
+	{ "MiB", LWS_MI }, { "KiB", LWS_KI }, { "B", 1 },
 	{ NULL, 0 }
 };
 const lws_humanize_unit_t humanize_schema_us[] = {
-	{ "y  ",  (uint64_t)365 * 24 * 3600 * LWS_US_PER_SEC },
-	{ "d  ",  (uint64_t)24 * 3600 * LWS_US_PER_SEC },
-	{ "hr ", (uint64_t)3600 * LWS_US_PER_SEC },
+	{ "y",  (uint64_t)365 * 24 * 3600 * LWS_US_PER_SEC },
+	{ "d",  (uint64_t)24 * 3600 * LWS_US_PER_SEC },
+	{ "hr", (uint64_t)3600 * LWS_US_PER_SEC },
 	{ "min", 60 * LWS_US_PER_SEC },
-	{ "s  ", LWS_US_PER_SEC },
-	{ "ms ", LWS_US_PER_MS },
-	{ "us ", 1 },
+	{ "s", LWS_US_PER_SEC },
+	{ "ms", LWS_US_PER_MS },
+#if defined(WIN32)
+	{ "us", 1 },
+#else
+	{ "μs", 1 },
+#endif
 	{ NULL, 0 }
 };
+
+/* biggest ull is 18446744073709551615 (20 chars) */
 
 static int
 decim(char *r, uint64_t v, char chars, char leading)
 {
-	int n = chars - 1;
 	uint64_t q = 1;
+	char *ro = r;
+	int n = 1;
 
-	r += n;
-
-	while (n >= 0) {
-		if (v / q)
-			*r-- = '0' + ((v / q) % 10);
-		else
-			*r-- = leading ? '0' : ' ';
+	while ((leading || v > (q * 10) - 1) && n < 20 && n < chars) {
 		q = q * 10;
-		n--;
+		n++;
 	}
 
-	if (v / q)
-		/* the number is bigger than the allowed chars! */
-		r[1] = '!';
+	/* n is how many chars needed */
 
-	return chars;
+	while (n--) {
+		*r++ = (char)('0' + (char)((v / q) % 10));
+		q = q / 10;
+	}
+
+	*r = '\0';
+
+	return lws_ptr_diff(r, ro);
 }
 
 int
-lws_humanize(char *p, int len, uint64_t v, const lws_humanize_unit_t *schema)
+lws_humanize(char *p, size_t len, uint64_t v, const lws_humanize_unit_t *schema)
 {
-	char *end = p + len;
+	char *obuf = p, *end = p + len;
 
 	do {
 		if (v >= schema->factor || schema->factor == 1) {
 			if (schema->factor == 1) {
-				*p++ = ' ';
 				p += decim(p, v, 4, 0);
-				return lws_snprintf(p, lws_ptr_diff(end, p),
-						    "%s    ", schema->name);
+				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+						    "%s", schema->name);
+				return lws_ptr_diff(p, obuf);
 			}
 
-			*p++ = ' ';
 			p += decim(p, v / schema->factor, 4, 0);
 			*p++ = '.';
 			p += decim(p, (v % schema->factor) /
 					(schema->factor / 1000), 3, 1);
 
-			return lws_snprintf(p, lws_ptr_diff(end, p),
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
 					    "%s", schema->name);
+			return lws_ptr_diff(p, obuf);
 		}
 		schema++;
 	} while (schema->name);

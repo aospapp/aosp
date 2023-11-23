@@ -1,49 +1,43 @@
-$Id: INSTALL,v 1.36 2010/01/18 23:46:09 yaberauneya Exp $
-
 Requirements
--------------------
+------------
 
-1. In order to compile ltp you must have make 3.80+ (make 3.81 preferred).
-2. In order to compile and use ltp-scanner (a utility in the pan directory),
-   you must have bison/yacc, and flex installed.
+Tools are needed for LTP compilation. They should be available as a
+package in any Linux distribution (no specific version is required).
 
-bison can be obtained here:
-- http://ftp.gnu.org/gnu/bison/bison-2.4.1.tar.gz
+Debian / Ubuntu
 
-Berkeley yacc can be obtained here:
-- ftp://invisible-island.net/byacc/byacc.tar.gz
+	# apt install gcc git make pkgconf autoconf automake bison flex m4 linux-headers-$(uname -r) libc6-dev
 
-flex can be obtained here:
-- http://downloads.sourceforge.net/project/flex/flex/flex-2.5.33/flex-2.5.33.tar.bz2
+OpenSUSE / SLES
 
-make 3.81 can be obtained here:
-- http://ftp.gnu.org/gnu/make/make-3.81.tar.bz2
+	# zypper install gcc git make pkgconf autoconf automake bison flex m4 linux-glibc-devel glibc-devel
 
-If you want to use auto configuration, be sure autoconf-2.61+ & automake-1.10+
-are installed.
+Fedora / CentOS / RHEL
 
-automake-1.10.2's sources can be downloaded from:
-- ftp://ftp.gnu.org/gnu/automake/automake-1.10.2.tar.bz2
-- ftp://ftp.gnu.org/gnu/automake/automake-1.10.2.tar.gz
+	# yum install gcc git make pkgconf autoconf automake bison flex m4 kernel-headers glibc-headers
 
-autoconf-2.61's sources can be downloaded from:
-- ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.61.tar.bz2
-- ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.61.tar.gz
+These are minimal build requirements for git compilation. Some tests require
+extra development files of some libraries, see travis/*.sh. There is also
+support for other Linux distributions not listed here.
 
-autoconf-2.61 also requires m4-1.4.7+ be installed. Its sources can be
-downloaded from:
-- http://ftp.gnu.org/gnu/m4/m4-1.4.7.tar.bz2
-- http://ftp.gnu.org/gnu/m4/m4-1.4.7.tar.gz
+autoconf, automake, m4 (autoconf requirement), git and pkgconf (or pkg-config
+on older distros) are required only for compilation from git (used for creating
+configure file).
+
+pkgconf is recommended also for compilation from tarball as it
+does automatic detection of some library support.
+
+GNU Bison / Berkeley Yacc is required for ltp-scanner.
 
 Configuration
--------------------
+-------------
 
 Configuration requires autoconf:
 
 	$ cd $TOP_SRCDIR
 	$ make autotools
 	$ mkdir -p $TOP_BUILDDIR
-	$ cd $TOP_BUILDDIR && ./configure # configure args go here, e.g. CC=$CC, LDFLAGS=$LDFLAGS, etc
+	$ cd $TOP_BUILDDIR && $TOP_SRCDIR/configure # configure args go here, e.g. CC=$CC, LDFLAGS=$LDFLAGS, etc
 
 - $TOP_SRCDIR and $TOP_BUILDDIR are the same for in-build-tree scenarios.
 - $TOP_SRCDIR and $TOP_BUILDDIR differ for out-of-build-tree scenarios.
@@ -52,28 +46,11 @@ See the In-build-tree and Out-of-build-tree sections below for more details on
 what to do next.
 
 Compiling LTP
--------------------
-
-"What's in a Path?"
--------------------
-
-Before getting started, you should make sure that your build directory and
-source directory are as basic as possible: no commas, colons, semicolons,
-spaces, etc. In fact, this is a relatively good rule of thumb when dealing
-with any [Gnu?] make based opensource project.
-
-We won't `fix' the `issues' associated with these particular set of build
-errors resulting from non-sane pathnames, because it would introduce unneeded
-complexity into the build system and would require non-trivial effort to fix
-and validate the third-party packages, and thus wouldn't be a sustainable
-model to follow.
-
-So, we apologize for the inconvenience, but using other characters like
-underscores and dashes should help when disambiguating words between build
-and source pathnames.
+-------------
 
 In-build-tree
--------------------
+-------------
+
 In-build-tree support is when you build binaries (applications, binary objects)
 in the same directory where the source files reside.
 
@@ -98,7 +75,8 @@ following information,
 	iii. config.log
 
 Out-of-build-tree
--------------------
+-----------------
+
 Out-of-build-tree support is when you build binaries (applications, binary
 objects, generated files) outside of the directory where the source files
 reside. This is typically used when cross-compiling for multiple targets.
@@ -130,12 +108,12 @@ items which need fixing in the LTP tree.
 Quick Start
 -----------
 
-1> tar xzf ltp-XXXXXXXX.tar.gz
-2> cd ltp
-3> ./configure
-4> make all
-5> make install
-6> /opt/ltp/runltp
+	$ tar xzf ltp-XXXXXXXX.tar.gz
+	$ cd ltp
+	$ ./configure
+	$ make all
+	# make install
+	$ /opt/ltp/runltp
 
 *NOTE:
 - LTP assumes the existence of the nobody, bin, and daemon users and their
@@ -173,78 +151,44 @@ contributions are welcome.
    in the CD-ROM drive.  The corresponding tests will fail if either disk is
    missing.
 
-5. The network tests are executed by running the network.sh script. The network
-   tests require some configuration for them to work correctly:
-
-     i) First, there MUST be another test machine setup to act as the server
-	to these client side tests.  This machine MUST have the LTP installed
-	in the same exact location, i.e. if the client has /root/ltp, then the
-	server must have /root/ltp.  This is required because certain tests
-	expect to find server files in certain locations.  Make sure to compile
-	the LTP on this server machine also.
-
-    ii) Second, the server must be setup to allow the client to connect using
-	the "r" commands, such as rsh.  This is done by simply creating/editing
-	the ".rhosts" file under /root.  Place the hostname of the client
-	machine in this file to allow root to remotely connect without the use
-	of a password. If server has the PAM system security tool, you need
-	to add the following lines to /etc/securetty:
-		rlogin
-		rsh
-		rexec
-		pts/0
-		pts/1
-		  :
-		pts/9
-
-   iii) Next, certain services must be activated in order for certain tests to
-	execute.  The following services are activated via inetd/xinetd:
-		rlogind
-		ftpd
-		telnetd
-		echo (stream)
-		fingerd
-		rshd
-	 Also, because certain RPC programs are tested, the "portmapper" daemon
-	 MUST be started, as well as NFS server AND lock services.
-
-    iv) Finally, before running the network.sh script, two variables must be
-	set: The "RHOST" variable should be set to the hostname of the server.
-	The "PASSWD" variable should be set to root's password on the server
-	machine. This is necessary for tests such as telnet01.sh and ftp01.sh.
-
-   You can now successfully execute the network.sh script.
-
-   You can run the test category which you are interested in, -h option shows
-   the list of the test category:
-       # ./network.sh -h
-
-   For more info about howto run network.sh see testcases/network/README.md.
+5. The network tests related installation see testcases/network/README.md.
 
 Cross compiling
 ---------------
 
 To cross compile, you must specify the correct variables when running configure.
-e.g. CC, LDFLAGS, etc...
+e.g. CC, LDFLAGS, etc.
+For correct pkgconf / pkg-config detection you need to set
+PKG_CONFIG_SYSROOT_DIR=$SYSROOT
 
 After configure has run, it will generate include/mk/config.mk. You can tweak
 settings in there if need be, but you should not specificy settings on the
 command-line when running make.
 
-uClinux Users
---------------
-Specify UCLINUX=1 when calling make; -DUCLINUX=1 use is deprecated and highly
-discouraged.
+32 bit build on 64 bit machine
+------------------------------
+
+You need to set CFLAGS=-m32 LDFLAGS=-m32 and PKG_CONFIG_LIBDIR
+
+* RPM based distributions (openSUSE, Fedora, etc.)
+PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig CFLAGS=-m32 LDFLAGS=-m32 ./configure
+
+* Debian / Ubuntu and derivates
+PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig CFLAGS=-m32 LDFLAGS=-m32 ./configure
+
+* Arch Linux
+PKG_CONFIG_LIBDIR=/usr/lib32/pkgconfig CFLAGS=-m32 LDFLAGS=-m32 ./configure
 
 Android Users
 -------------
+
 Specify ANDROID=1 when calling make. Many tests which would otherwise work are
 currently not built because they share a directory with an incompatible test.
 
 The shell scripts expect /bin/sh to exist, so create a symlink.
 
 Variables in Makefile
-----------------------
+---------------------
 
 The conventions enforced are standard ones. Here's a quick summary:
 
@@ -259,10 +203,11 @@ LDFLAGS  - linker flags, e.g. "-L$SYSROOT/usr/lib" "-L$SYSROOT/lib". DO NOT
 LDLIBS   - libraries listed after objects during link, e.g. -lc, -lpthread,
 	   -lltp.
 
-See README.mk-devel for a more terse description of what's available.
+For other variables and more info about the build systems see
+doc/build-system-guide.txt.
 
 Common Issues
-----------------------
+-------------
 
 Issue:    When executing configure it says:
 

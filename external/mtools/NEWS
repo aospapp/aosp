@@ -1,3 +1,107 @@
+v4_0_37
+	- Removed mclasserase commands, which doesn't fit the coding
+          structure of the rest of mtools
+	- Add support to -i option to mcd
+	- Document -i in mtools.1
+	- Fix a missing commad error in floppyd_io.c
+
+v4_0_36
+	- Fix error status of recursive listing of empty root directory
+	- If recursive listing, also show matched files at level one
+	- Use "seekless" reads & write internally, where possible
+	- Text mode conversion refactoring
+	- Misc refactoring
+
+v4_0_35
+	- Fix cluster padding at end of file in batch mode, and add
+	  comments about what happens here
+
+v4_0_34
+	- Fix mcopy -s issue
+
+v4_0_33
+	- Fix support for partitions (broken in 4.0.30)
+	- Portability fixes for Solaris 10 and 11
+	- General simplification of configure script, and largefile handling
+	- Tested and fixed for platforms *without* largefile support
+	- In cases where lseek works with 32-bit offsets, prefer
+          lseek64 over llseek
+	- Fixed floppy sector size handling on platforms that are not
+          Linux
+	- Added support for image files on command line to mcat
+
+v4_0_32
+	- Simplify algorithm that choses filesystem parameters for
+          format, and align it more closely with what Win7 does
+	- Fix mformatting XDF when XDF not explicitly specified on
+          mformat command line
+	- easier way to enter sizes on mformat command line (mformat -C -T
+	  1440K)
+	- For small sizes, mformat assumes floppy geometries (heads 1 or 2,
+          tracks 40 or 80)
+	- Handle attempts to mformat too small filesystems more gracefully
+	- Enable minfo to print out additional mformat command line
+	  parameters, if the present filesystem uses non-default
+	  values for these
+	- minfo no longer prints bigsect if smallsect is set
+	- for remap filter, error when trying to write non-zero data
+          to unmapped sectors
+	- Fix misc compilation warnings occuring when disabling
+          certain features (largefiles, raw-term)
+
+v4_0_31
+	- Move Linux-specific block device sizing code into
+          linux-specific section of devices.c
+	- Error messages for all failure cases on fs_init failure
+	- Fix compilation without XDF support (OpenImage signature)
+	- Fix polarity of format_xdf command-line parameter of mformat
+	- In XDF_IO retry enough times to actually succeed, even if
+          FDC was in a bad state before
+	- Remove useless buffer flushing triggered when giving up a
+          reference to a stream node that is still referenced
+          elsewhere.
+	- Clearer error message if neither size nor geometry of drive
+          to be mformatted is known
+	- In mformat, make Fs dynamically allocated rather than
+          on-stack, so as to be able to use utilities supplied by
+          stream.c
+	- Remove duplicate writing of backup boot sector
+	- Allow to infer geometry if only size is specified
+	- Protect against attempt to create zero-sized buffer
+	- Code simplification in mattrib
+	- Remove dead code in mpartition
+
+v4_0_30
+	- Fixed XDF floppy disk access
+	- Fixed faulty behavior at end of image in mcat
+	- Device/Image size handling refactoring
+	- allow remap to write to zero-backed sectors (may happen if
+          buffer is flushed, and is not an error in that case)
+	- Raise an error when trying to mcopy multiple source files
+          over a single destination file (rather than directory)
+	- fix handling of "hidden" sectors (is a 2 byte quantity on
+          small disks, not 4 byte as previously assumed)
+	- Modernize partition support. Tuned consistency check to
+          actually check about important issues (such as overlapping
+          partitions) rather than stuff nobody else cares about
+          (alignment on entire cylinder boundaries)
+	- Move various "filter" options (partition, offset, swap,
+          scsi) into separate classes, rather than leaving almost
+          everything in plain_io
+	- Simplify and centralize geometry handling and LBA code
+	- Fix some more more compiler warnings
+v4_0_29
+	- Fix bug in cluster preallocation, which was accidentally introduced
+	by compiler warning "fixes" from v4_0_28
+v4_0_28
+	- Support remapping of data (for not-quite linear floppy image files)
+	- Re-open floppy devices read-write if geometry parameters need to
+	be changed
+	- relax consistency checks in mpartition (partitions created
+          by current fdisk would almost never pass these checks)
+	- Fix some compiler warnings
+v4_0_27
+	- Fix type error in calls to iconv functions
 v4_0_26
 	- Fix compilation on Macintosh
 	- Ignore image file locking errors if we are performing a

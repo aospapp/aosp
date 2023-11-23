@@ -9,29 +9,24 @@ use std::fmt::{self, Display};
 use std::sync::{Arc, MutexGuard};
 use sync::Mutex;
 
+use anyhow::Context;
 use base::{error, Error as SysError, Event, WatchingEvents};
+use remain::sorted;
+use thiserror::Error;
 use vm_memory::{GuestAddress, GuestMemory};
 
 use super::ring_buffer::RingBuffer;
 
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("failed to add event to event loop: {0}")]
     AddEvent(utils::Error),
+    #[error("failed to create event: {0}")]
     CreateEvent(SysError),
 }
 
 type Result<T> = std::result::Result<T, Error>;
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        match self {
-            AddEvent(e) => write!(f, "failed to add event to event loop: {}", e),
-            CreateEvent(e) => write!(f, "failed to create event: {}", e),
-        }
-    }
-}
 
 #[derive(PartialEq, Copy, Clone)]
 enum RingBufferState {
@@ -52,7 +47,8 @@ pub trait TransferDescriptorHandler {
         &self,
         descriptor: TransferDescriptor,
         complete_event: Event,
-    ) -> std::result::Result<(), ()>;
+    ) -> anyhow::Result<()>;
+
     /// Stop is called when trying to stop ring buffer controller. Returns true when stop must be
     /// performed asynchronously. This happens because the handler is handling some descriptor
     /// asynchronously, the stop callback of ring buffer controller must be called after the
@@ -184,15 +180,9 @@ impl<T> EventHandler for RingBufferController<T>
 where
     T: 'static + TransferDescriptorHandler + Send,
 {
-    fn on_event(&self) -> std::result::Result<(), ()> {
+    fn on_event(&self) -> anyhow::Result<()> {
         // `self.event` triggers ring buffer controller to run, the value read is not important.
-        match self.event.read() {
-            Ok(_) => {}
-            Err(e) => {
-                error!("cannot read from event: {}", e);
-                return Err(());
-            }
-        }
+        let _ = self.event.read().context("cannot read from event")?;
         let mut state = self.state.lock();
 
         match *state {
@@ -206,13 +196,10 @@ where
             RingBufferState::Running => {}
         }
 
-        let transfer_descriptor = match self.lock_ring_buffer().dequeue_transfer_descriptor() {
-            Ok(t) => t,
-            Err(e) => {
-                error!("cannot dequeue transfer descriptor: {}", e);
-                return Err(());
-            }
-        };
+        let transfer_descriptor = self
+            .lock_ring_buffer()
+            .dequeue_transfer_descriptor()
+            .context("cannot dequeue transfer descriptor")?;
 
         let transfer_descriptor = match transfer_descriptor {
             Some(t) => t,
@@ -223,13 +210,7 @@ where
             }
         };
 
-        let event = match self.event.try_clone() {
-            Ok(evt) => evt,
-            Err(e) => {
-                error!("cannot clone event: {}", e);
-                return Err(());
-            }
-        };
+        let event = self.event.try_clone().context("cannot clone event")?;
         self.handler
             .lock()
             .handle_transfer_descriptor(transfer_descriptor, event)
@@ -251,7 +232,7 @@ mod tests {
             &self,
             descriptor: TransferDescriptor,
             complete_event: Event,
-        ) -> std::result::Result<(), ()> {
+        ) -> anyhow::Result<()> {
             for atrb in descriptor {
                 assert_eq!(atrb.trb.get_trb_type().unwrap(), TrbType::Normal);
                 self.sender.send(atrb.trb.get_parameter() as i32).unwrap();
@@ -263,7 +244,7 @@ mod tests {
 
     fn setup_mem() -> GuestMemory {
         let trb_size = size_of::<Trb>() as u64;
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
 
         // Structure of ring buffer:
         //  0x100  --> 0x200  --> 0x300
@@ -274,8 +255,7 @@ mod tests {
         trb.set_trb_type(TrbType::Normal);
         trb.set_data_buffer(1);
         trb.set_chain(true);
-        gm.write_obj_at_addr(trb.clone(), GuestAddress(0x100))
-            .unwrap();
+        gm.write_obj_at_addr(trb, GuestAddress(0x100)).unwrap();
 
         trb.set_data_buffer(2);
         gm.write_obj_at_addr(trb, GuestAddress(0x100 + trb_size))

@@ -162,6 +162,34 @@ TEST_F(MainIndexTest, MainIndexGetAccessorForPrefixReturnsValidAccessor) {
   EXPECT_THAT(main_index->GetAccessorForPrefixTerm("foo"), IsOk());
 }
 
+TEST_F(MainIndexTest, MainIndexGetAccessorForPrefixReturnsNotFound) {
+  // 1. Index one doc in the Lite Index:
+  // - Doc0 {"foot" is_in_prefix_section=false}
+  ICING_ASSERT_OK_AND_ASSIGN(
+      uint32_t tvi,
+      lite_index_->InsertTerm("foot", TermMatchType::EXACT_ONLY, kNamespace0));
+  ICING_ASSERT_OK_AND_ASSIGN(uint32_t foot_term_id,
+                             term_id_codec_->EncodeTvi(tvi, TviType::LITE));
+
+  Hit doc0_hit(/*section_id=*/0, /*document_id=*/0, Hit::kDefaultTermFrequency,
+               /*is_in_prefix_section=*/false);
+  ICING_ASSERT_OK(lite_index_->AddHit(foot_term_id, doc0_hit));
+
+  // 2. Create the main index. It should have no entries in its lexicon.
+  std::string main_index_file_name = index_dir_ + "/test_file.idx.index";
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<MainIndex> main_index,
+      MainIndex::Create(main_index_file_name, &filesystem_,
+                        &icing_filesystem_));
+
+  // 3. Merge the index. The main index should return not found when we search
+  // prefix contain "foo".
+  ICING_ASSERT_OK(Merge(*lite_index_, *term_id_codec_, main_index.get()));
+  // GetAccessorForPrefixTerm should return a valid accessor for "foo".
+  EXPECT_THAT(main_index->GetAccessorForPrefixTerm("foo"),
+              StatusIs(libtextclassifier3::StatusCode::NOT_FOUND));
+}
+
 TEST_F(MainIndexTest, MainIndexGetAccessorForExactTermNotFound) {
   // Create the main index. It should have no entries in its lexicon.
   std::string main_index_file_name = index_dir_ + "/test_file.idx.index";

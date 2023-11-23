@@ -13,12 +13,11 @@
 // limitations under the License.
 #include "icing/legacy/core/icing-string-util.h"
 
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-
 #include <algorithm>
+#include <cstdarg>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
 #include <string>
 
 #include "icing/legacy/portable/icing-zlib.h"

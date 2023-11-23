@@ -38,7 +38,7 @@
 char *TCID = "exec_without_inh";
 int TST_TOTAL = 1;
 
-int main(int argc, char *argv[])
+int main(void)
 {
 #if HAVE_SYS_CAPABILITY_H
 #if HAVE_DECL_PR_CAPBSET_DROP
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 		if (ret) {
 			tst_brkm(TBROK,
 				 NULL,
-				 "Failed to drop cap_sys_admin from pI\n");
+				 "Failed to drop cap_sys_admin from pI");
 		}
 	} else if (ret) {
 		tst_brkm(TBROK | TERRNO, NULL, "Failed to add \
@@ -71,14 +71,14 @@ int main(int argc, char *argv[])
 	ret = prctl(PR_CAPBSET_DROP, CAP_SYS_ADMIN);
 	if (ret) {
 		tst_resm(TFAIL,
-			 "Failed to drop CAP_SYS_ADMIN from bounding set.\n");
-		tst_resm(TINFO, "(ret=%d, errno %d)\n", ret, errno);
+			 "Failed to drop CAP_SYS_ADMIN from bounding set.");
+		tst_resm(TINFO, "(ret=%d, errno %d)", ret, errno);
 		tst_exit();
 	}
 
 	/* execute "check_pe 0" */
 	execl("check_pe", "check_pe", "0", NULL);
-	tst_resm(TBROK, "Failed to execute check_pe (errno %d)\n", errno);
+	tst_resm(TBROK, "Failed to execute check_pe (errno %d)", errno);
 #else /* libcap */
 	tst_resm(TCONF, "System doesn't have POSIX capabilities.");
 #endif

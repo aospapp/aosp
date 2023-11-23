@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.escape.SourceCodeEscapers;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Compile-time constant expressions, including literals of primitive or String type, class
@@ -32,7 +33,7 @@ public abstract class Const {
   public abstract int hashCode();
 
   @Override
-  public abstract boolean equals(Object obj);
+  public abstract boolean equals(@Nullable Object obj);
 
   @Override
   public abstract String toString();
@@ -63,42 +64,6 @@ public abstract class Const {
     @Override
     public Kind kind() {
       return Kind.PRIMITIVE;
-    }
-
-    public IntValue asInteger() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.INT);
-    }
-
-    public FloatValue asFloat() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.FLOAT);
-    }
-
-    public DoubleValue asDouble() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.DOUBLE);
-    }
-
-    public LongValue asLong() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.LONG);
-    }
-
-    public BooleanValue asBoolean() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.BOOLEAN);
-    }
-
-    public StringValue asString() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.STRING);
-    }
-
-    public CharValue asChar() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.CHAR);
-    }
-
-    public ShortValue asShort() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.SHORT);
-    }
-
-    public ByteValue asByte() {
-      throw new ConstCastError(constantTypeKind(), TurbineConstantTypeKind.BYTE);
     }
   }
 
@@ -135,22 +100,12 @@ public abstract class Const {
     }
 
     @Override
-    public BooleanValue asBoolean() {
-      return this;
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Boolean.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof BooleanValue && value == ((BooleanValue) obj).value();
     }
   }
@@ -189,52 +144,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return this;
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return new ByteValue((byte) value);
-    }
-
-    @Override
-    public LongValue asLong() {
-      return new LongValue((long) value);
-    }
-
-    @Override
-    public CharValue asChar() {
-      return new CharValue((char) value);
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return new ShortValue((short) value);
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return new DoubleValue((double) value);
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return new FloatValue((float) value);
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Integer.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof IntValue && value == ((IntValue) obj).value;
     }
   }
@@ -272,52 +187,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return new IntValue((int) value);
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return new ByteValue((byte) value);
-    }
-
-    @Override
-    public LongValue asLong() {
-      return this;
-    }
-
-    @Override
-    public CharValue asChar() {
-      return new CharValue((char) value);
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return new ShortValue((short) value);
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return new DoubleValue((double) value);
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return new FloatValue((float) value);
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Long.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof LongValue && value == ((LongValue) obj).value;
     }
   }
@@ -355,52 +230,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return new IntValue((int) value);
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return new ByteValue((byte) value);
-    }
-
-    @Override
-    public LongValue asLong() {
-      return new LongValue((long) value);
-    }
-
-    @Override
-    public CharValue asChar() {
-      return this;
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return new ShortValue((short) value);
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return new DoubleValue((double) value);
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return new FloatValue((float) value);
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Character.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof CharValue && value == ((CharValue) obj).value;
     }
   }
@@ -441,52 +276,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return new IntValue((int) value);
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return new ByteValue((byte) value);
-    }
-
-    @Override
-    public LongValue asLong() {
-      return new LongValue((long) value);
-    }
-
-    @Override
-    public CharValue asChar() {
-      return new CharValue((char) value);
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return new ShortValue((short) value);
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return new DoubleValue((double) value);
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return this;
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Float.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof FloatValue && value == ((FloatValue) obj).value;
     }
   }
@@ -533,52 +328,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return new IntValue((int) value);
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return new ByteValue((byte) value);
-    }
-
-    @Override
-    public LongValue asLong() {
-      return new LongValue((long) value);
-    }
-
-    @Override
-    public CharValue asChar() {
-      return new CharValue((char) value);
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return new ShortValue((short) value);
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return this;
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return new FloatValue((float) value);
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Double.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof DoubleValue && value == ((DoubleValue) obj).value;
     }
   }
@@ -616,17 +371,12 @@ public abstract class Const {
     }
 
     @Override
-    public StringValue asString() {
-      return this;
-    }
-
-    @Override
     public int hashCode() {
       return value.hashCode();
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof StringValue && value.equals(((StringValue) obj).value);
     }
   }
@@ -664,52 +414,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return new IntValue((int) value);
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return new ByteValue((byte) value);
-    }
-
-    @Override
-    public LongValue asLong() {
-      return new LongValue((long) value);
-    }
-
-    @Override
-    public CharValue asChar() {
-      return new CharValue((char) value);
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return this;
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return new DoubleValue((double) value);
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return new FloatValue((float) value);
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Short.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof ShortValue && value == ((ShortValue) obj).value;
     }
   }
@@ -738,52 +448,12 @@ public abstract class Const {
     }
 
     @Override
-    public IntValue asInteger() {
-      return new IntValue((int) value);
-    }
-
-    @Override
-    public ByteValue asByte() {
-      return this;
-    }
-
-    @Override
-    public LongValue asLong() {
-      return new LongValue((long) value);
-    }
-
-    @Override
-    public CharValue asChar() {
-      return new CharValue((char) value);
-    }
-
-    @Override
-    public ShortValue asShort() {
-      return new ShortValue((short) value);
-    }
-
-    @Override
-    public DoubleValue asDouble() {
-      return new DoubleValue((double) value);
-    }
-
-    @Override
-    public FloatValue asFloat() {
-      return new FloatValue((float) value);
-    }
-
-    @Override
-    public StringValue asString() {
-      return new StringValue(String.valueOf(value));
-    }
-
-    @Override
     public int hashCode() {
       return Byte.hashCode(value);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof ByteValue && value == ((ByteValue) obj).value;
     }
 
@@ -822,7 +492,7 @@ public abstract class Const {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof ArrayInitValue && elements.equals(((ArrayInitValue) obj).elements);
     }
 

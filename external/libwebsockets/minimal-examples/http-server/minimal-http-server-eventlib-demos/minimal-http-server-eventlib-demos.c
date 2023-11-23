@@ -29,22 +29,40 @@ static struct lws_context *context;
 static struct lws_protocols protocols[] = {
 	/* first protocol must always be HTTP handler */
 
-	{ "http-only", lws_callback_http_dummy, 0, 0, },
+	{ "http-only", lws_callback_http_dummy, 0, 0, 0, NULL, 0 },
 	LWS_PLUGIN_PROTOCOL_DUMB_INCREMENT,
 	LWS_PLUGIN_PROTOCOL_MIRROR,
 	LWS_PLUGIN_PROTOCOL_LWS_STATUS,
 	LWS_PLUGIN_PROTOCOL_POST_DEMO,
-	{ NULL, NULL, 0, 0 } /* terminator */
+	LWS_PROTOCOL_LIST_TERM
 };
 
 /*
  * mount handlers for sections of the URL space
  */
 
-static const struct lws_http_mount mount_ziptest = {
+static const struct lws_http_mount mount_ziptest_uncomm = {
 	NULL,			/* linked-list pointer to next*/
+	"/uncommziptest",		/* mountpoint in URL namespace on this vhost */
+	"./mount-origin/candide-uncompressed.zip",	/* handler */
+	NULL,	/* default filename if none given */
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	LWSMPRO_FILE,	/* origin points to a callback */
+	14,			/* strlen("/ziptest"), ie length of the mountpoint */
+	NULL,
+}, mount_ziptest = {
+	(struct lws_http_mount *)&mount_ziptest_uncomm,			/* linked-list pointer to next*/
 	"/ziptest",		/* mountpoint in URL namespace on this vhost */
-	"candide.zip",	/* handler */
+	"./mount-origin/candide.zip",	/* handler */
 	NULL,	/* default filename if none given */
 	NULL,
 	NULL,
@@ -60,10 +78,7 @@ static const struct lws_http_mount mount_ziptest = {
 	8,			/* strlen("/ziptest"), ie length of the mountpoint */
 	NULL,
 
-	{ NULL, NULL } // sentinel
-};
-
-static const struct lws_http_mount mount_post = {
+}, mount_post = {
 	(struct lws_http_mount *)&mount_ziptest, /* linked-list pointer to next*/
 	"/formtest",		/* mountpoint in URL namespace on this vhost */
 	"protocol-post-demo",	/* handler */
@@ -82,11 +97,7 @@ static const struct lws_http_mount mount_post = {
 	9,			/* strlen("/formtest"), ie length of the mountpoint */
 	NULL,
 
-	{ NULL, NULL } // sentinel
-};
-
-
-static const struct lws_http_mount mount = {
+}, mount = {
 	/* .mount_next */		&mount_post,	/* linked-list "next" */
 	/* .mountpoint */		"/",		/* mountpoint URL */
 	/* .origin */			"./mount-origin", /* serve from dir */
@@ -157,8 +168,10 @@ int main(int argc, const char **argv)
 
 	if (lws_cmdline_option(argc, argv, "-s")) {
 		info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+#if defined(LWS_WITH_TLS)
 		info.ssl_cert_filepath = "localhost-100y.cert";
 		info.ssl_private_key_filepath = "localhost-100y.key";
+#endif
 	}
 
 	if (lws_cmdline_option(argc, argv, "--uv"))

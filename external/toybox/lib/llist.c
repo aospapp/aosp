@@ -41,14 +41,13 @@ void llist_traverse(void *list, void (*using)(void *node))
 // as &list)
 void *llist_pop(void *list)
 {
-  // I'd use a void ** for the argument, and even accept the typecast in all
-  // callers as documentation you need the &, except the stupid compiler
-  // would then scream about type-punned pointers.  Screw it.
-  void **llist = (void **)list;
-  void **next = (void **)*llist;
+  void **llist = list, **next;
+
+  if (!list || !*llist) return 0;
+  next = (void **)*llist;
   *llist = *next;
 
-  return (void *)next;
+  return next;
 }
 
 // Remove first item from &list and return it
@@ -82,6 +81,7 @@ void *dlist_lpop(void *list)
   return v;
 }
 
+// Append to list in-order (*list unchanged unless empty, ->prev is new node)
 void dlist_add_nomalloc(struct double_list **list, struct double_list *new)
 {
   if (*list) {
@@ -91,7 +91,6 @@ void dlist_add_nomalloc(struct double_list **list, struct double_list *new)
     (*list)->prev = new;
   } else *list = new->next = new->prev = new;
 }
-
 
 // Add an entry to the end of a doubly linked list
 struct double_list *dlist_add(struct double_list **list, char *data)

@@ -23,7 +23,7 @@ option java_multiple_files = true;
 option objc_class_prefix = "ICNG";
 
 // Stats of the top-level function IcingSearchEngine::Initialize().
-// Next tag: 11
+// Next tag: 12
 message InitializeStatsProto {
   // Overall time used for the function call.
   optional int32 latency_ms = 1;
@@ -46,6 +46,9 @@ message InitializeStatsProto {
 
     // Random I/O errors.
     IO_ERROR = 4;
+
+    // The document log is using legacy format.
+    LEGACY_DOCUMENT_LOG_FORMAT = 5;
   }
 
   // Possible recovery causes for document store:
@@ -92,6 +95,10 @@ message InitializeStatsProto {
 
   // Number of schema types currently in schema store.
   optional int32 num_schema_types = 10;
+
+  // Number of consecutive initialization failures that immediately preceded
+  // this initialization.
+  optional int32 num_previous_init_failures = 11;
 }
 
 // Stats of the top-level function IcingSearchEngine::Put().
@@ -114,12 +121,10 @@ message PutDocumentStatsProto {
   optional int32 document_size = 5;
 
   message TokenizationStats {
-    // Whether the number of tokens to be indexed exceeded the max number of
-    // tokens per document.
-    optional bool exceeded_max_token_num = 2;
-
     // Number of tokens added to the index.
     optional int32 num_tokens_indexed = 1;
+
+    reserved 2;
   }
   optional TokenizationStats tokenization_stats = 6;
 }

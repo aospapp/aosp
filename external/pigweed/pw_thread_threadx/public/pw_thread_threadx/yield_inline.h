@@ -13,13 +13,14 @@
 // the License.
 #pragma once
 
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_thread/id.h"
 #include "tx_api.h"
 
 namespace pw::this_thread {
 
 inline void yield() {
+  // Ensure this is being called by a thread.
   PW_DASSERT(get_id() != thread::Id());
   tx_thread_relinquish();
 }

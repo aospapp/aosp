@@ -1,14 +1,3 @@
-# fuchsia: Conflicts with other checks
-# llvm-header-guard: Does not match drm_hwc header gusrd style 
-# Allow using ALOGE 
-
-Checks: >
-    *,
-    -fuchsia*,
-    -llvm*,
-    -cppcoreguidelines-pro-type-vararg, -hicpp-vararg,
-    -hicpp-signed-bitwise,
-
 # Turn all the warnings from the checks above into errors.
 WarningsAsErrors: "*"
 
@@ -17,26 +6,55 @@ WarningsAsErrors: "*"
 FormatStyle: google
 
 CheckOptions:
-  - { key: readability-identifier-naming.NamespaceCase,          value: lower_case }
-  - { key: readability-identifier-naming.ClassCase,              value: CamelCase  }
-  - { key: readability-identifier-naming.StructCase,             value: CamelCase  }
-  - { key: readability-identifier-naming.TemplateParameterCase,  value: CamelCase  }
-  - { key: readability-identifier-naming.FunctionCase,           value: aNy_CasE  }
-  - { key: readability-identifier-naming.VariableCase,           value: lower_case }
-  - { key: readability-identifier-naming.ClassMemberCase,        value: lower_case }
-  - { key: readability-identifier-naming.ClassMemberSuffix,      value: _          }
-  - { key: readability-identifier-naming.PrivateMemberSuffix,    value: _          }
-  - { key: readability-identifier-naming.ProtectedMemberSuffix,  value: _          }
-  - { key: readability-identifier-naming.EnumConstantCase,         value: CamelCase }
-  - { key: readability-identifier-naming.EnumConstantPrefix,       value: k         }
-  - { key: readability-identifier-naming.ConstexprVariableCase,    value: CamelCase }
-  - { key: readability-identifier-naming.ConstexprVariablePrefix,  value: k         }
-  - { key: readability-identifier-naming.GlobalConstantCase,       value: CamelCase }
-  - { key: readability-identifier-naming.GlobalConstantPrefix,     value: k         }
-  - { key: readability-identifier-naming.MemberConstantCase,       value: CamelCase }
-  - { key: readability-identifier-naming.MemberConstantPrefix,     value: k         }
-  - { key: readability-identifier-naming.StaticConstantCase,       value: CamelCase }
-  - { key: readability-identifier-naming.StaticConstantPrefix,     value: k         }
-  - { key: readability-implicit-bool-conversion.AllowIntegerConditions,  value: 1   }
-  - { key: readability-implicit-bool-conversion.AllowPointerConditions,  value: 1   }
-  - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: 1 }
+  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ClassMemberCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariablePrefix
+    value:           k
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumConstantPrefix
+    value:           k
+  - key:             readability-identifier-naming.FunctionCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantPrefix
+    value:           k
+  - key:             readability-identifier-naming.StaticConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.StaticConstantPrefix
+    value:           k
+  - key:             readability-identifier-naming.StaticVariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.MacroDefinitionCase
+    value:           UPPER_CASE
+  - key:             readability-identifier-naming.MacroDefinitionIgnoredRegexp
+    value:           '^[A-Z]+(_[A-Z]+)*_$'
+  - key:             readability-identifier-naming.MemberCase
+    value:           lower_case
+  - key:             readability-identifier-naming.PrivateMemberSuffix
+    value:           _
+  - key:             readability-identifier-naming.PublicMemberSuffix
+    value:           ''
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           lower_case
+  - key:             readability-identifier-naming.ParameterCase
+    value:           lower_case
+  - key:             readability-identifier-naming.TypeAliasCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.TypedefCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.VariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.IgnoreMainLikeFunctions
+    value:           1
+  - key:             cppcoreguidelines-macro-usage.AllowedRegexp
+    value:           "LOG_TAG|ATRACE_TAG"
+  - key:             readability-magic-numbers.IgnoredFloatingPointValues
+    value:           '1000.0'

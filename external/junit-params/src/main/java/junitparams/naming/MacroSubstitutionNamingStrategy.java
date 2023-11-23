@@ -23,12 +23,25 @@ public class MacroSubstitutionNamingStrategy implements TestCaseNamingStrategy {
         this.method = testMethod;
     }
 
+    // Android-added: allowable test names
+    private static final Pattern ALLOWABLE_TEST_NAMES = Pattern.compile("\\w+(\\[\\d+])?");
+
     @Override
     public String getTestCaseName(int parametersIndex, Object parameters) {
         TestCaseName testCaseName = method.getAnnotation(TestCaseName.class);
 
         String template = getTemplate(testCaseName);
         String builtName = buildNameByTemplate(template, parametersIndex, parameters);
+
+        // Android-changed: CTS and AndroidJUnitRunner rely on specific format to test names,
+        // changing them will prevent CTS and AndroidJUnitRunner from working properly;
+        // see b/36541809
+        if (!ALLOWABLE_TEST_NAMES.matcher(builtName).matches()) {
+            throw new IllegalStateException(String.format(
+                    "@TestCaseName(\"%s\") not currently supported as it generated a test name of"
+                            + " \"%s\" which will not work properly in CTS, must match \"%s\"",
+                            template, builtName, ALLOWABLE_TEST_NAMES));
+        }
 
         if (builtName.trim().isEmpty()) {
             return buildNameByTemplate(DEFAULT_TEMPLATE, parametersIndex, parameters);
@@ -39,12 +52,7 @@ public class MacroSubstitutionNamingStrategy implements TestCaseNamingStrategy {
 
     private String getTemplate(TestCaseName testCaseName) {
         if (testCaseName != null) {
-            // Android-changed: CTS and AndroidJUnitRunner rely on specific format to test names,
-            // changing them will prevent CTS and AndroidJUnitRunner from working properly;
-            // see b/36541809
-            throw new IllegalStateException(
-                    "@TestCaseName not currently supported as it breaks running tests in CTS");
-            // return testCaseName.value();
+            return testCaseName.value();
         }
 
         return DEFAULT_TEMPLATE;

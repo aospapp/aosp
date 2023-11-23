@@ -5,12 +5,12 @@ auto_ccs:
   - "t00fcxen@googlemail.com"
   - "markwo@google.com"
   - "natashenka@google.com"
-  - "yuquanw@google.com"
+  - "orphis@google.com"
+  - "mbonadei@google.com"
 fuzzing_engines:
   - libfuzzer
   - afl
   - honggfuzz
-  - dataflow
 sanitizers:
   - address
   - undefined

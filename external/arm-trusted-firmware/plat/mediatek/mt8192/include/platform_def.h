@@ -26,21 +26,40 @@
 #define MTK_MCDI_SRAM_BASE      0x11B000
 #define MTK_MCDI_SRAM_MAP_SIZE  0x1000
 
-#define INFRACFG_AO_BASE (IO_PHYS + 0x00001000)
-#define GPIO_BASE        (IO_PHYS + 0x00005000)
-#define SPM_BASE         (IO_PHYS + 0x00006000)
-#define PMIC_WRAP_BASE   (IO_PHYS + 0x00026000)
-#define EMI_BASE         (IO_PHYS + 0x00219000)
-#define EMI_MPU_BASE     (IO_PHYS + 0x00226000)
-#define IOCFG_RM_BASE    (IO_PHYS + 0x01C20000)
-#define IOCFG_BM_BASE    (IO_PHYS + 0x01D10000)
-#define IOCFG_BL_BASE    (IO_PHYS + 0x01D30000)
-#define IOCFG_BR_BASE    (IO_PHYS + 0x01D40000)
-#define IOCFG_LM_BASE    (IO_PHYS + 0x01E20000)
-#define IOCFG_LB_BASE    (IO_PHYS + 0x01E70000)
-#define IOCFG_RT_BASE    (IO_PHYS + 0x01EA0000)
-#define IOCFG_LT_BASE    (IO_PHYS + 0x01F20000)
-#define IOCFG_TL_BASE    (IO_PHYS + 0x01F30000)
+#define APUSYS_BASE                   0x19000000
+#define APUSYS_SCTRL_REVISER_BASE     0x19021000
+#define APUSYS_SCTRL_REVISER_SIZE     0x1000
+#define APUSYS_APU_S_S_4_BASE         0x190F2000
+#define APUSYS_APU_S_S_4_SIZE         0x1000
+#define APUSYS_APC_AO_WRAPPER_BASE    0x190F8000
+#define APUSYS_APC_AO_WRAPPER_SIZE    0x1000
+#define APUSYS_NOC_DAPC_AO_BASE       0x190FC000
+#define APUSYS_NOC_DAPC_AO_SIZE       0x1000
+
+#define TOPCKGEN_BASE            (IO_PHYS + 0x00000000)
+#define INFRACFG_AO_BASE         (IO_PHYS + 0x00001000)
+#define GPIO_BASE                (IO_PHYS + 0x00005000)
+#define SPM_BASE                 (IO_PHYS + 0x00006000)
+#define APMIXEDSYS               (IO_PHYS + 0x0000C000)
+#define DVFSRC_BASE              (IO_PHYS + 0x00012000)
+#define PMIC_WRAP_BASE           (IO_PHYS + 0x00026000)
+#define DEVAPC_INFRA_AO_BASE     (IO_PHYS + 0x00030000)
+#define DEVAPC_PERI_AO_BASE      (IO_PHYS + 0x00034000)
+#define DEVAPC_PERI_AO2_BASE     (IO_PHYS + 0x00038000)
+#define DEVAPC_PERI_PAR_AO_BASE  (IO_PHYS + 0x0003C000)
+#define EMI_BASE                 (IO_PHYS + 0x00219000)
+#define EMI_MPU_BASE             (IO_PHYS + 0x00226000)
+#define SSPM_MBOX_BASE           (IO_PHYS + 0x00480000)
+#define IOCFG_RM_BASE            (IO_PHYS + 0x01C20000)
+#define IOCFG_BM_BASE            (IO_PHYS + 0x01D10000)
+#define IOCFG_BL_BASE            (IO_PHYS + 0x01D30000)
+#define IOCFG_BR_BASE            (IO_PHYS + 0x01D40000)
+#define IOCFG_LM_BASE            (IO_PHYS + 0x01E20000)
+#define IOCFG_LB_BASE            (IO_PHYS + 0x01E70000)
+#define IOCFG_RT_BASE            (IO_PHYS + 0x01EA0000)
+#define IOCFG_LT_BASE            (IO_PHYS + 0x01F20000)
+#define IOCFG_TL_BASE            (IO_PHYS + 0x01F30000)
+#define MMSYS_BASE               (IO_PHYS + 0x04000000)
 /*******************************************************************************
  * UART related constants
  ******************************************************************************/
@@ -56,12 +75,18 @@
 #define SYS_COUNTER_FREQ_IN_MHZ      13
 
 /*******************************************************************************
- * GIC-400 & interrupt handling related constants
+ * GIC-600 & interrupt handling related constants
  ******************************************************************************/
 
 /* Base MTK_platform compatible GIC memory map */
 #define BASE_GICD_BASE        MT_GIC_BASE
 #define MT_GIC_RDIST_BASE     (MT_GIC_BASE + 0x40000)
+
+#define SYS_CIRQ_BASE         (IO_PHYS + 0x204000)
+#define CIRQ_REG_NUM          14
+#define CIRQ_IRQ_NUM          439
+#define CIRQ_SPI_START        64
+#define MD_WDT_IRQ_BIT_ID     110
 
 /*******************************************************************************
  * Platform binary types for linking

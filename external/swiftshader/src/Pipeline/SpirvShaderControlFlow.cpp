@@ -45,75 +45,75 @@ SpirvShader::Block::Block(InsnIterator begin, InsnIterator end)
 
 	switch(insns[1].opcode())
 	{
-		case spv::OpBranch:
-			branchInstruction = insns[1];
-			outs.emplace(Block::ID(branchInstruction.word(1)));
+	case spv::OpBranch:
+		branchInstruction = insns[1];
+		outs.emplace(Block::ID(branchInstruction.word(1)));
 
-			switch(insns[0].opcode())
-			{
-				case spv::OpLoopMerge:
-					kind = Loop;
-					mergeInstruction = insns[0];
-					mergeBlock = Block::ID(mergeInstruction.word(1));
-					continueTarget = Block::ID(mergeInstruction.word(2));
-					break;
-
-				default:
-					kind = Block::Simple;
-					break;
-			}
-			break;
-
-		case spv::OpBranchConditional:
-			branchInstruction = insns[1];
-			outs.emplace(Block::ID(branchInstruction.word(2)));
-			outs.emplace(Block::ID(branchInstruction.word(3)));
-
-			switch(insns[0].opcode())
-			{
-				case spv::OpSelectionMerge:
-					kind = StructuredBranchConditional;
-					mergeInstruction = insns[0];
-					mergeBlock = Block::ID(mergeInstruction.word(1));
-					break;
-
-				case spv::OpLoopMerge:
-					kind = Loop;
-					mergeInstruction = insns[0];
-					mergeBlock = Block::ID(mergeInstruction.word(1));
-					continueTarget = Block::ID(mergeInstruction.word(2));
-					break;
-
-				default:
-					kind = UnstructuredBranchConditional;
-					break;
-			}
-			break;
-
-		case spv::OpSwitch:
-			branchInstruction = insns[1];
-			outs.emplace(Block::ID(branchInstruction.word(2)));
-			for(uint32_t w = 4; w < branchInstruction.wordCount(); w += 2)
-			{
-				outs.emplace(Block::ID(branchInstruction.word(w)));
-			}
-
-			switch(insns[0].opcode())
-			{
-				case spv::OpSelectionMerge:
-					kind = StructuredSwitch;
-					mergeInstruction = insns[0];
-					mergeBlock = Block::ID(mergeInstruction.word(1));
-					break;
-
-				default:
-					kind = UnstructuredSwitch;
-					break;
-			}
+		switch(insns[0].opcode())
+		{
+		case spv::OpLoopMerge:
+			kind = Loop;
+			mergeInstruction = insns[0];
+			mergeBlock = Block::ID(mergeInstruction.word(1));
+			continueTarget = Block::ID(mergeInstruction.word(2));
 			break;
 
 		default:
+			kind = Block::Simple;
 			break;
+		}
+		break;
+
+	case spv::OpBranchConditional:
+		branchInstruction = insns[1];
+		outs.emplace(Block::ID(branchInstruction.word(2)));
+		outs.emplace(Block::ID(branchInstruction.word(3)));
+
+		switch(insns[0].opcode())
+		{
+		case spv::OpSelectionMerge:
+			kind = StructuredBranchConditional;
+			mergeInstruction = insns[0];
+			mergeBlock = Block::ID(mergeInstruction.word(1));
+			break;
+
+		case spv::OpLoopMerge:
+			kind = Loop;
+			mergeInstruction = insns[0];
+			mergeBlock = Block::ID(mergeInstruction.word(1));
+			continueTarget = Block::ID(mergeInstruction.word(2));
+			break;
+
+		default:
+			kind = UnstructuredBranchConditional;
+			break;
+		}
+		break;
+
+	case spv::OpSwitch:
+		branchInstruction = insns[1];
+		outs.emplace(Block::ID(branchInstruction.word(2)));
+		for(uint32_t w = 4; w < branchInstruction.wordCount(); w += 2)
+		{
+			outs.emplace(Block::ID(branchInstruction.word(w)));
+		}
+
+		switch(insns[0].opcode())
+		{
+		case spv::OpSelectionMerge:
+			kind = StructuredSwitch;
+			mergeInstruction = insns[0];
+			mergeBlock = Block::ID(mergeInstruction.word(1));
+			break;
+
+		default:
+			kind = UnstructuredSwitch;
+			break;
+		}
+		break;
+
+	default:
+		break;
 	}
 }
 
@@ -264,20 +264,20 @@ void SpirvShader::EmitBlocks(Block::ID id, EmitState *state, Block::ID ignore /*
 
 		switch(block.kind)
 		{
-			case Block::Simple:
-			case Block::StructuredBranchConditional:
-			case Block::UnstructuredBranchConditional:
-			case Block::StructuredSwitch:
-			case Block::UnstructuredSwitch:
-				EmitNonLoop(state);
-				break;
+		case Block::Simple:
+		case Block::StructuredBranchConditional:
+		case Block::UnstructuredBranchConditional:
+		case Block::StructuredSwitch:
+		case Block::UnstructuredSwitch:
+			EmitNonLoop(state);
+			break;
 
-			case Block::Loop:
-				EmitLoop(state);
-				break;
+		case Block::Loop:
+			EmitLoop(state);
+			break;
 
-			default:
-				UNREACHABLE("Unexpected Block Kind: %d", int(block.kind));
+		default:
+			UNREACHABLE("Unexpected Block Kind: %d", int(block.kind));
 		}
 	}
 
@@ -511,7 +511,7 @@ SpirvShader::EmitResult SpirvShader::EmitBranchConditional(InsnIterator insn, Em
 	auto falseBlockId = Block::ID(block.branchInstruction.word(3));
 
 	auto cond = Operand(this, state, condId);
-	ASSERT_MSG(getType(getObject(condId)).componentCount == 1, "Condition must be a Boolean type scalar");
+	ASSERT_MSG(getObjectType(condId).componentCount == 1, "Condition must be a Boolean type scalar");
 
 	// TODO: Optimize for case where all lanes take same path.
 
@@ -572,11 +572,27 @@ SpirvShader::EmitResult SpirvShader::EmitReturn(InsnIterator insn, EmitState *st
 	return EmitResult::Terminator;
 }
 
-SpirvShader::EmitResult SpirvShader::EmitKill(InsnIterator insn, EmitState *state) const
+SpirvShader::EmitResult SpirvShader::EmitTerminateInvocation(InsnIterator insn, EmitState *state) const
 {
-	state->routine->killMask |= SignMask(state->activeLaneMask());
+	state->routine->discardMask |= SignMask(state->activeLaneMask());
 	SetActiveLaneMask(SIMD::Int(0), state);
 	return EmitResult::Terminator;
+}
+
+SpirvShader::EmitResult SpirvShader::EmitDemoteToHelperInvocation(InsnIterator insn, EmitState *state) const
+{
+	state->routine->helperInvocation |= state->activeLaneMask();
+	state->routine->discardMask |= SignMask(state->activeLaneMask());
+	SetStoresAndAtomicsMask(state->storesAndAtomicsMask() & ~state->activeLaneMask(), state);
+	return EmitResult::Continue;
+}
+
+SpirvShader::EmitResult SpirvShader::EmitIsHelperInvocation(InsnIterator insn, EmitState *state) const
+{
+	auto &type = getType(insn.resultTypeId());
+	auto &dst = state->createIntermediate(insn.resultId(), type.componentCount);
+	dst.move(0, state->routine->helperInvocation);
+	return EmitResult::Continue;
 }
 
 SpirvShader::EmitResult SpirvShader::EmitFunctionCall(InsnIterator insn, EmitState *state) const
@@ -623,21 +639,21 @@ SpirvShader::EmitResult SpirvShader::EmitControlBarrier(InsnIterator insn, EmitS
 {
 	auto executionScope = spv::Scope(GetConstScalarInt(insn.word(1)));
 	auto semantics = spv::MemorySemanticsMask(GetConstScalarInt(insn.word(3)));
-	// TODO: We probably want to consider the memory scope here. For now,
-	// just always emit the full fence.
+	// TODO(b/176819536): We probably want to consider the memory scope here.
+	// For now, just always emit the full fence.
 	Fence(semantics);
 
 	switch(executionScope)
 	{
-		case spv::ScopeWorkgroup:
-			Yield(YieldResult::ControlBarrier);
-			break;
-		case spv::ScopeSubgroup:
-			break;
-		default:
-			// See Vulkan 1.1 spec, Appendix A, Validation Rules within a Module.
-			UNREACHABLE("Scope for execution must be limited to Workgroup or Subgroup");
-			break;
+	case spv::ScopeWorkgroup:
+		Yield(YieldResult::ControlBarrier);
+		break;
+	case spv::ScopeSubgroup:
+		break;
+	default:
+		// See Vulkan 1.1 spec, Appendix A, Validation Rules within a Module.
+		UNREACHABLE("Scope for execution must be limited to Workgroup or Subgroup");
+		break;
 	}
 
 	return EmitResult::Continue;
@@ -713,15 +729,6 @@ void SpirvShader::StorePhi(Block::ID currentBlock, InsnIterator insn, EmitState 
 	}
 }
 
-void SpirvShader::Fence(spv::MemorySemanticsMask semantics) const
-{
-	if(semantics == spv::MemorySemanticsMaskNone)
-	{
-		return;  //no-op
-	}
-	rr::Fence(MemoryOrder(semantics));
-}
-
 void SpirvShader::Yield(YieldResult res) const
 {
 	rr::Yield(RValue<Int>(int(res)));
@@ -731,6 +738,11 @@ void SpirvShader::SetActiveLaneMask(RValue<SIMD::Int> mask, EmitState *state) co
 {
 	state->activeLaneMaskValue = mask.value();
 	dbgUpdateActiveLaneMask(mask, state);
+}
+
+void SpirvShader::SetStoresAndAtomicsMask(RValue<SIMD::Int> mask, EmitState *state) const
+{
+	state->storesAndAtomicsMaskValue = mask.value();
 }
 
 void SpirvShader::WriteCFGGraphVizDotFile(const char *path) const
@@ -778,6 +790,7 @@ void SpirvShader::WriteCFGGraphVizDotFile(const char *path) const
 					     << "[label=\"M\" style=dashed color=blue]"
 					     << std::endl;
 				}
+
 				if(block.second.continueTarget != 0)
 				{
 					file << "    block_" << block.first.value() << " -> "

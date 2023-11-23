@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "Context.hpp"
+
 #include "Vulkan/VkBuffer.hpp"
 #include "Vulkan/VkDevice.hpp"
 #include "Vulkan/VkImageView.hpp"
@@ -25,20 +26,20 @@ uint32_t ComputePrimitiveCount(VkPrimitiveTopology topology, uint32_t vertexCoun
 {
 	switch(topology)
 	{
-		case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
-			return vertexCount;
-		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
-			return vertexCount / 2;
-		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
-			return std::max<uint32_t>(vertexCount, 1) - 1;
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
-			return vertexCount / 3;
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
-			return std::max<uint32_t>(vertexCount, 2) - 2;
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
-			return std::max<uint32_t>(vertexCount, 2) - 2;
-		default:
-			UNSUPPORTED("VkPrimitiveTopology %d", int(topology));
+	case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+		return vertexCount;
+	case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+		return vertexCount / 2;
+	case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+		return std::max<uint32_t>(vertexCount, 1) - 1;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+		return vertexCount / 3;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+		return std::max<uint32_t>(vertexCount, 2) - 2;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+		return std::max<uint32_t>(vertexCount, 2) - 2;
+	default:
+		UNSUPPORTED("VkPrimitiveTopology %d", int(topology));
 	}
 
 	return 0;
@@ -106,7 +107,6 @@ void IndexBuffer::setIndexBufferBinding(const VertexInputBinding &indexBufferBin
 
 void IndexBuffer::getIndexBuffers(VkPrimitiveTopology topology, uint32_t count, uint32_t first, bool indexed, bool hasPrimitiveRestartEnable, std::vector<std::pair<uint32_t, void *>> *indexBuffers) const
 {
-
 	if(indexed)
 	{
 		void *indexBuffer = binding.buffer->getOffsetPointer(binding.offset + first * bytesPerIndex());
@@ -114,14 +114,14 @@ void IndexBuffer::getIndexBuffers(VkPrimitiveTopology topology, uint32_t count, 
 		{
 			switch(indexType)
 			{
-				case VK_INDEX_TYPE_UINT16:
-					ProcessPrimitiveRestart(static_cast<uint16_t *>(indexBuffer), topology, count, indexBuffers);
-					break;
-				case VK_INDEX_TYPE_UINT32:
-					ProcessPrimitiveRestart(static_cast<uint32_t *>(indexBuffer), topology, count, indexBuffers);
-					break;
-				default:
-					UNSUPPORTED("VkIndexType %d", int(indexType));
+			case VK_INDEX_TYPE_UINT16:
+				ProcessPrimitiveRestart(static_cast<uint16_t *>(indexBuffer), topology, count, indexBuffers);
+				break;
+			case VK_INDEX_TYPE_UINT32:
+				ProcessPrimitiveRestart(static_cast<uint32_t *>(indexBuffer), topology, count, indexBuffers);
+				break;
+			default:
+				UNSUPPORTED("VkIndexType %d", int(indexType));
 			}
 		}
 		else
@@ -135,23 +135,25 @@ void IndexBuffer::getIndexBuffers(VkPrimitiveTopology topology, uint32_t count, 
 	}
 }
 
-bool Attachments::isColorClamped(int index) const
+VkFormat Attachments::colorFormat(int index) const
 {
-	if(renderTarget[index] && renderTarget[index]->getFormat().isFloatFormat())
-	{
-		return false;
-	}
+	ASSERT((index >= 0) && (index < sw::MAX_COLOR_BUFFERS));
 
-	return true;
+	if(colorBuffer[index])
+	{
+		return colorBuffer[index]->getFormat();
+	}
+	else
+	{
+		return VK_FORMAT_UNDEFINED;
+	}
 }
 
-VkFormat Attachments::renderTargetInternalFormat(int index) const
+VkFormat Attachments::depthFormat() const
 {
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	if(renderTarget[index])
+	if(depthBuffer)
 	{
-		return renderTarget[index]->getFormat();
+		return depthBuffer->getFormat();
 	}
 	else
 	{
@@ -240,48 +242,136 @@ void Inputs::advanceInstanceAttributes()
 	}
 }
 
+GraphicsState::DynamicStateFlags GraphicsState::ParseDynamicStateFlags(const VkPipelineDynamicStateCreateInfo *dynamicStateCreateInfo)
+{
+	GraphicsState::DynamicStateFlags dynamicStateFlags = {};
+
+	if(dynamicStateCreateInfo)
+	{
+		if(dynamicStateCreateInfo->flags != 0)
+		{
+			// Vulkan 1.3: "flags is reserved for future use." "flags must be 0"
+			UNSUPPORTED("dynamicStateCreateInfo->flags %d", int(dynamicStateCreateInfo->flags));
+		}
+
+		for(uint32_t i = 0; i < dynamicStateCreateInfo->dynamicStateCount; i++)
+		{
+			VkDynamicState dynamicState = dynamicStateCreateInfo->pDynamicStates[i];
+			switch(dynamicState)
+			{
+			case VK_DYNAMIC_STATE_VIEWPORT:
+				dynamicStateFlags.dynamicViewport = true;
+				break;
+			case VK_DYNAMIC_STATE_SCISSOR:
+				dynamicStateFlags.dynamicScissor = true;
+				break;
+			case VK_DYNAMIC_STATE_LINE_WIDTH:
+				dynamicStateFlags.dynamicLineWidth = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_BIAS:
+				dynamicStateFlags.dynamicDepthBias = true;
+				break;
+			case VK_DYNAMIC_STATE_BLEND_CONSTANTS:
+				dynamicStateFlags.dynamicBlendConstants = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_BOUNDS:
+				dynamicStateFlags.dynamicDepthBounds = true;
+				break;
+			case VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK:
+				dynamicStateFlags.dynamicStencilCompareMask = true;
+				break;
+			case VK_DYNAMIC_STATE_STENCIL_WRITE_MASK:
+				dynamicStateFlags.dynamicStencilWriteMask = true;
+				break;
+			case VK_DYNAMIC_STATE_STENCIL_REFERENCE:
+				dynamicStateFlags.dynamicStencilReference = true;
+				break;
+			case VK_DYNAMIC_STATE_CULL_MODE:
+				dynamicStateFlags.dynamicCullMode = true;
+				break;
+			case VK_DYNAMIC_STATE_FRONT_FACE:
+				dynamicStateFlags.dynamicFrontFace = true;
+				break;
+			case VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY:
+				dynamicStateFlags.dynamicPrimitiveTopology = true;
+				break;
+			case VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT:
+				dynamicStateFlags.dynamicViewportWithCount = true;
+				break;
+			case VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT:
+				dynamicStateFlags.dynamicScissorWithCount = true;
+				break;
+			case VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE:
+				dynamicStateFlags.dynamicVertexInputBindingStride = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE:
+				dynamicStateFlags.dynamicDepthTestEnable = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE:
+				dynamicStateFlags.dynamicDepthWriteEnable = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_COMPARE_OP:
+				dynamicStateFlags.dynamicDepthCompareOp = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE:
+				dynamicStateFlags.dynamicDepthBoundsTestEnable = true;
+				break;
+			case VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE:
+				dynamicStateFlags.dynamicStencilTestEnable = true;
+				break;
+			case VK_DYNAMIC_STATE_STENCIL_OP:
+				dynamicStateFlags.dynamicStencilOp = true;
+				break;
+			case VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE:
+				dynamicStateFlags.dynamicRasterizerDiscardEnable = true;
+				break;
+			case VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE:
+				dynamicStateFlags.dynamicDepthBiasEnable = true;
+				break;
+			case VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE:
+				dynamicStateFlags.dynamicPrimitiveRestartEnable = true;
+				break;
+			default:
+				UNSUPPORTED("VkDynamicState %d", int(dynamicState));
+			}
+		}
+	}
+
+	return dynamicStateFlags;
+}
+
+VkDeviceSize Inputs::getVertexStride(uint32_t i, bool dynamicVertexStride) const
+{
+	auto &attrib = stream[i];
+	if(attrib.format != VK_FORMAT_UNDEFINED)
+	{
+		if(dynamicVertexStride)
+		{
+			return vertexInputBindings[attrib.binding].stride;
+		}
+		else
+		{
+			return attrib.vertexStride;
+		}
+	}
+
+	return 0;
+}
+
 GraphicsState::GraphicsState(const Device *device, const VkGraphicsPipelineCreateInfo *pCreateInfo,
                              const PipelineLayout *layout, bool robustBufferAccess)
     : pipelineLayout(layout)
     , robustBufferAccess(robustBufferAccess)
+    , dynamicStateFlags(ParseDynamicStateFlags(pCreateInfo->pDynamicState))
 {
 	if((pCreateInfo->flags &
 	    ~(VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT |
 	      VK_PIPELINE_CREATE_DERIVATIVE_BIT |
-	      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)) != 0)
+	      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT |
+	      VK_PIPELINE_CREATE_EARLY_RETURN_ON_FAILURE_BIT_EXT |
+	      VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT_EXT)) != 0)
 	{
 		UNSUPPORTED("pCreateInfo->flags %d", int(pCreateInfo->flags));
-	}
-
-	if(pCreateInfo->pDynamicState)
-	{
-		if(pCreateInfo->pDynamicState->flags != 0)
-		{
-			// Vulkan 1.2: "flags is reserved for future use." "flags must be 0"
-			UNSUPPORTED("pCreateInfo->pDynamicState->flags %d", int(pCreateInfo->pDynamicState->flags));
-		}
-
-		for(uint32_t i = 0; i < pCreateInfo->pDynamicState->dynamicStateCount; i++)
-		{
-			VkDynamicState dynamicState = pCreateInfo->pDynamicState->pDynamicStates[i];
-			switch(dynamicState)
-			{
-				case VK_DYNAMIC_STATE_VIEWPORT:
-				case VK_DYNAMIC_STATE_SCISSOR:
-				case VK_DYNAMIC_STATE_LINE_WIDTH:
-				case VK_DYNAMIC_STATE_DEPTH_BIAS:
-				case VK_DYNAMIC_STATE_BLEND_CONSTANTS:
-				case VK_DYNAMIC_STATE_DEPTH_BOUNDS:
-				case VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK:
-				case VK_DYNAMIC_STATE_STENCIL_WRITE_MASK:
-				case VK_DYNAMIC_STATE_STENCIL_REFERENCE:
-					ASSERT(dynamicState < (sizeof(dynamicStateFlags) * 8));
-					dynamicStateFlags |= (1 << dynamicState);
-					break;
-				default:
-					UNSUPPORTED("VkDynamicState %d", int(dynamicState));
-			}
-		}
 	}
 
 	const VkPipelineVertexInputStateCreateInfo *vertexInputState = pCreateInfo->pVertexInputState;
@@ -311,19 +401,17 @@ GraphicsState::GraphicsState(const Device *device, const VkGraphicsPipelineCreat
 		UNSUPPORTED("pCreateInfo->pRasterizationState->flags %d", int(pCreateInfo->pRasterizationState->flags));
 	}
 
-	if(rasterizationState->depthClampEnable != VK_FALSE)
-	{
-		UNSUPPORTED("VkPhysicalDeviceFeatures::depthClamp");
-	}
-
 	rasterizerDiscard = (rasterizationState->rasterizerDiscardEnable != VK_FALSE);
 	cullMode = rasterizationState->cullMode;
 	frontFace = rasterizationState->frontFace;
 	polygonMode = rasterizationState->polygonMode;
-	constantDepthBias = (rasterizationState->depthBiasEnable != VK_FALSE) ? rasterizationState->depthBiasConstantFactor : 0.0f;
-	slopeDepthBias = (rasterizationState->depthBiasEnable != VK_FALSE) ? rasterizationState->depthBiasSlopeFactor : 0.0f;
-	depthBiasClamp = (rasterizationState->depthBiasEnable != VK_FALSE) ? rasterizationState->depthBiasClamp : 0.0f;
+	depthBiasEnable = rasterizationState->depthBiasEnable;
+	constantDepthBias = rasterizationState->depthBiasConstantFactor;
+	slopeDepthBias = rasterizationState->depthBiasSlopeFactor;
+	depthBiasClamp = rasterizationState->depthBiasClamp;
 	depthRangeUnrestricted = device->hasExtension(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
+	depthClampEnable = rasterizationState->depthClampEnable != VK_FALSE;
+	depthClipEnable = !depthClampEnable;
 
 	// From the Vulkan spec for vkCmdSetDepthBias:
 	//    The bias value O for a polygon is:
@@ -343,27 +431,38 @@ GraphicsState::GraphicsState(const Device *device, const VkGraphicsPipelineCreat
 	const VkBaseInStructure *extensionCreateInfo = reinterpret_cast<const VkBaseInStructure *>(rasterizationState->pNext);
 	while(extensionCreateInfo)
 	{
-		// Casting to a long since some structures, such as
-		// VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT
-		// are not enumerated in the official Vulkan header
-		switch((long)(extensionCreateInfo->sType))
+		switch(extensionCreateInfo->sType)
 		{
-			case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT:
+		case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT:
 			{
 				const VkPipelineRasterizationLineStateCreateInfoEXT *lineStateCreateInfo = reinterpret_cast<const VkPipelineRasterizationLineStateCreateInfoEXT *>(extensionCreateInfo);
 				lineRasterizationMode = lineStateCreateInfo->lineRasterizationMode;
 			}
 			break;
-			case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT:
+		case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT:
 			{
 				const VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *provokingVertexModeCreateInfo =
 				    reinterpret_cast<const VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *>(extensionCreateInfo);
 				provokingVertexMode = provokingVertexModeCreateInfo->provokingVertexMode;
 			}
 			break;
-			default:
-				WARN("pCreateInfo->pRasterizationState->pNext sType = %s", vk::Stringify(extensionCreateInfo->sType).c_str());
-				break;
+		case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT:
+			{
+				const auto *depthClipInfo = reinterpret_cast<const VkPipelineRasterizationDepthClipStateCreateInfoEXT *>(extensionCreateInfo);
+				// Reserved for future use.
+				ASSERT(depthClipInfo->flags == 0);
+				depthClipEnable = depthClipInfo->depthClipEnable != VK_FALSE;
+			}
+			break;
+		case VK_STRUCTURE_TYPE_APPLICATION_INFO:
+			// SwiftShader doesn't interact with application info, but dEQP includes it
+			break;
+		case VK_STRUCTURE_TYPE_MAX_ENUM:
+			// dEQP tests that this value is ignored.
+			break;
+		default:
+			UNSUPPORTED("pCreateInfo->pRasterizationState->pNext sType = %s", vk::Stringify(extensionCreateInfo->sType).c_str());
+			break;
 		}
 
 		extensionCreateInfo = extensionCreateInfo->pNext;
@@ -387,18 +486,18 @@ GraphicsState::GraphicsState(const Device *device, const VkGraphicsPipelineCreat
 			UNSUPPORTED("pCreateInfo->pViewportState->flags %d", int(pCreateInfo->pViewportState->flags));
 		}
 
-		if((viewportState->viewportCount != 1) ||
-		   (viewportState->scissorCount != 1))
+		if((viewportState->viewportCount > 1) ||
+		   (viewportState->scissorCount > 1))
 		{
 			UNSUPPORTED("VkPhysicalDeviceFeatures::multiViewport");
 		}
 
-		if(!hasDynamicState(VK_DYNAMIC_STATE_SCISSOR))
+		if(!dynamicStateFlags.dynamicScissor && !dynamicStateFlags.dynamicScissorWithCount)
 		{
 			scissor = viewportState->pScissors[0];
 		}
 
-		if(!hasDynamicState(VK_DYNAMIC_STATE_VIEWPORT))
+		if(!dynamicStateFlags.dynamicViewport && !dynamicStateFlags.dynamicViewportWithCount)
 		{
 			viewport = viewportState->pViewports[0];
 		}
@@ -422,14 +521,14 @@ GraphicsState::GraphicsState(const Device *device, const VkGraphicsPipelineCreat
 
 		switch(multisampleState->rasterizationSamples)
 		{
-			case VK_SAMPLE_COUNT_1_BIT:
-				sampleCount = 1;
-				break;
-			case VK_SAMPLE_COUNT_4_BIT:
-				sampleCount = 4;
-				break;
-			default:
-				UNSUPPORTED("Unsupported sample count");
+		case VK_SAMPLE_COUNT_1_BIT:
+			sampleCount = 1;
+			break;
+		case VK_SAMPLE_COUNT_4_BIT:
+			sampleCount = 4;
+			break;
+		default:
+			UNSUPPORTED("Unsupported sample count");
 		}
 
 		VkSampleMask sampleMask;
@@ -446,77 +545,155 @@ GraphicsState::GraphicsState(const Device *device, const VkGraphicsPipelineCreat
 		multiSampleMask = sampleMask & ((unsigned)0xFFFFFFFF >> (32 - sampleCount));
 
 		const vk::RenderPass *renderPass = vk::Cast(pCreateInfo->renderPass);
-		const VkSubpassDescription &subpass = renderPass->getSubpass(pCreateInfo->subpass);
-
-		//  Ignore pDepthStencilState when "the subpass of the render pass the pipeline is created against does not use a depth/stencil attachment"
-		if(subpass.pDepthStencilAttachment && subpass.pDepthStencilAttachment->attachment != VK_ATTACHMENT_UNUSED)
+		if(renderPass)
 		{
-			if(depthStencilState->flags != 0)
+			const VkSubpassDescription &subpass = renderPass->getSubpass(pCreateInfo->subpass);
+
+			// Ignore pDepthStencilState when "the subpass of the render pass the pipeline
+			// is created against does not use a depth/stencil attachment"
+			if(subpass.pDepthStencilAttachment &&
+			   subpass.pDepthStencilAttachment->attachment != VK_ATTACHMENT_UNUSED)
 			{
-				// Vulkan 1.2: "flags is reserved for future use." "flags must be 0"
-				UNSUPPORTED("pCreateInfo->pDepthStencilState->flags %d", int(pCreateInfo->pDepthStencilState->flags));
+				setDepthStencilState(depthStencilState);
 			}
 
-			if(depthStencilState->depthBoundsTestEnable != VK_FALSE)
+			// Ignore pColorBlendState when "the subpass of the render pass the pipeline
+			// is created against does not use any color attachments"
+			for(uint32_t i = 0; i < subpass.colorAttachmentCount; i++)
 			{
-				UNSUPPORTED("VkPhysicalDeviceFeatures::depthBounds");
-			}
-
-			depthBoundsTestEnable = (depthStencilState->depthBoundsTestEnable != VK_FALSE);
-			depthBufferEnable = (depthStencilState->depthTestEnable != VK_FALSE);
-			depthWriteEnable = (depthStencilState->depthWriteEnable != VK_FALSE);
-			depthCompareMode = depthStencilState->depthCompareOp;
-
-			stencilEnable = (depthStencilState->stencilTestEnable != VK_FALSE);
-			if(stencilEnable)
-			{
-				frontStencil = depthStencilState->front;
-				backStencil = depthStencilState->back;
+				if(subpass.pColorAttachments[i].attachment != VK_ATTACHMENT_UNUSED)
+				{
+					setColorBlendState(colorBlendState);
+					break;
+				}
 			}
 		}
-
-		bool colorAttachmentUsed = false;
-		for(uint32_t i = 0; i < subpass.colorAttachmentCount; i++)
+		else  // No render pass
 		{
-			if(subpass.pColorAttachments[i].attachment != VK_ATTACHMENT_UNUSED)
+			// When a pipeline is created without a VkRenderPass, if the VkPipelineRenderingCreateInfo structure
+			// is present in the pNext chain of VkGraphicsPipelineCreateInfo, it specifies the view mask and
+			// format of attachments used for rendering. If this structure is not specified, and the pipeline
+			// does not include a VkRenderPass, viewMask and colorAttachmentCount are 0, and
+			// depthAttachmentFormat and stencilAttachmentFormat are VK_FORMAT_UNDEFINED. If a graphics pipeline
+			// is created with a valid VkRenderPass, parameters of this structure are ignored.
+
+			const VkBaseInStructure *extensionCreateInfo = reinterpret_cast<const VkBaseInStructure *>(pCreateInfo->pNext);
+			while(extensionCreateInfo)
 			{
-				colorAttachmentUsed = true;
-				break;
+				if(extensionCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
+				{
+					const VkPipelineRenderingCreateInfo *renderingCreateInfo = reinterpret_cast<const VkPipelineRenderingCreateInfo *>(extensionCreateInfo);
+
+					if((renderingCreateInfo->depthAttachmentFormat != VK_FORMAT_UNDEFINED) ||
+					   (renderingCreateInfo->stencilAttachmentFormat != VK_FORMAT_UNDEFINED))
+					{
+						// If renderPass is VK_NULL_HANDLE, the pipeline is being created with fragment
+						// shader state, and either of VkPipelineRenderingCreateInfo::depthAttachmentFormat
+						// or VkPipelineRenderingCreateInfo::stencilAttachmentFormat are not
+						// VK_FORMAT_UNDEFINED, pDepthStencilState must be a valid pointer to a valid
+						// VkPipelineDepthStencilStateCreateInfo structure
+						ASSERT(depthStencilState);
+
+						setDepthStencilState(depthStencilState);
+					}
+
+					if(renderingCreateInfo->colorAttachmentCount > 0)
+					{
+						// If renderPass is VK_NULL_HANDLE, the pipeline is being created with fragment
+						// output interface state, and VkPipelineRenderingCreateInfo::colorAttachmentCount
+						// is not equal to 0, pColorBlendState must be a valid pointer to a valid
+						// VkPipelineColorBlendStateCreateInfo structure
+						ASSERT(colorBlendState);
+
+						setColorBlendState(colorBlendState);
+					}
+
+					break;
+				}
+
+				extensionCreateInfo = extensionCreateInfo->pNext;
 			}
 		}
+	}
+}
 
-		// Ignore pColorBlendState when "the subpass of the render pass the pipeline is created against does not use any color attachments"
-		if(colorAttachmentUsed)
+void GraphicsState::setDepthStencilState(const VkPipelineDepthStencilStateCreateInfo *depthStencilState)
+{
+	if(depthStencilState->flags != 0)
+	{
+		// Vulkan 1.2: "flags is reserved for future use." "flags must be 0"
+		UNSUPPORTED("depthStencilState->flags %d", int(depthStencilState->flags));
+	}
+
+	depthBoundsTestEnable = (depthStencilState->depthBoundsTestEnable != VK_FALSE);
+	minDepthBounds = depthStencilState->minDepthBounds;
+	maxDepthBounds = depthStencilState->maxDepthBounds;
+
+	depthTestEnable = (depthStencilState->depthTestEnable != VK_FALSE);
+	depthWriteEnable = (depthStencilState->depthWriteEnable != VK_FALSE);
+	depthCompareMode = depthStencilState->depthCompareOp;
+
+	stencilEnable = (depthStencilState->stencilTestEnable != VK_FALSE);
+	if(stencilEnable)
+	{
+		frontStencil = depthStencilState->front;
+		backStencil = depthStencilState->back;
+	}
+}
+
+void GraphicsState::setColorBlendState(const VkPipelineColorBlendStateCreateInfo *colorBlendState)
+{
+	if(colorBlendState->flags != 0)
+	{
+		// Vulkan 1.2: "flags is reserved for future use." "flags must be 0"
+		UNSUPPORTED("colorBlendState->flags %d", int(colorBlendState->flags));
+	}
+
+	if(colorBlendState->logicOpEnable != VK_FALSE)
+	{
+		UNSUPPORTED("VkPhysicalDeviceFeatures::logicOp");
+	}
+
+	if(!dynamicStateFlags.dynamicBlendConstants)
+	{
+		blendConstants.x = colorBlendState->blendConstants[0];
+		blendConstants.y = colorBlendState->blendConstants[1];
+		blendConstants.z = colorBlendState->blendConstants[2];
+		blendConstants.w = colorBlendState->blendConstants[3];
+	}
+
+	const VkBaseInStructure *extensionColorBlendInfo = reinterpret_cast<const VkBaseInStructure *>(colorBlendState->pNext);
+	while(extensionColorBlendInfo)
+	{
+		switch(extensionColorBlendInfo->sType)
 		{
-			if(colorBlendState->flags != 0)
+		case VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_ADVANCED_STATE_CREATE_INFO_EXT:
 			{
-				// Vulkan 1.2: "flags is reserved for future use." "flags must be 0"
-				UNSUPPORTED("pCreateInfo->pColorBlendState->flags %d", int(pCreateInfo->pColorBlendState->flags));
+				const VkPipelineColorBlendAdvancedStateCreateInfoEXT *colorBlendAdvancedCreateInfo = reinterpret_cast<const VkPipelineColorBlendAdvancedStateCreateInfoEXT *>(extensionColorBlendInfo);
+				ASSERT(colorBlendAdvancedCreateInfo->blendOverlap == VK_BLEND_OVERLAP_UNCORRELATED_EXT);
+				ASSERT(colorBlendAdvancedCreateInfo->dstPremultiplied == VK_TRUE);
+				ASSERT(colorBlendAdvancedCreateInfo->srcPremultiplied == VK_TRUE);
 			}
-
-			if(colorBlendState->logicOpEnable != VK_FALSE)
-			{
-				UNSUPPORTED("VkPhysicalDeviceFeatures::logicOp");
-			}
-
-			if(!hasDynamicState(VK_DYNAMIC_STATE_BLEND_CONSTANTS))
-			{
-				blendConstants.x = colorBlendState->blendConstants[0];
-				blendConstants.y = colorBlendState->blendConstants[1];
-				blendConstants.z = colorBlendState->blendConstants[2];
-				blendConstants.w = colorBlendState->blendConstants[3];
-			}
-
-			ASSERT(colorBlendState->attachmentCount <= sw::RENDERTARGETS);
-			for(auto i = 0u; i < colorBlendState->attachmentCount; i++)
-			{
-				const VkPipelineColorBlendAttachmentState &attachment = colorBlendState->pAttachments[i];
-				colorWriteMask[i] = attachment.colorWriteMask;
-				blendState[i] = { (attachment.blendEnable != VK_FALSE),
-					              attachment.srcColorBlendFactor, attachment.dstColorBlendFactor, attachment.colorBlendOp,
-					              attachment.srcAlphaBlendFactor, attachment.dstAlphaBlendFactor, attachment.alphaBlendOp };
-			}
+			break;
+		case VK_STRUCTURE_TYPE_MAX_ENUM:
+			// dEQP tests that this value is ignored.
+			break;
+		default:
+			UNSUPPORTED("colorBlendState->pNext sType = %s", vk::Stringify(extensionColorBlendInfo->sType).c_str());
+			break;
 		}
+
+		extensionColorBlendInfo = extensionColorBlendInfo->pNext;
+	}
+
+	ASSERT(colorBlendState->attachmentCount <= sw::MAX_COLOR_BUFFERS);
+	for(auto i = 0u; i < colorBlendState->attachmentCount; i++)
+	{
+		const VkPipelineColorBlendAttachmentState &attachment = colorBlendState->pAttachments[i];
+		colorWriteMask[i] = attachment.colorWriteMask;
+		blendState[i] = { (attachment.blendEnable != VK_FALSE),
+			              attachment.srcColorBlendFactor, attachment.dstColorBlendFactor, attachment.colorBlendOp,
+			              attachment.srcAlphaBlendFactor, attachment.dstAlphaBlendFactor, attachment.alphaBlendOp };
 	}
 }
 
@@ -524,17 +701,17 @@ bool GraphicsState::isDrawPoint(bool polygonModeAware) const
 {
 	switch(topology)
 	{
-		case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
-			return true;
-		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
-			return false;
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
-			return polygonModeAware ? (polygonMode == VK_POLYGON_MODE_POINT) : false;
-		default:
-			UNSUPPORTED("topology %d", int(topology));
+	case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+		return true;
+	case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+		return false;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+		return polygonModeAware ? (polygonMode == VK_POLYGON_MODE_POINT) : false;
+	default:
+		UNSUPPORTED("topology %d", int(topology));
 	}
 	return false;
 }
@@ -543,17 +720,17 @@ bool GraphicsState::isDrawLine(bool polygonModeAware) const
 {
 	switch(topology)
 	{
-		case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
-			return false;
-		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
-			return true;
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
-			return polygonModeAware ? (polygonMode == VK_POLYGON_MODE_LINE) : false;
-		default:
-			UNSUPPORTED("topology %d", int(topology));
+	case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+		return false;
+	case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+		return true;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+		return polygonModeAware ? (polygonMode == VK_POLYGON_MODE_LINE) : false;
+	default:
+		UNSUPPORTED("topology %d", int(topology));
 	}
 	return false;
 }
@@ -562,30 +739,29 @@ bool GraphicsState::isDrawTriangle(bool polygonModeAware) const
 {
 	switch(topology)
 	{
-		case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
-			return false;
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
-			return polygonModeAware ? (polygonMode == VK_POLYGON_MODE_FILL) : true;
-		default:
-			UNSUPPORTED("topology %d", int(topology));
+	case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+		return false;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+		return polygonModeAware ? (polygonMode == VK_POLYGON_MODE_FILL) : true;
+	default:
+		UNSUPPORTED("topology %d", int(topology));
 	}
 	return false;
 }
 
 bool GraphicsState::depthWriteActive(const Attachments &attachments) const
 {
-	if(!depthBufferActive(attachments)) return false;
-
-	return depthWriteEnable;
+	// "Depth writes are always disabled when depthTestEnable is VK_FALSE."
+	return depthTestActive(attachments) && depthWriteEnable;
 }
 
-bool GraphicsState::depthBufferActive(const Attachments &attachments) const
+bool GraphicsState::depthTestActive(const Attachments &attachments) const
 {
-	return attachments.depthBuffer && depthBufferEnable;
+	return attachments.depthBuffer && depthTestEnable;
 }
 
 bool GraphicsState::stencilActive(const Attachments &attachments) const
@@ -593,59 +769,147 @@ bool GraphicsState::stencilActive(const Attachments &attachments) const
 	return attachments.stencilBuffer && stencilEnable;
 }
 
+bool GraphicsState::depthBoundsTestActive(const Attachments &attachments) const
+{
+	return attachments.depthBuffer && depthBoundsTestEnable;
+}
+
 const GraphicsState GraphicsState::combineStates(const DynamicState &dynamicState) const
 {
 	GraphicsState combinedState = *this;
 
 	// Apply either pipeline state or dynamic state
-	if(hasDynamicState(VK_DYNAMIC_STATE_SCISSOR))
+	if(dynamicStateFlags.dynamicDepthTestEnable)
+	{
+		combinedState.depthTestEnable = dynamicState.depthTestEnable;
+	}
+
+	if(dynamicStateFlags.dynamicDepthWriteEnable)
+	{
+		combinedState.depthWriteEnable = dynamicState.depthWriteEnable;
+	}
+
+	if(dynamicStateFlags.dynamicDepthCompareOp)
+	{
+		combinedState.depthCompareMode = dynamicState.depthCompareOp;
+	}
+
+	if(dynamicStateFlags.dynamicDepthBoundsTestEnable)
+	{
+		combinedState.depthBoundsTestEnable = dynamicState.depthBoundsTestEnable;
+	}
+
+	if(dynamicStateFlags.dynamicStencilTestEnable)
+	{
+		combinedState.stencilEnable = dynamicState.stencilTestEnable;
+	}
+
+	if(dynamicStateFlags.dynamicRasterizerDiscardEnable)
+	{
+		combinedState.rasterizerDiscard = dynamicState.rasterizerDiscardEnable;
+	}
+
+	if(dynamicStateFlags.dynamicDepthBiasEnable)
+	{
+		combinedState.depthBiasEnable = dynamicState.depthBiasEnable;
+	}
+
+	if(dynamicStateFlags.dynamicPrimitiveRestartEnable)
+	{
+		combinedState.primitiveRestartEnable = dynamicState.primitiveRestartEnable;
+	}
+
+	if(dynamicStateFlags.dynamicScissor)
 	{
 		combinedState.scissor = dynamicState.scissor;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_VIEWPORT))
+	if(dynamicStateFlags.dynamicViewport)
 	{
 		combinedState.viewport = dynamicState.viewport;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_BLEND_CONSTANTS))
+	if(dynamicStateFlags.dynamicBlendConstants)
 	{
 		combinedState.blendConstants = dynamicState.blendConstants;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_DEPTH_BIAS))
+	if(dynamicStateFlags.dynamicDepthBias)
 	{
 		combinedState.constantDepthBias = dynamicState.depthBiasConstantFactor;
 		combinedState.slopeDepthBias = dynamicState.depthBiasSlopeFactor;
 		combinedState.depthBiasClamp = dynamicState.depthBiasClamp;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_DEPTH_BOUNDS) && depthBoundsTestEnable)
+	if(dynamicStateFlags.dynamicDepthBounds && combinedState.depthBoundsTestEnable)
 	{
-		// Unless the VK_EXT_depth_range_unrestricted extension is enabled,
-		// minDepthBounds and maxDepthBounds must be between 0.0 and 1.0, inclusive
-		ASSERT(dynamicState.minDepthBounds >= 0.0f && dynamicState.minDepthBounds <= 1.0f);
-		ASSERT(dynamicState.maxDepthBounds >= 0.0f && dynamicState.maxDepthBounds <= 1.0f);
-
-		UNSUPPORTED("VkPhysicalDeviceFeatures::depthBounds");
+		combinedState.minDepthBounds = dynamicState.minDepthBounds;
+		combinedState.maxDepthBounds = dynamicState.maxDepthBounds;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK) && stencilEnable)
+	if(dynamicStateFlags.dynamicStencilCompareMask && combinedState.stencilEnable)
 	{
-		combinedState.frontStencil.compareMask = dynamicState.compareMask[0];
-		combinedState.backStencil.compareMask = dynamicState.compareMask[1];
+		combinedState.frontStencil.compareMask = dynamicState.frontStencil.compareMask;
+		combinedState.backStencil.compareMask = dynamicState.backStencil.compareMask;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK) && stencilEnable)
+	if(dynamicStateFlags.dynamicStencilWriteMask && combinedState.stencilEnable)
 	{
-		combinedState.frontStencil.writeMask = dynamicState.writeMask[0];
-		combinedState.backStencil.writeMask = dynamicState.writeMask[1];
+		combinedState.frontStencil.writeMask = dynamicState.frontStencil.writeMask;
+		combinedState.backStencil.writeMask = dynamicState.backStencil.writeMask;
 	}
 
-	if(hasDynamicState(VK_DYNAMIC_STATE_STENCIL_REFERENCE) && stencilEnable)
+	if(dynamicStateFlags.dynamicStencilReference && combinedState.stencilEnable)
 	{
-		combinedState.frontStencil.reference = dynamicState.reference[0];
-		combinedState.backStencil.reference = dynamicState.reference[1];
+		combinedState.frontStencil.reference = dynamicState.frontStencil.reference;
+		combinedState.backStencil.reference = dynamicState.backStencil.reference;
+	}
+
+	if(dynamicStateFlags.dynamicStencilOp && combinedState.stencilEnable)
+	{
+		if(dynamicState.faceMask & VK_STENCIL_FACE_FRONT_BIT)
+		{
+			combinedState.frontStencil.compareOp = dynamicState.frontStencil.compareOp;
+			combinedState.frontStencil.depthFailOp = dynamicState.frontStencil.depthFailOp;
+			combinedState.frontStencil.failOp = dynamicState.frontStencil.failOp;
+			combinedState.frontStencil.passOp = dynamicState.frontStencil.passOp;
+		}
+
+		if(dynamicState.faceMask & VK_STENCIL_FACE_BACK_BIT)
+		{
+			combinedState.backStencil.compareOp = dynamicState.backStencil.compareOp;
+			combinedState.backStencil.depthFailOp = dynamicState.backStencil.depthFailOp;
+			combinedState.backStencil.failOp = dynamicState.backStencil.failOp;
+			combinedState.backStencil.passOp = dynamicState.backStencil.passOp;
+		}
+	}
+
+	if(dynamicStateFlags.dynamicCullMode)
+	{
+		combinedState.cullMode = dynamicState.cullMode;
+	}
+
+	if(dynamicStateFlags.dynamicFrontFace)
+	{
+		combinedState.frontFace = dynamicState.frontFace;
+	}
+
+	if(dynamicStateFlags.dynamicPrimitiveTopology)
+	{
+		combinedState.topology = dynamicState.primitiveTopology;
+	}
+
+	if(dynamicStateFlags.dynamicViewportWithCount && (dynamicState.viewportCount > 0))
+	{
+		combinedState.viewport.width = static_cast<float>(dynamicState.viewports[0].extent.width);
+		combinedState.viewport.height = static_cast<float>(dynamicState.viewports[0].extent.height);
+		combinedState.viewport.x = static_cast<float>(dynamicState.viewports[0].offset.x);
+		combinedState.viewport.y = static_cast<float>(dynamicState.viewports[0].offset.y);
+	}
+
+	if(dynamicStateFlags.dynamicScissorWithCount && (dynamicState.scissorCount > 0))
+	{
+		combinedState.scissor = dynamicState.scissors[0];
 	}
 
 	return combinedState;
@@ -653,24 +917,33 @@ const GraphicsState GraphicsState::combineStates(const DynamicState &dynamicStat
 
 BlendState GraphicsState::getBlendState(int index, const Attachments &attachments, bool fragmentContainsKill) const
 {
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
+	ASSERT((index >= 0) && (index < sw::MAX_COLOR_BUFFERS));
+	auto &state = blendState[index];
 
-	BlendState activeBlendState;
+	BlendState activeBlendState = {};
 	activeBlendState.alphaBlendEnable = alphaBlendActive(index, attachments, fragmentContainsKill);
-	activeBlendState.sourceBlendFactor = sourceBlendFactor(index);
-	activeBlendState.destBlendFactor = destBlendFactor(index);
-	activeBlendState.blendOperation = blendOperation(index, attachments);
-	activeBlendState.sourceBlendFactorAlpha = sourceBlendFactorAlpha(index);
-	activeBlendState.destBlendFactorAlpha = destBlendFactorAlpha(index);
-	activeBlendState.blendOperationAlpha = blendOperationAlpha(index, attachments);
+
+	if(activeBlendState.alphaBlendEnable)
+	{
+		vk::Format format = attachments.colorBuffer[index]->getFormat(VK_IMAGE_ASPECT_COLOR_BIT);
+
+		activeBlendState.sourceBlendFactor = blendFactor(state.blendOperation, state.sourceBlendFactor);
+		activeBlendState.destBlendFactor = blendFactor(state.blendOperation, state.destBlendFactor);
+		activeBlendState.blendOperation = blendOperation(state.blendOperation, state.sourceBlendFactor, state.destBlendFactor, format);
+		activeBlendState.sourceBlendFactorAlpha = blendFactor(state.blendOperationAlpha, state.sourceBlendFactorAlpha);
+		activeBlendState.destBlendFactorAlpha = blendFactor(state.blendOperationAlpha, state.destBlendFactorAlpha);
+		activeBlendState.blendOperationAlpha = blendOperation(state.blendOperationAlpha, state.sourceBlendFactorAlpha, state.destBlendFactorAlpha, format);
+	}
+
 	return activeBlendState;
 }
 
 bool GraphicsState::alphaBlendActive(int index, const Attachments &attachments, bool fragmentContainsKill) const
 {
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
+	ASSERT((index >= 0) && (index < sw::MAX_COLOR_BUFFERS));
+	auto &state = blendState[index];
 
-	if(!blendState[index].alphaBlendEnable)
+	if(!attachments.colorBuffer[index] || !blendState[index].alphaBlendEnable)
 	{
 		return false;
 	}
@@ -680,331 +953,139 @@ bool GraphicsState::alphaBlendActive(int index, const Attachments &attachments, 
 		return false;
 	}
 
-	bool colorBlend = !(blendOperation(index, attachments) == VK_BLEND_OP_SRC_EXT &&
-	                    sourceBlendFactor(index) == VK_BLEND_FACTOR_ONE);
-	bool alphaBlend = !(blendOperationAlpha(index, attachments) == VK_BLEND_OP_SRC_EXT &&
-	                    sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ONE);
+	vk::Format format = attachments.colorBuffer[index]->getFormat(VK_IMAGE_ASPECT_COLOR_BIT);
+	bool colorBlend = blendOperation(state.blendOperation, state.sourceBlendFactor, state.destBlendFactor, format) != VK_BLEND_OP_SRC_EXT;
+	bool alphaBlend = blendOperation(state.blendOperationAlpha, state.sourceBlendFactorAlpha, state.destBlendFactorAlpha, format) != VK_BLEND_OP_SRC_EXT;
 
 	return colorBlend || alphaBlend;
 }
 
-VkBlendFactor GraphicsState::sourceBlendFactor(int index) const
+VkBlendFactor GraphicsState::blendFactor(VkBlendOp blendOperation, VkBlendFactor blendFactor) const
 {
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	if(!blendState[index].alphaBlendEnable) return VK_BLEND_FACTOR_ONE;
-
-	switch(blendState[index].blendOperation)
+	switch(blendOperation)
 	{
-		case VK_BLEND_OP_ADD:
-		case VK_BLEND_OP_SUBTRACT:
-		case VK_BLEND_OP_REVERSE_SUBTRACT:
-			return blendState[index].sourceBlendFactor;
-		case VK_BLEND_OP_MIN:
-			return VK_BLEND_FACTOR_ONE;
-		case VK_BLEND_OP_MAX:
-			return VK_BLEND_FACTOR_ONE;
-		default:
-			ASSERT(false);
+	case VK_BLEND_OP_ADD:
+	case VK_BLEND_OP_SUBTRACT:
+	case VK_BLEND_OP_REVERSE_SUBTRACT:
+		return blendFactor;
+	case VK_BLEND_OP_MIN:
+	case VK_BLEND_OP_MAX:
+	case VK_BLEND_OP_MULTIPLY_EXT:
+	case VK_BLEND_OP_SCREEN_EXT:
+	case VK_BLEND_OP_OVERLAY_EXT:
+	case VK_BLEND_OP_DARKEN_EXT:
+	case VK_BLEND_OP_LIGHTEN_EXT:
+	case VK_BLEND_OP_COLORDODGE_EXT:
+	case VK_BLEND_OP_COLORBURN_EXT:
+	case VK_BLEND_OP_HARDLIGHT_EXT:
+	case VK_BLEND_OP_SOFTLIGHT_EXT:
+	case VK_BLEND_OP_DIFFERENCE_EXT:
+	case VK_BLEND_OP_EXCLUSION_EXT:
+	case VK_BLEND_OP_HSL_HUE_EXT:
+	case VK_BLEND_OP_HSL_SATURATION_EXT:
+	case VK_BLEND_OP_HSL_COLOR_EXT:
+	case VK_BLEND_OP_HSL_LUMINOSITY_EXT:
+		return VK_BLEND_FACTOR_ONE;
+	default:
+		ASSERT(false);
+		return blendFactor;
 	}
-
-	return blendState[index].sourceBlendFactor;
 }
 
-VkBlendFactor GraphicsState::destBlendFactor(int index) const
+VkBlendOp GraphicsState::blendOperation(VkBlendOp blendOperation, VkBlendFactor sourceBlendFactor, VkBlendFactor destBlendFactor, vk::Format format) const
 {
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	if(!blendState[index].alphaBlendEnable) return VK_BLEND_FACTOR_ONE;
-
-	switch(blendState[index].blendOperation)
+	switch(blendOperation)
 	{
-		case VK_BLEND_OP_ADD:
-		case VK_BLEND_OP_SUBTRACT:
-		case VK_BLEND_OP_REVERSE_SUBTRACT:
-			return blendState[index].destBlendFactor;
-		case VK_BLEND_OP_MIN:
-			return VK_BLEND_FACTOR_ONE;
-		case VK_BLEND_OP_MAX:
-			return VK_BLEND_FACTOR_ONE;
-		default:
-			ASSERT(false);
-	}
-
-	return blendState[index].destBlendFactor;
-}
-
-VkBlendOp GraphicsState::blendOperation(int index, const Attachments &attachments) const
-{
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	if(!blendState[index].alphaBlendEnable) return VK_BLEND_OP_SRC_EXT;
-
-	switch(blendState[index].blendOperation)
-	{
-		case VK_BLEND_OP_ADD:
-			if(sourceBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
+	case VK_BLEND_OP_ADD:
+		if(sourceBlendFactor == VK_BLEND_FACTOR_ZERO)
+		{
+			if(destBlendFactor == VK_BLEND_FACTOR_ZERO)
 			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_ZERO_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_DST_EXT;
-				}
+				return VK_BLEND_OP_ZERO_EXT;
 			}
-			else if(sourceBlendFactor(index) == VK_BLEND_FACTOR_ONE)
+			else if(destBlendFactor == VK_BLEND_FACTOR_ONE)
 			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_ADD;
-				}
+				return VK_BLEND_OP_DST_EXT;
 			}
-			else
+		}
+		else if(sourceBlendFactor == VK_BLEND_FACTOR_ONE)
+		{
+			if(destBlendFactor == VK_BLEND_FACTOR_ZERO)
 			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_ADD;
-				}
+				return VK_BLEND_OP_SRC_EXT;
 			}
-		case VK_BLEND_OP_SUBTRACT:
-			if(sourceBlendFactor(index) == VK_BLEND_FACTOR_ZERO && attachments.isColorClamped(index))
+		}
+		break;
+	case VK_BLEND_OP_SUBTRACT:
+		if(sourceBlendFactor == VK_BLEND_FACTOR_ZERO)
+		{
+			if(destBlendFactor == VK_BLEND_FACTOR_ZERO)
+			{
+				return VK_BLEND_OP_ZERO_EXT;
+			}
+			else if(format.isUnsignedNormalized())
 			{
 				return VK_BLEND_OP_ZERO_EXT;  // Negative, clamped to zero
 			}
-			else if(sourceBlendFactor(index) == VK_BLEND_FACTOR_ONE)
+		}
+		else if(sourceBlendFactor == VK_BLEND_FACTOR_ONE)
+		{
+			if(destBlendFactor == VK_BLEND_FACTOR_ZERO)
 			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_SUBTRACT;
-				}
+				return VK_BLEND_OP_SRC_EXT;
 			}
-			else
+		}
+		break;
+	case VK_BLEND_OP_REVERSE_SUBTRACT:
+		if(sourceBlendFactor == VK_BLEND_FACTOR_ZERO)
+		{
+			if(destBlendFactor == VK_BLEND_FACTOR_ZERO)
 			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_SUBTRACT;
-				}
+				return VK_BLEND_OP_ZERO_EXT;
 			}
-		case VK_BLEND_OP_REVERSE_SUBTRACT:
-			if(sourceBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
+			else if(destBlendFactor == VK_BLEND_FACTOR_ONE)
 			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_ZERO_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_DST_EXT;
-				}
+				return VK_BLEND_OP_DST_EXT;
 			}
-			else if(sourceBlendFactor(index) == VK_BLEND_FACTOR_ONE)
-			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO && attachments.isColorClamped(index))
-				{
-					return VK_BLEND_OP_ZERO_EXT;  // Negative, clamped to zero
-				}
-				else
-				{
-					return VK_BLEND_OP_REVERSE_SUBTRACT;
-				}
-			}
-			else
-			{
-				if(destBlendFactor(index) == VK_BLEND_FACTOR_ZERO && attachments.isColorClamped(index))
-				{
-					return VK_BLEND_OP_ZERO_EXT;  // Negative, clamped to zero
-				}
-				else
-				{
-					return VK_BLEND_OP_REVERSE_SUBTRACT;
-				}
-			}
-		case VK_BLEND_OP_MIN:
-			return VK_BLEND_OP_MIN;
-		case VK_BLEND_OP_MAX:
-			return VK_BLEND_OP_MAX;
-		default:
-			ASSERT(false);
-	}
-
-	return blendState[index].blendOperation;
-}
-
-VkBlendFactor GraphicsState::sourceBlendFactorAlpha(int index) const
-{
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	switch(blendState[index].blendOperationAlpha)
-	{
-		case VK_BLEND_OP_ADD:
-		case VK_BLEND_OP_SUBTRACT:
-		case VK_BLEND_OP_REVERSE_SUBTRACT:
-			return blendState[index].sourceBlendFactorAlpha;
-		case VK_BLEND_OP_MIN:
-			return VK_BLEND_FACTOR_ONE;
-		case VK_BLEND_OP_MAX:
-			return VK_BLEND_FACTOR_ONE;
-		default:
-			ASSERT(false);
-	}
-
-	return blendState[index].sourceBlendFactorAlpha;
-}
-
-VkBlendFactor GraphicsState::destBlendFactorAlpha(int index) const
-{
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	switch(blendState[index].blendOperationAlpha)
-	{
-		case VK_BLEND_OP_ADD:
-		case VK_BLEND_OP_SUBTRACT:
-		case VK_BLEND_OP_REVERSE_SUBTRACT:
-			return blendState[index].destBlendFactorAlpha;
-		case VK_BLEND_OP_MIN:
-			return VK_BLEND_FACTOR_ONE;
-		case VK_BLEND_OP_MAX:
-			return VK_BLEND_FACTOR_ONE;
-		default:
-			ASSERT(false);
-	}
-
-	return blendState[index].destBlendFactorAlpha;
-}
-
-VkBlendOp GraphicsState::blendOperationAlpha(int index, const Attachments &attachments) const
-{
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
-
-	switch(blendState[index].blendOperationAlpha)
-	{
-		case VK_BLEND_OP_ADD:
-			if(sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_ZERO_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_DST_EXT;
-				}
-			}
-			else if(sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ONE)
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_ADD;
-				}
-			}
-			else
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_ADD;
-				}
-			}
-		case VK_BLEND_OP_SUBTRACT:
-			if(sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO && attachments.isColorClamped(index))
+		}
+		else
+		{
+			if(destBlendFactor == VK_BLEND_FACTOR_ZERO && format.isUnsignedNormalized())
 			{
 				return VK_BLEND_OP_ZERO_EXT;  // Negative, clamped to zero
 			}
-			else if(sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ONE)
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_SUBTRACT;
-				}
-			}
-			else
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_SRC_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_SUBTRACT;
-				}
-			}
-		case VK_BLEND_OP_REVERSE_SUBTRACT:
-			if(sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO)
-				{
-					return VK_BLEND_OP_ZERO_EXT;
-				}
-				else
-				{
-					return VK_BLEND_OP_DST_EXT;
-				}
-			}
-			else if(sourceBlendFactorAlpha(index) == VK_BLEND_FACTOR_ONE)
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO && attachments.isColorClamped(index))
-				{
-					return VK_BLEND_OP_ZERO_EXT;  // Negative, clamped to zero
-				}
-				else
-				{
-					return VK_BLEND_OP_REVERSE_SUBTRACT;
-				}
-			}
-			else
-			{
-				if(destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ZERO && attachments.isColorClamped(index))
-				{
-					return VK_BLEND_OP_ZERO_EXT;  // Negative, clamped to zero
-				}
-				else
-				{
-					return VK_BLEND_OP_REVERSE_SUBTRACT;
-				}
-			}
-		case VK_BLEND_OP_MIN:
-			return VK_BLEND_OP_MIN;
-		case VK_BLEND_OP_MAX:
-			return VK_BLEND_OP_MAX;
-		default:
-			ASSERT(false);
+		}
+		break;
+	case VK_BLEND_OP_MIN:
+		return VK_BLEND_OP_MIN;
+	case VK_BLEND_OP_MAX:
+		return VK_BLEND_OP_MAX;
+	case VK_BLEND_OP_MULTIPLY_EXT:
+	case VK_BLEND_OP_SCREEN_EXT:
+	case VK_BLEND_OP_OVERLAY_EXT:
+	case VK_BLEND_OP_DARKEN_EXT:
+	case VK_BLEND_OP_LIGHTEN_EXT:
+	case VK_BLEND_OP_COLORDODGE_EXT:
+	case VK_BLEND_OP_COLORBURN_EXT:
+	case VK_BLEND_OP_HARDLIGHT_EXT:
+	case VK_BLEND_OP_SOFTLIGHT_EXT:
+	case VK_BLEND_OP_DIFFERENCE_EXT:
+	case VK_BLEND_OP_EXCLUSION_EXT:
+	case VK_BLEND_OP_HSL_HUE_EXT:
+	case VK_BLEND_OP_HSL_SATURATION_EXT:
+	case VK_BLEND_OP_HSL_COLOR_EXT:
+	case VK_BLEND_OP_HSL_LUMINOSITY_EXT:
+		return blendOperation;
+	default:
+		ASSERT(false);
 	}
 
-	return blendState[index].blendOperationAlpha;
+	return blendOperation;
 }
 
 bool GraphicsState::colorWriteActive(const Attachments &attachments) const
 {
-	for(int i = 0; i < sw::RENDERTARGETS; i++)
+	for(int i = 0; i < sw::MAX_COLOR_BUFFERS; i++)
 	{
 		if(colorWriteActive(i, attachments))
 		{
@@ -1017,15 +1098,18 @@ bool GraphicsState::colorWriteActive(const Attachments &attachments) const
 
 int GraphicsState::colorWriteActive(int index, const Attachments &attachments) const
 {
-	ASSERT((index >= 0) && (index < sw::RENDERTARGETS));
+	ASSERT((index >= 0) && (index < sw::MAX_COLOR_BUFFERS));
+	auto &state = blendState[index];
 
-	if(!attachments.renderTarget[index] || attachments.renderTarget[index]->getFormat() == VK_FORMAT_UNDEFINED)
+	if(!attachments.colorBuffer[index] || attachments.colorBuffer[index]->getFormat() == VK_FORMAT_UNDEFINED)
 	{
 		return 0;
 	}
 
-	if(blendOperation(index, attachments) == VK_BLEND_OP_DST_EXT && destBlendFactor(index) == VK_BLEND_FACTOR_ONE &&
-	   (blendOperationAlpha(index, attachments) == VK_BLEND_OP_DST_EXT && destBlendFactorAlpha(index) == VK_BLEND_FACTOR_ONE))
+	vk::Format format = attachments.colorBuffer[index]->getFormat(VK_IMAGE_ASPECT_COLOR_BIT);
+
+	if(blendOperation(state.blendOperation, state.sourceBlendFactor, state.destBlendFactor, format) == VK_BLEND_OP_DST_EXT &&
+	   blendOperation(state.blendOperationAlpha, state.sourceBlendFactorAlpha, state.destBlendFactorAlpha, format) == VK_BLEND_OP_DST_EXT)
 	{
 		return 0;
 	}

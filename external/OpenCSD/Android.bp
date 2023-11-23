@@ -75,6 +75,7 @@ cc_library_static {
         "decoder/source/*.cpp",
         "decoder/source/etmv3/*.cpp",
         "decoder/source/etmv4/*.cpp",
+        "decoder/source/ete/*.cpp",
         "decoder/source/i_dec/*.cpp",
         "decoder/source/mem_acc/*.cpp",
         "decoder/source/pkt_printers/*.cpp",

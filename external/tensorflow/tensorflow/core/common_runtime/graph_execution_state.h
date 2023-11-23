@@ -54,7 +54,7 @@ struct GraphExecutionStateOptions {
 struct ClientGraph {
   explicit ClientGraph(std::unique_ptr<FunctionLibraryDefinition> flib,
                        DataTypeVector feed_types, DataTypeVector fetch_types,
-                       int64 collective_graph_key)
+                       int64_t collective_graph_key)
       : flib_def(std::move(flib)),
         graph(flib_def.get()),
         feed_types(std::move(feed_types)),
@@ -139,7 +139,9 @@ class GraphExecutionState {
 
   // Optimize the graph with the node set specified in `options`.
   Status OptimizeGraph(
-      const BuildGraphOptions& options, std::unique_ptr<Graph>* optimized_graph,
+      const BuildGraphOptions& options, const Graph& graph,
+      const FunctionLibraryDefinition* flib_def,
+      std::unique_ptr<Graph>* optimized_graph,
       std::unique_ptr<FunctionLibraryDefinition>* optimized_flib);
 
   // The graph returned by BuildGraph may contain only the pruned

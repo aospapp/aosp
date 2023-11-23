@@ -5,7 +5,6 @@
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fmt::{self, Display};
 use std::fs::{File, OpenOptions};
 use std::io::{self, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::ops::Range;
@@ -20,6 +19,7 @@ use data_model::VolatileSlice;
 use protobuf::Message;
 use protos::cdisk_spec::{self, ComponentDisk, CompositeDisk, ReadWriteCapability};
 use remain::sorted;
+use thiserror::Error;
 use uuid::Uuid;
 
 use crate::gpt::{
@@ -44,61 +44,41 @@ const LINUX_FILESYSTEM_GUID: Uuid = Uuid::from_u128(0x0FC63DAF_8483_4772_8E79_3D
 const EFI_SYSTEM_PARTITION_GUID: Uuid = Uuid::from_u128(0xC12A7328_F81F_11D2_BA4B_00A0C93EC93B);
 
 #[sorted]
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("failed to use underlying disk: \"{0}\"")]
     DiskError(Box<crate::Error>),
+    #[error("duplicate GPT partition label \"{0}\"")]
     DuplicatePartitionLabel(String),
+    #[error("failed to write GPT header: \"{0}\"")]
     GptError(gpt::Error),
+    #[error("invalid magic header for composite disk format")]
     InvalidMagicHeader,
+    #[error("invalid partition path {0:?}")]
     InvalidPath(PathBuf),
+    #[error("failed to parse specification proto: \"{0}\"")]
     InvalidProto(protobuf::ProtobufError),
+    #[error("invalid specification: \"{0}\"")]
     InvalidSpecification(String),
+    #[error("no image files for partition {0:?}")]
     NoImageFiles(PartitionInfo),
+    #[error("failed to open component file \"{1}\": \"{0}\"")]
     OpenFile(io::Error, String),
+    #[error("failed to read specification: \"{0}\"")]
     ReadSpecificationError(io::Error),
+    #[error("Read-write partition {0:?} size is not a multiple of {}.", 1 << PARTITION_SIZE_SHIFT)]
     UnalignedReadWrite(PartitionInfo),
+    #[error("unknown version {0} in specification")]
     UnknownVersion(u64),
+    #[error("unsupported component disk type \"{0:?}\"")]
     UnsupportedComponent(ImageType),
+    #[error("failed to write composite disk header: \"{0}\"")]
     WriteHeader(io::Error),
+    #[error("failed to write specification proto: \"{0}\"")]
     WriteProto(protobuf::ProtobufError),
+    #[error("failed to write zero filler: \"{0}\"")]
     WriteZeroFiller(io::Error),
 }
-
-impl Display for Error {
-    #[remain::check]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        #[sorted]
-        match self {
-            DiskError(e) => write!(f, "failed to use underlying disk: \"{}\"", e),
-            DuplicatePartitionLabel(label) => {
-                write!(f, "duplicate GPT partition label \"{}\"", label)
-            }
-            GptError(e) => write!(f, "failed to write GPT header: \"{}\"", e),
-            InvalidMagicHeader => write!(f, "invalid magic header for composite disk format"),
-            InvalidPath(path) => write!(f, "invalid partition path {:?}", path),
-            InvalidProto(e) => write!(f, "failed to parse specification proto: \"{}\"", e),
-            InvalidSpecification(s) => write!(f, "invalid specification: \"{}\"", s),
-            NoImageFiles(partition) => write!(f, "no image files for partition {:?}", partition),
-            OpenFile(e, p) => write!(f, "failed to open component file \"{}\": \"{}\"", p, e),
-            ReadSpecificationError(e) => write!(f, "failed to read specification: \"{}\"", e),
-            UnalignedReadWrite(partition) => write!(
-                f,
-                "Read-write partition {:?} size is not a multiple of {}.",
-                partition,
-                1 << PARTITION_SIZE_SHIFT
-            ),
-            UnknownVersion(v) => write!(f, "unknown version {} in specification", v),
-            UnsupportedComponent(c) => write!(f, "unsupported component disk type \"{:?}\"", c),
-            WriteHeader(e) => write!(f, "failed to write composite disk header: \"{}\"", e),
-            WriteProto(e) => write!(f, "failed to write specification proto: \"{}\"", e),
-            WriteZeroFiller(e) => write!(f, "failed to write zero filler: \"{}\"", e),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
 
 impl From<gpt::Error> for Error {
     fn from(e: gpt::Error) -> Self {
@@ -144,7 +124,7 @@ fn range_intersection(a: &Range<u64>, b: &Range<u64>) -> Range<u64> {
 }
 
 /// The version of the composite disk format supported by this implementation.
-const COMPOSITE_DISK_VERSION: u64 = 1;
+const COMPOSITE_DISK_VERSION: u64 = 2;
 
 /// A magic string placed at the beginning of a composite disk file to identify it.
 pub const CDISK_MAGIC: &str = "composite_disk\x1d";
@@ -177,7 +157,11 @@ impl CompositeDiskFile {
     /// Set up a composite disk by reading the specification from a file. The file must consist of
     /// the CDISK_MAGIC string followed by one binary instance of the CompositeDisk protocol
     /// buffer. Returns an error if it could not read the file or if the specification was invalid.
-    pub fn from_file(mut file: File) -> Result<CompositeDiskFile> {
+    pub fn from_file(
+        mut file: File,
+        max_nesting_depth: u32,
+        image_path: &Path,
+    ) -> Result<CompositeDiskFile> {
         file.seek(SeekFrom::Start(0))
             .map_err(Error::ReadSpecificationError)?;
         let mut magic_space = [0u8; CDISK_MAGIC_LEN];
@@ -188,22 +172,29 @@ impl CompositeDiskFile {
         }
         let proto: cdisk_spec::CompositeDisk =
             Message::parse_from_reader(&mut file).map_err(Error::InvalidProto)?;
-        if proto.get_version() != COMPOSITE_DISK_VERSION {
+        if proto.get_version() > COMPOSITE_DISK_VERSION {
             return Err(Error::UnknownVersion(proto.get_version()));
         }
         let mut disks: Vec<ComponentDiskPart> = proto
             .get_component_disks()
             .iter()
             .map(|disk| {
-                let file = open_file(
-                    Path::new(disk.get_file_path()),
-                    disk.get_read_write_capability() != cdisk_spec::ReadWriteCapability::READ_WRITE,
-                    // TODO(b/190435784): add support for O_DIRECT.
-                    false, /*O_DIRECT*/
+                let path = if proto.get_version() == 1 {
+                    PathBuf::from(disk.get_file_path())
+                } else {
+                    image_path.parent().unwrap().join(disk.get_file_path())
+                };
+                let comp_file = open_file(
+                    &path,
+                    OpenOptions::new().read(true).write(
+                        disk.get_read_write_capability()
+                            == cdisk_spec::ReadWriteCapability::READ_WRITE,
+                    ), // TODO(b/190435784): add support for O_DIRECT.
                 )
                 .map_err(|e| Error::OpenFile(e.into(), disk.get_file_path().to_string()))?;
                 Ok(ComponentDiskPart {
-                    file: create_disk_file(file).map_err(|e| Error::DiskError(Box::new(e)))?,
+                    file: create_disk_file(comp_file, max_nesting_depth, &path)
+                        .map_err(|e| Error::DiskError(Box::new(e)))?,
                     offset: disk.get_offset(),
                     length: 0, // Assigned later
                 })
@@ -345,9 +336,7 @@ impl PunchHole for CompositeDiskFile {
                 intersection.start - disk.offset,
                 intersection.end - intersection.start,
             );
-            if result.is_err() {
-                return result;
-            }
+            result?;
         }
         Ok(())
     }
@@ -366,9 +355,7 @@ impl FileAllocate for CompositeDiskFile {
                 intersection.start - disk.offset,
                 intersection.end - intersection.start,
             );
-            if result.is_err() {
-                return result;
-            }
+            result?;
         }
         Ok(())
     }
@@ -392,8 +379,7 @@ impl AsRawDescriptors for CompositeDiskFile {
     fn as_raw_descriptors(&self) -> Vec<RawDescriptor> {
         self.component_disks
             .iter()
-            .map(|d| d.file.as_raw_descriptors())
-            .flatten()
+            .flat_map(|d| d.file.as_raw_descriptors())
             .collect()
     }
 }
@@ -748,7 +734,7 @@ mod tests {
             file2.as_raw_descriptor(),
             file3.as_raw_descriptor(),
         ];
-        in_fds.sort();
+        in_fds.sort_unstable();
         let disk_part1 = ComponentDiskPart {
             file: Box::new(file1),
             offset: 0,
@@ -766,7 +752,7 @@ mod tests {
         };
         let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
         let mut out_fds = composite.as_raw_descriptors();
-        out_fds.sort();
+        out_fds.sort_unstable();
         assert_eq!(in_fds, out_fds);
     }
 
@@ -839,9 +825,7 @@ mod tests {
             .read_exact_at_volatile(output_volatile_memory.get_slice(0, 300).unwrap(), 0)
             .unwrap();
 
-        for i in 50..250 {
-            input_memory[i] = 0;
-        }
+        input_memory[50..250].iter_mut().for_each(|x| *x = 0);
         assert!(input_memory.iter().eq(output_memory.iter()));
     }
 
@@ -884,9 +868,7 @@ mod tests {
             .read_exact_at_volatile(output_volatile_memory.get_slice(0, 300).unwrap(), 0)
             .unwrap();
 
-        for i in 50..250 {
-            input_memory[i] = 0;
-        }
+        input_memory[50..250].iter_mut().for_each(|x| *x = 0);
         for i in 0..300 {
             println!(
                 "input[{0}] = {1}, output[{0}] = {2}",

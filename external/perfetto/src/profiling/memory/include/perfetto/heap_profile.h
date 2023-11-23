@@ -59,8 +59,9 @@
 #ifndef SRC_PROFILING_MEMORY_INCLUDE_PERFETTO_HEAP_PROFILE_H_
 #define SRC_PROFILING_MEMORY_INCLUDE_PERFETTO_HEAP_PROFILE_H_
 
-#include <inttypes.h>
 #include <stdlib.h>
+
+#include <cinttypes>
 
 #pragma GCC diagnostic push
 
@@ -81,6 +82,14 @@ extern "C" {
 typedef struct AHeapInfo AHeapInfo;
 typedef struct AHeapProfileEnableCallbackInfo AHeapProfileEnableCallbackInfo;
 typedef struct AHeapProfileDisableCallbackInfo AHeapProfileDisableCallbackInfo;
+
+typedef void (*_Nonnull AHeapInfo_EnableCallback)(
+    void* _Nullable data,
+    const AHeapProfileEnableCallbackInfo* _Nonnull session_info);
+
+typedef void (*_Nonnull AHeapInfo_DisableCallback)(
+    void* _Nullable data,
+    const AHeapProfileDisableCallbackInfo* _Nonnull session_info);
 
 // Get sampling interval (in bytes) of the profiling session that was started.
 uint64_t AHeapProfileEnableCallbackInfo_getSamplingInterval(
@@ -109,9 +118,7 @@ AHeapInfo* _Nullable AHeapInfo_create(const char* _Nonnull heap_name);
 // this callback is called when profiling of the heap is requested.
 AHeapInfo* _Nullable AHeapInfo_setEnabledCallback(
     AHeapInfo* _Nullable info,
-    void (*_Nonnull callback)(
-        void* _Nullable,
-        const AHeapProfileEnableCallbackInfo* _Nonnull session_info),
+    AHeapInfo_EnableCallback callback,
     void* _Nullable data);
 
 // Set disabled callback in AHeapInfo.
@@ -122,9 +129,7 @@ AHeapInfo* _Nullable AHeapInfo_setEnabledCallback(
 // this callback is called when profiling of the heap ends.
 AHeapInfo* _Nullable AHeapInfo_setDisabledCallback(
     AHeapInfo* _Nullable info,
-    void (*_Nonnull callback)(
-        void* _Nullable,
-        const AHeapProfileDisableCallbackInfo* _Nonnull session_info),
+    AHeapInfo_DisableCallback callback,
     void* _Nullable data);
 
 // Register heap described in AHeapInfo.

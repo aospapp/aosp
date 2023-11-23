@@ -23,6 +23,7 @@
 #include "icing/testing/icu-i18n-test-utils.h"
 #include "icing/transform/normalizer-factory.h"
 #include "icing/transform/normalizer.h"
+#include "icing/util/character-iterator.h"
 
 namespace icing {
 namespace lib {
@@ -197,6 +198,104 @@ TEST(MapNormalizerTest, Truncate) {
     // string.
     EXPECT_THAT(normalizer->NormalizeTerm("キ"), Eq(""));
   }
+}
+
+TEST(MapNormalizerTest, PrefixMatchLength) {
+  // Verify that FindNormalizedMatchEndPosition will properly find the length of
+  // the prefix match when given a non-normalized term and a normalized term
+  // is a prefix of the non-normalized one.
+  ICING_ASSERT_OK_AND_ASSIGN(auto normalizer, normalizer_factory::Create(
+                                                  /*max_term_byte_size=*/1000));
+
+  // Upper to lower
+  std::string term = "MDI";
+  CharacterIterator match_end =
+      normalizer->FindNormalizedMatchEndPosition(term, "md");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("MD"));
+
+  term = "Icing";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "icin");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Icin"));
+
+  // Full-width
+  term = "５２５６００";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "525");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("５２５"));
+
+  term = "ＦＵＬＬＷＩＤＴＨ";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "full");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("ＦＵＬＬ"));
+
+  // Hiragana to Katakana
+  term = "あいうえお";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "アイ");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("あい"));
+
+  term = "かきくけこ";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "カ");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("か"));
+
+  // Latin accents
+  term = "Zürich";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "zur");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Zür"));
+
+  term = "après-midi";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "apre");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("aprè"));
+
+  term = "Buenos días";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "buenos di");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Buenos dí"));
+}
+
+TEST(MapNormalizerTest, SharedPrefixMatchLength) {
+  // Verify that FindNormalizedMatchEndPosition will properly find the length of
+  // the prefix match when given a non-normalized term and a normalized term
+  // that share a common prefix.
+  ICING_ASSERT_OK_AND_ASSIGN(auto normalizer, normalizer_factory::Create(
+                                                  /*max_term_byte_size=*/1000));
+
+  // Upper to lower
+  std::string term = "MDI";
+  CharacterIterator match_end =
+      normalizer->FindNormalizedMatchEndPosition(term, "mgm");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("M"));
+
+  term = "Icing";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "icky");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Ic"));
+
+  // Full-width
+  term = "５２５６００";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "525788");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("５２５"));
+
+  term = "ＦＵＬＬＷＩＤＴＨ";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "fully");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("ＦＵＬＬ"));
+
+  // Hiragana to Katakana
+  term = "あいうえお";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "アイエオ");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("あい"));
+
+  term = "かきくけこ";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "カケコ");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("か"));
+
+  // Latin accents
+  term = "Zürich";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "zurg");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Zür"));
+
+  term = "après-midi";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "apreciate");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("aprè"));
+
+  term = "días";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "diamond");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("día"));
 }
 
 }  // namespace

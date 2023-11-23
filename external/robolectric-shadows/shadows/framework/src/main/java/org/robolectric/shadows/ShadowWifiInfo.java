@@ -61,9 +61,9 @@ public class ShadowWifiInfo {
   private static Object getWifiSsid(String ssid) {
     WifiSsid wifiSsid;
     if (ssid.startsWith("0x")) {
-      wifiSsid = WifiSsid.createFromHex(ssid);
+      wifiSsid = WifiSsid.fromString(ssid.substring(2));
     } else {
-      wifiSsid = WifiSsid.createFromAsciiEncoded(ssid);
+      wifiSsid = WifiSsid.fromUtf8Text(ssid);
     }
     return wifiSsid;
   }

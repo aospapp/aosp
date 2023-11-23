@@ -45,13 +45,13 @@
         <item name="android:theme">@style/SucPartnerCustomizationButton.Primary</item>
 
         <!-- Values used in styles -->
-        <item name="android:fontFamily">?attr/sucFooterBarButtonFontFamily</item>
+        <item name="android:fontFamily" tools:targetApi="jelly_bean">?attr/sucFooterBarButtonFontFamily</item>
         <item name="android:paddingLeft">?attr/sucFooterButtonPaddingStart</item>
         <item name="android:paddingStart" tools:ignore="NewApi">?attr/sucFooterButtonPaddingStart</item>
         <item name="android:paddingRight">?attr/sucFooterButtonPaddingEnd</item>
         <item name="android:paddingEnd" tools:ignore="NewApi">?attr/sucFooterButtonPaddingEnd</item>
         <item name="android:textAllCaps">?attr/sucFooterBarButtonAllCaps</item>
-        <item name="android:stateListAnimator">@null</item>
+        <item name="android:stateListAnimator" tools:ignore="NewApi">@null</item>
 
         <!-- Values used in themes -->
         <item name="android:buttonCornerRadius" tools:ignore="NewApi">?attr/sucFooterBarButtonCornerRadius</item>
@@ -65,7 +65,7 @@
         <item name="android:theme">@style/SucPartnerCustomizationButton.Secondary</item>
 
         <!-- Values used in styles -->
-        <item name="android:fontFamily">?attr/sucFooterBarButtonFontFamily</item>
+        <item name="android:fontFamily" tools:targetApi="jelly_bean">?attr/sucFooterBarButtonFontFamily</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:paddingLeft">?attr/sucFooterButtonPaddingStart</item>
         <item name="android:paddingStart" tools:ignore="NewApi">?attr/sucFooterButtonPaddingStart</item>

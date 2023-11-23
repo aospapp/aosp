@@ -45,6 +45,8 @@
 #endif
 
 /*!
+ * @addtogroup ICU4C
+ * @{
  * \file
  * \brief Basic definitions for ICU, for both C and C++ APIs
  *
@@ -57,7 +59,7 @@
 
 /**
  * \def U_SHOW_CPLUSPLUS_API
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifdef __cplusplus
 #   ifndef U_SHOW_CPLUSPLUS_API
@@ -73,12 +75,12 @@
 /**
  * \def U_HIDE_DRAFT_API
  * Define this to 1 to request that draft API be "hidden"
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 /**
  * \def U_HIDE_INTERNAL_API
  * Define this to 1 to request that internal API be "hidden"
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #if !U_DEFAULT_SHOW_DRAFT && !defined(U_SHOW_DRAFT_API)
 #define U_HIDE_DRAFT_API 1
@@ -101,13 +103,13 @@
  * - l for little-endian, ASCII-family platforms
  * - e for big-endian, EBCDIC-family platforms
  * This letter is part of the common data file name.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 
 /**
  * \def U_ICUDATA_TYPE_LITLETTER
  * The non-string form of U_ICUDATA_TYPE_LETTER
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #if U_CHARSET_FAMILY
 #   if U_IS_BIG_ENDIAN
@@ -134,12 +136,12 @@
 /**
  * A single string literal containing the icudata stub name. i.e. 'icudt18e' for
  * ICU 1.8.x on EBCDIC, etc..
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #define U_ICUDATA_NAME    "icudt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER
 #ifndef U_HIDE_INTERNAL_API
-#define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */
-#define U_USE_USRDATA     0  /**< @internal */
+#define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
+#define U_USE_USRDATA     0  /**< \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */
 #endif  /* U_HIDE_INTERNAL_API */
 
 /**
@@ -151,20 +153,20 @@
  *                              the literal text U_ICU_VERSION_MAJOR_NUM into the name.
  *                              The net result will be something of the form
  *                                  \#define U_ICU_ENTRY_POINT icudt19_dat
- * @stable ICU 2.4
+ * \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 #define U_ICUDATA_ENTRY_POINT  U_DEF2_ICUDATA_ENTRY_POINT(U_ICU_VERSION_MAJOR_NUM,U_LIB_SUFFIX_C_NAME)
 
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Do not use. Note that it's OK for the 2nd argument to be undefined (literal).
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #define U_DEF2_ICUDATA_ENTRY_POINT(major,suff) U_DEF_ICUDATA_ENTRY_POINT(major,suff)
 
 /**
  * Do not use.
- * @internal
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
  */
 #ifndef U_DEF_ICUDATA_ENTRY_POINT
 /* affected by symbol renaming. See platform.h */
@@ -179,7 +181,7 @@
 /**
  * \def NULL
  * Define NULL if necessary, to nullptr for C++ and to ((void *)0) for C.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #ifndef NULL
 #ifdef __cplusplus
@@ -198,28 +200,28 @@
  * This is a primitive data type that holds the date and time
  * as the number of milliseconds since 1970-jan-01, 00:00 UTC.
  * UTC leap seconds are ignored.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 typedef double UDate;
 
-/** The number of milliseconds per second @stable ICU 2.0 */
+/** The number of milliseconds per second \xrefitem stable "Stable" "Stable List" ICU 2.0 */
 #define U_MILLIS_PER_SECOND        (1000)
-/** The number of milliseconds per minute @stable ICU 2.0 */
+/** The number of milliseconds per minute \xrefitem stable "Stable" "Stable List" ICU 2.0 */
 #define U_MILLIS_PER_MINUTE       (60000)
-/** The number of milliseconds per hour @stable ICU 2.0 */
+/** The number of milliseconds per hour \xrefitem stable "Stable" "Stable List" ICU 2.0 */
 #define U_MILLIS_PER_HOUR       (3600000)
-/** The number of milliseconds per day @stable ICU 2.0 */
+/** The number of milliseconds per day \xrefitem stable "Stable" "Stable List" ICU 2.0 */
 #define U_MILLIS_PER_DAY       (86400000)
 
 /** 
  * Maximum UDate value 
- * @stable ICU 4.8 
+ * \xrefitem stable "Stable" "Stable List" ICU 4.8 
  */ 
 #define U_DATE_MAX DBL_MAX
 
 /**
  * Minimum UDate value 
- * @stable ICU 4.8 
+ * \xrefitem stable "Stable" "Stable List" ICU 4.8 
  */ 
 #define U_DATE_MIN -U_DATE_MAX
 
@@ -238,56 +240,56 @@ typedef double UDate;
  * when all of ICU is in a single library.
  * This can be set as a compiler option while building ICU, and it
  * needs to be the first one tested to override U_COMMON_API, U_I18N_API, etc.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 
 /**
  * \def U_DATA_API
  * Set to export library symbols from inside the stubdata library,
  * and to import them from outside.
- * @stable ICU 3.0
+ * \xrefitem stable "Stable" "Stable List" ICU 3.0
  */
 
 /**
  * \def U_COMMON_API
  * Set to export library symbols from inside the common library,
  * and to import them from outside.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 
 /**
  * \def U_I18N_API
  * Set to export library symbols from inside the i18n library,
  * and to import them from outside.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 
 /**
  * \def U_LAYOUT_API
  * Set to export library symbols from inside the layout engine library,
  * and to import them from outside.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 
 /**
  * \def U_LAYOUTEX_API
  * Set to export library symbols from inside the layout extensions library,
  * and to import them from outside.
- * @stable ICU 2.6
+ * \xrefitem stable "Stable" "Stable List" ICU 2.6
  */
 
 /**
  * \def U_IO_API
  * Set to export library symbols from inside the ustdio library,
  * and to import them from outside.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 
 /**
  * \def U_TOOLUTIL_API
  * Set to export library symbols from inside the toolutil library,
  * and to import them from outside.
- * @stable ICU 3.4
+ * \xrefitem stable "Stable" "Stable List" ICU 3.4
  */
 
 #ifdef U_IN_DOXYGEN
@@ -372,7 +374,7 @@ typedef double UDate;
 /**
  * \def U_STANDARD_CPP_NAMESPACE
  * Control of C++ Namespace
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #ifdef __cplusplus
 #define U_STANDARD_CPP_NAMESPACE        ::
@@ -400,7 +402,7 @@ typedef double UDate;
  * suitable subclass.
  *
  * For more information, see:
- * http://icu-project.org/userguide/conventions
+ * https://unicode-org.github.io/icu/userguide/dev/codingguidelines#details-about-icu-error-codes
  *
  * Note: By convention, ICU functions that take a reference (C++) or a pointer
  * (C) to a UErrorCode first test:
@@ -410,7 +412,7 @@ typedef double UDate;
  * so that in a chain of such functions the first one that sets an error code
  * causes the following ones to not perform any operations.
  *
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 typedef enum UErrorCode {
     /* The ordering of U_ERROR_INFO_START Vs U_USING_FALLBACK_WARNING looks weird
@@ -441,7 +443,7 @@ typedef enum UErrorCode {
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal UErrorCode warning value.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_ERROR_WARNING_LIMIT,
 #endif  // U_HIDE_DEPRECATED_API
@@ -479,21 +481,19 @@ typedef enum UErrorCode {
     U_COLLATOR_VERSION_MISMATCH = 28,   /**< Collator version is not compatible with the base version */
     U_USELESS_COLLATOR_ERROR  = 29,     /**< Collator is options only and no base is specified */
     U_NO_WRITE_PERMISSION     = 30,     /**< Attempt to modify read-only or constant data. */
-#ifndef U_HIDE_DRAFT_API
     /**
      * The input is impractically long for an operation.
      * It is rejected because it may lead to problems such as excessive
      * processing time, stack depth, or heap memory requirements.
      *
-     * @draft ICU 68
+     * \xrefitem stable "Stable" "Stable List" ICU 68
      */
     U_INPUT_TOO_LONG_ERROR = 31,
-#endif  // U_HIDE_DRAFT_API
 
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest standard error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_STANDARD_ERROR_LIMIT = 32,
 #endif  // U_HIDE_DEPRECATED_API
@@ -540,7 +540,7 @@ typedef enum UErrorCode {
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal Transliterator error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_PARSE_ERROR_LIMIT,
 #endif  // U_HIDE_DEPRECATED_API
@@ -567,13 +567,13 @@ typedef enum UErrorCode {
     U_UNDEFINED_KEYWORD,              /**< Undefined Plural keyword */
     U_DEFAULT_KEYWORD_MISSING,        /**< Missing DEFAULT rule in plural rules */
     U_DECIMAL_NUMBER_SYNTAX_ERROR,    /**< Decimal number syntax error */
-    U_FORMAT_INEXACT_ERROR,           /**< Cannot format a number exactly and rounding mode is ROUND_UNNECESSARY @stable ICU 4.8 */
-    U_NUMBER_ARG_OUTOFBOUNDS_ERROR,   /**< The argument to a NumberFormatter helper method was out of bounds; the bounds are usually 0 to 999. @stable ICU 61 */
-    U_NUMBER_SKELETON_SYNTAX_ERROR,   /**< The number skeleton passed to C++ NumberFormatter or C UNumberFormatter was invalid or contained a syntax error. @stable ICU 62 */
+    U_FORMAT_INEXACT_ERROR,           /**< Cannot format a number exactly and rounding mode is ROUND_UNNECESSARY \xrefitem stable "Stable" "Stable List" ICU 4.8 */
+    U_NUMBER_ARG_OUTOFBOUNDS_ERROR,   /**< The argument to a NumberFormatter helper method was out of bounds; the bounds are usually 0 to 999. \xrefitem stable "Stable" "Stable List" ICU 61 */
+    U_NUMBER_SKELETON_SYNTAX_ERROR,   /**< The number skeleton passed to C++ NumberFormatter or C UNumberFormatter was invalid or contained a syntax error. \xrefitem stable "Stable" "Stable List" ICU 62 */
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal formatting API error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_FMT_PARSE_ERROR_LIMIT = 0x10114,
 #endif  // U_HIDE_DEPRECATED_API
@@ -599,7 +599,7 @@ typedef enum UErrorCode {
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal BreakIterator error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_BRK_ERROR_LIMIT,
 #endif  // U_HIDE_DEPRECATED_API
@@ -623,19 +623,19 @@ typedef enum UErrorCode {
     U_REGEX_LOOK_BEHIND_LIMIT,            /**< Look-Behind pattern matches must have a bounded maximum length.    */
     U_REGEX_SET_CONTAINS_STRING,          /**< Regexps cannot have UnicodeSets containing strings.*/
 #ifndef U_HIDE_DEPRECATED_API
-    U_REGEX_OCTAL_TOO_BIG,                /**< Octal character constants must be <= 0377. @deprecated ICU 54. This error cannot occur. */
+    U_REGEX_OCTAL_TOO_BIG,                /**< Octal character constants must be <= 0377. \xrefitem deprecated "Deprecated" "Deprecated List" ICU 54. This error cannot occur. */
 #endif  /* U_HIDE_DEPRECATED_API */
     U_REGEX_MISSING_CLOSE_BRACKET=U_REGEX_SET_CONTAINS_STRING+2, /**< Missing closing bracket on a bracket expression. */
     U_REGEX_INVALID_RANGE,                /**< In a character range [x-y], x is greater than y.   */
     U_REGEX_STACK_OVERFLOW,               /**< Regular expression backtrack stack overflow.       */
     U_REGEX_TIME_OUT,                     /**< Maximum allowed match time exceeded                */
     U_REGEX_STOPPED_BY_CALLER,            /**< Matching operation aborted by user callback fn.    */
-    U_REGEX_PATTERN_TOO_BIG,              /**< Pattern exceeds limits on size or complexity. @stable ICU 55 */
-    U_REGEX_INVALID_CAPTURE_GROUP_NAME,   /**< Invalid capture group name. @stable ICU 55 */
+    U_REGEX_PATTERN_TOO_BIG,              /**< Pattern exceeds limits on size or complexity. \xrefitem stable "Stable" "Stable List" ICU 55 */
+    U_REGEX_INVALID_CAPTURE_GROUP_NAME,   /**< Invalid capture group name. \xrefitem stable "Stable" "Stable List" ICU 55 */
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal regular expression error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_REGEX_ERROR_LIMIT=U_REGEX_STOPPED_BY_CALLER+3,
 #endif  // U_HIDE_DEPRECATED_API
@@ -656,7 +656,7 @@ typedef enum UErrorCode {
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal IDNA error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_IDNA_ERROR_LIMIT,
 #endif  // U_HIDE_DEPRECATED_API
@@ -676,7 +676,7 @@ typedef enum UErrorCode {
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal plug-in error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_PLUGIN_ERROR_LIMIT,
 #endif  // U_HIDE_DEPRECATED_API
@@ -684,7 +684,7 @@ typedef enum UErrorCode {
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal error code.
-     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     U_ERROR_LIMIT=U_PLUGIN_ERROR_LIMIT
 #endif  // U_HIDE_DEPRECATED_API
@@ -696,25 +696,25 @@ typedef enum UErrorCode {
 #ifdef __cplusplus
     /**
      * Does the error code indicate success?
-     * @stable ICU 2.0
+     * \xrefitem stable "Stable" "Stable List" ICU 2.0
      */
     static
     inline UBool U_SUCCESS(UErrorCode code) { return (UBool)(code<=U_ZERO_ERROR); }
     /**
      * Does the error code indicate a failure?
-     * @stable ICU 2.0
+     * \xrefitem stable "Stable" "Stable List" ICU 2.0
      */
     static
     inline UBool U_FAILURE(UErrorCode code) { return (UBool)(code>U_ZERO_ERROR); }
 #else
     /**
      * Does the error code indicate success?
-     * @stable ICU 2.0
+     * \xrefitem stable "Stable" "Stable List" ICU 2.0
      */
 #   define U_SUCCESS(x) ((x)<=U_ZERO_ERROR)
     /**
      * Does the error code indicate a failure?
-     * @stable ICU 2.0
+     * \xrefitem stable "Stable" "Stable List" ICU 2.0
      */
 #   define U_FAILURE(x) ((x)>U_ZERO_ERROR)
 #endif
@@ -723,7 +723,7 @@ typedef enum UErrorCode {
  * Return a string for a UErrorCode value.
  * The string will be the same as the name of the error code constant
  * in the UErrorCode enum above.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 U_CAPI const char * U_EXPORT2
 u_errorName(UErrorCode code) __INTRODUCED_IN(31);
@@ -732,3 +732,5 @@ u_errorName(UErrorCode code) __INTRODUCED_IN(31);
 
 
 #endif /* _UTYPES */
+
+/** @} */ // addtogroup

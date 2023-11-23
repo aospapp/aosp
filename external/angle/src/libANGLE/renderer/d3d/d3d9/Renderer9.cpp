@@ -596,7 +596,7 @@ void Renderer9::generateDisplayExtensions(egl::DisplayExtensions *outExtensions)
     outExtensions->glTexture2DImage    = true;
     outExtensions->glRenderbufferImage = true;
 
-    outExtensions->flexibleSurfaceCompatibility = true;
+    outExtensions->noConfigContext = true;
 
     // Contexts are virtualized so textures and semaphores can be shared globally
     outExtensions->displayTextureShareGroup   = true;
@@ -605,7 +605,7 @@ void Renderer9::generateDisplayExtensions(egl::DisplayExtensions *outExtensions)
     // D3D9 can be used without an output surface
     outExtensions->surfacelessContext = true;
 
-    outExtensions->robustResourceInitialization = true;
+    outExtensions->robustResourceInitializationANGLE = true;
 }
 
 void Renderer9::startScene()
@@ -1019,7 +1019,7 @@ angle::Result Renderer9::setSamplerState(const gl::Context *context,
         mDevice->SetSamplerState(d3dSampler, D3DSAMP_MIPFILTER, d3dMipFilter);
         mDevice->SetSamplerState(d3dSampler, D3DSAMP_MAXMIPLEVEL, baseLevel);
         mDevice->SetSamplerState(d3dSampler, D3DSAMP_MIPMAPLODBIAS, static_cast<DWORD>(lodBias));
-        if (getNativeExtensions().textureFilterAnisotropic)
+        if (getNativeExtensions().textureFilterAnisotropicEXT)
         {
             DWORD maxAnisotropy = std::min(mDeviceCaps.MaxAnisotropy,
                                            static_cast<DWORD>(samplerState.getMaxAnisotropy()));
@@ -2669,7 +2669,7 @@ angle::Result Renderer9::compileToExecutable(d3d::Context *context,
                                              gl::ShaderType type,
                                              const std::vector<D3DVarying> &streamOutVaryings,
                                              bool separatedOutputBuffers,
-                                             const angle::CompilerWorkaroundsD3D &workarounds,
+                                             const CompilerWorkaroundsD3D &workarounds,
                                              ShaderExecutableD3D **outExectuable)
 {
     // Transform feedback is not supported in ES2 or D3D9
@@ -3296,7 +3296,7 @@ std::string Renderer9::getVendorString() const
     return GetVendorString(getVendorId());
 }
 
-std::string Renderer9::getVersionString() const
+std::string Renderer9::getVersionString(bool includeFullVersion) const
 {
     std::ostringstream versionString;
     std::string driverName(mAdapterIdentifier.Driver);
@@ -3306,10 +3306,14 @@ std::string Renderer9::getVersionString() const
     }
     else
     {
-        versionString << "D3D9 ";
+        versionString << "D3D9";
     }
-    versionString << "-";
-    versionString << GetDriverVersionString(mAdapterIdentifier.DriverVersion);
+
+    if (includeFullVersion)
+    {
+        versionString << " -";
+        versionString << GetDriverVersionString(mAdapterIdentifier.DriverVersion);
+    }
 
     return versionString.str();
 }

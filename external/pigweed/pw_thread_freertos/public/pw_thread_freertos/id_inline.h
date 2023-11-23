@@ -14,7 +14,7 @@
 #pragma once
 
 #include "FreeRTOS.h"
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_interrupt/context.h"
 #include "pw_thread/id.h"
 #include "task.h"
@@ -22,12 +22,14 @@
 namespace pw::this_thread {
 
 inline thread::Id get_id() noexcept {
+  // Ensure this is not being called by an interrupt.
   PW_DASSERT(!interrupt::InInterruptContext());
+
 #if INCLUDE_xTaskGetSchedulerState == 1 or configUSE_TIMERS == 1
-  if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
-    return thread::Id();
-  }
+  // Ensure the kernel is running.
+  PW_DASSERT(xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED);
 #endif  // xTaskGetSchedulerState available.
+
   return thread::Id(xTaskGetCurrentTaskHandle());
 }
 

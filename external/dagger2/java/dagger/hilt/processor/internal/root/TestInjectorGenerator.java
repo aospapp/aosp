@@ -20,7 +20,6 @@ import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.Processors;
@@ -41,7 +40,9 @@ public final class TestInjectorGenerator {
 
   // @GeneratedEntryPoint
   // @InstallIn(SingletonComponent.class)
-  // public interface FooTest_GeneratedInjector extends TestInjector<FooTest> {}
+  // public interface FooTest_GeneratedInjector {
+  //   void injectTest(FooTest fooTest);
+  // }
   public void generate() throws IOException {
     TypeSpec.Builder builder =
         TypeSpec.interfaceBuilder(metadata.testInjectorName())
@@ -53,11 +54,8 @@ public final class TestInjectorGenerator {
                     .addMember("value", "$T.class", installInComponent(metadata.testElement()))
                     .build())
             .addModifiers(Modifier.PUBLIC)
-            .addSuperinterface(
-                ParameterizedTypeName.get(ClassNames.TEST_INJECTOR, metadata.testName()))
             .addMethod(
                 MethodSpec.methodBuilder("injectTest")
-                    .addAnnotation(Override.class)
                     .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
                     .addParameter(
                         metadata.testName(),

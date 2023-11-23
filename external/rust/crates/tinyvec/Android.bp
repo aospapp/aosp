@@ -43,6 +43,8 @@ rust_library {
     name: "libtinyvec",
     host_supported: true,
     crate_name: "tinyvec",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.5.1",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -60,5 +62,29 @@ rust_library {
     min_sdk_version: "29",
 }
 
-// dependent_library ["feature_list"]
-//   tinyvec_macros-0.1.0
+rust_test {
+    name: "tinyvec_test_tests_arrayvec",
+    host_supported: true,
+    crate_name: "arrayvec",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.5.1",
+    srcs: ["tests/arrayvec.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2018",
+    features: [
+        "alloc",
+        "default",
+        "tinyvec_macros",
+    ],
+    rustlibs: [
+        "libcriterion",
+        "libserde_test",
+        "libsmallvec",
+        "libtinyvec",
+        "libtinyvec_macros",
+    ],
+}

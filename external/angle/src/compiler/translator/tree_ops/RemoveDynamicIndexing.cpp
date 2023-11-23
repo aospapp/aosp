@@ -44,7 +44,8 @@ std::string GetIndexFunctionName(const TType &type, bool write)
     }
     if (type.isMatrix())
     {
-        nameSink << "mat" << type.getCols() << "x" << type.getRows();
+        nameSink << "mat" << static_cast<uint32_t>(type.getCols()) << "x"
+                 << static_cast<uint32_t>(type.getRows());
     }
     else
     {
@@ -65,7 +66,7 @@ std::string GetIndexFunctionName(const TType &type, bool write)
             default:
                 UNREACHABLE();
         }
-        nameSink << type.getNominalSize();
+        nameSink << static_cast<uint32_t>(type.getNominalSize());
     }
     return nameSink.str();
 }
@@ -98,6 +99,12 @@ TType *GetFieldType(const TType &indexedType)
     {
         ASSERT(indexedType.isVector());
         fieldType->toComponentType();
+    }
+    // Default precision to highp if not specified.  For example in |vec3(0)[i], i < 0|, there is no
+    // precision assigned to vec3(0).
+    if (fieldType->getPrecision() == EbpUndefined)
+    {
+        fieldType->setPrecision(EbpHigh);
     }
     return fieldType;
 }
@@ -166,7 +173,7 @@ TIntermFunctionDefinition *GetIndexFunctionDefinition(const TType &type,
 {
     ASSERT(!type.isArray());
 
-    int numCases = 0;
+    uint8_t numCases = 0;
     if (type.isMatrix())
     {
         numCases = type.getCols();
@@ -188,7 +195,7 @@ TIntermFunctionDefinition *GetIndexFunctionDefinition(const TType &type,
     }
 
     TIntermBlock *statementList = new TIntermBlock();
-    for (int i = 0; i < numCases; ++i)
+    for (uint8_t i = 0; i < numCases; ++i)
     {
         TIntermCase *caseNode = new TIntermCase(CreateIntConstantNode(i));
         statementList->getSequence()->push_back(caseNode);

@@ -49,10 +49,11 @@ Target types
 
 Pigweed defines wrappers around the four basic GN binary types ``source_set``,
 ``executable``, ``static_library``, and ``shared_library``. These wrappers apply
-default arguments to each target as specified in the ``default_configs`` and
-``default_public_deps`` build args. Additionally, they allow defaults to be
-removed on a per-target basis using ``remove_configs`` and
-``remove_public_deps`` variables, respectively.
+default arguments to each target, as defined in ``pw_build/default.gni``.
+Arguments may be added or removed globally using the ``default_configs``,
+``default_public_deps``, and ``remove_default_configs`` build args.
+Additionally, arguments may be removed on a per-target basis with the
+``remove_configs`` and ``remove_public_deps`` variables.
 
 The ``pw_executable`` template provides additional functionality around building
 complete binaries. As Pigweed is a collection of libraries, it does not know how
@@ -61,6 +62,28 @@ of Pigweed specify a global executable template for their target, and have
 Pigweed build against it. This is controlled by the build variable
 ``pw_executable_config.target_type``, specifying the name of the executable
 template for a project.
+
+In some uncommon cases, a project's ``pw_executable`` template definition may
+need to stamp out some ``pw_source_set``s. Since a pw_executable template can't
+import ``$dir_pw_build/target_types.gni`` due to circular imports, it should
+import ``$dir_pw_build/cc_library.gni`` instead.
+
+Additionally ``pw_executable``, ``pw_source_set``, ``pw_static_library``, and
+``pw_shared_library`` track source files via the ``pw_source_files`` field the
+target's
+`GN metadata <https://gn.googlesource.com/gn/+/main/docs/reference.md#metadata_collection>`_.
+This list can be writen to a file at build time using ``generated_file``.  The
+primary use case for this is to generate a token database containing all the
+source files.  This allows PW_ASSERT to emit filename tokens even though it
+can't add them to the elf file because of the resons described at
+:ref:`module-pw_assert-assert-api`.
+
+.. note::
+  ``pw_source_files``, if not rebased will default to outputing module relative
+  paths from a ``generated_file`` target.  This is likely not useful.  Adding
+  a ``rebase`` argument to ``generated_file`` such as
+  ``rebase = root_build_dir`` will result in usable paths.  For an example,
+  see `//pw_tokenizer/database.gni`'s `pw_tokenizer_filename_database` template.
 
 .. tip::
 
@@ -72,6 +95,21 @@ template for a project.
 All of the ``pw_*`` target type overrides accept any arguments, as they simply
 forward them through to the underlying target.
 
+.. _module-pw_build-link-deps:
+
+Link-only deps
+--------------
+It may be necessary to specify additional link-time dependencies that may not be
+explicitly depended on elsewhere in the build. One example of this is a
+``pw_assert`` backend, which may need to leave out dependencies to avoid
+circular dependencies. Its dependencies need to be linked for executables and
+libraries, even if they aren't pulled in elsewhere.
+
+The ``pw_build_LINK_DEPS`` build arg is a list of dependencies to add to all
+``pw_executable``, ``pw_static_library``, and ``pw_shared_library`` targets.
+This should only be used as a last resort when dependencies cannot be properly
+expressed in the build.
+
 Python packages
 ---------------
 GN templates for :ref:`Python build automation <docs-python-build>` are
@@ -81,6 +119,96 @@ described in :ref:`module-pw_build-python`.
   :hidden:
 
   python
+
+
+.. _module-pw_build-cc_blob_library:
+
+pw_cc_blob_library
+------------------
+The ``pw_cc_blob_library`` template is useful for embedding binary data into a
+program. The template takes in a mapping of symbol names to file paths, and
+generates a set of C++ source and header files that embed the contents of the
+passed-in files as arrays.
+
+**Arguments**
+
+* ``blobs``: A list of GN scopes, where each scope corresponds to a binary blob
+  to be transformed from file to byte array. This is a required field. Blob
+  fields include:
+
+  * ``symbol_name``: The C++ symbol for the byte array.
+  * ``file_path``: The file path for the binary blob.
+  * ``linker_section``: If present, places the byte array in the specified
+    linker section.
+
+* ``out_header``: The header file to generate. Users will include this file
+  exactly as it is written here to reference the byte arrays.
+* ``namespace``: An optional (but highly recommended!) C++ namespace to place
+  the generated blobs within.
+
+Example
+^^^^^^^
+
+**BUILD.gn**
+
+.. code-block::
+
+  pw_cc_blob_library("foo_bar_blobs") {
+    blobs: [
+      {
+        symbol_name: "kFooBlob"
+        file_path: "${target_out_dir}/stuff/bin/foo.bin"
+      },
+      {
+        symbol_name: "kBarBlob"
+        file_path: "//stuff/bin/bar.bin"
+        linker_section: ".bar_section"
+      },
+    ]
+    out_header: "my/stuff/foo_bar_blobs.h"
+    namespace: "my::stuff"
+    deps = [ ":generate_foo_bin" ]
+  }
+
+.. note:: If the binary blobs are generated as part of the build, be sure to
+          list them as deps to the pw_cc_blob_library target.
+
+**Generated Header**
+
+.. code-block::
+
+  #pragma once
+
+  #include <array>
+  #include <cstddef>
+
+  namespace my::stuff {
+
+  extern const std::array<std::byte, 100> kFooBlob;
+
+  extern const std::array<std::byte, 50> kBarBlob;
+
+  }  // namespace my::stuff
+
+**Generated Source**
+
+.. code-block::
+
+  #include "my/stuff/foo_bar_blobs.h"
+
+  #include <array>
+  #include <cstddef>
+
+  #include "pw_preprocessor/compiler.h"
+
+  namespace my::stuff {
+
+  const std::array<std::byte, 100> kFooBlob = { ... };
+
+  PW_PLACE_IN_SECTION(".bar_section")
+  const std::array<std::byte, 50> kBarBlob = { ... };
+
+  }  // namespace my::stuff
 
 .. _module-pw_build-facade:
 
@@ -110,6 +238,14 @@ The ``pw_facade`` template declares two targets:
     public = [ "public/pw_foo/foo.h" ]
   }
 
+Low-level facades like ``pw_assert`` cannot express all of their dependencies
+due to the potential for dependency cycles. Facades with this issue may require
+backends to place their implementations in a separate build target to be listed
+in ``pw_build_LINK_DEPS`` (see :ref:`module-pw_build-link-deps`). The
+``require_link_deps`` variable in ``pw_facade`` asserts that all specified build
+targets are present in ``pw_build_LINK_DEPS`` if the facade's backend variable
+is set.
+
 .. _module-pw_build-python-action:
 
 pw_python_action
@@ -123,7 +259,7 @@ Another convenience provided by the template is to allow running scripts without
 any outputs. Sometimes scripts run in a build do not directly produce output
 files, but GN requires that all actions have an output. ``pw_python_action``
 solves this by accepting a boolean ``stamp`` argument which tells it to create a
-dummy output file for the action.
+placeholder output file for the action.
 
 **Arguments**
 
@@ -135,14 +271,15 @@ target. Additionally, it has some of its own arguments:
 * ``capture_output``: Optional boolean. If true, script output is hidden unless
   the script fails with an error. Defaults to true.
 * ``stamp``: Optional variable indicating whether to automatically create a
-  dummy output file for the script. This allows running scripts without
+  placeholder output file for the script. This allows running scripts without
   specifying ``outputs``. If ``stamp`` is true, a generic output file is
   used. If ``stamp`` is a file path, that file is used as a stamp file. Like any
   output file, ``stamp`` must be in the build directory. Defaults to false.
-* ``directory``: Optional path. Change to this directory before executing the
-  command. Paths in arguments may need to be adjusted.
 * ``environment``: Optional list of strings. Environment variables to set,
   passed as NAME=VALUE strings.
+* ``working_directory``: Optional file path. When provided the current working
+  directory will be set to this location before the Python module or script is
+  run.
 
 **Expressions**
 
@@ -185,7 +322,7 @@ The following expressions are supported:
 
   ``TARGET_FILE`` only resolves GN target labels to their outputs. To resolve
   paths generally, use the standard GN approach of applying the
-  ``rebase_path(path)`` function. With default arguments, ``rebase_path``
+  ``rebase_path(path, root_build_dir)`` function. This function
   converts the provided GN path or list of paths to be relative to the build
   directory, from which all build commands and scripts are executed.
 
@@ -243,10 +380,66 @@ The following expressions are supported:
     script = "py/postprocess_binary.py"
     args = [
       "--database",
-      rebase_path("my/database.csv"),
+      rebase_path("my/database.csv", root_build_dir),
       "--binary=<TARGET_FILE(//firmware/images:main)>",
     ]
     stamp = true
+  }
+
+.. _module-pw_build-pw_exec:
+
+pw_exec
+-------
+``pw_exec`` allows for execution of arbitrary programs. It is a wrapper around
+``pw_python_action`` but allows for specifying the program to execute.
+
+.. note:: Prefer to use ``pw_python_action`` instead of calling out to shell
+  scripts, as the python will be more portable. ``pw_exec`` should generally
+  only be used for interacting with legacy/existing scripts.
+
+**Arguments**
+
+* ``program``: The program to run. Can be a full path or just a name (in which
+  case $PATH is searched).
+* ``args``: Optional list of arguments to the program.
+* ``deps``: Dependencies for this target.
+* ``public_deps``: Public dependencies for this target. In addition to outputs
+  from this target, outputs generated by public dependencies can be used as
+  inputs from targets that depend on this one. This is not the case for private
+  deps.
+* ``inputs``: Optional list of build inputs to the program.
+* ``outputs``: Optional list of artifacts produced by the program's execution.
+* ``env``: Optional list of key-value pairs defining environment variables for
+  the program.
+* ``env_file``: Optional path to a file containing a list of newline-separated
+  key-value pairs defining environment variables for the program.
+* ``args_file``: Optional path to a file containing additional positional
+  arguments to the program. Each line of the file is appended to the
+  invocation. Useful for specifying arguments from GN metadata.
+* ``skip_empty_args``: If args_file is provided, boolean indicating whether to
+  skip running the program if the file is empty. Used to avoid running
+  commands which error when called without arguments.
+* ``capture_output``: If true, output from the program is hidden unless the
+  program exits with an error. Defaults to true.
+* ``working_directory``: The working directory to execute the subprocess with.
+  If not specified it will not be set and the subprocess will have whatever
+  the parent current working directory is.
+
+**Example**
+
+.. code-block::
+
+  import("$dir_pw_build/exec.gni")
+
+  pw_exec("hello_world") {
+    program = "/bin/sh"
+    args = [
+      "-c",
+      "echo hello \$WORLD",
+    ]
+    env = [
+      "WORLD=world",
+    ]
   }
 
 pw_input_group
@@ -368,16 +561,129 @@ This will result in a ``.zip`` file called ``foo.zip`` stored in
 
   foo.zip
   ├── bar/
-  │   ├── file3.txt
-  │   └── some_dir/
-  │       ├── file4.txt
-  │       └── some_other_dir/
-  │           └── file5.txt
+  │   ├── file3.txt
+  │   └── some_dir/
+  │       ├── file4.txt
+  │       └── some_other_dir/
+  │           └── file5.txt
   ├── file1.txt
   └── renamed.txt
 
-CMake / Ninja
-=============
+.. _module-pw_build-relative-source-file-names:
+
+pw_relative_source_file_names
+-----------------------------
+This template recursively walks the listed dependencies and collects the names
+of all the headers and source files required by the targets, and then transforms
+them such that they reflect the ``__FILE__`` when pw_build's ``relative_paths``
+config is applied. This is primarily intended for side-band generation of
+pw_tokenizer tokens so file name tokens can be utilized in places where
+pw_tokenizer is unable to embed token information as part of C/C++ compilation.
+
+This template produces a JSON file containing an array of strings (file paths
+with ``-ffile-prefix-map``-like transformations applied) that can be used to
+:ref:`generate a token database <module-pw_tokenizer-database-creation>`.
+
+**Arguments**
+
+* ``deps``: A required list of targets to recursively extract file names from.
+* ``outputs``: A required array with a single element: the path to write the
+  final JSON file to.
+
+**Example**
+
+Let's say we have the following project structure:
+
+.. code-block::
+
+  project root
+  ├── foo/
+  │   ├── foo.h
+  │   └── foo.cc
+  ├── bar/
+  │   ├── bar.h
+  │   └── bar.cc
+  ├── unused/
+  │   ├── unused.h
+  │   └── unused.cc
+  └── main.cc
+
+And a BUILD.gn at the root:
+
+.. code-block::
+
+  pw_source_set("bar") {
+    public_configs = [ ":bar_headers" ]
+    public = [ "bar/bar.h" ]
+    sources = [ "bar/bar.cc" ]
+  }
+
+  pw_source_set("foo") {
+    public_configs = [ ":foo_headers" ]
+    public = [ "foo/foo.h" ]
+    sources = [ "foo/foo.cc" ]
+    deps = [ ":bar" ]
+  }
+
+
+  pw_source_set("unused") {
+    public_configs = [ ":unused_headers" ]
+    public = [ "unused/unused.h" ]
+    sources = [ "unused/unused.cc" ]
+    deps = [ ":bar" ]
+  }
+
+  pw_executable("main") {
+    sources = [ "main.cc" ]
+    deps = [ ":foo" ]
+  }
+
+  pw_relative_source_file_names("main_source_files") {
+    deps = [ ":main" ]
+    outputs = [ "$target_gen_dir/main_source_files.json" ]
+  }
+
+The json file written to `out/gen/main_source_files.json` will contain:
+
+.. code-block::
+
+  [
+    "bar/bar.cc",
+    "bar/bar.h",
+    "foo/foo.cc",
+    "foo/foo.h",
+    "main.cc"
+  ]
+
+Since ``unused`` isn't a transitive dependency of ``main``, its source files
+are not included. Similarly, even though ``bar`` is not a direct dependency of
+``main``, its source files *are* included because ``foo`` brings in ``bar`` as
+a transitive dependency.
+
+Note how the file paths in this example are relative to the project root rather
+than being absolute paths (e.g. ``/home/user/ralph/coding/my_proj/main.cc``).
+This is a result of transformations applied to strip absolute pathing prefixes,
+matching the behavior of pw_build's ``$dir_pw_build:relative_paths`` config.
+
+Build time errors: pw_error and pw_build_assert
+-----------------------------------------------
+In Pigweed's complex, multi-toolchain GN build it is not possible to build every
+target in every configuration. GN's ``assert`` statement is not ideal for
+enforcing the correct configuration because it may prevent the GN build files or
+targets from being referred to at all, even if they aren't used.
+
+The ``pw_error`` GN template results in an error if it is executed during the
+build. These error targets can exist in the build graph, but cannot be depended
+on without an error.
+
+``pw_build_assert`` evaluates to a ``pw_error`` if a condition fails or nothing
+(an empty group) if the condition passes. Targets can add a dependency on a
+``pw_build_assert`` to enforce a condition at build time.
+
+The templates for build time errors are defined in ``pw_build/error.gni``.
+
+CMake
+=====
 Pigweed's `CMake`_ support is provided primarily for projects that have an
 existing CMake build and wish to integrate Pigweed without switching to a new
 build system.
@@ -453,6 +759,18 @@ following ways:
 * Temporarily override a backend by setting it interactively with ``ccmake`` or
   ``cmake-gui``.
 
+If the backend is set to a build target that does not exist, there will be an
+error message like the following:
+
+.. code-block::
+
+  CMake Error at pw_build/pigweed.cmake:244 (add_custom_target):
+  Error evaluating generator expression:
+
+    $<TARGET_PROPERTY:my_backend_that_does_not_exist,TYPE>
+
+  Target "my_backend_that_does_not_exist" not found.
+
 Toolchain setup
 ---------------
 In CMake, the toolchain is configured by setting CMake variables, as described
@@ -461,6 +779,13 @@ These variables are typically set in a toolchain CMake file passed to ``cmake``
 with the ``-D`` option (``-DCMAKE_TOOLCHAIN_FILE=path/to/file.cmake``).
 For Pigweed embedded builds, set ``CMAKE_SYSTEM_NAME`` to the empty string
 (``""``).
+
+Toolchains may set the ``pw_build_WARNINGS`` variable to a list of ``INTERFACE``
+libraries with compilation options for Pigweed's upstream libraries. This
+defaults to a strict set of warnings. Projects may need to use less strict
+compilation warnings to compile backends exposed to Pigweed code (such as
+``pw_log``) that cannot compile with Pigweed's flags. If desired, Projects can
+access these warnings by depending on ``pw_build.warnings``.
 
 Third party libraries
 ---------------------
@@ -524,10 +849,37 @@ file. The built-in Bazel rules ``cc_binary``, ``cc_library``, and ``cc_test``
 are wrapped with ``pw_cc_binary``, ``pw_cc_library``, and ``pw_cc_test``.
 These wrappers add parameters to calls to the compiler and linker.
 
+In addition to wrapping the built-in rules, Pigweed also provides a custom
+rule for handling linker scripts with Bazel. e.g.
+
+.. code-block:: python
+
+  pw_linker_script(
+    name = "some_linker_script",
+    linker_script = ":some_configurable_linker_script.ld",
+    defines = [
+        "PW_BOOT_FLASH_BEGIN=0x08000200",
+        "PW_BOOT_FLASH_SIZE=1024K",
+        "PW_BOOT_HEAP_SIZE=112K",
+        "PW_BOOT_MIN_STACK_SIZE=1K",
+        "PW_BOOT_RAM_BEGIN=0x20000000",
+        "PW_BOOT_RAM_SIZE=192K",
+        "PW_BOOT_VECTOR_TABLE_BEGIN=0x08000000",
+        "PW_BOOT_VECTOR_TABLE_SIZE=512",
+    ],
+  )
+
+  pw_cc_binary(
+    name = "some_binary",
+    srcs = ["some_source.c"],
+    additional_linker_inputs = [":some_linker_script"],
+    linkopts = ["-T $(location :some_linker_script)"],
+  )
+
 Currently Pigweed is making use of a set of
-[open source](https://github.com/silvergasp/bazel-embedded) toolchains. The host
-builds are only supported on Linux/Mac based systems. Additionally the host
-builds are not entirely hermetic, and will make use of system
+`open source <https://github.com/silvergasp/bazel-embedded>`_ toolchains. The
+host builds are only supported on Linux/Mac based systems. Additionally the
+host builds are not entirely hermetic, and will make use of system
 libraries and headers. This is close to the default configuration for Bazel,
 though slightly more hermetic. The host toolchain is based around clang-11 which
 has a system dependency on 'libtinfo.so.5' which is often included as part of

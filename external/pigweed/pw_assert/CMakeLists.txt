@@ -14,7 +14,11 @@
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 
+pw_add_module_config(pw_assert_CONFIG)
+
 pw_add_facade(pw_assert
   PUBLIC_DEPS
     pw_preprocessor
+    ${pw_assert_CONFIG}
 )
+target_include_directories(pw_assert INTERFACE assert_lite_public_overrides)

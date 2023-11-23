@@ -178,6 +178,12 @@ static const test_pair_t combining_class_tests_more[] =
   /* Unicode-12.0 character additions */
   {   0x0EBA,   9 },
 
+  /* Unicode-13.0 character additions */
+  {   0x1ABF, 220 },
+
+  /* Unicode-14.0 character additions */
+  {   0x1DFA, 218 },
+
   { 0x111111, 0 }
 };
 
@@ -254,6 +260,12 @@ static const test_pair_t general_category_tests_more[] =
 
   /* Unicode-12.1 character additions */
   {   0x32FF, HB_UNICODE_GENERAL_CATEGORY_OTHER_SYMBOL },
+
+  /* Unicode-13.0 character additions */
+  {   0x08BE, HB_UNICODE_GENERAL_CATEGORY_OTHER_LETTER },
+
+  /* Unicode-14.0 character additions */
+  {   0x20C0, HB_UNICODE_GENERAL_CATEGORY_CURRENCY_SYMBOL },
 
   { 0x111111, HB_UNICODE_GENERAL_CATEGORY_UNASSIGNED }
 };
@@ -499,6 +511,19 @@ static const test_pair_t script_tests_more[] =
   /* Unicode-12.1 additions */
   {   0x32FF, HB_SCRIPT_COMMON },
 
+  /* Unicode-13.0 additions */
+  {   0x10E80, HB_SCRIPT_YEZIDI },
+  {   0x10FB0, HB_SCRIPT_CHORASMIAN },
+  {   0x11900, HB_SCRIPT_DIVES_AKURU },
+  {   0x18B00, HB_SCRIPT_KHITAN_SMALL_SCRIPT },
+
+  /* Unicode-14.0 additions */
+  {  0x10570, HB_SCRIPT_VITHKUQI },
+  {  0x10F70, HB_SCRIPT_OLD_UYGHUR },
+  {  0x12F90, HB_SCRIPT_CYPRO_MINOAN },
+  {  0x16A70, HB_SCRIPT_TANGSA },
+  {  0x1E290, HB_SCRIPT_TOTO },
+
   { 0x111111, HB_SCRIPT_UNKNOWN }
 };
 
@@ -537,6 +562,8 @@ typedef struct {
     G_N_ELEMENTS (name##_tests_more), \
     DEFAULT \
   }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static const property_t properties[] =
 {
   PROPERTY (combining_class, 0),
@@ -544,6 +571,7 @@ static const property_t properties[] =
   PROPERTY (mirroring, RETURNS_UNICODE_ITSELF),
   PROPERTY (script, (unsigned int) HB_SCRIPT_UNKNOWN)
 };
+#pragma GCC diagnostic pop
 #undef PROPERTY
 
 static void

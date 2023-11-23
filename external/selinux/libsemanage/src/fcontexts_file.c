@@ -15,7 +15,6 @@ typedef struct dbase_file dbase_t;
 #include <strings.h>
 #include <semanage/handle.h>
 #include "fcontext_internal.h"
-#include "context_internal.h"
 #include "database_file.h"
 #include "parse_utils.h"
 #include "debug.h"
@@ -91,7 +90,7 @@ static int fcontext_parse(semanage_handle_t * handle,
 		goto last;
 
 	/* Regexp */
-	if (parse_fetch_string(handle, info, &str, ' ') < 0)
+	if (parse_fetch_string(handle, info, &str, ' ', 0) < 0)
 		goto err;
 	if (semanage_fcontext_set_expr(handle, fcontext, str) < 0)
 		goto err;
@@ -101,7 +100,7 @@ static int fcontext_parse(semanage_handle_t * handle,
 	/* Type */
 	if (parse_assert_space(handle, info) < 0)
 		goto err;
-	if (parse_fetch_string(handle, info, &str, ' ') < 0)
+	if (parse_fetch_string(handle, info, &str, ' ', 0) < 0)
 		goto err;
 	if (!strcasecmp(str, "-s"))
 		semanage_fcontext_set_type(fcontext, SEMANAGE_FCONTEXT_SOCK);
@@ -125,7 +124,7 @@ static int fcontext_parse(semanage_handle_t * handle,
 	/* Context */
 	if (parse_assert_space(handle, info) < 0)
 		goto err;
-	if (parse_fetch_string(handle, info, &str, ' ') < 0)
+	if (parse_fetch_string(handle, info, &str, ' ', 0) < 0)
 		goto err;
 
       process_context:

@@ -18,7 +18,7 @@
 namespace libtextclassifier3;
 table ActionsEntityData {
   // Extracted text.
-  text:string (shared);
+  text:string (key, shared);
 }
 
 root_type libtextclassifier3.ActionsEntityData;

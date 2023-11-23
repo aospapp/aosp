@@ -95,8 +95,8 @@ static u8 * wpa_alloc_eapol(const struct wpa_supplicant *wpa_s, u8 type,
  * @len: Frame payload length
  * Returns: >=0 on success, <0 on failure
  */
-static int wpa_ether_send(struct wpa_supplicant *wpa_s, const u8 *dest,
-			  u16 proto, const u8 *buf, size_t len)
+int wpa_ether_send(struct wpa_supplicant *wpa_s, const u8 *dest,
+		   u16 proto, const u8 *buf, size_t len)
 {
 #ifdef CONFIG_TESTING_OPTIONS
 	if (wpa_s->ext_eapol_frame_io && proto == ETH_P_EAPOL) {
@@ -788,6 +788,9 @@ static int wpa_supplicant_tdls_peer_addset(
 	const u8 *supp_rates, size_t supp_rates_len,
 	const struct ieee80211_ht_capabilities *ht_capab,
 	const struct ieee80211_vht_capabilities *vht_capab,
+	const struct ieee80211_he_capabilities *he_capab,
+	size_t he_capab_len,
+	const struct ieee80211_he_6ghz_band_cap *he_6ghz_he_capab,
 	u8 qosinfo, int wmm, const u8 *ext_capab, size_t ext_capab_len,
 	const u8 *supp_channels, size_t supp_channels_len,
 	const u8 *supp_oper_classes, size_t supp_oper_classes_len)
@@ -811,6 +814,9 @@ static int wpa_supplicant_tdls_peer_addset(
 
 	params.ht_capabilities = ht_capab;
 	params.vht_capabilities = vht_capab;
+	params.he_capab = he_capab;
+	params.he_capab_len = he_capab_len;
+	params.he_6ghz_capab = he_6ghz_he_capab;
 	params.qosinfo = qosinfo;
 	params.listen_interval = 0;
 	params.supp_rates = supp_rates;
@@ -1153,6 +1159,22 @@ static void wpa_supplicant_set_anon_id(void *ctx, const u8 *id, size_t len)
 		}
 	}
 }
+
+static void wpa_supplicant_eap_method_selected_cb(void *ctx,
+						const char* reason_string)
+{
+	struct wpa_supplicant *wpa_s = ctx;
+
+	wpas_notify_eap_method_selected(wpa_s, reason_string);
+}
+
+static void wpa_supplicant_open_ssl_failure_cb(void *ctx,
+						const char* reason_string)
+{
+	struct wpa_supplicant *wpa_s = ctx;
+
+	wpas_notify_open_ssl_failure(wpa_s, reason_string);
+}
 #endif /* IEEE8021X_EAPOL */
 
 
@@ -1199,6 +1221,8 @@ int wpa_supplicant_init_eapol(struct wpa_supplicant *wpa_s)
 	ctx->eap_error_cb = wpa_supplicant_eap_error_cb;
 	ctx->confirm_auth_cb = wpa_supplicant_eap_auth_start_cb;
 	ctx->set_anon_id = wpa_supplicant_set_anon_id;
+	ctx->eap_method_selected_cb = wpa_supplicant_eap_method_selected_cb;
+	ctx->open_ssl_failure_cb = wpa_supplicant_open_ssl_failure_cb;
 	ctx->cb_ctx = wpa_s;
 	wpa_s->eapol = eapol_sm_init(ctx);
 	if (wpa_s->eapol == NULL) {
@@ -1341,6 +1365,17 @@ static void wpa_supplicant_transition_disable(void *_wpa_s, u8 bitmap)
 		ssid->owe_only = 1;
 		changed = 1;
 	}
+
+#ifdef CONFIG_DRIVER_NL80211_BRCM
+	/* driver call for transition disable */
+	{
+		struct wpa_driver_associate_params params;
+
+		os_memset(&params, 0, sizeof(params));
+		params.td_policy = bitmap;
+		wpa_drv_update_connect_params(wpa_s, &params, WPA_DRV_UPDATE_TD_POLICY);
+	}
+#endif /* CONFIG_DRIVER_NL80211_BRCM */
 
 	wpas_notify_transition_disable(wpa_s, ssid, bitmap);
 

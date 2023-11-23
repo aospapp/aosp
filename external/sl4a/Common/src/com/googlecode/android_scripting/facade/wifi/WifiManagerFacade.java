@@ -1494,6 +1494,11 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.isStaConcurrencyForRestrictedConnectionsSupported();
     }
 
+    @Rpc(description = "Check if the chipset supports a certain Wi-Fi standard.", returns = "true if standard is supported")
+    public Boolean wifiIsWifiStandardSupported(@RpcParameter(name = "standard") Integer standard) {
+        return mWifi.isWifiStandardSupported(standard);
+    }
+
     @Rpc(description = "Return true if WiFi is enabled.")
     public Boolean wifiGetisWifiEnabled() {
         return mWifi.isWifiEnabled();

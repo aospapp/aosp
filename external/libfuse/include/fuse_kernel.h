@@ -424,11 +424,11 @@ enum fuse_opcode {
 	FUSE_LSEEK		= 46,
 	FUSE_COPY_FILE_RANGE	= 47,
 
-	/* CUSE specific operations */
-	CUSE_INIT		= 4096,
+	/* Android specific operations */
+	FUSE_CANONICAL_PATH     = 2016,
 
-        /* Android specific operations */
-        FUSE_CANONICAL_PATH     = 2016,
+	/* CUSE specific operations */
+	CUSE_INIT		= 4096
 };
 
 enum fuse_notify_code {
@@ -438,7 +438,7 @@ enum fuse_notify_code {
 	FUSE_NOTIFY_STORE = 4,
 	FUSE_NOTIFY_RETRIEVE = 5,
 	FUSE_NOTIFY_DELETE = 6,
-	FUSE_NOTIFY_CODE_MAX,
+	FUSE_NOTIFY_CODE_MAX
 };
 
 /* The read buffer is required to be at least 8k, but may be much larger */
@@ -455,6 +455,17 @@ struct fuse_entry_out {
 	uint32_t	entry_valid_nsec;
 	uint32_t	attr_valid_nsec;
 	struct fuse_attr attr;
+};
+
+#define FUSE_ACTION_KEEP        0
+#define FUSE_ACTION_REMOVE      1
+#define FUSE_ACTION_REPLACE     2
+
+struct fuse_entry_bpf_out {
+        uint64_t        backing_action;
+        uint64_t        backing_fd;
+        uint64_t        bpf_action;
+        uint64_t        bpf_fd;
 };
 
 struct fuse_forget_in {
@@ -858,5 +869,52 @@ struct fuse_copy_file_range_in {
 	uint64_t	len;
 	uint64_t	flags;
 };
+
+/** Export fuse_args only for bpf */
+#ifdef __KERNEL__
+struct fuse_mount;
+
+/** One input argument of a request */
+struct fuse_in_arg {
+  unsigned size;
+  const void *value;
+};
+
+/** One output argument of a request */
+struct fuse_arg {
+  unsigned size;
+  void *value;
+};
+
+struct fuse_args {
+  uint64_t nodeid;
+  uint32_t opcode;
+  unsigned short in_numargs;
+  unsigned short out_numargs;
+  int force:1;
+  int noreply:1;
+  int nocreds:1;
+  int in_pages:1;
+  int out_pages:1;
+  int out_argvar:1;
+  int page_zeroing:1;
+  int page_replace:1;
+  int may_block:1;
+  struct fuse_in_arg in_args[5];
+  struct fuse_arg out_args[3];
+  void (*end)(struct fuse_mount *fm, struct fuse_args *args, int error);
+
+  /* Path used for completing d_canonical_path */
+  struct path *canonical_path;
+};
+#endif
+
+#define FUSE_BPF_USER_FILTER    1
+#define FUSE_BPF_BACKING        2
+#define FUSE_BPF_POST_FILTER    4
+
+#define FUSE_OPCODE_FILTER      0x0ffff
+#define FUSE_PREFILTER          0x10000
+#define FUSE_POSTFILTER         0x20000
 
 #endif /* _LINUX_FUSE_H */

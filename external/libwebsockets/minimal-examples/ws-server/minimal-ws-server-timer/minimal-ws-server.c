@@ -48,9 +48,9 @@ callback_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "http", lws_callback_http_dummy, 0, 0 },
-	{ "timer", callback_protocol, 0, 0 },
-	{ NULL, NULL, 0, 0 } /* terminator */
+	{ "http", lws_callback_http_dummy, 0, 0, 0, NULL, 0 },
+	{ "timer", callback_protocol, 0, 0, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 static const lws_retry_bo_t retry = {
@@ -111,16 +111,17 @@ int main(int argc, const char **argv)
 	info.mounts = &mount;
 	info.protocols = protocols;
 	info.vhost_name = "localhost";
-	info.ws_ping_pong_interval = 10;
 	info.options =
 		LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
 
+#if defined(LWS_WITH_TLS)
 	if (lws_cmdline_option(argc, argv, "-s")) {
 		lwsl_user("Server using TLS\n");
 		info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
 		info.ssl_cert_filepath = "localhost-100y.cert";
 		info.ssl_private_key_filepath = "localhost-100y.key";
 	}
+#endif
 
 	if (lws_cmdline_option(argc, argv, "-h"))
 		info.options |= LWS_SERVER_OPTION_VHOST_UPG_STRICT_HOST_CHECK;

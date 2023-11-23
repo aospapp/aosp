@@ -1,5 +1,5 @@
 '\" t
-.TH mtools 5 "28Nov20" MTOOLS MTOOLS
+.TH mtools 5 "26Dec21" MTOOLS MTOOLS
 .SH Name
 mtools.conf - mtools configuration files
 '\" t
@@ -13,7 +13,7 @@ mtools.conf - mtools configuration files
 .tr \(if`
 .tr \(pd"
 
-.ds St Mtools\ 4.0.26
+.ds St Mtools\ 4.0.37
 .PP
 .SH Description
 .PP
@@ -338,6 +338,34 @@ also available in ISO-Latin-1. You may also specify a global code page
 for all drives by using the global \fR\&\f(CWdefault_codepage\fR parameter
 (outside of any drive description). This parameters exists starting at
 version 4.0.0
+.TP
+\&\fR\&\f(CWdata_map\fR\ 
+Remaps data from image file. This is useful for image files which
+might need additional zero-filled sectors to be inserted. Such is the
+case for instance for IBM 3174 floppy images. These images represent
+floppy disks with fewer sectors on their first cylinder. These missing
+sectors are not stored in the image, but are still counted in the
+filesystem layout. The data_map allows to fake these missing sectors
+for the upper layers of mtools. A data_map is a comma-separated
+sequence of source type and size. Source type may be \fR\&\f(CWzero\fR for
+zero-filled sectors created by map, \fR\&\f(CWskip\fR for data in raw image
+to be ignored (skipped), and nothing for data to be used as is
+(copied) from the raw image. Datamap is automatically complemented by
+an implicit last element of data to be used as is from current offset
+to end of file. Each size is a number followed by a unit: \fR\&\f(CWs\fR for
+a 512 byte sector, \fR\&\f(CWK\fR for Kbytes, \fR\&\f(CWM\fR for megabytes,
+\&\fR\&\f(CWG\fR for gigabytes, and nothing for single bytes.
+.IP
+Example:
+.IP
+\&\fR\&\f(CWdata_map=1s,zero31s,28s,skip1s\fR would be a map for use with IBM
+3174 floppy images. First sector (\fR\&\f(CW1s\fR, boot sector) is used as
+is. Then follow 31 fake zero-filled sectors (\fR\&\f(CWzero31s\fR), then the
+next 28 sectors from image (\fR\&\f(CW28s\fR) are used as is (they contain
+FAT and root directory), then one sector from image is skipped
+(\fR\&\f(CWskip1s\fR), and finally the rest of image is used as is
+(implicit)
+.IP
 .TP
 \&\fR\&\f(CWprecmd\fR\ 
 On some variants of Solaris, it is necessary to call 'volcheck -v'

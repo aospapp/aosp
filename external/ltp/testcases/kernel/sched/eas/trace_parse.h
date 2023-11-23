@@ -26,7 +26,7 @@ enum {
 #define IRQ_CONTEXT_NMI 'z'
 #define IRQ_CONTEXT_NMI_IN_HARD 'Z'
 
-struct timestamp {
+struct trace_timestamp {
 	unsigned int sec;
 	unsigned int usec;
 };
@@ -79,7 +79,7 @@ struct trace_record {
 	unsigned char irq_context;
 	unsigned short preempt_depth;
 
-	struct timestamp ts;
+	struct trace_timestamp ts;
 
 	unsigned int event_type;
 	void *event_data;

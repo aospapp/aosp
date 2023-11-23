@@ -24,9 +24,8 @@ struct block_buffer {
 
 /*
  * Hash a block, writing the result to the next level's pending block buffer.
- * Returns true if the next level's block became full, else false.
  */
-static bool hash_one_block(struct hash_ctx *hash, struct block_buffer *cur,
+static void hash_one_block(struct hash_ctx *hash, struct block_buffer *cur,
 			   u32 block_size, const u8 *salt, u32 salt_size)
 {
 	struct block_buffer *next = cur + 1;
@@ -41,8 +40,60 @@ static bool hash_one_block(struct hash_ctx *hash, struct block_buffer *cur,
 
 	next->filled += hash->alg->digest_size;
 	cur->filled = 0;
+}
 
-	return next->filled + hash->alg->digest_size > block_size;
+static bool block_is_full(const struct block_buffer *block, u32 block_size,
+			  struct hash_ctx *hash)
+{
+	/* Would the next hash put us over the limit? */
+	return block->filled + hash->alg->digest_size > block_size;
+}
+
+static int report_merkle_tree_size(const struct libfsverity_metadata_callbacks *cbs,
+				   u64 size)
+{
+	if (cbs && cbs->merkle_tree_size) {
+		int err = cbs->merkle_tree_size(cbs->ctx, size);
+
+		if (err) {
+			libfsverity_error_msg("error processing Merkle tree size");
+			return err;
+		}
+	}
+	return 0;
+}
+
+static int report_merkle_tree_block(const struct libfsverity_metadata_callbacks *cbs,
+				    const struct block_buffer *block,
+				    u32 block_size, u64 *level_offset)
+{
+
+	if (cbs && cbs->merkle_tree_block) {
+		int err = cbs->merkle_tree_block(cbs->ctx, block->data,
+						 block_size,
+						 *level_offset * block_size);
+
+		if (err) {
+			libfsverity_error_msg("error processing Merkle tree block");
+			return err;
+		}
+		(*level_offset)++;
+	}
+	return 0;
+}
+
+static int report_descriptor(const struct libfsverity_metadata_callbacks *cbs,
+			     const void *descriptor, size_t size)
+{
+	if (cbs && cbs->descriptor) {
+		int err = cbs->descriptor(cbs->ctx, descriptor, size);
+
+		if (err) {
+			libfsverity_error_msg("error processing fs-verity descriptor");
+			return err;
+		}
+	}
+	return 0;
 }
 
 /*
@@ -52,6 +103,7 @@ static bool hash_one_block(struct hash_ctx *hash, struct block_buffer *cur,
 static int compute_root_hash(void *fd, libfsverity_read_fn_t read_fn,
 			     u64 file_size, struct hash_ctx *hash,
 			     u32 block_size, const u8 *salt, u32 salt_size,
+			     const struct libfsverity_metadata_callbacks *metadata_cbs,
 			     u8 *root_hash)
 {
 	const u32 hashes_per_block = block_size / hash->alg->digest_size;
@@ -60,6 +112,7 @@ static int compute_root_hash(void *fd, libfsverity_read_fn_t read_fn,
 	u64 blocks;
 	int num_levels = 0;
 	int level;
+	u64 level_offset[FS_VERITY_MAX_LEVELS];
 	struct block_buffer _buffers[1 + FS_VERITY_MAX_LEVELS + 1] = {};
 	struct block_buffer *buffers = &_buffers[1];
 	u64 offset;
@@ -68,7 +121,7 @@ static int compute_root_hash(void *fd, libfsverity_read_fn_t read_fn,
 	/* Root hash of empty file is all 0's */
 	if (file_size == 0) {
 		memset(root_hash, 0, hash->alg->digest_size);
-		return 0;
+		return report_merkle_tree_size(metadata_cbs, 0);
 	}
 
 	if (salt_size != 0) {
@@ -78,15 +131,39 @@ static int compute_root_hash(void *fd, libfsverity_read_fn_t read_fn,
 		memcpy(padded_salt, salt, salt_size);
 	}
 
-	/* Compute number of levels */
-	for (blocks = DIV_ROUND_UP(file_size, block_size); blocks > 1;
-	     blocks = DIV_ROUND_UP(blocks, hashes_per_block)) {
+	/* Compute number of levels and the number of blocks in each level. */
+	blocks = DIV_ROUND_UP(file_size, block_size);
+	while (blocks > 1)  {
 		if (WARN_ON(num_levels >= FS_VERITY_MAX_LEVELS)) {
 			err = -EINVAL;
 			goto out;
 		}
-		num_levels++;
+		blocks = DIV_ROUND_UP(blocks, hashes_per_block);
+		/*
+		 * Temporarily use level_offset[] to store the number of blocks
+		 * in each level.  It will be overwritten later.
+		 */
+		level_offset[num_levels++] = blocks;
 	}
+
+	/*
+	 * Compute the starting block of each level, using the convention where
+	 * the root level is first, i.e. the convention used by
+	 * FS_IOC_READ_VERITY_METADATA.  At the same time, compute the total
+	 * size of the Merkle tree.  These values are only needed for the
+	 * metadata callbacks (if they were given), as the hash computation
+	 * itself doesn't prescribe an ordering of the levels and doesn't
+	 * prescribe any special meaning to the total size of the Merkle tree.
+	 */
+	offset = 0;
+	for (level = num_levels - 1; level >= 0; level--) {
+		blocks = level_offset[level];
+		level_offset[level] = offset;
+		offset += blocks;
+	}
+	err = report_merkle_tree_size(metadata_cbs, offset * block_size);
+	if (err)
+		goto out;
 
 	/*
 	 * Allocate the block buffers.  Buffer "-1" is for data blocks.
@@ -112,21 +189,33 @@ static int compute_root_hash(void *fd, libfsverity_read_fn_t read_fn,
 			goto out;
 		}
 
-		level = -1;
-		while (hash_one_block(hash, &buffers[level], block_size,
-				      padded_salt, padded_salt_size)) {
-			level++;
-			if (WARN_ON(level >= num_levels)) {
-				err = -EINVAL;
+		hash_one_block(hash, &buffers[-1], block_size,
+			       padded_salt, padded_salt_size);
+		for (level = 0; level < num_levels; level++) {
+			if (!block_is_full(&buffers[level], block_size, hash))
+				break;
+			hash_one_block(hash, &buffers[level], block_size,
+				       padded_salt, padded_salt_size);
+			err = report_merkle_tree_block(metadata_cbs,
+						       &buffers[level],
+						       block_size,
+						       &level_offset[level]);
+			if (err)
 				goto out;
-			}
 		}
 	}
 	/* Finish all nonempty pending tree blocks */
 	for (level = 0; level < num_levels; level++) {
-		if (buffers[level].filled != 0)
+		if (buffers[level].filled != 0) {
 			hash_one_block(hash, &buffers[level], block_size,
 				       padded_salt, padded_salt_size);
+			err = report_merkle_tree_block(metadata_cbs,
+						       &buffers[level],
+						       block_size,
+						       &level_offset[level]);
+			if (err)
+				goto out;
+		}
 	}
 
 	/* Root hash was filled by the last call to hash_one_block() */
@@ -217,8 +306,13 @@ libfsverity_compute_digest(void *fd, libfsverity_read_fn_t read_fn,
 	}
 
 	err = compute_root_hash(fd, read_fn, params->file_size, hash,
-				block_size, params->salt,
-				params->salt_size, desc.root_hash);
+				block_size, params->salt, params->salt_size,
+				params->metadata_callbacks, desc.root_hash);
+	if (err)
+		goto out;
+
+	err = report_descriptor(params->metadata_callbacks,
+				&desc, sizeof(desc));
 	if (err)
 		goto out;
 

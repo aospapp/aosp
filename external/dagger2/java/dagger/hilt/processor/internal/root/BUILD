@@ -29,11 +29,14 @@ java_plugin(
 java_library(
     name = "processor_lib",
     srcs = [
+        "AggregatedRootGenerator.java",
+        "ComponentGenerator.java",
+        "EarlySingletonComponentCreatorGenerator.java",
+        "ProcessedRootSentinelGenerator.java",
         "RootFileFormatter.java",
         "RootGenerator.java",
         "RootProcessor.java",
         "TestComponentDataGenerator.java",
-        "TestComponentDataSupplierGenerator.java",
         "TestInjectorGenerator.java",
     ],
     deps = [
@@ -41,6 +44,7 @@ java_library(
         ":root_type",
         "//java/dagger/hilt/processor/internal:base_processor",
         "//java/dagger/hilt/processor/internal:classnames",
+        "//java/dagger/hilt/processor/internal:compiler_options",
         "//java/dagger/hilt/processor/internal:component_descriptor",
         "//java/dagger/hilt/processor/internal:component_names",
         "//java/dagger/hilt/processor/internal:processor_errors",
@@ -62,13 +66,18 @@ java_library(
 java_library(
     name = "root_metadata",
     srcs = [
+        "AggregatedRootMetadata.java",
+        "ComponentTree.java",
+        "ProcessedRootSentinelMetadata.java",
         "Root.java",
         "RootMetadata.java",
         "TestRootMetadata.java",
     ],
     deps = [
         ":root_type",
+        "//java/dagger/hilt/processor/internal:aggregated_elements",
         "//java/dagger/hilt/processor/internal:classnames",
+        "//java/dagger/hilt/processor/internal:compiler_options",
         "//java/dagger/hilt/processor/internal:component_descriptor",
         "//java/dagger/hilt/processor/internal:kotlin",
         "//java/dagger/hilt/processor/internal:processor_errors",
@@ -79,6 +88,7 @@ java_library(
         "//java/dagger/internal/codegen/kotlin",
         "//java/dagger/internal/guava:base",
         "//java/dagger/internal/guava:collect",
+        "//java/dagger/internal/guava:graph",
         "@google_bazel_common//third_party/java/auto:value",
         "@google_bazel_common//third_party/java/javapoet",
         "@maven//:com_google_auto_auto_common",
@@ -90,7 +100,6 @@ java_library(
     srcs = ["RootType.java"],
     deps = [
         "//java/dagger/hilt/processor/internal:classnames",
-        "//java/dagger/hilt/processor/internal:processor_errors",
         "//java/dagger/hilt/processor/internal:processors",
         "@google_bazel_common//third_party/java/javapoet",
     ],

@@ -68,6 +68,7 @@ from tensorflow.python.util import nest
 from tensorflow.python.util import tf_inspect
 from tensorflow.python.util.tf_export import tf_export
 
+
 _XLA_OP_BY_OP_INPUTS_LIMIT = 200
 
 
@@ -322,7 +323,7 @@ class TPUStrategyV2(distribute_lib.Strategy):
     """Synchronous training in TPU donuts or Pods.
 
     Args:
-      tpu_cluster_resolver: A 
+      tpu_cluster_resolver: A
         `tf.distribute.cluster_resolver.TPUClusterResolver` instance, which
         provides information about the TPU cluster. If None, it will assume
         running on a local TPU worker.
@@ -532,10 +533,10 @@ class TPUStrategyV2(distribute_lib.Strategy):
 
       split_size = partition_dimensions[dim_index]
       if dim_size % split_size != 0:
-        raise ValueError("Tensor shape at dimension ({}) must be "
+        raise ValueError("Tensor shape at dimension {} ({}) must be "
                          "divisible by corresponding value specified "
                          "by `partition_dimensions` ({}).".format(
-                             dim_index, split_size))
+                             dim_index, dim_size, split_size))
 
     if num_partition_splits != num_logical_devices_per_replica:
       raise ValueError("Number of logical devices ({}) does not match the "
@@ -860,15 +861,13 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
     if context.executing_eagerly():
       # In async remote eager, we want to sync the executors before exiting the
       # program.
-      def async_wait():
-        if context.context()._context_handle is not None:  # pylint: disable=protected-access
-          context.async_wait()
-      atexit.register(async_wait)
+      atexit.register(context.async_wait)
 
-    # Flag to turn on VariablePolicy
+    # Flag to turn on VariablePolicy.
     self._use_var_policy = True
 
-    # Flag to enable TF2 SPMD
+    # Flag to enable XLA SPMD partitioning.
+    # TODO(b/170873313): Enable XLA SPMD partitioning in TPUStrategy.
     self._use_spmd_for_xla_partitioning = False
 
   def _validate_colocate_with_variable(self, colocate_with_variable):
@@ -909,7 +908,7 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
         session)
 
   def _get_input_workers(self, options):
-    if not options or options.experimental_prefetch_to_device:
+    if not options or options.experimental_fetch_to_device:
       return input_lib.InputWorkers(
           tuple(self._device_input_worker_devices.items()))
     else:
@@ -928,7 +927,7 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
             "distributed datasets with device prefetch when using sparse or "
             "ragged tensors. If you intend to use sparse or ragged tensors, "
             "please pass a tf.distribute.InputOptions object with "
-            "experimental_prefetch_to_device set to False to your dataset "
+            "experimental_fetch_to_device set to False to your dataset "
             "distribution function.".format(path, type(spec)))
 
   def _experimental_distribute_dataset(self, dataset, options):
@@ -939,14 +938,15 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
           "is only supported in "
           "`experimental_distribute_datasets_from_function`."
       )
-    if options is None or options.experimental_prefetch_to_device:
+    if options is None or options.experimental_fetch_to_device:
       self._check_spec(dataset.element_spec)
 
     return input_lib.get_distributed_dataset(
         dataset,
         self._get_input_workers(options),
         self._container_strategy(),
-        num_replicas_in_sync=self._num_replicas_in_sync)
+        num_replicas_in_sync=self._num_replicas_in_sync,
+        options=options)
 
   def _distribute_datasets_from_function(self, dataset_fn, options):
     if (options and options.experimental_replication_mode ==
@@ -969,10 +969,11 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
         dataset_fn,
         input_workers,
         input_contexts,
-        self._container_strategy())
+        self._container_strategy(),
+        options=options)
 
     # We can only check after the dataset_fn is called.
-    if options is None or options.experimental_prefetch_to_device:
+    if options is None or options.experimental_fetch_to_device:
       self._check_spec(distributed_dataset.element_spec)
     return distributed_dataset
 
@@ -1165,16 +1166,29 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
         distribute_utils.TPU_VARIABLE_CLASS_MAPPING,
         distribute_utils.TPU_VARIABLE_POLICY_MAPPING, **kwargs)
 
+  def _resource_creator_scope(self):
+
+    def lookup_creator(next_creator, *args, **kwargs):
+      host_to_table = collections.OrderedDict()
+      for host_device in self._device_input_worker_devices.keys():
+        with ops.device(host_device):
+          host_to_table[host_device] = next_creator(*args, **kwargs)
+
+      return values.PerWorkerResource(self._container_strategy(), host_to_table)
+
+    # TODO(b/194362531): Define creator(s) for other resources.
+    return ops.resource_creator_scope("StaticHashTable", lookup_creator)
+
   def _gather_to_implementation(self, value, destinations, axis, options):
     if not isinstance(value, values.DistributedValues):
       return value
 
-    value_list = value.values
+    value_list = list(value.values)
     # pylint: disable=protected-access
     if isinstance(
         value,
         values.DistributedVariable) and value._packed_variable is not None:
-      value_list = tuple(
+      value_list = list(
           value._packed_variable.on_device(d)
           for d in value._packed_variable.devices)
     # pylint: enable=protected-access
@@ -1218,7 +1232,8 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
        ) and tpu_util.enclosing_tpu_context() is not None:
       if reduce_op == reduce_util.ReduceOp.MEAN:
         # TODO(jhseu):  Revisit once we support model-parallelism.
-        value *= (1. / self._num_replicas_in_sync)
+        # scalar_mul maintains the type of value: tensor or IndexedSlices.
+        value = math_ops.scalar_mul((1./self._num_replicas_in_sync), value)
       elif reduce_op != reduce_util.ReduceOp.SUM:
         raise NotImplementedError(
             "Currently only support sum & mean in TPUStrategy.")
@@ -1301,11 +1316,6 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
     assert isinstance(var, tpu_values.TPUVariableMixin) or isinstance(
         var, resource_variable_ops.BaseResourceVariable)
     return var.read_value()
-
-  def _local_results(self, val):
-    if isinstance(val, values.DistributedValues):
-      return val.values
-    return (val,)
 
   def value_container(self, value):
     return value
@@ -1467,6 +1477,10 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
             rank = input_tensor.shape.rank
           else:
             rank = np.ndim(input_tensor)
+          if rank is None:
+            raise ValueError(
+                "input tensor {} to TPUStrategy.run() has unknown rank, "
+                "which is not allowed".format(input_tensor))
           maximum_shape = tensor_shape.TensorShape([None] * rank)
           maximum_shapes.append(maximum_shape)
         maximum_shapes = nest.pack_sequence_as(replicate_inputs[0],
@@ -1480,29 +1494,28 @@ class TPUExtended(distribute_lib.StrategyExtendedV1):
         padding_spec = None
 
       with strategy.scope():
+        xla_options = options.experimental_xla_options or tpu.XLAOptions(
+            use_spmd_for_xla_partitioning=self._use_spmd_for_xla_partitioning)
         replicate_outputs = tpu.replicate(
             replicated_fn,
             replicate_inputs,
             device_assignment=self._device_assignment,
             maximum_shapes=maximum_shapes,
             padding_spec=padding_spec,
-            xla_options=tpu.XLAOptions(use_spmd_for_xla_partitioning=self
-                                       ._use_spmd_for_xla_partitioning))
+            xla_options=xla_options)
 
       # Remove all no ops that may have been added during 'tpu.replicate()'
+      filter_ops = lambda x: [o for o in x if not isinstance(o, ops.Operation)]
       if isinstance(result[0], list):
-        result[0] = [
-            output for output in result[0] if not isinstance(
-                output, ops.Operation)
-        ]
+        result[0] = filter_ops(result[0])
 
       # Workaround for `tpu.replicate` behaviour when single `Tensor` returned.
       if result[0] is None or isinstance(result[0], ops.Operation):
         replicate_outputs = [None] * len(replicate_outputs)
       else:
         replicate_outputs = [
-            nest.pack_sequence_as(result[0], nest.flatten(replica_output))
-            for replica_output in replicate_outputs
+            nest.pack_sequence_as(result[0], filter_ops(nest.flatten(output)))
+            for output in replicate_outputs
         ]
       return distribute_utils.regroup(replicate_outputs)
 

@@ -16,36 +16,17 @@
 
 package dagger.hilt.processor.internal.aggregateddeps;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static dagger.hilt.processor.internal.aggregateddeps.AggregatedDepsGenerator.AGGREGATING_PACKAGE;
-import static dagger.internal.codegen.extension.DaggerStreams.toImmutableList;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.SetMultimap;
 import com.squareup.javapoet.ClassName;
-import dagger.hilt.processor.internal.AnnotationValues;
-import dagger.hilt.processor.internal.BadInputException;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.ComponentDescriptor;
-import dagger.hilt.processor.internal.ProcessorErrors;
-import dagger.hilt.processor.internal.Processors;
-import dagger.hilt.processor.internal.aggregateddeps.ComponentDependencies.AggregatedDepMetadata.DependencyType;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.PackageElement;
+import dagger.hilt.processor.internal.earlyentrypoint.AggregatedEarlyEntryPointMetadata;
+import dagger.hilt.processor.internal.uninstallmodules.AggregatedUninstallModulesMetadata;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 
@@ -65,6 +46,23 @@ public abstract class ComponentDependencies {
   /** Returns the component entry point associated with the given a component. */
   public abstract Dependencies componentEntryPoints();
 
+  /** Returns the set of early entry points */
+  public abstract ImmutableSet<ClassName> earlyEntryPoints();
+
+  /** Returns {@code true} if any entry points are annotated with {@code EarlyEntryPoints}. */
+  public boolean hasEarlyEntryPoints() {
+    return !earlyEntryPoints().isEmpty();
+  }
+
+  /**
+   * Returns {@code true} if the test binds or uninstalls test-specific bindings that would prevent
+   * it from sharing components with other test roots.
+   */
+  public final boolean includesTestDeps(ClassName root) {
+    return modules().testDeps().keySet().stream().anyMatch((key) -> key.test().equals(root))
+        || modules().uninstalledTestDeps().containsKey(root);
+  }
+
   @AutoValue.Builder
   abstract static class Builder {
     abstract Dependencies.Builder modulesBuilder();
@@ -73,12 +71,9 @@ public abstract class ComponentDependencies {
 
     abstract Dependencies.Builder componentEntryPointsBuilder();
 
-    abstract ComponentDependencies autoBuild();
+    abstract ImmutableSet.Builder<ClassName> earlyEntryPointsBuilder();
 
-    ComponentDependencies build(Elements elements) {
-      validateModules(modulesBuilder().build(), elements);
-      return autoBuild();
-    }
+    abstract ComponentDependencies build();
   }
 
   /** A key used for grouping a test dependency by both its component and test name. */
@@ -122,6 +117,17 @@ public abstract class ComponentDependencies {
 
     /** Returns the global uninstalled test deps. */
     abstract ImmutableSet<TypeElement> globalUninstalledTestDeps();
+
+    /** Returns the dependencies to be installed in the global singleton component. */
+    ImmutableSet<TypeElement> getGlobalSingletonDeps() {
+      return ImmutableSet.<TypeElement>builder()
+          .addAll(
+              globalDeps().get(ClassNames.SINGLETON_COMPONENT).stream()
+                  .filter(dep -> !globalUninstalledTestDeps().contains(dep))
+                  .collect(toImmutableSet()))
+          .addAll(globalTestDeps().get(ClassNames.SINGLETON_COMPONENT))
+          .build();
+    }
 
     /** Returns the dependencies to be installed in the given component for the given root. */
     public ImmutableSet<TypeElement> get(ClassName component, ClassName root, boolean isTestRoot) {
@@ -175,14 +181,10 @@ public abstract class ComponentDependencies {
    */
   public static ComponentDependencies from(
       ImmutableSet<ComponentDescriptor> descriptors, Elements elements) {
-    Map<String, ComponentDescriptor> descriptorLookup = descriptorLookupMap(descriptors);
-    ImmutableList<AggregatedDepMetadata> metadatas =
-        getAggregatedDeps(elements).stream()
-            .map(deps -> AggregatedDepMetadata.create(deps, descriptorLookup, elements))
-            .collect(toImmutableList());
-
+    ImmutableSet<ClassName> componentNames =
+        descriptors.stream().map(ComponentDescriptor::component).collect(toImmutableSet());
     ComponentDependencies.Builder componentDependencies = ComponentDependencies.builder();
-    for (AggregatedDepMetadata metadata : metadatas) {
+    for (AggregatedDepsMetadata metadata : AggregatedDepsMetadata.from(elements)) {
       Dependencies.Builder builder = null;
       switch (metadata.dependencyType()) {
         case MODULE:
@@ -195,265 +197,46 @@ public abstract class ComponentDependencies {
           builder = componentDependencies.componentEntryPointsBuilder();
           break;
       }
-
-      for (ComponentDescriptor componentDescriptor : metadata.componentDescriptors()) {
-        ClassName component = componentDescriptor.component();
+      for (TypeElement componentElement : metadata.componentElements()) {
+        ClassName componentName = ClassName.get(componentElement);
+        checkState(
+            componentNames.contains(componentName), "%s is not a valid Component.", componentName);
         if (metadata.testElement().isPresent()) {
           // In this case the @InstallIn or @TestInstallIn applies to only the given test root.
           ClassName test = ClassName.get(metadata.testElement().get());
-          builder.testDepsBuilder().put(TestDepKey.of(component, test), metadata.dependency());
+          builder.testDepsBuilder().put(TestDepKey.of(componentName, test), metadata.dependency());
           builder.uninstalledTestDepsBuilder().putAll(test, metadata.replacedDependencies());
         } else {
           // In this case the @InstallIn or @TestInstallIn applies to all roots
           if (!metadata.replacedDependencies().isEmpty()) {
             // If there are replacedDependencies() it means this is a @TestInstallIn
-            builder.globalTestDepsBuilder().put(component, metadata.dependency());
+            builder.globalTestDepsBuilder().put(componentName, metadata.dependency());
             builder.globalUninstalledTestDepsBuilder().addAll(metadata.replacedDependencies());
           } else {
-            builder.globalDepsBuilder().put(component, metadata.dependency());
+            builder.globalDepsBuilder().put(componentName, metadata.dependency());
           }
         }
       }
     }
 
-    // Collect all @UninstallModules.
-    // TODO(b/176438516): Filter @UninstallModules at the root.
-    metadatas.stream()
-        .filter(metadata -> metadata.testElement().isPresent())
-        .map(metadata -> metadata.testElement().get())
-        .distinct()
-        .filter(testElement -> Processors.hasAnnotation(testElement, ClassNames.IGNORE_MODULES))
+    AggregatedUninstallModulesMetadata.from(elements)
         .forEach(
-            testElement ->
+            metadata ->
                 componentDependencies
                     .modulesBuilder()
                     .uninstalledTestDepsBuilder()
                     .putAll(
-                        ClassName.get(testElement), getUninstalledModules(testElement, elements)));
+                        ClassName.get(metadata.testElement()),
+                        metadata.uninstallModuleElements().stream()
+                            .map(module -> PkgPrivateMetadata.publicModule(module, elements))
+                            .collect(toImmutableSet())));
 
-    return componentDependencies.build(elements);
-  }
+    AggregatedEarlyEntryPointMetadata.from(elements).stream()
+        .map(AggregatedEarlyEntryPointMetadata::earlyEntryPoint)
+        .map(entryPoint -> PkgPrivateMetadata.publicEarlyEntryPoint(entryPoint, elements))
+        .map(ClassName::get)
+        .forEach(componentDependencies.earlyEntryPointsBuilder()::add);
 
-  private static ImmutableMap<String, ComponentDescriptor> descriptorLookupMap(
-      ImmutableSet<ComponentDescriptor> descriptors) {
-    ImmutableMap.Builder<String, ComponentDescriptor> builder = ImmutableMap.builder();
-    for (ComponentDescriptor descriptor : descriptors) {
-      // This is a temporary hack to map the old ApplicationComponent to the new SingletonComponent.
-      // Technically, this is only needed for backwards compatibility with libraries using the old
-      // processor since new processors should convert to the new SingletonComponent when generating
-      // the metadata class.
-      if (descriptor.component().equals(ClassNames.SINGLETON_COMPONENT)) {
-        builder.put("dagger.hilt.android.components.ApplicationComponent", descriptor);
-      }
-      builder.put(descriptor.component().toString(), descriptor);
-    }
-    return builder.build();
-  }
-
-  // Validate that the @UninstallModules doesn't contain any test modules.
-  private static Dependencies validateModules(Dependencies moduleDeps, Elements elements) {
-    SetMultimap<ClassName, TypeElement> invalidTestModules = HashMultimap.create();
-    moduleDeps.testDeps().entries().stream()
-        .filter(
-            e -> moduleDeps.uninstalledTestDeps().containsEntry(e.getKey().test(), e.getValue()))
-        .forEach(e -> invalidTestModules.put(e.getKey().test(), e.getValue()));
-
-    // Currently we don't have a good way to throw an error for all tests, so we sort (to keep the
-    // error reporting order stable) and then choose the first test.
-    // TODO(bcorso): Consider using ProcessorErrorHandler directly to report all errors at once?
-    Optional<ClassName> invalidTest =
-        invalidTestModules.keySet().stream()
-            .min((test1, test2) -> test1.toString().compareTo(test2.toString()));
-    if (invalidTest.isPresent()) {
-      throw new BadInputException(
-          String.format(
-              "@UninstallModules on test, %s, should not containing test modules, "
-                  + "but found: %s",
-              invalidTest.get(),
-              invalidTestModules.get(invalidTest.get()).stream()
-                  // Sort modules to keep stable error messages.
-                  .sorted((test1, test2) -> test1.toString().compareTo(test2.toString()))
-                  .collect(toImmutableList())),
-          elements.getTypeElement(invalidTest.get().toString()));
-    }
-    return moduleDeps;
-  }
-
-  private static ImmutableSet<TypeElement> getUninstalledModules(
-      TypeElement testElement, Elements elements) {
-    ImmutableList<TypeElement> userUninstallModules =
-        Processors.getAnnotationClassValues(
-            elements,
-            Processors.getAnnotationMirror(testElement, ClassNames.IGNORE_MODULES),
-            "value");
-
-    // For pkg-private modules, find the generated wrapper class and uninstall that instead.
-    return userUninstallModules.stream()
-        .map(uninstallModule -> getPublicDependency(uninstallModule, elements))
-        .collect(toImmutableSet());
-  }
-
-  /** Returns the public Hilt wrapper module, or the module itself if its already public. */
-  private static TypeElement getPublicDependency(TypeElement dependency, Elements elements) {
-    return PkgPrivateMetadata.of(elements, dependency, ClassNames.MODULE)
-        .map(metadata -> elements.getTypeElement(metadata.generatedClassName().toString()))
-        .orElse(dependency);
-  }
-
-  /** Returns the top-level elements of the aggregated deps package. */
-  private static ImmutableList<AnnotationMirror> getAggregatedDeps(Elements elements) {
-    PackageElement packageElement = elements.getPackageElement(AGGREGATING_PACKAGE);
-    checkState(
-        packageElement != null,
-        "Couldn't find package %s. Did you mark your @Module classes with @InstallIn annotations?",
-        AGGREGATING_PACKAGE);
-
-    List<? extends Element> aggregatedDepsElements = packageElement.getEnclosedElements();
-    checkState(
-        !aggregatedDepsElements.isEmpty(),
-        "No dependencies found. Did you mark your @Module classes with @InstallIn annotations?");
-
-    ImmutableList.Builder<AnnotationMirror> builder = ImmutableList.builder();
-    for (Element element : aggregatedDepsElements) {
-      ProcessorErrors.checkState(
-          element.getKind() == ElementKind.CLASS,
-          element,
-          "Only classes may be in package %s. Did you add custom code in the package?",
-          AGGREGATING_PACKAGE);
-
-      AnnotationMirror aggregatedDeps =
-          Processors.getAnnotationMirror(element, ClassNames.AGGREGATED_DEPS);
-      ProcessorErrors.checkState(
-          aggregatedDeps != null,
-          element,
-          "Classes in package %s must be annotated with @AggregatedDeps: %s. Found: %s.",
-          AGGREGATING_PACKAGE,
-          element.getSimpleName(),
-          element.getAnnotationMirrors());
-
-      builder.add(aggregatedDeps);
-    }
-    return builder.build();
-  }
-
-  @AutoValue
-  abstract static class AggregatedDepMetadata {
-    static AggregatedDepMetadata create(
-        AnnotationMirror aggregatedDeps,
-        Map<String, ComponentDescriptor> descriptorLookup,
-        Elements elements) {
-      ImmutableMap<String, AnnotationValue> aggregatedDepsValues =
-          Processors.getAnnotationValues(elements, aggregatedDeps);
-
-      return new AutoValue_ComponentDependencies_AggregatedDepMetadata(
-          getTestElement(aggregatedDepsValues.get("test"), elements),
-          getComponents(aggregatedDepsValues.get("components"), descriptorLookup),
-          getDependencyType(
-              aggregatedDepsValues.get("modules"),
-              aggregatedDepsValues.get("entryPoints"),
-              aggregatedDepsValues.get("componentEntryPoints")),
-          getDependency(
-              aggregatedDepsValues.get("modules"),
-              aggregatedDepsValues.get("entryPoints"),
-              aggregatedDepsValues.get("componentEntryPoints"),
-              elements),
-          getReplacedDependencies(aggregatedDepsValues.get("replaces"), elements));
-    }
-
-    enum DependencyType {
-      MODULE,
-      ENTRY_POINT,
-      COMPONENT_ENTRY_POINT
-    }
-
-    abstract Optional<TypeElement> testElement();
-
-    abstract ImmutableList<ComponentDescriptor> componentDescriptors();
-
-    abstract DependencyType dependencyType();
-
-    abstract TypeElement dependency();
-
-    abstract ImmutableSet<TypeElement> replacedDependencies();
-
-    private static Optional<TypeElement> getTestElement(
-        AnnotationValue testValue, Elements elements) {
-      checkNotNull(testValue);
-      String test = AnnotationValues.getString(testValue);
-      return test.isEmpty() ? Optional.empty() : Optional.of(elements.getTypeElement(test));
-    }
-
-    private static ImmutableList<ComponentDescriptor> getComponents(
-        AnnotationValue componentsValue, Map<String, ComponentDescriptor> descriptorLookup) {
-      checkNotNull(componentsValue);
-      ImmutableList<String> componentNames =
-          AnnotationValues.getAnnotationValues(componentsValue).stream()
-              .map(AnnotationValues::getString)
-              .collect(toImmutableList());
-
-      checkState(!componentNames.isEmpty());
-      ImmutableList.Builder<ComponentDescriptor> components = ImmutableList.builder();
-      for (String componentName : componentNames) {
-        checkState(
-            descriptorLookup.containsKey(componentName),
-            "%s is not a valid Component. Did you add or remove code in package %s?",
-            componentName,
-            AGGREGATING_PACKAGE);
-        components.add(descriptorLookup.get(componentName));
-      }
-      return components.build();
-    }
-
-    private static DependencyType getDependencyType(
-        AnnotationValue modulesValue,
-        AnnotationValue entryPointsValue,
-        AnnotationValue componentEntryPointsValue) {
-      checkNotNull(modulesValue);
-      checkNotNull(entryPointsValue);
-      checkNotNull(componentEntryPointsValue);
-
-      ImmutableSet.Builder<DependencyType> dependencyTypes = ImmutableSet.builder();
-      if (!AnnotationValues.getAnnotationValues(modulesValue).isEmpty()) {
-        dependencyTypes.add(DependencyType.MODULE);
-      }
-      if (!AnnotationValues.getAnnotationValues(entryPointsValue).isEmpty()) {
-        dependencyTypes.add(DependencyType.ENTRY_POINT);
-      }
-      if (!AnnotationValues.getAnnotationValues(componentEntryPointsValue).isEmpty()) {
-        dependencyTypes.add(DependencyType.COMPONENT_ENTRY_POINT);
-      }
-      return getOnlyElement(dependencyTypes.build());
-    }
-
-    private static TypeElement getDependency(
-        AnnotationValue modulesValue,
-        AnnotationValue entryPointsValue,
-        AnnotationValue componentEntryPointsValue,
-        Elements elements) {
-      checkNotNull(modulesValue);
-      checkNotNull(entryPointsValue);
-      checkNotNull(componentEntryPointsValue);
-
-      return elements.getTypeElement(
-          AnnotationValues.getString(
-              getOnlyElement(
-                  ImmutableList.<AnnotationValue>builder()
-                      .addAll(AnnotationValues.getAnnotationValues(modulesValue))
-                      .addAll(AnnotationValues.getAnnotationValues(entryPointsValue))
-                      .addAll(AnnotationValues.getAnnotationValues(componentEntryPointsValue))
-                      .build())));
-    }
-
-    private static ImmutableSet<TypeElement> getReplacedDependencies(
-        AnnotationValue replacedDependenciesValue, Elements elements) {
-      // Allow null values to support libraries using a Hilt version before @TestInstallIn was added
-      return replacedDependenciesValue == null
-          ? ImmutableSet.of()
-          : AnnotationValues.getAnnotationValues(replacedDependenciesValue).stream()
-              .map(AnnotationValues::getString)
-              .map(elements::getTypeElement)
-              .map(replacedDep -> getPublicDependency(replacedDep, elements))
-              .collect(toImmutableSet());
-    }
+    return componentDependencies.build();
   }
 }

@@ -44,6 +44,8 @@ rust_library {
     name: "libform_urlencoded",
     host_supported: true,
     crate_name: "form_urlencoded",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.0.1",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -56,7 +58,3 @@ rust_library {
     ],
     min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   matches-0.1.8
-//   percent-encoding-2.1.0

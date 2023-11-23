@@ -21,7 +21,9 @@
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/string_utils.h"
 #include "perfetto/ext/base/string_view.h"
+#include "perfetto/trace_processor/trace_blob_view.h"
 #include "src/trace_processor/forwarding_trace_parser.h"
+#include "src/trace_processor/util/gzip_utils.h"
 #include "src/trace_processor/util/status_macros.h"
 
 namespace perfetto {
@@ -29,7 +31,7 @@ namespace trace_processor {
 
 namespace {
 
-using ResultCode = GzipDecompressor::ResultCode;
+using ResultCode = util::GzipDecompressor::ResultCode;
 
 }  // namespace
 
@@ -41,9 +43,8 @@ GzipTraceParser::GzipTraceParser(std::unique_ptr<ChunkedTraceReader> reader)
 
 GzipTraceParser::~GzipTraceParser() = default;
 
-util::Status GzipTraceParser::Parse(std::unique_ptr<uint8_t[]> data,
-                                    size_t size) {
-  return ParseUnowned(data.get(), size);
+util::Status GzipTraceParser::Parse(TraceBlobView blob) {
+  return ParseUnowned(blob.data(), blob.size());
 }
 
 util::Status GzipTraceParser::ParseUnowned(const uint8_t* data, size_t size) {
@@ -74,7 +75,7 @@ util::Status GzipTraceParser::ParseUnowned(const uint8_t* data, size_t size) {
   constexpr size_t kUncompressedBufferSize = 32 * 1024 * 1024;
 
   needs_more_input_ = false;
-  decompressor_.SetInput(start, len);
+  decompressor_.Feed(start, len);
 
   for (auto ret = ResultCode::kOk; ret != ResultCode::kEof;) {
     if (!buffer_) {
@@ -83,10 +84,10 @@ util::Status GzipTraceParser::ParseUnowned(const uint8_t* data, size_t size) {
     }
 
     auto result =
-        decompressor_.Decompress(buffer_.get() + bytes_written_,
-                                 kUncompressedBufferSize - bytes_written_);
+        decompressor_.ExtractOutput(buffer_.get() + bytes_written_,
+                                    kUncompressedBufferSize - bytes_written_);
     ret = result.ret;
-    if (ret == ResultCode::kError || ret == ResultCode::kNoProgress)
+    if (ret == ResultCode::kError)
       return util::ErrStatus("Failed to decompress trace chunk");
 
     if (ret == ResultCode::kNeedsMoreInput) {
@@ -96,8 +97,11 @@ util::Status GzipTraceParser::ParseUnowned(const uint8_t* data, size_t size) {
     }
     bytes_written_ += result.bytes_written;
 
-    if (bytes_written_ == kUncompressedBufferSize || ret == ResultCode::kEof)
-      RETURN_IF_ERROR(inner_->Parse(std::move(buffer_), bytes_written_));
+    if (bytes_written_ == kUncompressedBufferSize || ret == ResultCode::kEof) {
+      TraceBlob blob =
+          TraceBlob::TakeOwnership(std::move(buffer_), bytes_written_);
+      RETURN_IF_ERROR(inner_->Parse(TraceBlobView(std::move(blob))));
+    }
   }
   return util::OkStatus();
 }

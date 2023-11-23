@@ -1,7 +1,7 @@
 %define _binary_payload w9.gzdio
 Name:           mtools
 Summary:        mtools, read/write/list/format DOS disks under Unix
-Version:        4.0.26
+Version:        4.0.37
 Release:        1
 License:        GPLv3+
 Group:          Utilities/System
@@ -49,7 +49,6 @@ rm %{buildroot}%{_infodir}/dir
 %{_mandir}/man1/mbadblocks.1*
 %{_mandir}/man1/mcat.1*
 %{_mandir}/man1/mcd.1*
-%{_mandir}/man1/mclasserase.1*
 %{_mandir}/man1/mcopy.1*
 %{_mandir}/man1/mdel.1*
 %{_mandir}/man1/mdeltree.1*
@@ -77,7 +76,6 @@ rm %{buildroot}%{_infodir}/dir
 %{_bindir}/mbadblocks
 %{_bindir}/mcat
 %{_bindir}/mcd
-%{_bindir}/mclasserase
 %{_bindir}/mcopy
 %{_bindir}/mdel
 %{_bindir}/mdeltree
@@ -135,6 +133,92 @@ if [ -f %{_bindir}/install-info ] ; then
 fi
 
 %changelog
+* Sun Dec 26 2021 Alain Knaff <alain@knaff.lu>
+- Removed mclasserase commands, which doesn't fit the coding
+  structure of the rest of mtools
+- Add support to -i option to mcd
+- Document -i in mtools.1
+- Fix a missing commad error in floppyd_io.c
+* Sun Nov 21 2021 Alain Knaff <alain@knaff.lu>
+- Fix error status of recursive listing of empty root directory
+- If recursive listing, also show matched files at level one
+- Use "seekless" reads & write internally, where possible
+- Text mode conversion refactoring
+- Misc refactoring
+* Fri Aug 06 2021 Alain Knaff <alain@knaff.lu>
+- Fix cluster padding at end of file in batch mode, and add comments about what
+  happens here
+* Fri Jul 23 2021 Alain Knaff <alain@knaff.lu>
+- Fix mcopy -s issue
+* Sat Jul 17 2021 Alain Knaff <alain@knaff.lu>
+- Fix support for partitions (broken in 4.0.30)
+- Portability fixes for Solaris 10 and 11
+- General simplification of configure script, and largefile handling
+- Tested and fixed for platforms *without* largefile support
+- In cases where lseek works with 32-bit offsets, prefer lseek64 over llseek
+- Fixed floppy sector size handling on platforms that are not Linux
+- Added support for image files on command line to mcat
+* Sat Jul 10 2021 Alain Knaff <alain@knaff.lu>
+- Simplify algorithm that choses filesystem parameters for
+  format, and align it more closely with what Win7 does
+- Fix mformatting XDF when XDF not explicitly specified on
+  mformat command line
+- easier way to enter sizes on mformat command line (mformat -C -T 1440K)
+- For small sizes, mformat assumes floppy geometries (heads 1 or 2,
+  tracks 40 or 80)
+- Handle attempts to mformat too small filesystems more gracefully
+- Enable minfo to print out additional mformat command line
+  parameters, if the present filesystem uses non-default values for
+  these
+- minfo no longer prints bigsect if smallsect is set
+- for remap filter, error when trying to write non-zero data to
+unmapped sectors
+- Fix misc compilation warnings occuring when disabling certain
+features (largefiles, raw-term)
+
+* Sat Jun 19 2021 Alain Knaff <alain@knaff.lu>
+- Move Linux-specific block device sizing code into
+  linux-specific section of devices.c
+- Error messages for all failure cases on fs_init failure
+- Fix compilation without XDF support (OpenImage signature)
+- Fix polarity of format_xdf command-line parameter of mformat
+- In XDF_IO retry enough times to actually succeed, even if
+  FDC was in a bad state before
+- Remove useless buffer flushing triggered when giving up a
+  reference to a stream node that is still referenced
+  elsewhere.
+- Clearer error message if neither size nor geometry of drive
+  to be mformatted is known
+- In mformat, make Fs dynamically allocated rather than
+  on-stack, so as to be able to use utilities supplied by
+  stream.c
+- Remove duplicate writing of backup boot sector
+- Allow to infer geometry if only size is specified
+- Protect against attempt to create zero-sized buffer
+- Code simplification in mattrib
+- Remove dead code in mpartition
+
+* Thu Jun 17 2021 Alain Knaff <alain@knaff.lu>
+- Fixed XDF floppy disk access
+- Fixed faulty behavior at end of image in mcat
+- Device/Image size handling refactoring
+- allow remap to write to zero-backed sectors (may happen if
+  buffer is flushed, and is not an error in that case)
+- Raise an error when trying to mcopy multiple source files
+  over a single destination file (rather than directory)
+- fix handling of "hidden" sectors (is a 2 byte quantity on
+  small disks, not 4 byte as previously assumed)
+- Modernize partition support. Tuned consistency check to
+  actually check about important issues (such as overlapping
+  partitions) rather than stuff nobody else cares about
+  (alignment on entire cylinder boundaries)
+- Move various "filter" options (partition, offset, swap,
+  scsi) into separate classes, rather than leaving almost
+  everything in plain_io
+- Simplify and centralize geometry handling and LBA code
+- Fix some more more compiler warnings
+* Mon May 31 2021 Alain Knaff <alain@knaff.lu>
+-Fix bug in cluster preallocation, which was accidentally introduced by compiler warning "fixes" from v4_0_28
 * Sat Nov 28 2020 Alain Knaff <alain@knaff.lu>
 - Fix compilation on Macintosh
 - Ignore image file locking errors if we are performing a read-only access anyways

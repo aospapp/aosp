@@ -4,6 +4,7 @@
  */
 
 #include <dlfcn.h>
+#include <err.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,15 +16,17 @@
 #include "minijail0_cli.h"
 #include "util.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char *environ[])
 {
 	struct minijail *j = minijail_new();
 	const char *dl_mesg = NULL;
 	const char *preload_path = PRELOADPATH;
 	int exit_immediately = 0;
 	ElfType elftype = ELFERROR;
-	int consumed = parse_args(j, argc, argv, &exit_immediately, &elftype,
-				  &preload_path);
+	char **envp = NULL;
+	int consumed = parse_args(j, argc, argv, environ,
+				  &exit_immediately, &elftype,
+				  &preload_path, &envp);
 	argc -= consumed;
 	argv += consumed;
 
@@ -37,10 +40,8 @@ int main(int argc, char *argv[])
 	 * the process is already a process group leader.
 	 */
 	if (setpgid(0 /* use calling PID */, 0 /* make PGID = PID */)) {
-		if (errno != EPERM) {
-			fprintf(stderr, "setpgid(0, 0) failed\n");
-			exit(1);
-		}
+		if (errno != EPERM)
+			err(1, "setpgid(0, 0) failed");
 	}
 
 	if (elftype == ELFSTATIC) {
@@ -58,16 +59,17 @@ int main(int argc, char *argv[])
 		/* Check that we can dlopen() libminijailpreload.so. */
 		if (!dlopen(preload_path, RTLD_LAZY | RTLD_LOCAL)) {
 			dl_mesg = dlerror();
-			fprintf(stderr, "dlopen(): %s\n", dl_mesg);
+			errx(1, "dlopen(): %s", dl_mesg);
 			return 1;
 		}
 		minijail_set_preload_path(j, preload_path);
-		minijail_run(j, argv[0], argv);
+		if (envp) {
+			minijail_run_env(j, argv[0], argv, envp);
+		} else {
+			minijail_run(j, argv[0], argv);
+		}
 	} else {
-		fprintf(stderr,
-			"Target program '%s' is not a valid ELF file.\n",
-			argv[0]);
-		return 1;
+		errx(1, "Target program '%s' is not a valid ELF file", argv[0]);
 	}
 
 	if (exit_immediately)

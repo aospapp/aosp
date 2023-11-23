@@ -45,7 +45,7 @@ cc_defaults {
     cflags: [
         "-D_FILE_OFFSET_BITS=64",
         "-DFUSERMOUNT_DIR=\"/system/bin\"",
-        "-DFUSE_USE_VERSION=34",
+        "-DFUSE_USE_VERSION=35",
         "-Wall",
         "-Werror",
         "-Wextra",

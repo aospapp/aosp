@@ -39,6 +39,7 @@ WHICH GENERATES THE GLSL ES PARSER (glslang_tab_autogen.cpp AND glslang_tab_auto
 #endif
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunreachable-code"
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
 #endif
 
 #include "angle_gl.h"
@@ -657,6 +658,11 @@ function_header_with_parameters
         {
             $1->addParameter($2.createVariable(&context->symbolTable));
         }
+        else
+        {
+            // Remember that void was seen, so error can be generated if another parameter is seen.
+            $1->setHasVoidParameter();
+        }
     }
     | function_header_with_parameters COMMA parameter_declaration {
         $$ = $1;
@@ -669,6 +675,12 @@ function_header_with_parameters
         }
         else
         {
+            if ($1->hasVoidParameter())
+            {
+                // Only first parameter of one-parameter functions can be void.  This check prevents
+                // (void, non_void) parameters.
+                context->error(@2, "cannot be a parameter type except for '(void)'", "void");
+            }
             $1->addParameter($3.createVariable(&context->symbolTable));
         }
     }

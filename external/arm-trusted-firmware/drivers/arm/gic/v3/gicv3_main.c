@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -70,7 +70,8 @@ static bool is_sgi_ppi(unsigned int id);
 		for (unsigned int int_id = MIN_ESPI_ID; int_id < (intr_num);\
 				int_id += (1U << REG##R_SHIFT)) {	\
 			gicd_write_##reg((base), int_id,		\
-			(ctx)->gicd_##reg[(int_id - (MIN_ESPI_ID - MIN_SPI_ID))\
+			(ctx)->gicd_##reg[(int_id - (MIN_ESPI_ID -	\
+			round_up(TOTAL_SPI_INTR_NUM, 1U << REG##R_SHIFT)))\
 						>> REG##R_SHIFT]);	\
 		}							\
 	} while (false)
@@ -79,7 +80,8 @@ static bool is_sgi_ppi(unsigned int id);
 	do {								\
 		for (unsigned int int_id = MIN_ESPI_ID; int_id < (intr_num);\
 				int_id += (1U << REG##R_SHIFT)) {	\
-			(ctx)->gicd_##reg[(int_id - (MIN_ESPI_ID - MIN_SPI_ID))\
+			(ctx)->gicd_##reg[(int_id - (MIN_ESPI_ID -	\
+			round_up(TOTAL_SPI_INTR_NUM, 1U << REG##R_SHIFT)))\
 			>> REG##R_SHIFT] = gicd_read_##reg((base), int_id);\
 		}							\
 	} while (false)
@@ -330,6 +332,8 @@ void gicv3_cpuif_enable(unsigned int proc_num)
 	write_icc_igrpen1_el3(read_icc_igrpen1_el3() |
 				IGRPEN1_EL3_ENABLE_G1S_BIT);
 	isb();
+	/* Add DSB to ensure visibility of System register writes */
+	dsb();
 }
 
 /*******************************************************************************
@@ -361,6 +365,8 @@ void gicv3_cpuif_disable(unsigned int proc_num)
 
 	/* Synchronise accesses to group enable registers */
 	isb();
+	/* Add DSB to ensure visibility of System register writes */
+	dsb();
 
 	/* Mark the connected core as asleep */
 	gicr_base = gicv3_driver_data->rdistif_base_addrs[proc_num];
@@ -726,40 +732,17 @@ void gicv3_rdistif_init_restore(unsigned int proc_num,
  *****************************************************************************/
 void gicv3_distif_save(gicv3_dist_ctx_t * const dist_ctx)
 {
-	unsigned int typer_reg, num_ints;
-#if GIC_EXT_INTID
-	unsigned int num_eints;
-#endif
-
 	assert(gicv3_driver_data != NULL);
 	assert(gicv3_driver_data->gicd_base != 0U);
 	assert(IS_IN_EL3());
 	assert(dist_ctx != NULL);
 
 	uintptr_t gicd_base = gicv3_driver_data->gicd_base;
-
-	typer_reg = gicd_read_typer(gicd_base);
-
-	/* Maximum SPI INTID is 32 * (GICD_TYPER.ITLinesNumber + 1) - 1 */
-	num_ints = ((typer_reg & TYPER_IT_LINES_NO_MASK) + 1U) << 5;
-
-	/* Filter out special INTIDs 1020-1023 */
-	if (num_ints > (MAX_SPI_ID + 1U)) {
-		num_ints = MAX_SPI_ID + 1U;
-	}
-
+	unsigned int num_ints = gicv3_get_spi_limit(gicd_base);
 #if GIC_EXT_INTID
-	/* Check if extended SPI range is implemented */
-	if ((typer_reg & TYPER_ESPI) != 0U) {
-		/*
-		 * Maximum ESPI INTID is 32 * (GICD_TYPER.ESPI_range + 1) + 4095
-		 */
-		num_eints = ((((typer_reg >> TYPER_ESPI_RANGE_SHIFT) &
-			TYPER_ESPI_RANGE_MASK) + 1U) << 5) + MIN_ESPI_ID - 1;
-	} else {
-		num_eints = 0U;
-	}
+	unsigned int num_eints = gicv3_get_espi_limit(gicd_base);
 #endif
+
 	/* Wait for pending write to complete */
 	gicd_wait_for_pending_write(gicd_base);
 
@@ -836,11 +819,6 @@ void gicv3_distif_save(gicv3_dist_ctx_t * const dist_ctx)
  *****************************************************************************/
 void gicv3_distif_init_restore(const gicv3_dist_ctx_t * const dist_ctx)
 {
-	unsigned int typer_reg, num_ints;
-#if GIC_EXT_INTID
-	unsigned int num_eints;
-#endif
-
 	assert(gicv3_driver_data != NULL);
 	assert(gicv3_driver_data->gicd_base != 0U);
 	assert(IS_IN_EL3());
@@ -862,27 +840,9 @@ void gicv3_distif_init_restore(const gicv3_dist_ctx_t * const dist_ctx)
 	/* Set the ARE_S and ARE_NS bit now that interrupts have been disabled */
 	gicd_set_ctlr(gicd_base, CTLR_ARE_S_BIT | CTLR_ARE_NS_BIT, RWP_TRUE);
 
-	typer_reg = gicd_read_typer(gicd_base);
-
-	/* Maximum SPI INTID is 32 * (GICD_TYPER.ITLinesNumber + 1) - 1 */
-	num_ints = ((typer_reg & TYPER_IT_LINES_NO_MASK) + 1U) << 5;
-
-	/* Filter out special INTIDs 1020-1023 */
-	if (num_ints > (MAX_SPI_ID + 1U)) {
-		num_ints = MAX_SPI_ID + 1U;
-	}
-
+	unsigned int num_ints = gicv3_get_spi_limit(gicd_base);
 #if GIC_EXT_INTID
-	/* Check if extended SPI range is implemented */
-	if ((typer_reg & TYPER_ESPI) != 0U) {
-		/*
-		 * Maximum ESPI INTID is 32 * (GICD_TYPER.ESPI_range + 1) + 4095
-		 */
-		num_eints = ((((typer_reg >> TYPER_ESPI_RANGE_SHIFT) &
-			TYPER_ESPI_RANGE_MASK) + 1U) << 5) + MIN_ESPI_ID - 1;
-	} else {
-		num_eints = 0U;
-	}
+	unsigned int num_eints = gicv3_get_espi_limit(gicd_base);
 #endif
 	/* Restore GICD_IGROUPR for INTIDs 32 - 1019 */
 	RESTORE_GICD_REGS(gicd_base, dist_ctx, num_ints, igroupr, IGROUP);
@@ -1299,8 +1259,8 @@ unsigned int gicv3_set_pmr(unsigned int mask)
  ******************************************************************************/
 int gicv3_rdistif_probe(const uintptr_t gicr_frame)
 {
-	u_register_t mpidr;
-	unsigned int proc_num, proc_self;
+	u_register_t mpidr, mpidr_self;
+	unsigned int proc_num;
 	uint64_t typer_val;
 	uintptr_t rdistif_base;
 	bool gicr_frame_found = false;
@@ -1314,18 +1274,18 @@ int gicv3_rdistif_probe(const uintptr_t gicr_frame)
 	assert((read_sctlr_el3() & SCTLR_C_BIT) != 0U);
 #endif /* !__aarch64__ */
 
-	proc_self = gicv3_driver_data->mpidr_to_core_pos(read_mpidr_el1());
+	mpidr_self = read_mpidr_el1() & MPIDR_AFFINITY_MASK;
 	rdistif_base = gicr_frame;
 	do {
 		typer_val = gicr_read_typer(rdistif_base);
+		mpidr = mpidr_from_gicr_typer(typer_val);
 		if (gicv3_driver_data->mpidr_to_core_pos != NULL) {
-			mpidr = mpidr_from_gicr_typer(typer_val);
 			proc_num = gicv3_driver_data->mpidr_to_core_pos(mpidr);
 		} else {
 			proc_num = (unsigned int)(typer_val >>
 				TYPER_PROC_NUM_SHIFT) & TYPER_PROC_NUM_MASK;
 		}
-		if (proc_num == proc_self) {
+		if (mpidr == mpidr_self) {
 			/* The base address doesn't need to be initialized on
 			 * every warm boot.
 			 */

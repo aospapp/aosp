@@ -8,8 +8,12 @@ import six
 
 from cryptography import utils
 from cryptography.exceptions import (
-    AlreadyFinalized, InvalidKey, UnsupportedAlgorithm, _Reasons
+    AlreadyFinalized,
+    InvalidKey,
+    UnsupportedAlgorithm,
+    _Reasons,
 )
+from cryptography.hazmat.backends import _get_backend
 from cryptography.hazmat.backends.interfaces import HMACBackend
 from cryptography.hazmat.primitives import constant_time, hmac
 from cryptography.hazmat.primitives.kdf import KeyDerivationFunction
@@ -17,11 +21,12 @@ from cryptography.hazmat.primitives.kdf import KeyDerivationFunction
 
 @utils.register_interface(KeyDerivationFunction)
 class HKDF(object):
-    def __init__(self, algorithm, length, salt, info, backend):
+    def __init__(self, algorithm, length, salt, info, backend=None):
+        backend = _get_backend(backend)
         if not isinstance(backend, HMACBackend):
             raise UnsupportedAlgorithm(
                 "Backend object does not implement HMACBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE
+                _Reasons.BACKEND_MISSING_INTERFACE,
             )
 
         self._algorithm = algorithm
@@ -53,11 +58,12 @@ class HKDF(object):
 
 @utils.register_interface(KeyDerivationFunction)
 class HKDFExpand(object):
-    def __init__(self, algorithm, length, info, backend):
+    def __init__(self, algorithm, length, info, backend=None):
+        backend = _get_backend(backend)
         if not isinstance(backend, HMACBackend):
             raise UnsupportedAlgorithm(
                 "Backend object does not implement HMACBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE
+                _Reasons.BACKEND_MISSING_INTERFACE,
             )
 
         self._algorithm = algorithm
@@ -68,9 +74,8 @@ class HKDFExpand(object):
 
         if length > max_length:
             raise ValueError(
-                "Can not derive keys larger than {0} octets.".format(
-                    max_length
-                ))
+                "Can not derive keys larger than {} octets.".format(max_length)
+            )
 
         self._length = length
 
@@ -95,7 +100,7 @@ class HKDFExpand(object):
             output.append(h.finalize())
             counter += 1
 
-        return b"".join(output)[:self._length]
+        return b"".join(output)[: self._length]
 
     def derive(self, key_material):
         utils._check_byteslike("key_material", key_material)

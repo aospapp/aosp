@@ -1,203 +1,319 @@
-// Go support for Protocol Buffers - Google's data interchange format
-//
-// Copyright 2010 The Go Authors.  All rights reserved.
-// https://github.com/golang/protobuf
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-//     * Neither the name of Google Inc. nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Copyright 2019 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package proto
 
-/*
- * Routines for encoding data into the wire format for protocol buffers.
- */
-
 import (
-	"errors"
-	"reflect"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/internal/encoding/messageset"
+	"google.golang.org/protobuf/internal/order"
+	"google.golang.org/protobuf/internal/pragma"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/runtime/protoiface"
 )
 
-var (
-	// errRepeatedHasNil is the error returned if Marshal is called with
-	// a struct with a repeated field containing a nil element.
-	errRepeatedHasNil = errors.New("proto: repeated field has nil element")
+// MarshalOptions configures the marshaler.
+//
+// Example usage:
+//   b, err := MarshalOptions{Deterministic: true}.Marshal(m)
+type MarshalOptions struct {
+	pragma.NoUnkeyedLiterals
 
-	// errOneofHasNil is the error returned if Marshal is called with
-	// a struct with a oneof field containing a nil element.
-	errOneofHasNil = errors.New("proto: oneof field has nil value")
+	// AllowPartial allows messages that have missing required fields to marshal
+	// without returning an error. If AllowPartial is false (the default),
+	// Marshal will return an error if there are any missing required fields.
+	AllowPartial bool
 
-	// ErrNil is the error returned if Marshal is called with nil.
-	ErrNil = errors.New("proto: Marshal called with nil")
+	// Deterministic controls whether the same message will always be
+	// serialized to the same bytes within the same binary.
+	//
+	// Setting this option guarantees that repeated serialization of
+	// the same message will return the same bytes, and that different
+	// processes of the same binary (which may be executing on different
+	// machines) will serialize equal messages to the same bytes.
+	// It has no effect on the resulting size of the encoded message compared
+	// to a non-deterministic marshal.
+	//
+	// Note that the deterministic serialization is NOT canonical across
+	// languages. It is not guaranteed to remain stable over time. It is
+	// unstable across different builds with schema changes due to unknown
+	// fields. Users who need canonical serialization (e.g., persistent
+	// storage in a canonical form, fingerprinting, etc.) must define
+	// their own canonicalization specification and implement their own
+	// serializer rather than relying on this API.
+	//
+	// If deterministic serialization is requested, map entries will be
+	// sorted by keys in lexographical order. This is an implementation
+	// detail and subject to change.
+	Deterministic bool
 
-	// ErrTooLarge is the error returned if Marshal is called with a
-	// message that encodes to >2GB.
-	ErrTooLarge = errors.New("proto: message encodes to over 2 GB")
-)
-
-// The fundamental encoders that put bytes on the wire.
-// Those that take integer types all accept uint64 and are
-// therefore of type valueEncoder.
-
-const maxVarintBytes = 10 // maximum length of a varint
-
-// EncodeVarint returns the varint encoding of x.
-// This is the format for the
-// int32, int64, uint32, uint64, bool, and enum
-// protocol buffer types.
-// Not used by the package itself, but helpful to clients
-// wishing to use the same encoding.
-func EncodeVarint(x uint64) []byte {
-	var buf [maxVarintBytes]byte
-	var n int
-	for n = 0; x > 127; n++ {
-		buf[n] = 0x80 | uint8(x&0x7F)
-		x >>= 7
-	}
-	buf[n] = uint8(x)
-	n++
-	return buf[0:n]
+	// UseCachedSize indicates that the result of a previous Size call
+	// may be reused.
+	//
+	// Setting this option asserts that:
+	//
+	// 1. Size has previously been called on this message with identical
+	// options (except for UseCachedSize itself).
+	//
+	// 2. The message and all its submessages have not changed in any
+	// way since the Size call.
+	//
+	// If either of these invariants is violated,
+	// the results are undefined and may include panics or corrupted output.
+	//
+	// Implementations MAY take this option into account to provide
+	// better performance, but there is no guarantee that they will do so.
+	// There is absolutely no guarantee that Size followed by Marshal with
+	// UseCachedSize set will perform equivalently to Marshal alone.
+	UseCachedSize bool
 }
 
-// EncodeVarint writes a varint-encoded integer to the Buffer.
-// This is the format for the
-// int32, int64, uint32, uint64, bool, and enum
-// protocol buffer types.
-func (p *Buffer) EncodeVarint(x uint64) error {
-	for x >= 1<<7 {
-		p.buf = append(p.buf, uint8(x&0x7f|0x80))
-		x >>= 7
+// Marshal returns the wire-format encoding of m.
+func Marshal(m Message) ([]byte, error) {
+	// Treat nil message interface as an empty message; nothing to output.
+	if m == nil {
+		return nil, nil
 	}
-	p.buf = append(p.buf, uint8(x))
-	return nil
+
+	out, err := MarshalOptions{}.marshal(nil, m.ProtoReflect())
+	if len(out.Buf) == 0 && err == nil {
+		out.Buf = emptyBytesForMessage(m)
+	}
+	return out.Buf, err
 }
 
-// SizeVarint returns the varint encoding size of an integer.
-func SizeVarint(x uint64) int {
+// Marshal returns the wire-format encoding of m.
+func (o MarshalOptions) Marshal(m Message) ([]byte, error) {
+	// Treat nil message interface as an empty message; nothing to output.
+	if m == nil {
+		return nil, nil
+	}
+
+	out, err := o.marshal(nil, m.ProtoReflect())
+	if len(out.Buf) == 0 && err == nil {
+		out.Buf = emptyBytesForMessage(m)
+	}
+	return out.Buf, err
+}
+
+// emptyBytesForMessage returns a nil buffer if and only if m is invalid,
+// otherwise it returns a non-nil empty buffer.
+//
+// This is to assist the edge-case where user-code does the following:
+//	m1.OptionalBytes, _ = proto.Marshal(m2)
+// where they expect the proto2 "optional_bytes" field to be populated
+// if any only if m2 is a valid message.
+func emptyBytesForMessage(m Message) []byte {
+	if m == nil || !m.ProtoReflect().IsValid() {
+		return nil
+	}
+	return emptyBuf[:]
+}
+
+// MarshalAppend appends the wire-format encoding of m to b,
+// returning the result.
+func (o MarshalOptions) MarshalAppend(b []byte, m Message) ([]byte, error) {
+	// Treat nil message interface as an empty message; nothing to append.
+	if m == nil {
+		return b, nil
+	}
+
+	out, err := o.marshal(b, m.ProtoReflect())
+	return out.Buf, err
+}
+
+// MarshalState returns the wire-format encoding of a message.
+//
+// This method permits fine-grained control over the marshaler.
+// Most users should use Marshal instead.
+func (o MarshalOptions) MarshalState(in protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+	return o.marshal(in.Buf, in.Message)
+}
+
+// marshal is a centralized function that all marshal operations go through.
+// For profiling purposes, avoid changing the name of this function or
+// introducing other code paths for marshal that do not go through this.
+func (o MarshalOptions) marshal(b []byte, m protoreflect.Message) (out protoiface.MarshalOutput, err error) {
+	allowPartial := o.AllowPartial
+	o.AllowPartial = true
+	if methods := protoMethods(m); methods != nil && methods.Marshal != nil &&
+		!(o.Deterministic && methods.Flags&protoiface.SupportMarshalDeterministic == 0) {
+		in := protoiface.MarshalInput{
+			Message: m,
+			Buf:     b,
+		}
+		if o.Deterministic {
+			in.Flags |= protoiface.MarshalDeterministic
+		}
+		if o.UseCachedSize {
+			in.Flags |= protoiface.MarshalUseCachedSize
+		}
+		if methods.Size != nil {
+			sout := methods.Size(protoiface.SizeInput{
+				Message: m,
+				Flags:   in.Flags,
+			})
+			if cap(b) < len(b)+sout.Size {
+				in.Buf = make([]byte, len(b), growcap(cap(b), len(b)+sout.Size))
+				copy(in.Buf, b)
+			}
+			in.Flags |= protoiface.MarshalUseCachedSize
+		}
+		out, err = methods.Marshal(in)
+	} else {
+		out.Buf, err = o.marshalMessageSlow(b, m)
+	}
+	if err != nil {
+		return out, err
+	}
+	if allowPartial {
+		return out, nil
+	}
+	return out, checkInitialized(m)
+}
+
+func (o MarshalOptions) marshalMessage(b []byte, m protoreflect.Message) ([]byte, error) {
+	out, err := o.marshal(b, m)
+	return out.Buf, err
+}
+
+// growcap scales up the capacity of a slice.
+//
+// Given a slice with a current capacity of oldcap and a desired
+// capacity of wantcap, growcap returns a new capacity >= wantcap.
+//
+// The algorithm is mostly identical to the one used by append as of Go 1.14.
+func growcap(oldcap, wantcap int) (newcap int) {
+	if wantcap > oldcap*2 {
+		newcap = wantcap
+	} else if oldcap < 1024 {
+		// The Go 1.14 runtime takes this case when len(s) < 1024,
+		// not when cap(s) < 1024. The difference doesn't seem
+		// significant here.
+		newcap = oldcap * 2
+	} else {
+		newcap = oldcap
+		for 0 < newcap && newcap < wantcap {
+			newcap += newcap / 4
+		}
+		if newcap <= 0 {
+			newcap = wantcap
+		}
+	}
+	return newcap
+}
+
+func (o MarshalOptions) marshalMessageSlow(b []byte, m protoreflect.Message) ([]byte, error) {
+	if messageset.IsMessageSet(m.Descriptor()) {
+		return o.marshalMessageSet(b, m)
+	}
+	fieldOrder := order.AnyFieldOrder
+	if o.Deterministic {
+		// TODO: This should use a more natural ordering like NumberFieldOrder,
+		// but doing so breaks golden tests that make invalid assumption about
+		// output stability of this implementation.
+		fieldOrder = order.LegacyFieldOrder
+	}
+	var err error
+	order.RangeFields(m, fieldOrder, func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		b, err = o.marshalField(b, fd, v)
+		return err == nil
+	})
+	if err != nil {
+		return b, err
+	}
+	b = append(b, m.GetUnknown()...)
+	return b, nil
+}
+
+func (o MarshalOptions) marshalField(b []byte, fd protoreflect.FieldDescriptor, value protoreflect.Value) ([]byte, error) {
 	switch {
-	case x < 1<<7:
-		return 1
-	case x < 1<<14:
-		return 2
-	case x < 1<<21:
-		return 3
-	case x < 1<<28:
-		return 4
-	case x < 1<<35:
-		return 5
-	case x < 1<<42:
-		return 6
-	case x < 1<<49:
-		return 7
-	case x < 1<<56:
-		return 8
-	case x < 1<<63:
-		return 9
+	case fd.IsList():
+		return o.marshalList(b, fd, value.List())
+	case fd.IsMap():
+		return o.marshalMap(b, fd, value.Map())
+	default:
+		b = protowire.AppendTag(b, fd.Number(), wireTypes[fd.Kind()])
+		return o.marshalSingular(b, fd, value)
 	}
-	return 10
 }
 
-// EncodeFixed64 writes a 64-bit integer to the Buffer.
-// This is the format for the
-// fixed64, sfixed64, and double protocol buffer types.
-func (p *Buffer) EncodeFixed64(x uint64) error {
-	p.buf = append(p.buf,
-		uint8(x),
-		uint8(x>>8),
-		uint8(x>>16),
-		uint8(x>>24),
-		uint8(x>>32),
-		uint8(x>>40),
-		uint8(x>>48),
-		uint8(x>>56))
-	return nil
-}
-
-// EncodeFixed32 writes a 32-bit integer to the Buffer.
-// This is the format for the
-// fixed32, sfixed32, and float protocol buffer types.
-func (p *Buffer) EncodeFixed32(x uint64) error {
-	p.buf = append(p.buf,
-		uint8(x),
-		uint8(x>>8),
-		uint8(x>>16),
-		uint8(x>>24))
-	return nil
-}
-
-// EncodeZigzag64 writes a zigzag-encoded 64-bit integer
-// to the Buffer.
-// This is the format used for the sint64 protocol buffer type.
-func (p *Buffer) EncodeZigzag64(x uint64) error {
-	// use signed number to get arithmetic right shift.
-	return p.EncodeVarint(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-
-// EncodeZigzag32 writes a zigzag-encoded 32-bit integer
-// to the Buffer.
-// This is the format used for the sint32 protocol buffer type.
-func (p *Buffer) EncodeZigzag32(x uint64) error {
-	// use signed number to get arithmetic right shift.
-	return p.EncodeVarint(uint64((uint32(x) << 1) ^ uint32((int32(x) >> 31))))
-}
-
-// EncodeRawBytes writes a count-delimited byte buffer to the Buffer.
-// This is the format used for the bytes protocol buffer
-// type and for embedded messages.
-func (p *Buffer) EncodeRawBytes(b []byte) error {
-	p.EncodeVarint(uint64(len(b)))
-	p.buf = append(p.buf, b...)
-	return nil
-}
-
-// EncodeStringBytes writes an encoded string to the Buffer.
-// This is the format used for the proto2 string type.
-func (p *Buffer) EncodeStringBytes(s string) error {
-	p.EncodeVarint(uint64(len(s)))
-	p.buf = append(p.buf, s...)
-	return nil
-}
-
-// Marshaler is the interface representing objects that can marshal themselves.
-type Marshaler interface {
-	Marshal() ([]byte, error)
-}
-
-// EncodeMessage writes the protocol buffer to the Buffer,
-// prefixed by a varint-encoded length.
-func (p *Buffer) EncodeMessage(pb Message) error {
-	siz := Size(pb)
-	p.EncodeVarint(uint64(siz))
-	return p.Marshal(pb)
-}
-
-// All protocol buffer fields are nillable, but be careful.
-func isNil(v reflect.Value) bool {
-	switch v.Kind() {
-	case reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
-		return v.IsNil()
+func (o MarshalOptions) marshalList(b []byte, fd protoreflect.FieldDescriptor, list protoreflect.List) ([]byte, error) {
+	if fd.IsPacked() && list.Len() > 0 {
+		b = protowire.AppendTag(b, fd.Number(), protowire.BytesType)
+		b, pos := appendSpeculativeLength(b)
+		for i, llen := 0, list.Len(); i < llen; i++ {
+			var err error
+			b, err = o.marshalSingular(b, fd, list.Get(i))
+			if err != nil {
+				return b, err
+			}
+		}
+		b = finishSpeculativeLength(b, pos)
+		return b, nil
 	}
-	return false
+
+	kind := fd.Kind()
+	for i, llen := 0, list.Len(); i < llen; i++ {
+		var err error
+		b = protowire.AppendTag(b, fd.Number(), wireTypes[kind])
+		b, err = o.marshalSingular(b, fd, list.Get(i))
+		if err != nil {
+			return b, err
+		}
+	}
+	return b, nil
+}
+
+func (o MarshalOptions) marshalMap(b []byte, fd protoreflect.FieldDescriptor, mapv protoreflect.Map) ([]byte, error) {
+	keyf := fd.MapKey()
+	valf := fd.MapValue()
+	keyOrder := order.AnyKeyOrder
+	if o.Deterministic {
+		keyOrder = order.GenericKeyOrder
+	}
+	var err error
+	order.RangeEntries(mapv, keyOrder, func(key protoreflect.MapKey, value protoreflect.Value) bool {
+		b = protowire.AppendTag(b, fd.Number(), protowire.BytesType)
+		var pos int
+		b, pos = appendSpeculativeLength(b)
+
+		b, err = o.marshalField(b, keyf, key.Value())
+		if err != nil {
+			return false
+		}
+		b, err = o.marshalField(b, valf, value)
+		if err != nil {
+			return false
+		}
+		b = finishSpeculativeLength(b, pos)
+		return true
+	})
+	return b, err
+}
+
+// When encoding length-prefixed fields, we speculatively set aside some number of bytes
+// for the length, encode the data, and then encode the length (shifting the data if necessary
+// to make room).
+const speculativeLength = 1
+
+func appendSpeculativeLength(b []byte) ([]byte, int) {
+	pos := len(b)
+	b = append(b, "\x00\x00\x00\x00"[:speculativeLength]...)
+	return b, pos
+}
+
+func finishSpeculativeLength(b []byte, pos int) []byte {
+	mlen := len(b) - pos - speculativeLength
+	msiz := protowire.SizeVarint(uint64(mlen))
+	if msiz != speculativeLength {
+		for i := 0; i < msiz-speculativeLength; i++ {
+			b = append(b, 0)
+		}
+		copy(b[pos+msiz:], b[pos+speculativeLength:])
+		b = b[:pos+msiz+mlen]
+	}
+	protowire.AppendVarint(b[:pos], uint64(mlen))
+	return b
 }

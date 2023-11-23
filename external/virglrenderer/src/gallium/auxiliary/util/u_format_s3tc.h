@@ -40,11 +40,4 @@ enum util_format_dxtn {
   UTIL_FORMAT_DXT5_RGBA = 0x83F3
 };
 
-
-extern boolean util_format_s3tc_enabled;
-
-
-void
-util_format_s3tc_init(void);
-
 #endif

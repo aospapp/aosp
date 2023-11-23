@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # uobjnew  Summarize object allocations in high-level languages.
@@ -79,9 +79,11 @@ int alloc_entry(struct pt_regs *ctx, size_t size) {
     struct key_t key = {};
     struct val_t *valp, zero = {};
     key.size = size;
-    valp = allocs.lookup_or_init(&key, &zero);
-    valp->total_size += size;
-    valp->num_allocs += 1;
+    valp = allocs.lookup_or_try_init(&key, &zero);
+    if (valp) {
+        valp->total_size += size;
+        valp->num_allocs += 1;
+    }
     return 0;
 }
     """
@@ -94,12 +96,16 @@ int alloc_entry(struct pt_regs *ctx) {
     struct key_t key = {};
     struct val_t *valp, zero = {};
     u64 classptr = 0, size = 0;
+    u32 length = 0;
     bpf_usdt_readarg(2, ctx, &classptr);
+    bpf_usdt_readarg(3, ctx, &length);
     bpf_usdt_readarg(4, ctx, &size);
-    bpf_probe_read(&key.name, sizeof(key.name), (void *)classptr);
-    valp = allocs.lookup_or_init(&key, &zero);
-    valp->total_size += size;
-    valp->num_allocs += 1;
+    bpf_probe_read_user(&key.name, min(sizeof(key.name), (size_t)length), (void *)classptr);
+    valp = allocs.lookup_or_try_init(&key, &zero);
+    if (valp) {
+        valp->total_size += size;
+        valp->num_allocs += 1;
+    }
     return 0;
 }
     """
@@ -114,9 +120,11 @@ int THETHING_alloc_entry(struct pt_regs *ctx) {
     struct val_t *valp, zero = {};
     u64 size = 0;
     bpf_usdt_readarg(1, ctx, &size);
-    valp = allocs.lookup_or_init(&key, &zero);
-    valp->total_size += size;
-    valp->num_allocs += 1;
+    valp = allocs.lookup_or_try_init(&key, &zero);
+    if (valp) {
+        valp->total_size += size;
+        valp->num_allocs += 1;
+    }
     return 0;
 }
     """
@@ -126,9 +134,11 @@ int object_alloc_entry(struct pt_regs *ctx) {
     struct val_t *valp, zero = {};
     u64 classptr = 0;
     bpf_usdt_readarg(1, ctx, &classptr);
-    bpf_probe_read(&key.name, sizeof(key.name), (void *)classptr);
-    valp = allocs.lookup_or_init(&key, &zero);
-    valp->num_allocs += 1;  // We don't know the size, unfortunately
+    bpf_probe_read_user(&key.name, sizeof(key.name), (void *)classptr);
+    valp = allocs.lookup_or_try_init(&key, &zero);
+    if (valp) {
+        valp->num_allocs += 1;  // We don't know the size, unfortunately
+    }
     return 0;
 }
     """
@@ -145,8 +155,10 @@ elif language == "tcl":
 int alloc_entry(struct pt_regs *ctx) {
     struct key_t key = { .name = "<ALL>" };
     struct val_t *valp, zero = {};
-    valp = allocs.lookup_or_init(&key, &zero);
-    valp->num_allocs += 1;
+    valp = allocs.lookup_or_try_init(&key, &zero);
+    if (valp) {
+        valp->num_allocs += 1;
+    }
     return 0;
 }
     """

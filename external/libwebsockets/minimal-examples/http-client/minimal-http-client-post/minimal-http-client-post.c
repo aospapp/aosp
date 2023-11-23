@@ -58,7 +58,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason,
 	/* ...callbacks related to receiving the result... */
 
 	case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
-		status = lws_http_client_http_response(wsi);
+		status = (int)lws_http_client_http_response(wsi);
 		lwsl_user("Connected with server response: %d\n", status);
 		break;
 
@@ -123,13 +123,13 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason,
 						      &p, end))
 				return -1;
 			/* notice every usage of the boundary starts with -- */
-			p += lws_snprintf(p, end - p, "my text field\xd\xa");
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "my text field\xd\xa");
 			break;
 		case 1:
 			if (lws_client_http_multipart(wsi, "file", "myfile.txt",
 						      "text/plain", &p, end))
 				return -1;
-			p += lws_snprintf(p, end - p,
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
 					"This is the contents of the "
 					"uploaded file.\xd\xa"
 					"\xd\xa");
@@ -152,7 +152,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason,
 			return 0;
 		}
 
-		if (lws_write(wsi, (uint8_t *)start, lws_ptr_diff(p, start), n)
+		if (lws_write(wsi, (uint8_t *)start, lws_ptr_diff_size_t(p, start), (enum lws_write_protocol)n)
 				!= lws_ptr_diff(p, start))
 			return 1;
 
@@ -173,9 +173,9 @@ static const struct lws_protocols protocols[] = {
 		"http",
 		callback_http,
 		sizeof(struct pss),
-		0,
+		0, 0, NULL, 0
 	},
-	{ NULL, NULL, 0, 0 }
+	LWS_PROTOCOL_LIST_TERM
 };
 
 static void
@@ -189,6 +189,7 @@ int main(int argc, const char **argv)
 	struct lws_context_creation_info info;
 	struct lws_client_connect_info i;
 	struct lws_context *context;
+	const char *p;
 	int n = 0;
 
 	signal(SIGINT, sigint_handler);
@@ -210,9 +211,9 @@ int main(int argc, const char **argv)
 	 * It will just allocate for 1 internal and 1 (+ 1 http2 nwsi) that we
 	 * will use.
 	 */
-	info.fd_limit_per_thread = 1 + count_clients + 1;
+	info.fd_limit_per_thread = (unsigned int)(1 + count_clients + 1);
 
-#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_WITH_MBEDTLS) || defined(USE_WOLFSSL)
 	/*
 	 * OpenSSL uses the system trust store.  mbedTLS has to be told which
 	 * CA to trust explicitly.
@@ -245,6 +246,9 @@ int main(int argc, const char **argv)
 	if (lws_cmdline_option(argc, argv, "--form1"))
 		i.path = "/form1";
 
+	if ((p = lws_cmdline_option(argc, argv, "--port")))
+		i.port = atoi(p);
+
 	i.host = i.address;
 	i.origin = i.address;
 	i.method = "POST";
@@ -257,6 +261,8 @@ int main(int argc, const char **argv)
 
 	for (n = 0; n < count_clients; n++) {
 		i.pwsi = &client_wsi[n];
+		lwsl_notice("%s: connecting to %s:%d\n", __func__,
+			    i.address, i.port);
 		if (!lws_client_connect_via_info(&i))
 			completed++;
 	}

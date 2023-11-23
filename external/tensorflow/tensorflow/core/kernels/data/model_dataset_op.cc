@@ -39,6 +39,8 @@ constexpr double kRamBudgetShare = 0.5;
 
 }  // namespace
 
+/* static */ constexpr const char* const ModelDatasetOp::kDatasetType;
+/* static */ constexpr const char* const ModelDatasetOp::kDatasetOp;
 /* static */ constexpr const char* const ModelDatasetOp::kAlgorithm;
 /* static */ constexpr const char* const ModelDatasetOp::kCpuBudget;
 /* static */ constexpr const char* const ModelDatasetOp::kRamBudget;
@@ -46,9 +48,15 @@ constexpr double kRamBudgetShare = 0.5;
 class ModelDatasetOp::Dataset : public DatasetBase {
  public:
   Dataset(OpKernelContext* ctx, const DatasetBase* input,
-          model::AutotuneAlgorithm algorithm, int64 cpu_budget,
-          int64 ram_budget)
-      : DatasetBase(DatasetContext(ctx)),
+          model::AutotuneAlgorithm algorithm, int64_t cpu_budget,
+          int64_t ram_budget)
+      : Dataset(DatasetContext(ctx), input, algorithm, cpu_budget, ram_budget) {
+  }
+
+  Dataset(DatasetContext&& ctx, const DatasetBase* input,
+          model::AutotuneAlgorithm algorithm, int64_t cpu_budget,
+          int64_t ram_budget)
+      : DatasetBase(std::move(ctx)),
         input_(input),
         algorithm_(algorithm),
         cpu_budget_(cpu_budget),
@@ -132,29 +140,19 @@ class ModelDatasetOp::Dataset : public DatasetBase {
     ~Iterator() override { cancellation_manager_->StartCancel(); }
 
     Status Initialize(IteratorContext* ctx) override {
-      IteratorContext::Params params(ctx);
-      params.model = model_;
-      return dataset()->input_->MakeIterator(IteratorContext(std::move(params)),
+      return dataset()->input_->MakeIterator(IteratorContext(CreateParams(ctx)),
                                              this, prefix(), &input_impl_);
     }
 
     Status GetNextInternal(IteratorContext* ctx,
                            std::vector<Tensor>* out_tensors,
                            bool* end_of_sequence) override {
-      IteratorContext::Params params(ctx);
-      {
+      if (!ctx->model()) {
         mutex_lock l(mu_);
         TF_RETURN_IF_ERROR(EnsureOptimizationLoopThreadStarted(ctx));
-        params.model = model_;
-        int64 now_nanos = EnvTime::NowNanos();
-        RecordInput(now_nanos);
       }
-      Status s = input_impl_->GetNext(IteratorContext(std::move(params)),
-                                      out_tensors, end_of_sequence);
-      int64 now_nanos = EnvTime::NowNanos();
-      mutex_lock l(mu_);
-      RecordOutput(now_nanos);
-      return s;
+      return input_impl_->GetNext(IteratorContext(CreateParams(ctx)),
+                                  out_tensors, end_of_sequence);
     }
 
    protected:
@@ -166,19 +164,13 @@ class ModelDatasetOp::Dataset : public DatasetBase {
 
     Status SaveInternal(SerializationContext* ctx,
                         IteratorStateWriter* writer) override {
-      mutex_lock l(mu_);
-      TF_RETURN_IF_ERROR(SaveInput(ctx, writer, input_impl_));
-      return Status::OK();
+      return SaveInput(ctx, writer, input_impl_);
     }
 
     Status RestoreInternal(IteratorContext* ctx,
                            IteratorStateReader* reader) override {
-      IteratorContext::Params params(ctx);
-      params.model = model_;
-      mutex_lock l(mu_);
-      TF_RETURN_IF_ERROR(RestoreInput(IteratorContext(std::move(params)),
-                                      reader, input_impl_));
-      return Status::OK();
+      return RestoreInput(IteratorContext(CreateParams(ctx)), reader,
+                          input_impl_);
     }
 
     TraceMeMetadata GetTraceMeMetadata() const override {
@@ -186,6 +178,14 @@ class ModelDatasetOp::Dataset : public DatasetBase {
     }
 
    private:
+    IteratorContext::Params CreateParams(IteratorContext* ctx) {
+      IteratorContext::Params params(ctx);
+      if (!ctx->model()) {
+        params.model = model_;
+      }
+      return params;
+    }
+
     Status EnsureOptimizationLoopThreadStarted(IteratorContext* ctx)
         TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       if (!model_thread_) {
@@ -201,26 +201,6 @@ class ModelDatasetOp::Dataset : public DatasetBase {
       return Status::OK();
     }
 
-    void RecordInput(int64 time_nanos) TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-      if (last_output_time_ != 0) {
-        DCHECK_LE(last_output_time_, time_nanos);
-        input_time_ += time_nanos - last_output_time_;
-        num_input_events_++;
-      }
-    }
-
-    void RecordOutput(int64 time_nanos) TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-      last_output_time_ = time_nanos;
-    }
-
-    double SelfInputTime() const TF_SHARED_LOCKS_REQUIRED(mu_) {
-      if (num_input_events_ == 0) {
-        return 0;
-      }
-      return static_cast<double>(input_time_) /
-             static_cast<double>(num_input_events_);
-    }
-
     mutex mu_;
     std::shared_ptr<model::Model> model_;
     // Controls cancellation of `model_thread_`. Must be ordered before
@@ -228,9 +208,6 @@ class ModelDatasetOp::Dataset : public DatasetBase {
     std::unique_ptr<CancellationManager> cancellation_manager_;
     std::unique_ptr<Thread> model_thread_ TF_GUARDED_BY(mu_);
     std::unique_ptr<IteratorBase> input_impl_;
-    int64 num_input_events_ TF_GUARDED_BY(mu_) = 0;
-    int64 input_time_ TF_GUARDED_BY(mu_) = 0;
-    int64 last_output_time_ TF_GUARDED_BY(mu_) = 0;
     const int64 cpu_budget_;
     const int64 ram_budget_;
   };
@@ -242,10 +219,22 @@ class ModelDatasetOp::Dataset : public DatasetBase {
   const TraceMeMetadata traceme_metadata_;
 };
 
+// static
+void ModelDatasetOp::MakeDatasetFromOptions(OpKernelContext* ctx,
+                                            DatasetBase* input,
+                                            model::AutotuneAlgorithm algorithm,
+                                            bool cpu_budget, bool ram_budget,
+                                            DatasetBase** output) {
+  *output = new ModelDatasetOp::Dataset(
+      DatasetContext(DatasetContext::Params(
+          {ModelDatasetOp::kDatasetType, ModelDatasetOp::kDatasetOp})),
+      input, algorithm, cpu_budget, ram_budget);
+}
+
 ModelDatasetOp::ModelDatasetOp(OpKernelConstruction* ctx)
     : UnaryDatasetOpKernel(ctx) {
   if (ctx->HasAttr(kAlgorithm)) {
-    int64 algorithm;
+    int64_t algorithm;
     OP_REQUIRES_OK(ctx, ctx->GetAttr(kAlgorithm, &algorithm));
     algorithm_ = model::AutotuneAlgorithm(algorithm);
   } else {
@@ -277,9 +266,18 @@ REGISTER_KERNEL_BUILDER(Name("ModelDataset").Device(DEVICE_CPU),
 }  // namespace
 }  // namespace data
 }  // namespace tensorflow
-#else  // !IS_MOBILE_PLATFORM
+#else   // !IS_MOBILE_PLATFORM
 namespace tensorflow {
 namespace data {
+// static
+void ModelDatasetOp::MakeDatasetFromOptions(OpKernelContext* ctx,
+                                            DatasetBase* input,
+                                            model::AutotuneAlgorithm algorithm,
+                                            bool cpu_budget, bool ram_budget,
+                                            DatasetBase** output) {
+  input->Ref();
+  *output = input;
+}
 
 ModelDatasetOp::ModelDatasetOp(OpKernelConstruction* ctx)
     : UnaryDatasetOpKernel(ctx) {}

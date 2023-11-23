@@ -8,7 +8,10 @@ import pytest
 
 from cryptography.exceptions import InternalError
 from cryptography.hazmat.bindings.openssl.binding import (
-    Binding, _consume_errors, _openssl_assert
+    Binding,
+    _consume_errors,
+    _openssl_assert,
+    _verify_package_version,
 )
 
 
@@ -18,18 +21,6 @@ class TestOpenSSL(object):
         assert binding
         assert binding.lib
         assert binding.ffi
-
-    def test_crypto_lock_init(self):
-        b = Binding()
-
-        b.init_static_locks()
-        lock_cb = b.lib.CRYPTO_get_locking_callback()
-        if b.lib.CRYPTOGRAPHY_OPENSSL_110_OR_GREATER:
-            assert lock_cb == b.ffi.NULL
-            assert b.lib.Cryptography_HAS_LOCKING_CALLBACKS == 0
-        else:
-            assert lock_cb != b.ffi.NULL
-            assert b.lib.Cryptography_HAS_LOCKING_CALLBACKS == 1
 
     def test_add_engine_more_than_once(self):
         b = Binding()
@@ -82,7 +73,7 @@ class TestOpenSSL(object):
     def test_conditional_removal(self):
         b = Binding()
 
-        if b.lib.CRYPTOGRAPHY_OPENSSL_110_OR_GREATER:
+        if not b.lib.CRYPTOGRAPHY_IS_LIBRESSL:
             assert b.lib.TLS_ST_OK
         else:
             with pytest.raises(AttributeError):
@@ -95,7 +86,7 @@ class TestOpenSSL(object):
             b.lib.EVP_F_EVP_ENCRYPTFINAL_EX,
             b.lib.EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH,
             b"",
-            -1
+            -1,
         )
         with pytest.raises(InternalError) as exc_info:
             _openssl_assert(b.lib, False)
@@ -114,7 +105,11 @@ class TestOpenSSL(object):
             b.lib.EVP_F_EVP_ENCRYPTFINAL_EX,
             b.lib.EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH,
             b"",
-            -1
+            -1,
         )
         b._register_osrandom_engine()
         assert _consume_errors(b.lib) == []
+
+    def test_version_mismatch(self):
+        with pytest.raises(ImportError):
+            _verify_package_version("nottherightversion")

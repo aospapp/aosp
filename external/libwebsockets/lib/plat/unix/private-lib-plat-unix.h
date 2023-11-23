@@ -75,6 +75,15 @@
 	#endif
 #endif
 
+#if defined(LWS_HAVE_PTHREAD_H)
+#include <pthread.h>
+typedef pthread_mutex_t lws_mutex_t;
+#define lws_mutex_init(x)	pthread_mutex_init(&(x), NULL)
+#define lws_mutex_destroy(x)	pthread_mutex_destroy(&(x))
+#define lws_mutex_lock(x)	pthread_mutex_lock(&(x))
+#define lws_mutex_unlock(x)	pthread_mutex_unlock(&(x))
+#endif
+
 #if defined(__sun) && defined(__GNUC__)
 
 #include <arpa/nameser_compat.h>
@@ -152,9 +161,9 @@ wsi_from_fd(const struct lws_context *context, int fd);
 int
 insert_wsi(const struct lws_context *context, struct lws *wsi);
 
+struct lws_dhcpc_ifstate;
 int
-lws_plat_ifconfig_ip(const char *ifname, int fd, uint8_t *ip, uint8_t *mask_ip,
-			uint8_t *gateway_ip);
+lws_plat_ifconfig(int fd, struct lws_dhcpc_ifstate *is);
 
 void
 delete_from_fd(const struct lws_context *context, int fd);
@@ -166,6 +175,7 @@ delete_from_fd(const struct lws_context *context, int fd);
 #endif
 
 #define compatible_close(x) close(x)
+#define compatible_file_close(fd) close(fd)
 #define lws_plat_socket_offset() (0)
 
 /*
@@ -173,6 +183,8 @@ delete_from_fd(const struct lws_context *context, int fd);
  * but happily have something equivalent in the SO_NOSIGPIPE flag.
  */
 #ifdef __APPLE__
+/* iOS SDK 12+ seems to define it, undef it for compatibility both ways */
+#undef MSG_NOSIGNAL
 #define MSG_NOSIGNAL SO_NOSIGPIPE
 #endif
 
@@ -185,11 +197,8 @@ delete_from_fd(const struct lws_context *context, int fd);
 #endif
 
 int
-lws_plat_BINDTODEVICE(int fd, const char *ifname);
-
-int
-lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, int canned_len,
-			  int n, int fd, const char *iface);
+lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, size_t canned_len,
+			  size_t n, int fd, const char *iface);
 
 int
 lws_plat_if_up(const char *ifname, int fd, int up);

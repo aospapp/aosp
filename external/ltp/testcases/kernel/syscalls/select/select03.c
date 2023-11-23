@@ -1,134 +1,125 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2000 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2020 Linaro Ltd.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Contact information: Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
- * Mountain View, CA  94043, or:
- *
- * http://www.sgi.com
- *
- * For further information regarding this notice, see:
- *
- * http://oss.sgi.com/projects/GenInfo/NoticeExplan/
- *
- */
-/*
- *    AUTHOR            : Richard Logan
- *    CO-PILOT          : Glen Overby
- *    DATE STARTED      : 02/24/93
- *
- *      1.) select(2) of fd of a named-pipe (FIFO) with no I/O and small timeout value
+ * Failure tests.
  */
 
+#include <unistd.h>
 #include <errno.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/param.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <sys/time.h>
-#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include "select_var.h"
 
-#include "test.h"
-#include "safe_macros.h"
+static fd_set readfds_reg, writefds_reg, fds_closed;
+static fd_set *preadfds_reg = &readfds_reg, *pwritefds_reg = &writefds_reg;
+static fd_set *pfds_closed = &fds_closed, *nullfds = NULL, *faulty_fds;
+static int fd_closed, fd[2];
+static int negative_nfds = -1, maxfds;
+static struct timeval timeout = {.tv_sec = 0, .tv_usec = 100000};
 
-#define FILENAME	"select03"
+static struct timeval *valid_to = &timeout, *invalid_to;
 
-static void setup(void);
-static void cleanup(void);
+static struct tcases {
+	char *name;
+	int *nfds;
+	fd_set **readfds;
+	fd_set **writefds;
+	fd_set **exceptfds;
+	struct timeval **timeout;
+	int exp_errno;
+} tests[] = {
+	{ "Negative nfds", &negative_nfds, &preadfds_reg, &pwritefds_reg, &nullfds, &valid_to, EINVAL },
+	{ "Invalid readfds", &maxfds, &pfds_closed, &pwritefds_reg, &nullfds, &valid_to, EBADF },
+	{ "Invalid writefds", &maxfds, &preadfds_reg, &pfds_closed, &nullfds, &valid_to, EBADF },
+	{ "Invalid exceptfds", &maxfds, &preadfds_reg, &pwritefds_reg, &pfds_closed, &valid_to, EBADF },
+	{ "Faulty readfds", &maxfds, &faulty_fds, &pwritefds_reg, &nullfds, &valid_to, EFAULT },
+	{ "Faulty writefds", &maxfds, &preadfds_reg, &faulty_fds, &nullfds, &valid_to, EFAULT },
+	{ "Faulty exceptfds", &maxfds, &preadfds_reg, &pwritefds_reg, &faulty_fds, &valid_to, EFAULT },
+	{ "Faulty timeout", &maxfds, &preadfds_reg, &pwritefds_reg, &nullfds, &invalid_to, EFAULT },
+};
 
-char *TCID = "select03";
-int TST_TOTAL = 1;
-
-int Fd;
-fd_set saved_Readfds, saved_Writefds;
-fd_set Readfds, Writefds;
-
-int main(int ac, char **av)
+static void verify_select(unsigned int n)
 {
-	int lc;
-	struct timeval timeout;
-	long test_time = 0;	/* in usecs */
+	struct tcases *tc = &tests[n];
 
-	tst_parse_opts(ac, av, NULL, NULL);
+	TEST(do_select_faulty_to(*tc->nfds, *tc->readfds, *tc->writefds,
+				 *tc->exceptfds, *tc->timeout,
+				 tc->timeout == &invalid_to));
 
-	setup();
-
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-
-		tst_count = 0;
-
-		test_time = ((lc % 2000) * 100000);	/* 100 milli-seconds */
-
-		if (test_time > 1000000 * 60)
-			test_time = test_time % (1000000 * 60);
-
-		timeout.tv_sec = test_time / 1000000;
-		timeout.tv_usec = test_time - (timeout.tv_sec * 1000000);
-
-		Readfds = saved_Readfds;
-		Writefds = saved_Writefds;
-
-		TEST(select(5, &Readfds, &Writefds, 0, &timeout));
-
-		if (TEST_RETURN == -1) {
-			tst_resm(TFAIL,
-				 "%d select(5, &Readfds, &Writefds, 0, &timeout) failed errno=%d\n",
-				 lc, errno);
-		} else {
-			tst_resm(TPASS,
-				 "select(5, &Readfds, &Writefds, 0, &timeout) timeout = %ld usecs",
-				 test_time);
-		}
-
+	if (TST_RET != -1) {
+		tst_res(TFAIL, "%s: select() passed unexpectedly with %ld",
+		        tc->name, TST_RET);
+		return;
 	}
 
-	cleanup();
-	tst_exit();
+	if (tc->exp_errno != TST_ERR) {
+		tst_res(TFAIL | TTERRNO, "%s: select()() should fail with %s",
+			tc->name, tst_strerrno(tc->exp_errno));
+		return;
+	}
+
+	tst_res(TPASS | TTERRNO, "%s: select() failed as expected", tc->name);
+
+	exit(0);
+}
+
+static void run(unsigned int n)
+{
+	int pid, status;
+
+	pid = SAFE_FORK();
+	if (!pid)
+		verify_select(n);
+
+	SAFE_WAITPID(pid, &status, 0);
+
+	if (WIFEXITED(status))
+		return;
+
+	if (tst_variant == GLIBC_SELECT_VARIANT &&
+	    tests[n].timeout == &invalid_to &&
+	    WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV) {
+		tst_res(TPASS, "%s: select() killed by signal", tests[n].name);
+		return;
+	}
+
+	tst_res(TFAIL, "Child %s", tst_strstatus(status));
 }
 
 static void setup(void)
 {
+	void *faulty_address;
 
-	tst_sig(FORK, DEF_HANDLER, cleanup);
+	select_info();
 
-	TEST_PAUSE;
+	/* Regular file */
+	fd_closed = SAFE_OPEN("tmpfile1", O_CREAT | O_RDWR, 0777);
+	FD_ZERO(&fds_closed);
+	FD_SET(fd_closed, &fds_closed);
 
-	tst_tmpdir();
+	SAFE_PIPE(fd);
+	FD_ZERO(&readfds_reg);
+	FD_ZERO(&writefds_reg);
+	FD_SET(fd[0], &readfds_reg);
+	FD_SET(fd[1], &writefds_reg);
 
-	SAFE_MKFIFO(cleanup, FILENAME, 0777);
+	SAFE_CLOSE(fd_closed);
 
-	if ((Fd = open(FILENAME, O_RDWR)) == -1) {
-		tst_brkm(TBROK, cleanup, "open(%s, O_RDWR) failed, errno=%d",
-			 FILENAME, errno);
-	}
-
-	FD_ZERO(&saved_Readfds);
-	FD_ZERO(&saved_Writefds);
-	FD_SET(Fd, &saved_Readfds);
-	FD_SET(Fd, &saved_Writefds);
+	maxfds = fd[1] + 1;
+	faulty_address = tst_get_bad_addr(NULL);
+	invalid_to = faulty_address;
+	faulty_fds = faulty_address;
 }
 
-static void cleanup(void)
-{
-	close(Fd);
-	tst_rmdir();
-}
+static struct tst_test test = {
+	.test = run,
+	.tcnt = ARRAY_SIZE(tests),
+	.test_variants = TEST_VARIANTS,
+	.setup = setup,
+	.needs_tmpdir = 1,
+	.forks_child = 1,
+};

@@ -49,6 +49,7 @@ cc_library {
     ],
     visibility: [
         "//bootable/recovery:__subpackages__",
+        "//external/squashfs-tools/squashfs-tools:__subpackages__",
         "//packages/modules/adb:__subpackages__",
         "//system/logging/logd:__subpackages__",
     ],
@@ -61,6 +62,11 @@ cc_library {
         },
     },
     srcs: ["lib/*/*.c"],
+    arch: {
+        x86_64: {
+            srcs: ["lib/decompress/huf_decompress_amd64.S"],
+        },
+    },
     cflags: ["-Wall", "-Werror"],
     local_include_dirs: ["lib/common"],
     export_include_dirs: ["lib"],

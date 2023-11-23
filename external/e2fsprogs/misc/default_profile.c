@@ -46,7 +46,4 @@ const char *mke2fs_default_profile =
   "	     blocksize = 4096\n"
   "	     inode_size = 128\n"
   "	}\n"
-  "\n"
-  "[options]\n"
-  "	fname_encoding = utf8\n"
 ;

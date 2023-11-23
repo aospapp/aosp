@@ -1,4 +1,4 @@
-<abi-corpus version='2.0' architecture='elf-amd-x86_64'>
+<abi-corpus version='2.1' architecture='elf-amd-x86_64'>
   <elf-function-symbols>
     <!-- foo(S&) -->
     <elf-symbol name='_Z3fooR1S' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
@@ -77,8 +77,6 @@
       </data-member>
     </class-decl>
     <!-- S& -->
-    <qualified-type-def type-id='type-id-23' id='type-id-24'/>
-    <!-- S& -->
     <reference-type-def kind='lvalue' type-id='type-id-22' size-in-bits='64' id='type-id-23'/>
     <!-- char* -->
     <pointer-type-def type-id='type-id-1' size-in-bits='64' id='type-id-2'/>
@@ -89,7 +87,7 @@
     <!-- int foo(S&) -->
     <function-decl name='foo' mangled-name='_Z3fooR1S' filepath='/home/ooprala/rh/u/libabigail/tests/data/test-read-dwarf/test7.cc' line='11' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_Z3fooR1S'>
       <!-- parameter of type 'S&' -->
-      <parameter type-id='type-id-24'/>
+      <parameter type-id='type-id-23'/>
       <!-- int -->
       <return type-id='type-id-14'/>
     </function-decl>

@@ -16,12 +16,10 @@
 
 package com.android.textclassifier;
 
-import android.content.Context;
-import com.android.textclassifier.common.ModelFileManager;
-import com.android.textclassifier.common.ModelFileManager.RegularFileFullMatchLister;
+import com.android.textclassifier.common.ModelFile;
 import com.android.textclassifier.common.ModelType;
-import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.io.IOException;
 
 /** Utils to access test data files. */
 public final class TestDataUtils {
@@ -30,7 +28,7 @@ public final class TestDataUtils {
   private static final String TEST_LANGID_MODEL_PATH = "testdata/langid.model";
 
   /** Returns the root folder that contains the test data. */
-  public static File getTestDataFolder() {
+  private static File getTestDataFolder() {
     return new File("/data/local/tmp/TextClassifierServiceTest/");
   }
 
@@ -38,23 +36,25 @@ public final class TestDataUtils {
     return new File(getTestDataFolder(), TEST_ANNOTATOR_MODEL_PATH);
   }
 
+  public static ModelFile getTestAnnotatorModelFileWrapped() throws IOException {
+    return ModelFile.createFromRegularFile(getTestAnnotatorModelFile(), ModelType.ANNOTATOR);
+  }
+
   public static File getTestActionsModelFile() {
     return new File(getTestDataFolder(), TEST_ACTIONS_MODEL_PATH);
+  }
+
+  public static ModelFile getTestActionsModelFileWrapped() throws IOException {
+    return ModelFile.createFromRegularFile(
+        getTestActionsModelFile(), ModelType.ACTIONS_SUGGESTIONS);
   }
 
   public static File getLangIdModelFile() {
     return new File(getTestDataFolder(), TEST_LANGID_MODEL_PATH);
   }
 
-  public static ModelFileManager createModelFileManagerForTesting(Context context) {
-    return new ModelFileManager(
-        context,
-        ImmutableList.of(
-            new RegularFileFullMatchLister(
-                ModelType.ANNOTATOR, getTestAnnotatorModelFile(), () -> true),
-            new RegularFileFullMatchLister(
-                ModelType.ACTIONS_SUGGESTIONS, getTestActionsModelFile(), () -> true),
-            new RegularFileFullMatchLister(ModelType.LANG_ID, getLangIdModelFile(), () -> true)));
+  public static ModelFile getLangIdModelFileWrapped() throws IOException {
+    return ModelFile.createFromRegularFile(getLangIdModelFile(), ModelType.LANG_ID);
   }
 
   private TestDataUtils() {}

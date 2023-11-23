@@ -12,6 +12,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "cast/streaming/message_fields.h"
+#include "cast/streaming/resolution.h"
 #include "cast/streaming/rtp_defines.h"
 #include "cast/streaming/session_config.h"
 #include "json/value.h"
@@ -45,7 +46,11 @@ constexpr int kDefaultNumAudioChannels = 2;
 struct Stream {
   enum class Type : uint8_t { kAudioSource, kVideoSource };
 
-  ErrorOr<Json::Value> ToJson() const;
+  static Error TryParse(const Json::Value& root,
+                        Stream::Type type,
+                        Stream* out);
+  Json::Value ToJson() const;
+  bool IsValid() const;
 
   int index = 0;
   Type type = {};
@@ -60,52 +65,52 @@ struct Stream {
   // must be converted to a 16 digit byte array.
   std::array<uint8_t, 16> aes_key = {};
   std::array<uint8_t, 16> aes_iv_mask = {};
-  bool receiver_rtcp_event_log = {};
-  std::string receiver_rtcp_dscp = {};
+  bool receiver_rtcp_event_log = false;
+  std::string receiver_rtcp_dscp;
   int rtp_timebase = 0;
+
+  // The codec parameter field honors the format laid out in RFC 6381:
+  // https://datatracker.ietf.org/doc/html/rfc6381.
+  std::string codec_parameter;
 };
 
 struct AudioStream {
-  ErrorOr<Json::Value> ToJson() const;
+  static Error TryParse(const Json::Value& root, AudioStream* out);
+  Json::Value ToJson() const;
+  bool IsValid() const;
 
-  Stream stream = {};
-  AudioCodec codec;
+  Stream stream;
+  AudioCodec codec = AudioCodec::kNotSpecified;
   int bit_rate = 0;
 };
 
-struct Resolution {
-  ErrorOr<Json::Value> ToJson() const;
-
-  int width = 0;
-  int height = 0;
-};
 
 struct VideoStream {
-  ErrorOr<Json::Value> ToJson() const;
+  static Error TryParse(const Json::Value& root, VideoStream* out);
+  Json::Value ToJson() const;
+  bool IsValid() const;
 
-  Stream stream = {};
-  VideoCodec codec;
+  Stream stream;
+  VideoCodec codec = VideoCodec::kNotSpecified;
   SimpleFraction max_frame_rate;
   int max_bit_rate = 0;
-  std::string protection = {};
-  std::string profile = {};
-  std::string level = {};
-  std::vector<Resolution> resolutions = {};
-  std::string error_recovery_mode = {};
+  std::string protection;
+  std::string profile;
+  std::string level;
+  std::vector<Resolution> resolutions;
+  std::string error_recovery_mode;
 };
 
-enum class CastMode : uint8_t { kMirroring, kRemoting };
-
 struct Offer {
+  // TODO(jophba): remove deprecated declaration in a separate patch.
   static ErrorOr<Offer> Parse(const Json::Value& root);
-  ErrorOr<Json::Value> ToJson() const;
+  static Error TryParse(const Json::Value& root, Offer* out);
+  Json::Value ToJson() const;
+  bool IsValid() const;
 
   CastMode cast_mode = CastMode::kMirroring;
-  // This field is poorly named in the spec (receiverGetStatus), so we use
-  // a more descriptive name here.
-  bool supports_wifi_status_reporting = {};
-  std::vector<AudioStream> audio_streams = {};
-  std::vector<VideoStream> video_streams = {};
+  std::vector<AudioStream> audio_streams;
+  std::vector<VideoStream> video_streams;
 };
 
 }  // namespace cast

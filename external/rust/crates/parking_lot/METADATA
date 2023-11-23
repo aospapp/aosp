@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/parking_lot/parking_lot-0.11.1.crate"
+    value: "https://static.crates.io/crates/parking_lot/parking_lot-0.12.0.crate"
   }
-  version: "0.11.1"
+  version: "0.12.0"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 11
-    day: 17
+    year: 2022
+    month: 3
+    day: 1
   }
 }

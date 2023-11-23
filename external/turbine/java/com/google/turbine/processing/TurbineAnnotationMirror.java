@@ -18,6 +18,7 @@ package com.google.turbine.processing;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
@@ -44,6 +45,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.TypeMirror;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An implementation of {@link AnnotationMirror} and {@link AnnotationValue} backed by {@link
@@ -104,7 +106,7 @@ class TurbineAnnotationMirror implements TurbineAnnotationValueMirror, Annotatio
                   checkState(m.parameters().isEmpty());
                   result.put(m.name(), m);
                 }
-                return result.build();
+                return result.buildOrThrow();
               }
             });
     this.elementValues =
@@ -115,11 +117,16 @@ class TurbineAnnotationMirror implements TurbineAnnotationValueMirror, Annotatio
                 ImmutableMap.Builder<ExecutableElement, AnnotationValue> result =
                     ImmutableMap.builder();
                 for (Map.Entry<String, Const> value : anno.values().entrySet()) {
+                  // requireNonNull is safe because `elements` contains an entry for every method.
+                  // Any element values pairs without a corresponding method in the annotation
+                  // definition are weeded out in ConstEvaluator.evaluateAnnotation, and don't
+                  // appear in the AnnoInfo.
+                  MethodInfo methodInfo = requireNonNull(elements.get().get(value.getKey()));
                   result.put(
-                      factory.executableElement(elements.get().get(value.getKey()).sym()),
+                      factory.executableElement(methodInfo.sym()),
                       annotationValue(factory, value.getValue()));
                 }
-                return result.build();
+                return result.buildOrThrow();
               }
             });
     this.elementValuesWithDefaults =
@@ -150,7 +157,7 @@ class TurbineAnnotationMirror implements TurbineAnnotationValueMirror, Annotatio
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public boolean equals(@Nullable Object obj) {
     return obj instanceof TurbineAnnotationMirror
         && anno.equals(((TurbineAnnotationMirror) obj).anno);
   }
@@ -336,7 +343,7 @@ class TurbineAnnotationMirror implements TurbineAnnotationValueMirror, Annotatio
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbinePrimitiveConstant
           && value.equals(((TurbinePrimitiveConstant) obj).value);
     }

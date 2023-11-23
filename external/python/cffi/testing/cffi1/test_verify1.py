@@ -1,9 +1,10 @@
 import os, sys, math, py
+import pytest
 from cffi import FFI, FFIError, VerificationError, VerificationMissing, model
 from cffi import CDefError
 from cffi import recompiler
 from testing.support import *
-from testing.support import _verify
+from testing.support import _verify, extra_compile_args
 import _cffi_backend
 
 lib_m = ['m']
@@ -12,17 +13,6 @@ if sys.platform == 'win32':
     import distutils.ccompiler
     if distutils.ccompiler.get_default_compiler() == 'msvc':
         lib_m = ['msvcrt']
-    extra_compile_args = []      # no obvious -Werror equivalent on MSVC
-else:
-    if (sys.platform == 'darwin' and
-          [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
-        # assume a standard clang or gcc
-        extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion']
-        # special things for clang
-        extra_compile_args.append('-Qunused-arguments')
-    else:
-        # assume a standard gcc
-        extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion']
 
 class FFI(FFI):
     error = _cffi_backend.FFI.error
@@ -265,7 +255,7 @@ def test_all_integer_and_float_types():
 def test_var_signed_integer_types():
     ffi = FFI()
     lst = all_signed_integer_types(ffi)
-    csource = "\n".join(["%s somevar_%s;" % (tp, tp.replace(' ', '_'))
+    csource = "\n".join(["static %s somevar_%s;" % (tp, tp.replace(' ', '_'))
                          for tp in lst])
     ffi.cdef(csource)
     lib = ffi.verify(csource)
@@ -284,7 +274,7 @@ def test_var_signed_integer_types():
 def test_var_unsigned_integer_types():
     ffi = FFI()
     lst = all_unsigned_integer_types(ffi)
-    csource = "\n".join(["%s somevar_%s;" % (tp, tp.replace(' ', '_'))
+    csource = "\n".join(["static %s somevar_%s;" % (tp, tp.replace(' ', '_'))
                          for tp in lst])
     ffi.cdef(csource)
     lib = ffi.verify(csource)
@@ -571,7 +561,8 @@ def test_struct_array_guess_length():
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s.a) == 17 * ffi.sizeof('int')
-    py.test.raises(IndexError, 's.a[17]')
+    with pytest.raises(IndexError):
+        s.a[17]
 
 def test_struct_array_c99_1():
     if sys.platform == 'win32':
@@ -629,7 +620,8 @@ def test_struct_with_bitfield_exact():
     ffi.verify("struct foo_s { int a:2, b:3; };")
     s = ffi.new("struct foo_s *")
     s.b = 3
-    py.test.raises(OverflowError, "s.b = 4")
+    with pytest.raises(OverflowError):
+        s.b = 4
     assert s.b == 3
 
 def test_struct_with_bitfield_enum():
@@ -786,8 +778,8 @@ def test_define_int():
 
 def test_access_variable():
     ffi = FFI()
-    ffi.cdef("int foo(void);\n"
-             "int somenumber;")
+    ffi.cdef("static int foo(void);\n"
+             "static int somenumber;")
     lib = ffi.verify("""
         static int somenumber = 2;
         static int foo(void) {
@@ -804,7 +796,7 @@ def test_access_variable():
 def test_access_address_of_variable():
     # access the address of 'somenumber': need a trick
     ffi = FFI()
-    ffi.cdef("int somenumber; static int *const somenumberptr;")
+    ffi.cdef("static int somenumber; static int *const somenumberptr;")
     lib = ffi.verify("""
         static int somenumber = 2;
         #define somenumberptr (&somenumber)
@@ -816,8 +808,8 @@ def test_access_address_of_variable():
 
 def test_access_array_variable(length=5):
     ffi = FFI()
-    ffi.cdef("int foo(int);\n"
-             "int somenumber[%s];" % (length,))
+    ffi.cdef("static int foo(int);\n"
+             "static int somenumber[%s];" % (length,))
     lib = ffi.verify("""
         static int somenumber[] = {2, 2, 3, 4, 5};
         static int foo(int i) {
@@ -848,8 +840,8 @@ def test_access_array_variable_length_hidden():
 def test_access_struct_variable():
     ffi = FFI()
     ffi.cdef("struct foo { int x; ...; };\n"
-             "int foo(int);\n"
-             "struct foo stuff;")
+             "static int foo(int);\n"
+             "static struct foo stuff;")
     lib = ffi.verify("""
         struct foo { int x, y, z; };
         static struct foo stuff = {2, 5, 8};
@@ -873,9 +865,9 @@ def test_access_struct_variable():
 
 def test_access_callback():
     ffi = FFI()
-    ffi.cdef("int (*cb)(int);\n"
-             "int foo(int);\n"
-             "void reset_cb(void);")
+    ffi.cdef("static int (*cb)(int);\n"
+             "static int foo(int);\n"
+             "static void reset_cb(void);")
     lib = ffi.verify("""
         static int g(int x) { return x * 7; }
         static int (*cb)(int);
@@ -891,9 +883,9 @@ def test_access_callback():
 def test_access_callback_function_typedef():
     ffi = FFI()
     ffi.cdef("typedef int mycallback_t(int);\n"
-             "mycallback_t *cb;\n"
-             "int foo(int);\n"
-             "void reset_cb(void);")
+             "static mycallback_t *cb;\n"
+             "static int foo(int);\n"
+             "static void reset_cb(void);")
     lib = ffi.verify("""
         static int g(int x) { return x * 7; }
         static int (*cb)(int);
@@ -1034,7 +1026,7 @@ def test_autofilled_struct_as_argument():
 def test_autofilled_struct_as_argument_dynamic():
     ffi = FFI()
     ffi.cdef("struct foo_s { long a; ...; };\n"
-             "int (*foo)(struct foo_s);")
+             "static int (*foo)(struct foo_s);")
     lib = ffi.verify("""
         struct foo_s {
             double b;
@@ -1043,7 +1035,7 @@ def test_autofilled_struct_as_argument_dynamic():
         int foo1(struct foo_s s) {
             return (int)s.a - (int)s.b;
         }
-        int (*foo)(struct foo_s s) = &foo1;
+        static int (*foo)(struct foo_s s) = &foo1;
     """)
     e = py.test.raises(NotImplementedError, lib.foo, "?")
     msg = ("ctype 'struct foo_s' not supported as argument.  It is a struct "
@@ -1419,7 +1411,7 @@ def test_bool():
         py.test.skip("_Bool not in MSVC")
     ffi = FFI()
     ffi.cdef("struct foo_s { _Bool x; };"
-             "_Bool foo(_Bool); _Bool (*foop)(_Bool);")
+             "_Bool foo(_Bool); static _Bool (*foop)(_Bool);")
     lib = ffi.verify("""
         struct foo_s { _Bool x; };
         int foo(int arg) {
@@ -1428,13 +1420,15 @@ def test_bool():
         _Bool _foofunc(_Bool x) {
             return !x;
         }
-        _Bool (*foop)(_Bool) = _foofunc;
+        static _Bool (*foop)(_Bool) = _foofunc;
     """)
     p = ffi.new("struct foo_s *")
     p.x = 1
     assert p.x is True
-    py.test.raises(OverflowError, "p.x = -1")
-    py.test.raises(TypeError, "p.x = 0.0")
+    with pytest.raises(OverflowError):
+        p.x = -1
+    with pytest.raises(TypeError):
+        p.x = 0.0
     assert lib.foop(1) is False
     assert lib.foop(True) is False
     assert lib.foop(0) is True
@@ -1502,7 +1496,8 @@ def test_cannot_pass_float():
                 }
             """ % (type, type))
             p = ffi.new("struct foo_s *")
-            py.test.raises(TypeError, "p.x = 0.0")
+            with pytest.raises(TypeError):
+                p.x = 0.0
             assert lib.foo(42) == 0
             assert lib.foo(0) == 1
             py.test.raises(TypeError, lib.foo, 0.0)
@@ -1610,7 +1605,7 @@ def test_FILE_stored_in_stdout():
 
 def test_FILE_stored_explicitly():
     ffi = FFI()
-    ffi.cdef("int myprintf11(const char *, int); FILE *myfile;")
+    ffi.cdef("int myprintf11(const char *, int); extern FILE *myfile;")
     lib = ffi.verify("""
         #include <stdio.h>
         FILE *myfile;
@@ -1636,13 +1631,13 @@ def test_FILE_stored_explicitly():
 
 def test_global_array_with_missing_length():
     ffi = FFI()
-    ffi.cdef("int fooarray[];")
+    ffi.cdef("extern int fooarray[];")
     lib = ffi.verify("int fooarray[50];")
     assert repr(lib.fooarray).startswith("<cdata 'int *'")
 
 def test_global_array_with_dotdotdot_length():
     ffi = FFI()
-    ffi.cdef("int fooarray[...];")
+    ffi.cdef("extern int fooarray[...];")
     lib = ffi.verify("int fooarray[50];")
     assert repr(lib.fooarray).startswith("<cdata 'int[50]'")
 
@@ -1650,7 +1645,7 @@ def test_bad_global_array_with_dotdotdot_length():
     py.test.xfail("was detected only because 23 bytes cannot be divided by 4; "
                   "redo more generally")
     ffi = FFI()
-    ffi.cdef("int fooarray[...];")
+    ffi.cdef("extern int fooarray[...];")
     py.test.raises(VerificationError, ffi.verify, "char fooarray[23];")
 
 def test_struct_containing_struct():
@@ -1771,7 +1766,7 @@ def test_string_to_voidp_arg():
 def test_callback_indirection():
     ffi = FFI()
     ffi.cdef("""
-        int (*python_callback)(int how_many, int *values);
+        static int (*python_callback)(int how_many, int *values);
         int (*const c_callback)(int,...);   /* pass this ptr to C routines */
         int some_c_function(int(*cb)(int,...));
     """)
@@ -1905,23 +1900,23 @@ def test_typeof_func_with_struct_argument():
 
 def test_bug_const_char_ptr_array_1():
     ffi = FFI()
-    ffi.cdef("""const char *a[...];""")
+    ffi.cdef("""extern const char *a[...];""")
     lib = ffi.verify("""const char *a[5];""")
     assert repr(ffi.typeof(lib.a)) == "<ctype 'char *[5]'>"
 
 def test_bug_const_char_ptr_array_2():
     ffi = FFI()
-    ffi.cdef("""const int a[];""")
+    ffi.cdef("""extern const int a[];""")
     lib = ffi.verify("""const int a[5];""")
     assert repr(ffi.typeof(lib.a)) == "<ctype 'int *'>"
 
 def _test_various_calls(force_libffi):
     cdef_source = """
-    int xvalue;
-    long long ivalue, rvalue;
-    float fvalue;
-    double dvalue;
-    long double Dvalue;
+    extern int xvalue;
+    extern long long ivalue, rvalue;
+    extern float fvalue;
+    extern double dvalue;
+    extern long double Dvalue;
     signed char tf_bb(signed char x, signed char c);
     unsigned char tf_bB(signed char x, unsigned char c);
     short tf_bh(signed char x, short c);
@@ -2104,7 +2099,7 @@ def test_verify_dlopen_flags():
     old = sys.getdlopenflags()
     try:
         ffi1 = FFI()
-        ffi1.cdef("int foo_verify_dlopen_flags_1;")
+        ffi1.cdef("extern int foo_verify_dlopen_flags_1;")
         sys.setdlopenflags(ffi1.RTLD_GLOBAL | ffi1.RTLD_NOW)
         lib1 = ffi1.verify("int foo_verify_dlopen_flags_1;")
     finally:
@@ -2193,7 +2188,8 @@ def test_define_wrong_value():
     ffi = FFI()
     ffi.cdef("#define FOO 123")
     lib = ffi.verify("#define FOO 124")     # used to complain
-    e = py.test.raises(ffi.error, "lib.FOO")
+    with pytest.raises(ffi.error) as e:
+        lib.FOO
     assert str(e.value) == ("the C compiler says 'FOO' is equal to 124 (0x7c),"
                             " but the cdef disagrees")
 
@@ -2244,7 +2240,7 @@ def test_windows_dllimport_data():
 
 def test_macro_var():
     ffi = FFI()
-    ffi.cdef("int myarray[50], my_value;")
+    ffi.cdef("extern int myarray[50], my_value;")
     lib = ffi.verify("""
         int myarray[50];
         int *get_my_value(void) {

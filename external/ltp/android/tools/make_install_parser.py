@@ -47,7 +47,7 @@ class MakeInstallParser(object):
         Returns:
             string, directives in form install['target'] = [ 'srcfile' ]
         '''
-        pattern = re.compile(r'install -m \d+ "%s%s(.*)" "/opt/ltp/(.*)"' %
+        pattern = re.compile(r'install\s+-m\s+\d+\s+"%s%s(.+)"\s+/opt/ltp/(.+)' %
                              (os.path.realpath(self.ltp_root), os.sep))
         result = []
 
@@ -87,7 +87,7 @@ def main():
     make_install_parser = MakeInstallParser(args.ltp_root)
     result = make_install_parser.ParseFile(args.input_path)
 
-    print pprint.pprint(result)
+    print(pprint.pprint(result))
 
 if __name__ == '__main__':
     main()

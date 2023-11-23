@@ -178,13 +178,14 @@ operators are only defined where they make sense; for example, they raise a
    single: __ge__() (instance method)
 
 Non-identical instances of a class normally compare as non-equal unless the
-class defines the :meth:`__eq__` method.
+class defines the :meth:`~object.__eq__` method.
 
 Instances of a class cannot be ordered with respect to other instances of the
 same class, or other types of object, unless the class defines enough of the
-methods :meth:`__lt__`, :meth:`__le__`, :meth:`__gt__`, and :meth:`__ge__` (in
-general, :meth:`__lt__` and :meth:`__eq__` are sufficient, if you want the
-conventional meanings of the comparison operators).
+methods :meth:`~object.__lt__`, :meth:`~object.__le__`, :meth:`~object.__gt__`, and
+:meth:`~object.__ge__` (in general, :meth:`~object.__lt__` and
+:meth:`~object.__eq__` are sufficient, if you want the conventional meanings of the
+comparison operators).
 
 The behavior of the :keyword:`is` and :keyword:`is not` operators cannot be
 customized; also they can be applied to any two objects and never raise an
@@ -478,7 +479,28 @@ class`. In addition, it provides a few more methods:
 
     .. versionadded:: 3.1
 
-.. method:: int.to_bytes(length, byteorder, \*, signed=False)
+.. method:: int.bit_count()
+
+    Return the number of ones in the binary representation of the absolute
+    value of the integer. This is also known as the population count.
+    Example::
+
+        >>> n = 19
+        >>> bin(n)
+        '0b10011'
+        >>> n.bit_count()
+        3
+        >>> (-n).bit_count()
+        3
+
+    Equivalent to::
+
+        def bit_count(self):
+            return bin(self).count("1")
+
+    .. versionadded:: 3.10
+
+.. method:: int.to_bytes(length, byteorder, *, signed=False)
 
     Return an array of bytes representing an integer.
 
@@ -510,7 +532,7 @@ class`. In addition, it provides a few more methods:
 
     .. versionadded:: 3.2
 
-.. classmethod:: int.from_bytes(bytes, byteorder, \*, signed=False)
+.. classmethod:: int.from_bytes(bytes, byteorder, *, signed=False)
 
     Return the integer represented by the given array of bytes.
 
@@ -639,7 +661,7 @@ Hashing of numeric types
 ------------------------
 
 For numbers ``x`` and ``y``, possibly of different types, it's a requirement
-that ``hash(x) == hash(y)`` whenever ``x == y`` (see the :meth:`__hash__`
+that ``hash(x) == hash(y)`` whenever ``x == y`` (see the :meth:`~object.__hash__`
 method documentation for more details).  For ease of implementation and
 efficiency across a variety of numeric types (including :class:`int`,
 :class:`float`, :class:`decimal.Decimal` and :class:`fractions.Fraction`)
@@ -671,10 +693,9 @@ Here are the rules in detail:
   as ``-hash(-x)``.  If the resulting hash is ``-1``, replace it with
   ``-2``.
 
-- The particular values ``sys.hash_info.inf``, ``-sys.hash_info.inf``
-  and ``sys.hash_info.nan`` are used as hash values for positive
-  infinity, negative infinity, or nans (respectively).  (All hashable
-  nans have the same hash value.)
+- The particular values ``sys.hash_info.inf`` and ``-sys.hash_info.inf``
+  are used as hash values for positive
+  infinity or negative infinity (respectively).
 
 - For a :class:`complex` number ``z``, the hash values of the real
   and imaginary parts are combined by computing ``hash(z.real) +
@@ -719,7 +740,7 @@ number, :class:`float`, or :class:`complex`::
        """Compute the hash of a float x."""
 
        if math.isnan(x):
-           return sys.hash_info.nan
+           return object.__hash__(x)
        elif math.isinf(x):
            return sys.hash_info.inf if x > 0 else -sys.hash_info.inf
        else:
@@ -752,21 +773,21 @@ using two distinct methods; these are used to allow user-defined classes to
 support iteration.  Sequences, described below in more detail, always support
 the iteration methods.
 
-One method needs to be defined for container objects to provide iteration
+One method needs to be defined for container objects to provide :term:`iterable`
 support:
 
 .. XXX duplicated in reference/datamodel!
 
 .. method:: container.__iter__()
 
-   Return an iterator object.  The object is required to support the iterator
-   protocol described below.  If a container supports different types of
-   iteration, additional methods can be provided to specifically request
+   Return an :term:`iterator` object.  The object is required to support the
+   iterator protocol described below.  If a container supports different types
+   of iteration, additional methods can be provided to specifically request
    iterators for those iteration types.  (An example of an object supporting
    multiple forms of iteration would be a tree structure which supports both
    breadth-first and depth-first traversal.)  This method corresponds to the
-   :c:member:`~PyTypeObject.tp_iter` slot of the type structure for Python objects in the Python/C
-   API.
+   :c:member:`~PyTypeObject.tp_iter` slot of the type structure for Python
+   objects in the Python/C API.
 
 The iterator objects themselves are required to support the following two
 methods, which together form the :dfn:`iterator protocol`:
@@ -774,18 +795,19 @@ methods, which together form the :dfn:`iterator protocol`:
 
 .. method:: iterator.__iter__()
 
-   Return the iterator object itself.  This is required to allow both containers
-   and iterators to be used with the :keyword:`for` and :keyword:`in` statements.
-   This method corresponds to the :c:member:`~PyTypeObject.tp_iter` slot of the type structure for
-   Python objects in the Python/C API.
+   Return the :term:`iterator` object itself.  This is required to allow both
+   containers and iterators to be used with the :keyword:`for` and
+   :keyword:`in` statements.  This method corresponds to the
+   :c:member:`~PyTypeObject.tp_iter` slot of the type structure for Python
+   objects in the Python/C API.
 
 
 .. method:: iterator.__next__()
 
-   Return the next item from the container.  If there are no further items, raise
-   the :exc:`StopIteration` exception.  This method corresponds to the
-   :c:member:`~PyTypeObject.tp_iternext` slot of the type structure for Python objects in the
-   Python/C API.
+   Return the next item from the :term:`iterator`.  If there are no further
+   items, raise the :exc:`StopIteration` exception.  This method corresponds to
+   the :c:member:`~PyTypeObject.tp_iternext` slot of the type structure for
+   Python objects in the Python/C API.
 
 Python defines several iterator objects to support iteration over general and
 specific sequence types, dictionaries, and other more specialized forms.  The
@@ -898,6 +920,16 @@ and lists are compared lexicographically by comparing corresponding elements.
 This means that to compare equal, every element must compare equal and the
 two sequences must be of the same type and have the same length.  (For full
 details see :ref:`comparisons` in the language reference.)
+
+.. index::
+   single: loop; over mutable sequence
+   single: mutable sequence; loop over
+
+Forward and reversed iterators over mutable sequences access values using an
+index.  That index will continue to march forward (or backward) even if the
+underlying sequence is mutated.  The iterator terminates only when an
+:exc:`IndexError` or a :exc:`StopIteration` is encountered (or when the index
+drops below zero).
 
 Notes:
 
@@ -1092,7 +1124,7 @@ accepts integers that meet the value restriction ``0 <= x <= 255``).
 |                              | index given by *i*             |                     |
 |                              | (same as ``s[i:i] = [x]``)     |                     |
 +------------------------------+--------------------------------+---------------------+
-| ``s.pop([i])``               | retrieves the item at *i* and  | \(2)                |
+| ``s.pop()`` or ``s.pop(i)``  | retrieves the item at *i* and  | \(2)                |
 |                              | also removes it from *s*       |                     |
 +------------------------------+--------------------------------+---------------------+
 | ``s.remove(x)``              | remove the first item from *s* | \(3)                |
@@ -1275,7 +1307,7 @@ loops.
            range(start, stop[, step])
 
    The arguments to the range constructor must be integers (either built-in
-   :class:`int` or any object that implements the ``__index__`` special
+   :class:`int` or any object that implements the :meth:`~object.__index__` special
    method).  If the *step* argument is omitted, it defaults to ``1``.
    If the *start* argument is omitted, it defaults to ``0``.
    If *step* is zero, :exc:`ValueError` is raised.
@@ -1403,7 +1435,7 @@ Strings are immutable
 written in a variety of ways:
 
 * Single quotes: ``'allows embedded "double" quotes'``
-* Double quotes: ``"allows embedded 'single' quotes"``.
+* Double quotes: ``"allows embedded 'single' quotes"``
 * Triple quoted: ``'''Three single quotes'''``, ``"""Three double quotes"""``
 
 Triple quoted strings may span multiple lines - all associated whitespace will
@@ -1560,13 +1592,15 @@ expression support in the :mod:`re` module).
 
    By default, the *errors* argument is not checked for best performances, but
    only used at the first encoding error. Enable the :ref:`Python Development
-   Mode <devmode>`, or use a debug build to check *errors*.
+   Mode <devmode>`, or use a :ref:`debug build <debug-build>` to check
+   *errors*.
 
    .. versionchanged:: 3.1
       Support for keyword arguments added.
 
    .. versionchanged:: 3.9
-      The *errors* is now checked in development mode and in debug mode.
+      The *errors* is now checked in development mode and
+      in :ref:`debug mode <debug-build>`.
 
 
 .. method:: str.endswith(suffix[, start[, end]])
@@ -1727,9 +1761,9 @@ expression support in the :mod:`re` module).
       >>> from keyword import iskeyword
 
       >>> 'hello'.isidentifier(), iskeyword('hello')
-      True, False
+      (True, False)
       >>> 'def'.isidentifier(), iskeyword('def')
-      True, True
+      (True, True)
 
 
 .. method:: str.islower()
@@ -1996,7 +2030,7 @@ expression support in the :mod:`re` module).
 .. index::
    single: universal newlines; str.splitlines method
 
-.. method:: str.splitlines([keepends])
+.. method:: str.splitlines(keepends=False)
 
    Return a list of the lines in the string, breaking at line boundaries.  Line
    breaks are not included in the resulting list unless *keepends* is given and
@@ -2409,7 +2443,7 @@ data and are closely related to string objects in a variety of other ways.
    literals, except that a ``b`` prefix is added:
 
    * Single quotes: ``b'still allows embedded "double" quotes'``
-   * Double quotes: ``b"still allows embedded 'single' quotes"``.
+   * Double quotes: ``b"still allows embedded 'single' quotes"``
    * Triple quoted: ``b'''3 single quotes'''``, ``b"""3 double quotes"""``
 
    Only ASCII characters are permitted in bytes literals (regardless of the
@@ -2689,7 +2723,7 @@ arbitrary binary data.
 
    By default, the *errors* argument is not checked for best performances, but
    only used at the first decoding error. Enable the :ref:`Python Development
-   Mode <devmode>`, or use a debug build to check *errors*.
+   Mode <devmode>`, or use a :ref:`debug build <debug-build>` to check *errors*.
 
    .. note::
 
@@ -2701,7 +2735,8 @@ arbitrary binary data.
       Added support for keyword arguments.
 
    .. versionchanged:: 3.9
-      The *errors* is now checked in development mode and in debug mode.
+      The *errors* is now checked in development mode and
+      in :ref:`debug mode <debug-build>`.
 
 
 .. method:: bytes.endswith(suffix[, start[, end]])
@@ -3609,17 +3644,16 @@ Memory Views
 of an object that supports the :ref:`buffer protocol <bufferobjects>` without
 copying.
 
-.. class:: memoryview(obj)
+.. class:: memoryview(object)
 
-   Create a :class:`memoryview` that references *obj*.  *obj* must support the
-   buffer protocol.  Built-in objects that support the buffer protocol include
-   :class:`bytes` and :class:`bytearray`.
+   Create a :class:`memoryview` that references *object*.  *object* must
+   support the buffer protocol.  Built-in objects that support the buffer
+   protocol include :class:`bytes` and :class:`bytearray`.
 
    A :class:`memoryview` has the notion of an *element*, which is the
-   atomic memory unit handled by the originating object *obj*.  For many
-   simple types such as :class:`bytes` and :class:`bytearray`, an element
-   is a single byte, but other types such as :class:`array.array` may have
-   bigger elements.
+   atomic memory unit handled by the originating *object*.  For many simple
+   types such as :class:`bytes` and :class:`bytearray`, an element is a single
+   byte, but other types such as :class:`array.array` may have bigger elements.
 
    ``len(view)`` is equal to the length of :class:`~memoryview.tolist`.
    If ``view.ndim = 0``, the length is 1. If ``view.ndim = 1``, the length
@@ -4191,7 +4225,7 @@ The constructors for both classes work the same:
 
 
    Note, the non-operator versions of :meth:`union`, :meth:`intersection`,
-   :meth:`difference`, and :meth:`symmetric_difference`, :meth:`issubset`, and
+   :meth:`difference`, :meth:`symmetric_difference`, :meth:`issubset`, and
    :meth:`issuperset` methods will accept any iterable as an argument.  In
    contrast, their operator based counterparts require their arguments to be
    sets.  This precludes error-prone constructions like ``set('abc') & 'cbs'``
@@ -4310,9 +4344,9 @@ Dictionaries can be created by placing a comma-separated list of ``key: value``
 pairs within braces, for example: ``{'jack': 4098, 'sjoerd': 4127}`` or ``{4098:
 'jack', 4127: 'sjoerd'}``, or by the :class:`dict` constructor.
 
-.. class:: dict(**kwarg)
-           dict(mapping, **kwarg)
-           dict(iterable, **kwarg)
+.. class:: dict(**kwargs)
+           dict(mapping, **kwargs)
+           dict(iterable, **kwargs)
 
    Return a new dictionary initialized from an optional positional argument
    and a possibly empty set of keyword arguments.
@@ -4616,6 +4650,12 @@ support membership tests:
    .. versionchanged:: 3.8
       Dictionary views are now reversible.
 
+.. describe:: dictview.mapping
+
+   Return a :class:`types.MappingProxyType` that wraps the original
+   dictionary to which the view refers.
+
+   .. versionadded:: 3.10
 
 Keys views are set-like since their entries are unique and hashable.  If all
 values are hashable, so that ``(key, value)`` pairs are unique and hashable,
@@ -4654,6 +4694,12 @@ An example of dictionary view usage::
    {'bacon'}
    >>> keys ^ {'sausage', 'juice'}
    {'juice', 'sausage', 'bacon', 'spam'}
+
+   >>> # get back a read-only proxy for the original dictionary
+   >>> values.mapping
+   mappingproxy({'eggs': 2, 'sausage': 1, 'bacon': 1, 'spam': 500})
+   >>> values.mapping['spam']
+   500
 
 
 .. _typecontextmanager:
@@ -4720,9 +4766,9 @@ their implementation of the context management protocol. See the
 Python's :term:`generator`\s and the :class:`contextlib.contextmanager` decorator
 provide a convenient way to implement these protocols.  If a generator function is
 decorated with the :class:`contextlib.contextmanager` decorator, it will return a
-context manager implementing the necessary :meth:`__enter__` and
-:meth:`__exit__` methods, rather than the iterator produced by an undecorated
-generator function.
+context manager implementing the necessary :meth:`~contextmanager.__enter__` and
+:meth:`~contextmanager.__exit__` methods, rather than the iterator produced by an
+undecorated generator function.
 
 Note that there is no specific slot for any of these methods in the type
 structure for Python objects in the Python/C API. Extension types wanting to
@@ -4731,42 +4777,73 @@ Compared to the overhead of setting up the runtime context, the overhead of a
 single class dictionary lookup is negligible.
 
 
+Type Annotation Types --- :ref:`Generic Alias <types-genericalias>`, :ref:`Union <types-union>`
+===============================================================================================
+
+.. index::
+   single: annotation; type annotation; type hint
+
+The core built-in types for :term:`type annotations <annotation>` are
+:ref:`Generic Alias <types-genericalias>` and :ref:`Union <types-union>`.
+
+
 .. _types-genericalias:
 
 Generic Alias Type
-==================
+------------------
 
 .. index::
    object: GenericAlias
    pair: Generic; Alias
 
-``GenericAlias`` objects are created by subscripting a class (usually a
-container), such as ``list[int]``.  They are intended primarily for
+``GenericAlias`` objects are generally created by
+:ref:`subscripting <subscriptions>` a class. They are most often used with
+:ref:`container classes <sequence-types>`, such as :class:`list` or
+:class:`dict`. For example, ``list[int]`` is a ``GenericAlias`` object created
+by subscripting the ``list`` class with the argument :class:`int`.
+``GenericAlias`` objects are intended primarily for use with
 :term:`type annotations <annotation>`.
 
-Usually, the :ref:`subscription <subscriptions>` of container objects calls the
-method :meth:`__getitem__` of the object.  However, the subscription of some
-containers' classes may call the classmethod :meth:`__class_getitem__` of the
-class instead. The classmethod :meth:`__class_getitem__` should return a
-``GenericAlias`` object.
-
 .. note::
-   If the :meth:`__getitem__` of the class' metaclass is present, it will take
-   precedence over the :meth:`__class_getitem__` defined in the class (see
-   :pep:`560` for more details).
 
-The ``GenericAlias`` object acts as a proxy for :term:`generic types
-<generic type>`, implementing *parameterized generics* - a specific instance
-of a generic which provides the types for container elements.
+   It is generally only possible to subscript a class if the class implements
+   the special method :meth:`~object.__class_getitem__`.
 
-The user-exposed type for the ``GenericAlias`` object can be accessed from
-:class:`types.GenericAlias` and used for :func:`isinstance` checks.  It can
-also be used to create ``GenericAlias`` objects directly.
+A ``GenericAlias`` object acts as a proxy for a :term:`generic type`,
+implementing *parameterized generics*.
+
+For a container class, the
+argument(s) supplied to a :ref:`subscription <subscriptions>` of the class may
+indicate the type(s) of the elements an object contains. For example,
+``set[bytes]`` can be used in type annotations to signify a :class:`set` in
+which all the elements are of type :class:`bytes`.
+
+For a class which defines :meth:`~object.__class_getitem__` but is not a
+container, the argument(s) supplied to a subscription of the class will often
+indicate the return type(s) of one or more methods defined on an object. For
+example, :mod:`regular expressions <re>` can be used on both the :class:`str` data
+type and the :class:`bytes` data type:
+
+* If ``x = re.search('foo', 'foo')``, ``x`` will be a
+  :ref:`re.Match <match-objects>` object where the return values of
+  ``x.group(0)`` and ``x[0]`` will both be of type :class:`str`. We can
+  represent this kind of object in type annotations with the ``GenericAlias``
+  ``re.Match[str]``.
+
+* If ``y = re.search(b'bar', b'bar')``, (note the ``b`` for :class:`bytes`),
+  ``y`` will also be an instance of ``re.Match``, but the return
+  values of ``y.group(0)`` and ``y[0]`` will both be of type
+  :class:`bytes`. In type annotations, we would represent this
+  variety of :ref:`re.Match <match-objects>` objects with ``re.Match[bytes]``.
+
+``GenericAlias`` objects are instances of the class
+:class:`types.GenericAlias`, which can also be used to create ``GenericAlias``
+objects directly.
 
 .. describe:: T[X, Y, ...]
 
-   Creates a ``GenericAlias`` representing a type ``T`` containing elements
-   of types *X*, *Y*, and more depending on the ``T`` used.
+   Creates a ``GenericAlias`` representing a type ``T`` parameterized by types
+   *X*, *Y*, and more depending on the ``T`` used.
    For example, a function expecting a :class:`list` containing
    :class:`float` elements::
 
@@ -4791,7 +4868,7 @@ The builtin functions :func:`isinstance` and :func:`issubclass` do not accept
 
 The Python runtime does not enforce :term:`type annotations <annotation>`.
 This extends to generic types and their type parameters. When creating
-an object from a ``GenericAlias``, container elements are not checked
+a container object from a ``GenericAlias``, the elements in the container are not checked
 against their type. For example, the following code is discouraged, but will
 run without errors::
 
@@ -4818,8 +4895,8 @@ Calling :func:`repr` or :func:`str` on a generic shows the parameterized type::
    >>> str(list[int])
    'list[int]'
 
-The :meth:`__getitem__` method of generics will raise an exception to disallow
-mistakes like ``dict[str][str]``::
+The :meth:`~object.__getitem__` method of generic containers will raise an
+exception to disallow mistakes like ``dict[str][str]``::
 
    >>> dict[str][str]
    Traceback (most recent call last):
@@ -4828,7 +4905,7 @@ mistakes like ``dict[str][str]``::
 
 However, such expressions are valid when :ref:`type variables <generics>` are
 used.  The index must have as many elements as there are type variable items
-in the ``GenericAlias`` object's :attr:`__args__ <genericalias.__args__>`. ::
+in the ``GenericAlias`` object's :attr:`~genericalias.__args__`. ::
 
    >>> from typing import TypeVar
    >>> Y = TypeVar('Y')
@@ -4836,10 +4913,11 @@ in the ``GenericAlias`` object's :attr:`__args__ <genericalias.__args__>`. ::
    dict[str, int]
 
 
-Standard Generic Collections
-----------------------------
+Standard Generic Classes
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-These standard library collections support parameterized generics.
+The following standard library classes support parameterized generics. This
+list is non-exhaustive.
 
 * :class:`tuple`
 * :class:`list`
@@ -4877,12 +4955,29 @@ These standard library collections support parameterized generics.
 * :class:`collections.abc.ValuesView`
 * :class:`contextlib.AbstractContextManager`
 * :class:`contextlib.AbstractAsyncContextManager`
+* :class:`dataclasses.Field`
+* :class:`functools.cached_property`
+* :class:`functools.partialmethod`
+* :class:`os.PathLike`
+* :class:`queue.LifoQueue`
+* :class:`queue.Queue`
+* :class:`queue.PriorityQueue`
+* :class:`queue.SimpleQueue`
 * :ref:`re.Pattern <re-objects>`
 * :ref:`re.Match <match-objects>`
+* :class:`shelve.BsdDbShelf`
+* :class:`shelve.DbfilenameShelf`
+* :class:`shelve.Shelf`
+* :class:`types.MappingProxyType`
+* :class:`weakref.WeakKeyDictionary`
+* :class:`weakref.WeakMethod`
+* :class:`weakref.WeakSet`
+* :class:`weakref.WeakValueDictionary`
 
 
-Special Attributes of Generic Alias
------------------------------------
+
+Special Attributes of ``GenericAlias`` objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 All parameterized generics implement special read-only attributes.
 
@@ -4897,8 +4992,8 @@ All parameterized generics implement special read-only attributes.
 .. attribute:: genericalias.__args__
 
    This attribute is a :class:`tuple` (possibly of length 1) of generic
-   types passed to the original :meth:`__class_getitem__`
-   of the generic container::
+   types passed to the original :meth:`~object.__class_getitem__` of the
+   generic class::
 
       >>> dict[str, list[int]].__args__
       (<class 'str'>, list[int])
@@ -4916,13 +5011,127 @@ All parameterized generics implement special read-only attributes.
       (~T,)
 
 
+   .. note::
+      A ``GenericAlias`` object with :class:`typing.ParamSpec` parameters may not
+      have correct ``__parameters__`` after substitution because
+      :class:`typing.ParamSpec` is intended primarily for static type checking.
+
 .. seealso::
 
-   * :pep:`585` -- "Type Hinting Generics In Standard Collections"
-   * :meth:`__class_getitem__` -- Used to implement parameterized generics.
-   * :ref:`generics` -- Generics in the :mod:`typing` module.
+   :pep:`484` - Type Hints
+      Introducing Python's framework for type annotations.
+
+   :pep:`585` - Type Hinting Generics In Standard Collections
+      Introducing the ability to natively parameterize standard-library
+      classes, provided they implement the special class method
+      :meth:`~object.__class_getitem__`.
+
+   :ref:`Generics`, :ref:`user-defined generics <user-defined-generics>` and :class:`typing.Generic`
+      Documentation on how to implement generic classes that can be
+      parameterized at runtime and understood by static type-checkers.
 
 .. versionadded:: 3.9
+
+
+.. _types-union:
+
+Union Type
+----------
+
+.. index::
+   object: Union
+   pair: union; type
+
+A union object holds the value of the ``|`` (bitwise or) operation on
+multiple :ref:`type objects <bltin-type-objects>`.  These types are intended
+primarily for :term:`type annotations <annotation>`. The union type expression
+enables cleaner type hinting syntax compared to :data:`typing.Union`.
+
+.. describe:: X | Y | ...
+
+   Defines a union object which holds types *X*, *Y*, and so forth. ``X | Y``
+   means either X or Y.  It is equivalent to ``typing.Union[X, Y]``.
+   For example, the following function expects an argument of type
+   :class:`int` or :class:`float`::
+
+      def square(number: int | float) -> int | float:
+          return number ** 2
+
+.. describe:: union_object == other
+
+   Union objects can be tested for equality with other union objects.  Details:
+
+   * Unions of unions are flattened::
+
+       (int | str) | float == int | str | float
+
+   * Redundant types are removed::
+
+       int | str | int == int | str
+
+   * When comparing unions, the order is ignored::
+
+      int | str == str | int
+
+   * It is compatible with :data:`typing.Union`::
+
+      int | str == typing.Union[int, str]
+
+   * Optional types can be spelled as a union with ``None``::
+
+      str | None == typing.Optional[str]
+
+.. describe:: isinstance(obj, union_object)
+.. describe:: issubclass(obj, union_object)
+
+   Calls to :func:`isinstance` and :func:`issubclass` are also supported with a
+   union object::
+
+      >>> isinstance("", int | str)
+      True
+
+   However, union objects containing :ref:`parameterized generics
+   <types-genericalias>` cannot be used::
+
+      >>> isinstance(1, int | list[int])
+      Traceback (most recent call last):
+        File "<stdin>", line 1, in <module>
+      TypeError: isinstance() argument 2 cannot contain a parameterized generic
+
+The user-exposed type for the union object can be accessed from
+:data:`types.UnionType` and used for :func:`isinstance` checks.  An object cannot be
+instantiated from the type::
+
+   >>> import types
+   >>> isinstance(int | str, types.UnionType)
+   True
+   >>> types.UnionType()
+   Traceback (most recent call last):
+     File "<stdin>", line 1, in <module>
+   TypeError: cannot create 'types.UnionType' instances
+
+.. note::
+   The :meth:`__or__` method for type objects was added to support the syntax
+   ``X | Y``.  If a metaclass implements :meth:`__or__`, the Union may
+   override it::
+
+      >>> class M(type):
+      ...     def __or__(self, other):
+      ...         return "Hello"
+      ...
+      >>> class C(metaclass=M):
+      ...     pass
+      ...
+      >>> C | int
+      'Hello'
+      >>> int | C
+      int | __main__.C
+
+.. seealso::
+
+   :pep:`604` -- PEP proposing the ``X | Y`` syntax and the Union type.
+
+.. versionadded:: 3.10
 
 
 .. _typesother:
@@ -5043,6 +5252,9 @@ objects because they don't contain a reference to their global execution
 environment.  Code objects are returned by the built-in :func:`compile` function
 and can be extracted from function objects through their :attr:`__code__`
 attribute. See also the :mod:`code` module.
+
+Accessing ``__code__`` raises an :ref:`auditing event <auditing>`
+``object.__getattr__`` with arguments ``obj`` and ``"__code__"``.
 
 .. index::
    builtin: exec
@@ -5196,8 +5408,8 @@ types, where they are relevant.  Some of these are not reported by the
 .. method:: class.__subclasses__
 
    Each class keeps a list of weak references to its immediate subclasses.  This
-   method returns a list of all those references still alive.
-   Example::
+   method returns a list of all those references still alive.  The list is in
+   definition order.  Example::
 
       >>> int.__subclasses__()
       [<class 'bool'>]

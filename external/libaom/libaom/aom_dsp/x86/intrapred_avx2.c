@@ -1989,7 +1989,7 @@ static void highbd_dr_prediction_32bit_z2_Nx4_avx2(
     int base_x = (-y * dx) >> frac_bits_x;
     int base_shift = 0;
     if (base_x < (min_base_x - 1)) {
-      base_shift = (min_base_x - base_x) >> upsample_above;
+      base_shift = (min_base_x - base_x - 1) >> upsample_above;
     }
     int base_min_diff =
         (min_base_x - base_x + upsample_above) >> upsample_above;
@@ -2115,7 +2115,7 @@ static void highbd_dr_prediction_z2_Nx4_avx2(
     int base_x = (-y * dx) >> frac_bits_x;
     int base_shift = 0;
     if (base_x < (min_base_x - 1)) {
-      base_shift = (min_base_x - base_x) >> upsample_above;
+      base_shift = (min_base_x - base_x - 1) >> upsample_above;
     }
     int base_min_diff =
         (min_base_x - base_x + upsample_above) >> upsample_above;
@@ -2237,7 +2237,7 @@ static void highbd_dr_prediction_32bit_z2_Nx8_avx2(
     int base_x = (-y * dx) >> frac_bits_x;
     int base_shift = 0;
     if (base_x < (min_base_x - 1)) {
-      base_shift = (min_base_x - base_x) >> upsample_above;
+      base_shift = (min_base_x - base_x - 1) >> upsample_above;
     }
     int base_min_diff =
         (min_base_x - base_x + upsample_above) >> upsample_above;
@@ -2387,7 +2387,7 @@ static void highbd_dr_prediction_z2_Nx8_avx2(
     int base_x = (-y * dx) >> frac_bits_x;
     int base_shift = 0;
     if (base_x < (min_base_x - 1)) {
-      base_shift = (min_base_x - base_x) >> upsample_above;
+      base_shift = (min_base_x - base_x - 1) >> upsample_above;
     }
     int base_min_diff =
         (min_base_x - base_x + upsample_above) >> upsample_above;
@@ -2529,7 +2529,7 @@ static void highbd_dr_prediction_32bit_z2_HxW_avx2(
   a16 = _mm256_set1_epi32(16);
   c1 = _mm256_srli_epi32(a16, 4);
   c8 = _mm256_srli_epi32(a16, 1);
-  min_base_y256 = _mm256_set1_epi16(min_base_y);
+  min_base_y256 = _mm256_set1_epi32(min_base_y);
   c3f = _mm256_set1_epi32(0x3f);
   dy256 = _mm256_set1_epi32(dy);
   c0123 = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);

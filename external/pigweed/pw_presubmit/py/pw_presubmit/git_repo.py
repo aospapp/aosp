@@ -24,6 +24,9 @@ from pw_presubmit.tools import log_run, plural
 _LOG = logging.getLogger(__name__)
 PathOrStr = Union[Path, str]
 
+TRACKING_BRANCH_ALIAS = '@{upstream}'
+_TRACKING_BRANCH_ALIASES = TRACKING_BRANCH_ALIAS, '@{u}'
+
 
 def git_stdout(*args: PathOrStr,
                show_stderr=False,
@@ -55,6 +58,39 @@ def _diff_names(commit: str, pathspecs: Collection[PathOrStr],
         yield git_root / file
 
 
+def tracking_branch(repo_path: Path = None) -> Optional[str]:
+    """Returns the tracking branch of the current branch.
+
+    Since most callers of this function can safely handle a return value of
+    None, suppress exceptions and return None if there is no tracking branch.
+
+    Args:
+      repo_path: repo path from which to run commands; defaults to Path.cwd()
+
+    Raises:
+      ValueError: if repo_path is not in a Git repository
+
+    Returns:
+      the remote tracking branch name or None if there is none
+    """
+    if repo_path is None:
+        repo_path = Path.cwd()
+
+    if not is_repo(repo_path or Path.cwd()):
+        raise ValueError(f'{repo_path} is not within a Git repository')
+
+    # This command should only error out if there's no upstream branch set.
+    try:
+        return git_stdout('rev-parse',
+                          '--abbrev-ref',
+                          '--symbolic-full-name',
+                          TRACKING_BRANCH_ALIAS,
+                          repo=repo_path)
+
+    except subprocess.CalledProcessError:
+        return None
+
+
 def list_files(commit: Optional[str] = None,
                pathspecs: Collection[PathOrStr] = (),
                repo_path: Optional[Path] = None) -> List[Path]:
@@ -71,8 +107,16 @@ def list_files(commit: Optional[str] = None,
     if repo_path is None:
         repo_path = Path.cwd()
 
+    if commit in _TRACKING_BRANCH_ALIASES:
+        commit = tracking_branch(repo_path)
+
     if commit:
-        return sorted(_diff_names(commit, pathspecs, repo_path))
+        try:
+            return sorted(_diff_names(commit, pathspecs, repo_path))
+        except subprocess.CalledProcessError:
+            _LOG.warning(
+                'Error comparing with base revision %s of %s, listing all '
+                'files instead of just changed files', commit, repo_path)
 
     return sorted(_ls_files(pathspecs, repo_path))
 
@@ -86,8 +130,21 @@ def has_uncommitted_changes(repo: Optional[Path] = None) -> bool:
         repo = Path.cwd()
 
     # Refresh the Git index so that the diff-index command will be accurate.
-    log_run(['git', '-C', repo, 'update-index', '-q', '--refresh'], check=True)
-
+    # The `git update-index` command isn't reliable when run in parallel with
+    # other processes that may touch files in the repo directory, so retry a
+    # few times before giving up. The hallmark of this failure mode is the lack
+    # of an error message on stderr, so if we see something there we can assume
+    # it's some other issue and raise.
+    retries = 6
+    for i in range(retries):
+        try:
+            log_run(['git', '-C', repo, 'update-index', '-q', '--refresh'],
+                    capture_output=True,
+                    check=True)
+        except subprocess.CalledProcessError as err:
+            if err.stderr or i == retries - 1:
+                raise
+            continue
     # diff-index exits with 1 if there are uncommitted changes.
     return log_run(['git', '-C', repo, 'diff-index', '--quiet', 'HEAD',
                     '--']).returncode == 1
@@ -102,6 +159,13 @@ def _describe_constraints(git_root: Path, repo_path: Path,
             f'under the {repo_path.resolve().relative_to(git_root.resolve())} '
             'subdirectory')
 
+    if commit in _TRACKING_BRANCH_ALIASES:
+        commit = tracking_branch(git_root)
+        if commit is None:
+            _LOG.warning(
+                'Attempted to list files changed since the remote tracking '
+                'branch, but the repo is not tracking a branch')
+
     if commit:
         yield f'that have changed since {commit}'
 
@@ -114,16 +178,24 @@ def _describe_constraints(git_root: Path, repo_path: Path,
                ', '.join(p.pattern for p in exclude) + ')')
 
 
-def describe_files(git_root: Path, repo_path: Path, commit: Optional[str],
+def describe_files(git_root: Path,
+                   repo_path: Path,
+                   commit: Optional[str],
                    pathspecs: Collection[PathOrStr],
-                   exclude: Collection[Pattern]) -> str:
+                   exclude: Collection[Pattern],
+                   project_root: Path = None) -> str:
     """Completes 'Doing something to ...' for a set of files in a Git repo."""
     constraints = list(
         _describe_constraints(git_root, repo_path, commit, pathspecs, exclude))
-    if not constraints:
-        return f'all files in the {git_root.name} repo'
 
-    msg = f'files in the {git_root.name} repo'
+    name = git_root.name
+    if project_root and project_root != git_root:
+        name = str(git_root.relative_to(project_root))
+
+    if not constraints:
+        return f'all files in the {name} repo'
+
+    msg = f'files in the {name} repo'
     if len(constraints) == 1:
         return f'{msg} {constraints[0]}'
 
@@ -239,3 +311,14 @@ def python_packages_containing(
 
 def commit_message(commit: str = 'HEAD', repo: PathOrStr = '.') -> str:
     return git_stdout('log', '--format=%B', '-n1', commit, repo=repo)
+
+
+def commit_hash(rev: str = 'HEAD',
+                short: bool = True,
+                repo: PathOrStr = '.') -> str:
+    """Returns the commit hash of the revision."""
+    args = ['rev-parse']
+    if short:
+        args += ['--short']
+    args += [rev]
+    return git_stdout(*args, repo=repo)

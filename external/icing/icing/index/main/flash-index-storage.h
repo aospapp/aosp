@@ -159,6 +159,7 @@ class FlashIndexStorage {
 
   libtextclassifier3::Status Reset();
 
+  // TODO(b/222349894) Convert the string output to a protocol buffer instead.
   void GetDebugInfo(int verbosity, std::string* out) const;
 
  private:

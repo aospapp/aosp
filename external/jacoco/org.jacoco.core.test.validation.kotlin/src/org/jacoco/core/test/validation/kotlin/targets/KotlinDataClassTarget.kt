@@ -1,9 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Fabian Mastenbroek - initial API and implementation
@@ -19,9 +20,9 @@ import org.jacoco.core.test.validation.targets.Stubs.nop
 object KotlinDataClassTarget {
 
     data class DataClass( // assertFullyCovered()
-            val valNoRead: Int, // assertNotCovered()
+            val valNoRead: Int, // assertPartlyCovered()
             val valRead: Int,  // assertFullyCovered()
-            var varNoReadNoWrite: Int, // assertNotCovered()
+            var varNoReadNoWrite: Int, // assertPartlyCovered()
             var varNoWrite: Int, // assertPartlyCovered()
             var varNoRead: Int, // assertPartlyCovered()
             var varReadWrite: Int  // assertFullyCovered()

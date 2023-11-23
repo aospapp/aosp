@@ -300,7 +300,8 @@ aom_image_t *aom_img_alloc_with_border(aom_image_t *img, aom_img_fmt_t fmt,
 /*!\brief Set the rectangle identifying the displayed portion of the image
  *
  * Updates the displayed rectangle (aka viewport) on the image surface to
- * match the specified coordinates and size.
+ * match the specified coordinates and size. Specifically, sets img->d_w,
+ * img->d_h, and elements of the img->planes[] array.
  *
  * \param[in]    img       Image descriptor
  * \param[in]    x         leftmost column
@@ -309,7 +310,7 @@ aom_image_t *aom_img_alloc_with_border(aom_image_t *img, aom_img_fmt_t fmt,
  * \param[in]    h         height
  * \param[in]    border    A border that is padded on four sides of the image.
  *
- * \return 0 if the requested rectangle is valid, nonzero otherwise.
+ * \return 0 if the requested rectangle is valid, nonzero (-1) otherwise.
  */
 int aom_img_set_rect(aom_image_t *img, unsigned int x, unsigned int y,
                      unsigned int w, unsigned int h, unsigned int border);
@@ -360,6 +361,9 @@ int aom_img_plane_height(const aom_image_t *img, int plane);
  * \param[in]    data         Metadata contents
  * \param[in]    sz           Metadata contents size
  * \param[in]    insert_flag  Metadata insert flag
+ *
+ * \return Returns 0 on success. If img or data is NULL, sz is 0, or memory
+ * allocation fails, it returns -1.
  */
 int aom_img_add_metadata(aom_image_t *img, uint32_t type, const uint8_t *data,
                          size_t sz, aom_metadata_insert_flags_t insert_flag);
@@ -410,6 +414,9 @@ void aom_img_remove_metadata(aom_image_t *img);
  * \param[in]    data         Metadata data pointer
  * \param[in]    sz           Metadata size
  * \param[in]    insert_flag  Metadata insert flag
+ *
+ * \return Returns the newly allocated aom_metadata struct. If data is NULL,
+ * sz is 0, or memory allocation fails, it returns NULL.
  */
 aom_metadata_t *aom_img_metadata_alloc(uint32_t type, const uint8_t *data,
                                        size_t sz,

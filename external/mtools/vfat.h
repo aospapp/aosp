@@ -29,7 +29,7 @@
 struct unicode_char {
 	unsigned char lchar;
 	unsigned char uchar;
-} PACKED;
+};
 
 
 /* #define MAX_VFAT_SUBENTRIES 32 */ /* Theoretical max # of VSEs */
@@ -91,7 +91,7 @@ struct scan_state {
 void clear_vfat(struct vfat_state  *);
 int unicode_write(wchar_t *, struct unicode_char *, int num, int *end);
 
-int clear_vses(Stream_t *, int, size_t);
+int clear_vses(Stream_t *, int, unsigned int);
 void autorename_short(struct dos_name_t *, int);
 void autorename_long(char *, int);
 

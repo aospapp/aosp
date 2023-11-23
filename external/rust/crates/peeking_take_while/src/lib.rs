@@ -1,5 +1,3 @@
-//! # `peeking_take_while`
-//!
 //! Provides the `peeking_take_while` iterator adaptor method.
 //!
 //! The `peeking_take_while` method is very similar to `take_while`, but behaves
@@ -12,9 +10,11 @@
 //! other hand, `take_while` will consume that first item for which the
 //! predicate returns `false`, and it will be lost.
 //!
-//! ```
-//! extern crate peeking_take_while;
+//! In case the closure may have side effects, it could be necessary to apply
+//! [`fuse`](Iterator::fuse) on the returned iterator, to prevent the predicate
+//! from being called after it first returned `false`.
 //!
+//! ```
 //! // Bring the `peeking_take_while` method for peekable iterators into
 //! // scope.
 //! use peeking_take_while::PeekableExt;
@@ -58,60 +58,166 @@
 //! # }
 //! ```
 
-use std::iter::Peekable;
+#![no_std]
+#![forbid(
+    clippy::as_conversions,
+    clippy::cast_ptr_alignment,
+    missing_docs,
+    trivial_casts,
+    unsafe_code
+)]
 
-/// The iterator returned by `peeking_take_while`.
-///
-/// See the [module documentation](./index.html) for details.
-pub struct PeekingTakeWhile<'a, I, P>
-    where I: 'a + Iterator
-{
-    iter: &'a mut Peekable<I>,
-    predicate: P,
-}
+// ANDROID: Unconditionally use std to allow building as a dylib
+#[macro_use]
+extern crate std;
 
-impl<'a, I, P> Iterator for PeekingTakeWhile<'a, I, P>
-    where I: Iterator,
-          I::Item: ::std::fmt::Debug,
-          P: FnMut(&<I as Iterator>::Item) -> bool
-{
-    type Item = <I as Iterator>::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let predicate = &mut self.predicate;
-        if self.iter.peek().map_or(false, |x| !(predicate)(x)) {
-            None
-        } else {
-            self.iter.next()
-        }
-    }
-}
+use core::fmt;
 
 /// The `Iterator` extension trait that provides the `peeking_take_while`
 /// method.
 ///
 /// See the [module documentation](./index.html) for details.
-pub trait PeekableExt<'a, I>: Iterator
-    where I: 'a + Iterator
+pub trait PeekableExt<I>: Iterator
+where
+    I: Iterator,
 {
-    /// The `Iterator` extension trait that provides the `peeking_take_while`
-    /// method.
+    /// The `peeking_take_while` method is very similar to `take_while`, but behaves
+    /// differently when used with a borrowed iterator (perhaps returned by
+    /// `Iterator::by_ref`).
     ///
-    /// See the [module documentation](./index.html) for details.
-    fn peeking_take_while<P>(&'a mut self, predicate: P) -> PeekingTakeWhile<'a, I, P>
-        where Self: Sized,
-              P: FnMut(&<Self as Iterator>::Item) -> bool;
+    /// `peeking_take_while` peeks at the next item in the iterator and runs the
+    /// predicate on that peeked item. This avoids consuming the first item yielded
+    /// by the underlying iterator for which the predicate returns `false`. On the
+    /// other hand, `take_while` will consume that first item for which the
+    /// predicate returns `false`, and it will be lost.
+    ///
+    /// In contrast to `take_while`, iterating the iterator might call the predicate again
+    /// after it first returned `false` (the returned iterator isn't fused).
+    /// If that is not intended, calling [`fuse`](Iterator::fuse) on the returned iterator
+    /// prevents that.
+    fn peeking_take_while<P>(&mut self, predicate: P) -> PeekingTakeWhile<'_, I, P>
+    where
+        P: FnMut(&Self::Item) -> bool;
 }
 
-impl<'a, I> PeekableExt<'a, I> for Peekable<I>
-    where I: 'a + Iterator
-{
-    fn peeking_take_while<P>(&'a mut self, predicate: P) -> PeekingTakeWhile<I, P>
-        where P: FnMut(&<Self as Iterator>::Item) -> bool
+impl<I: Iterator> PeekableExt<I> for core::iter::Peekable<I> {
+    #[inline]
+    fn peeking_take_while<P>(&mut self, predicate: P) -> PeekingTakeWhile<'_, I, P>
+    where
+        P: FnMut(&Self::Item) -> bool,
     {
         PeekingTakeWhile {
             iter: self,
-            predicate: predicate,
+            predicate,
         }
+    }
+}
+
+/// The iterator returned by `peeking_take_while`.
+///
+/// See the [module documentation](./index.html) for details.
+pub struct PeekingTakeWhile<'a, I, P>
+where
+    I: Iterator,
+{
+    pub(crate) iter: &'a mut core::iter::Peekable<I>,
+    pub(crate) predicate: P,
+}
+
+impl<I, P> fmt::Debug for PeekingTakeWhile<'_, I, P>
+where
+    I: Iterator + fmt::Debug,
+    I::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PeekingTakeWhile")
+            .field("iter", &self.iter)
+            .finish()
+    }
+}
+
+impl<I, P> Iterator for PeekingTakeWhile<'_, I, P>
+where
+    I: Iterator,
+    P: FnMut(&I::Item) -> bool,
+{
+    type Item = I::Item;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next_if(&mut self.predicate)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // can't know a lower bound, due to the predicate
+        (0, self.iter.size_hint().1)
+    }
+
+    #[inline]
+    fn fold<B, F>(mut self, mut accum: B, mut f: F) -> B
+    where
+        F: FnMut(B, I::Item) -> B,
+    {
+        while let Some(x) = self.iter.next_if(&mut self.predicate) {
+            accum = f(accum, x);
+        }
+        accum
+    }
+}
+
+// interestingly, `PeekingTakeWhile` is not automatically fused,
+// even when the inner iterator is fused, see also: `tests::not_fused`.
+
+#[cfg(test)]
+mod tests {
+    use crate::PeekableExt;
+
+    #[test]
+    fn basic() {
+        let mut it0 = (1..11).peekable();
+        let a: u32 = it0.peeking_take_while(|&i| i < 5).sum();
+        let b: u32 = it0.sum();
+        assert_eq!(a, 10);
+        assert_eq!(b, 45);
+    }
+
+    #[test]
+    fn basic_fused() {
+        let mut it0 = (1..11).peekable();
+        let a: u32 = it0.peeking_take_while(|&i| i < 5).fuse().sum();
+        let b: u32 = it0.sum();
+        assert_eq!(a, 10);
+        assert_eq!(b, 45);
+    }
+
+    #[test]
+    fn not_fused() {
+        let mut it0 = (0..10).peekable();
+        let mut ax = true;
+        let mut it1 = it0.peeking_take_while(|_| {
+            ax = !ax;
+            ax
+        });
+        assert!(it1.next().is_none());
+        assert_eq!(it1.next(), Some(0));
+        assert!(it1.next().is_none());
+        assert_eq!(it1.next(), Some(1));
+        assert_eq!(ax, true);
+    }
+
+    #[test]
+    fn fused() {
+        let mut it0 = (0..10).peekable();
+        let mut ax = true;
+        let mut it1 = it0
+            .peeking_take_while(|_| {
+                ax = !ax;
+                ax
+            })
+            .fuse();
+        assert!(it1.next().is_none());
+        assert!(it1.next().is_none());
+        assert_eq!(ax, false);
     }
 }

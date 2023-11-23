@@ -1,3 +1,2 @@
 # Bug component: 847766
-nfuller@google.com
-include platform/libcore:/OWNERS
+include platform/packages/modules/GeoTZ:/OWNERS

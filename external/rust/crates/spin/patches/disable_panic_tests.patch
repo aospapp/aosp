@@ -34,10 +34,10 @@ index 5d4b451..ad60405 100644
      fn panic() {
          use ::std::panic;
  
-diff --git a/src/rw_lock.rs b/src/rw_lock.rs
+diff --git a/src/rwlock.rs b/src/rwlock.rs
 index 5c009cf..ed50407 100644
---- a/src/rw_lock.rs
-+++ b/src/rw_lock.rs
+--- a/src/rwlock.rs
++++ b/src/rwlock.rs
 @@ -932,6 +932,7 @@ mod tests {
      }
  

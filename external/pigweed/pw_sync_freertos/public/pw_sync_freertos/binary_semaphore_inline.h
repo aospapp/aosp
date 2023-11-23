@@ -14,7 +14,7 @@
 #pragma once
 
 #include "FreeRTOS.h"
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_chrono/system_clock.h"
 #include "pw_chrono_freertos/system_clock_constants.h"
 #include "pw_interrupt/context.h"
@@ -27,7 +27,7 @@ inline BinarySemaphore::BinarySemaphore() : native_type_() {
   const SemaphoreHandle_t handle = xSemaphoreCreateBinaryStatic(&native_type_);
   // This should never fail since the pointer provided was not null and it
   // should return a pointer to the StaticSemaphore_t.
-  PW_DASSERT(handle == &native_type_);
+  PW_DASSERT(handle == reinterpret_cast<SemaphoreHandle_t>(&native_type_));
 }
 
 inline BinarySemaphore::~BinarySemaphore() { vSemaphoreDelete(&native_type_); }
@@ -36,25 +36,28 @@ inline void BinarySemaphore::release() {
   if (interrupt::InInterruptContext()) {
     BaseType_t woke_higher_task = pdFALSE;
     // It's perfectly fine if the semaphore already has a count of 1.
-    [[maybe_unused]] BaseType_t already_full =
-        xSemaphoreGiveFromISR(&native_type_, &woke_higher_task);
+    [[maybe_unused]] BaseType_t already_full = xSemaphoreGiveFromISR(
+        reinterpret_cast<SemaphoreHandle_t>(&native_type_), &woke_higher_task);
     portYIELD_FROM_ISR(woke_higher_task);
   } else {  // Task context
     // It's perfectly fine if the semaphore already has a count of 1.
-    [[maybe_unused]] BaseType_t already_full = xSemaphoreGive(&native_type_);
+    [[maybe_unused]] BaseType_t already_full =
+        xSemaphoreGive(reinterpret_cast<SemaphoreHandle_t>(&native_type_));
   }
 }
 
 inline void BinarySemaphore::acquire() {
-  PW_ASSERT(!interrupt::InInterruptContext());
+  // Enforce the pw::sync::BinarySemaphore IRQ contract.
+  PW_DASSERT(!interrupt::InInterruptContext());
 #if INCLUDE_vTaskSuspend == 1  // This means portMAX_DELAY is indefinite.
-  const BaseType_t result = xSemaphoreTake(&native_type_, portMAX_DELAY);
+  const BaseType_t result = xSemaphoreTake(
+      reinterpret_cast<SemaphoreHandle_t>(&native_type_), portMAX_DELAY);
   PW_DASSERT(result == pdTRUE);
 #else
   // In case we need to block for longer than the FreeRTOS delay can represent
   // repeatedly hit take until success.
-  while (xSemaphoreTake(&native_type_, chrono::freertos::kMaxTimeout.count()) ==
-         pdFALSE) {
+  while (xSemaphoreTake(reinterpret_cast<SemaphoreHandle_t>(&native_type_),
+                        chrono::freertos::kMaxTimeout.count()) == pdFALSE) {
   }
 #endif  // INCLUDE_vTaskSuspend
 }
@@ -62,21 +65,23 @@ inline void BinarySemaphore::acquire() {
 inline bool BinarySemaphore::try_acquire() noexcept {
   if (interrupt::InInterruptContext()) {
     BaseType_t woke_higher_task = pdFALSE;
-    const bool success =
-        xSemaphoreTakeFromISR(&native_type_, &woke_higher_task) == pdTRUE;
+    const bool success = xSemaphoreTakeFromISR(
+                             reinterpret_cast<SemaphoreHandle_t>(&native_type_),
+                             &woke_higher_task) == pdTRUE;
     portYIELD_FROM_ISR(woke_higher_task);
     return success;
   }
 
   // Task Context
-  return xSemaphoreTake(&native_type_, 0) == pdTRUE;
+  return xSemaphoreTake(reinterpret_cast<SemaphoreHandle_t>(&native_type_),
+                        0) == pdTRUE;
 }
 
 inline bool BinarySemaphore::try_acquire_until(
-    chrono::SystemClock::time_point until_at_least) {
+    chrono::SystemClock::time_point deadline) {
   // Note that if this deadline is in the future, it will get rounded up by
   // one whole tick due to how try_acquire_for is implemented.
-  return try_acquire_for(until_at_least - chrono::SystemClock::now());
+  return try_acquire_for(deadline - chrono::SystemClock::now());
 }
 
 inline BinarySemaphore::native_handle_type BinarySemaphore::native_handle() {

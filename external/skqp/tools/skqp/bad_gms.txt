@@ -1,4 +1,0 @@
-drawbitmaprect
-drawbitmaprect-imagerect
-p3
-skbug1719

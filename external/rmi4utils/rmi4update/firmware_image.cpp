@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "rmidevice.h"
 #include "firmware_image.h"
 
 using namespace std;
@@ -41,6 +42,66 @@ unsigned long FirmwareImage::Checksum(unsigned short * data, unsigned long len)
 	checksum = msw << 16 | lsw;
 
 	return checksum;
+}
+
+void FirmwareImage::ParseHierarchicalImg()
+{
+	struct container_descriptor *descriptor;
+	int numOfCntrs;
+	int ii;
+	unsigned int addr;
+	unsigned int offset;
+	unsigned int length;
+	unsigned char *content;
+	unsigned short container_id;
+
+	m_cntrAddr = extract_long(&m_memBlock[RMI_IMG_V10_CNTR_ADDR_OFFSET]);
+	descriptor = (struct container_descriptor *)(m_memBlock + m_cntrAddr);
+	offset = extract_long(descriptor->content_address);
+	numOfCntrs = extract_long(descriptor->content_length) / 4;
+
+	for (ii = 0; ii < numOfCntrs; ii++) {
+		addr = extract_long(m_memBlock + offset);
+		offset += 4;
+		descriptor = (struct container_descriptor *)(m_memBlock + addr);
+		container_id = descriptor->container_id[0] |
+				descriptor->container_id[1] << 8;
+		content = m_memBlock + extract_long(descriptor->content_address);
+		length = extract_long(descriptor->content_length);
+		switch (container_id) {
+		case BL_CONTAINER:
+			m_bootloaderVersion = *content;
+			break;
+		case UI_CONTAINER:
+		case CORE_CODE_CONTAINER:
+			m_firmwareData = content;
+			m_firmwareSize = length;
+			break;
+		case FLASH_CONFIG_CONTAINER:
+			m_flashConfigData = content;
+			m_flashConfigSize = length;
+			break;
+		case UI_CONFIG_CONTAINER:
+		case CORE_CONFIG_CONTAINER:
+			m_configData = content;
+			m_configSize = length;
+			break;
+		case PERMANENT_CONFIG_CONTAINER:
+		case GUEST_SERIALIZATION_CONTAINER:
+			m_lockdownData = content;
+			m_lockdownSize = length;
+			break;
+		case GENERAL_INFORMATION_CONTAINER:
+			m_io = true;
+			m_packageID = extract_long(content);
+			m_firmwareBuildID = extract_long(content + 4);
+			memcpy(m_productID, (content + 0x18), RMI_PRODUCT_ID_LENGTH);
+			m_productID[RMI_PRODUCT_ID_LENGTH] = 0;
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 int FirmwareImage::Initialize(const char * filename)
@@ -119,6 +180,9 @@ int FirmwareImage::Initialize(const char * filename)
 		case 6:
 			m_lockdownSize = RMI_IMG_LOCKDOWN_V5_SIZE;
 			m_lockdownData = &m_memBlock[RMI_IMG_LOCKDOWN_V5_OFFSET];
+			break;
+		case 16:
+			ParseHierarchicalImg();
 			break;
 		default:
 			return UPDATE_FAIL_UNSUPPORTED_IMAGE_VERSION;

@@ -22,14 +22,14 @@ void xnn_f32_pavgpool_minmax_ukernel_9p8x__wasmsimd_x86_c4(
     float* output,
     size_t input_increment,
     size_t output_increment,
-    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(output_pixels != 0);
   assert(kernel_elements > 9);
   assert(channels != 0);
 
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+  const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
+  const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
 
   do {
     {
@@ -255,7 +255,7 @@ void xnn_f32_pavgpool_minmax_ukernel_9p8x__wasmsimd_x86_c4(
         i7 = (const float*) ((uintptr_t) i7 + input_offset);
       }
 
-      const v128_t vmultiplier = wasm_v32x4_load_splat(multiplier);
+      const v128_t vmultiplier = wasm_v128_load32_splat(multiplier);
       multiplier += 1;
 
       size_t c = channels;
@@ -290,10 +290,8 @@ void xnn_f32_pavgpool_minmax_ukernel_9p8x__wasmsimd_x86_c4(
         const v128_t vsum = wasm_f32x4_add(vsum2345, vsum0167a);
 
         v128_t vout = wasm_f32x4_mul(vsum, vmultiplier);
-        const v128_t vufmask = wasm_f32x4_lt(vout, vmin);
-        const v128_t vofmask = wasm_f32x4_le(vmax, vout);
-        vout = wasm_v128_bitselect(vmin, vout, vufmask);
-        vout = wasm_v128_bitselect(vmax, vout, vofmask);
+        vout = wasm_f32x4_pmax(vmin, vout);
+        vout = wasm_f32x4_pmin(vmax, vout);
 
         wasm_v128_store(output, vout);
         output += 4;
@@ -321,10 +319,8 @@ void xnn_f32_pavgpool_minmax_ukernel_9p8x__wasmsimd_x86_c4(
         const v128_t vsum = wasm_f32x4_add(vsum2345, vsum0167a);
 
         v128_t vout = wasm_f32x4_mul(vsum, vmultiplier);
-        const v128_t vufmask = wasm_f32x4_lt(vout, vmin);
-        const v128_t vofmask = wasm_f32x4_le(vmax, vout);
-        vout = wasm_v128_bitselect(vmin, vout, vufmask);
-        vout = wasm_v128_bitselect(vmax, vout, vofmask);
+        vout = wasm_f32x4_pmax(vmin, vout);
+        vout = wasm_f32x4_pmin(vmax, vout);
 
         if (c & 2) {
           *((double*) output) = wasm_f64x2_extract_lane(vout, 0);

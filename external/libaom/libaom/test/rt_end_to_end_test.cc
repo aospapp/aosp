@@ -32,20 +32,23 @@ const int kBitrate = 500;
 std::unordered_map<std::string,
                    std::unordered_map<int, std::unordered_map<int, double>>>
     kPsnrThreshold = { { "park_joy_90p_8_420.y4m",
-                         { { 5, { { 0, 35.4 }, { 3, 36.4 } } },
+                         { { 5, { { 0, 35.4 }, { 3, 36.3 } } },
                            { 6, { { 0, 35.3 }, { 3, 36.2 } } },
                            { 7, { { 0, 34.9 }, { 3, 35.8 } } },
-                           { 8, { { 0, 35.0 }, { 3, 35.8 } } } } },
+                           { 8, { { 0, 35.0 }, { 3, 35.8 } } },
+                           { 9, { { 0, 34.9 }, { 3, 35.5 } } } } },
                        { "paris_352_288_30.y4m",
                          { { 5, { { 0, 36.2 }, { 3, 36.7 } } },
-                           { 6, { { 0, 36.1 }, { 3, 36.6 } } },
+                           { 6, { { 0, 36.1 }, { 3, 36.5 } } },
                            { 7, { { 0, 35.5 }, { 3, 36.0 } } },
-                           { 8, { { 0, 36.0 }, { 3, 36.5 } } } } },
+                           { 8, { { 0, 36.0 }, { 3, 36.5 } } },
+                           { 9, { { 0, 35.5 }, { 3, 36.0 } } } } },
                        { "niklas_1280_720_30.y4m",
-                         { { 5, { { 0, 34.6 }, { 3, 34.6 } } },
+                         { { 5, { { 0, 34.4 }, { 3, 34.30 } } },
                            { 6, { { 0, 34.2 }, { 3, 34.2 } } },
-                           { 7, { { 0, 33.7 }, { 3, 33.6 } } },
-                           { 8, { { 0, 33.6 }, { 3, 33.4 } } } } } };
+                           { 7, { { 0, 33.6 }, { 3, 33.6 } } },
+                           { 8, { { 0, 33.48 }, { 3, 33.48 } } },
+                           { 9, { { 0, 33.4 }, { 3, 33.4 } } } } } };
 
 typedef struct {
   const char *filename;
@@ -83,14 +86,14 @@ class RTEndToEndTest
   virtual ~RTEndToEndTest() {}
 
   virtual void SetUp() {
-    InitializeConfig();
-    SetMode(::libaom_test::kRealTime);
+    InitializeConfig(::libaom_test::kRealTime);
 
-    cfg_.rc_end_usage = AOM_CBR;
     cfg_.g_threads = threads_;
     cfg_.rc_buf_sz = 1000;
     cfg_.rc_buf_initial_sz = 500;
     cfg_.rc_buf_optimal_sz = 600;
+    cfg_.kf_max_dist = 9999;
+    cfg_.kf_min_dist = 9999;
   }
 
   virtual void BeginPassHook(unsigned int) {
@@ -106,12 +109,23 @@ class RTEndToEndTest
   virtual void PreEncodeFrameHook(::libaom_test::VideoSource *video,
                                   ::libaom_test::Encoder *encoder) {
     if (video->frame() == 0) {
+      encoder->Control(AV1E_SET_ENABLE_RESTORATION, 0);
+      encoder->Control(AV1E_SET_ENABLE_OBMC, 0);
+      encoder->Control(AV1E_SET_ENABLE_GLOBAL_MOTION, 0);
+      encoder->Control(AV1E_SET_ENABLE_WARPED_MOTION, 0);
+      encoder->Control(AV1E_SET_DELTAQ_MODE, 0);
+      encoder->Control(AV1E_SET_ENABLE_TPL_MODEL, 0);
       encoder->Control(AV1E_SET_FRAME_PARALLEL_DECODING, 1);
       encoder->Control(AV1E_SET_TILE_COLUMNS, tile_columns_);
       encoder->Control(AOME_SET_CPUUSED, cpu_used_);
       encoder->Control(AV1E_SET_TUNE_CONTENT, AOM_CONTENT_DEFAULT);
       encoder->Control(AV1E_SET_AQ_MODE, aq_mode_);
       encoder->Control(AV1E_SET_ROW_MT, 1);
+      encoder->Control(AV1E_SET_ENABLE_CDEF, 1);
+      encoder->Control(AV1E_SET_COEFF_COST_UPD_FREQ, 2);
+      encoder->Control(AV1E_SET_MODE_COST_UPD_FREQ, 2);
+      encoder->Control(AV1E_SET_MV_COST_UPD_FREQ, 2);
+      encoder->Control(AV1E_SET_DV_COST_UPD_FREQ, 2);
     }
   }
 
@@ -161,14 +175,14 @@ TEST_P(RTEndToEndTest, EndtoEndPSNRTest) { DoTest(); }
 
 TEST_P(RTEndToEndTestThreaded, EndtoEndPSNRTest) { DoTest(); }
 
-AV1_INSTANTIATE_TEST_CASE(RTEndToEndTest, ::testing::ValuesIn(kTestVectors),
-                          ::testing::Range(5, 9),
-                          ::testing::Values<unsigned int>(0, 3),
-                          ::testing::Values(1), ::testing::Values(1));
+AV1_INSTANTIATE_TEST_SUITE(RTEndToEndTest, ::testing::ValuesIn(kTestVectors),
+                           ::testing::Range(5, 10),
+                           ::testing::Values<unsigned int>(0, 3),
+                           ::testing::Values(1), ::testing::Values(1));
 
-AV1_INSTANTIATE_TEST_CASE(RTEndToEndTestThreaded,
-                          ::testing::ValuesIn(kTestVectors),
-                          ::testing::Range(5, 9),
-                          ::testing::Values<unsigned int>(0, 3),
-                          ::testing::Range(2, 5), ::testing::Range(2, 5));
+AV1_INSTANTIATE_TEST_SUITE(RTEndToEndTestThreaded,
+                           ::testing::ValuesIn(kTestVectors),
+                           ::testing::Range(5, 10),
+                           ::testing::Values<unsigned int>(0, 3),
+                           ::testing::Range(2, 5), ::testing::Range(2, 5));
 }  // namespace

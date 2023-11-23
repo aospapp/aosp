@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "VkDescriptorSet.hpp"
+
 #include "VkDevice.hpp"
 #include "VkImageView.hpp"
 #include "VkPipelineLayout.hpp"
@@ -48,16 +49,16 @@ void DescriptorSet::ParseDescriptors(const Array &descriptorSets, const Pipeline
 					ImageView *memoryOwner = nullptr;
 					switch(type)
 					{
-						case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-						case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-							memoryOwner = reinterpret_cast<SampledImageDescriptor *>(descriptorMemory)->memoryOwner;
-							break;
-						case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-						case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-							memoryOwner = reinterpret_cast<StorageImageDescriptor *>(descriptorMemory)->memoryOwner;
-							break;
-						default:
-							break;
+					case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+					case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+						memoryOwner = reinterpret_cast<SampledImageDescriptor *>(descriptorMemory)->memoryOwner;
+						break;
+					case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+					case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+						memoryOwner = reinterpret_cast<StorageImageDescriptor *>(descriptorMemory)->memoryOwner;
+						break;
+					default:
+						break;
 					}
 					if(memoryOwner)
 					{
@@ -67,7 +68,7 @@ void DescriptorSet::ParseDescriptors(const Array &descriptorSets, const Pipeline
 						}
 						else if((notificationType == CONTENTS_CHANGED) && (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE))
 						{
-							device->contentsChanged(memoryOwner);
+							device->contentsChanged(memoryOwner, Image::USING_STORAGE);
 						}
 					}
 					descriptorMemory += descriptorSize;

@@ -28,6 +28,8 @@
 
 #include "unicode/utypes.h"
  /**
+  * @addtogroup ICU4C
+  * @{
   * \file
   * \brief C API: Platform Utilities
   */
@@ -58,7 +60,7 @@
  * @{
  * Filesystem file and path separator characters.
  * Example: '/' and ':' on Unix, '\\' and ';' on Windows.
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 #if U_PLATFORM_USES_ONLY_WIN32_API
 #   define U_FILE_SEP_CHAR '\\'
@@ -83,3 +85,5 @@
 
 
 #endif
+
+/** @} */ // addtogroup

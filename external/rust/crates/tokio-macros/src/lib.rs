@@ -1,4 +1,3 @@
-#![doc(html_root_url = "https://docs.rs/tokio-macros/1.1.0")]
 #![allow(clippy::needless_doctest_main)]
 #![warn(
     missing_debug_implementations,
@@ -6,7 +5,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![cfg_attr(docsrs, deny(broken_intra_doc_links))]
 #![doc(test(
     no_crate_inject,
     attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))
@@ -168,6 +166,8 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
+/// Note that `start_paused` requires the `test-util` feature to be enabled.
+///
 /// ### NOTE:
 ///
 /// If you rename the Tokio crate in your dependencies this macro will not work.
@@ -258,6 +258,8 @@ pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
+/// Note that `start_paused` requires the `test-util` feature to be enabled.
+///
 /// ### NOTE:
 ///
 /// If you rename the Tokio crate in your dependencies this macro will not work.
@@ -325,4 +327,12 @@ pub fn test_fail(_args: TokenStream, _item: TokenStream) -> TokenStream {
 #[doc(hidden)]
 pub fn select_priv_declare_output_enum(input: TokenStream) -> TokenStream {
     select::declare_output_enum(input)
+}
+
+/// Implementation detail of the `select!` macro. This macro is **not** intended
+/// to be used as part of the public API and is permitted to change.
+#[proc_macro]
+#[doc(hidden)]
+pub fn select_priv_clean_pattern(input: TokenStream) -> TokenStream {
+    select::clean_pattern_macro(input)
 }

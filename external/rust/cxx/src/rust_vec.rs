@@ -1,20 +1,27 @@
+#![allow(missing_docs)]
+
 use crate::rust_string::RustString;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::mem::ManuallyDrop;
+use core::ffi::c_void;
+use core::marker::PhantomData;
+use core::mem::{self, ManuallyDrop, MaybeUninit};
+use core::ptr;
 
+// ABI compatible with C++ rust::Vec<T> (not necessarily alloc::vec::Vec<T>).
 #[repr(C)]
 pub struct RustVec<T> {
-    pub(crate) repr: Vec<T>,
+    repr: [MaybeUninit<usize>; mem::size_of::<Vec<c_void>>() / mem::size_of::<usize>()],
+    marker: PhantomData<Vec<T>>,
 }
 
 impl<T> RustVec<T> {
     pub fn new() -> Self {
-        RustVec { repr: Vec::new() }
+        Self::from(Vec::new())
     }
 
     pub fn from(v: Vec<T>) -> Self {
-        RustVec { repr: v }
+        unsafe { mem::transmute::<Vec<T>, RustVec<T>>(v) }
     }
 
     pub fn from_ref(v: &Vec<T>) -> &Self {
@@ -26,38 +33,39 @@ impl<T> RustVec<T> {
     }
 
     pub fn into_vec(self) -> Vec<T> {
-        self.repr
+        unsafe { mem::transmute::<RustVec<T>, Vec<T>>(self) }
     }
 
     pub fn as_vec(&self) -> &Vec<T> {
-        &self.repr
+        unsafe { &*(self as *const RustVec<T> as *const Vec<T>) }
     }
 
     pub fn as_mut_vec(&mut self) -> &mut Vec<T> {
-        &mut self.repr
+        unsafe { &mut *(self as *mut RustVec<T> as *mut Vec<T>) }
     }
 
     pub fn len(&self) -> usize {
-        self.repr.len()
+        self.as_vec().len()
     }
 
     pub fn capacity(&self) -> usize {
-        self.repr.capacity()
+        self.as_vec().capacity()
     }
 
     pub fn as_ptr(&self) -> *const T {
-        self.repr.as_ptr()
+        self.as_vec().as_ptr()
     }
 
-    pub fn reserve_total(&mut self, cap: usize) {
-        let len = self.repr.len();
-        if cap > len {
-            self.repr.reserve(cap - len);
+    pub fn reserve_total(&mut self, new_cap: usize) {
+        let vec = self.as_mut_vec();
+        if new_cap > vec.capacity() {
+            let additional = new_cap - vec.len();
+            vec.reserve(additional);
         }
     }
 
     pub unsafe fn set_len(&mut self, len: usize) {
-        self.repr.set_len(len);
+        unsafe { self.as_mut_vec().set_len(len) }
     }
 }
 
@@ -79,7 +87,7 @@ impl RustVec<RustString> {
     }
 
     pub fn into_vec_string(self) -> Vec<String> {
-        let mut v = ManuallyDrop::new(self.repr);
+        let mut v = ManuallyDrop::new(self.into_vec());
         let ptr = v.as_mut_ptr().cast::<String>();
         let len = v.len();
         let cap = v.capacity();
@@ -87,10 +95,16 @@ impl RustVec<RustString> {
     }
 
     pub fn as_vec_string(&self) -> &Vec<String> {
-        unsafe { &*(&self.repr as *const Vec<RustString> as *const Vec<String>) }
+        unsafe { &*(self as *const RustVec<RustString> as *const Vec<String>) }
     }
 
     pub fn as_mut_vec_string(&mut self) -> &mut Vec<String> {
-        unsafe { &mut *(&mut self.repr as *mut Vec<RustString> as *mut Vec<String>) }
+        unsafe { &mut *(self as *mut RustVec<RustString> as *mut Vec<String>) }
+    }
+}
+
+impl<T> Drop for RustVec<T> {
+    fn drop(&mut self) {
+        unsafe { ptr::drop_in_place(self.as_mut_vec()) }
     }
 }

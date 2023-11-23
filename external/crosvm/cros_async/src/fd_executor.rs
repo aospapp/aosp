@@ -9,53 +9,61 @@
 //! `FdExecutor` is meant to be used with the `futures-rs` crate that provides combinators and
 //! utility functions to combine futures.
 
-use std::fs::File;
-use std::future::Future;
-use std::io;
-use std::mem;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-use std::pin::Pin;
-use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{Arc, Weak};
-use std::task::{Context, Poll, Waker};
+use std::{
+    fs::File,
+    future::Future,
+    io, mem,
+    os::unix::io::{AsRawFd, FromRawFd, RawFd},
+    pin::Pin,
+    sync::{
+        atomic::{AtomicI32, Ordering},
+        Arc, Weak,
+    },
+    task::{Context, Poll, Waker},
+};
 
 use async_task::Task;
+use base::{add_fd_flags, warn, EpollContext, EpollEvents, EventFd, WatchingEvents};
 use futures::task::noop_waker;
 use pin_utils::pin_mut;
+use remain::sorted;
 use slab::Slab;
 use sync::Mutex;
-use sys_util::{add_fd_flags, warn, EpollContext, EpollEvents, EventFd, WatchingEvents};
 use thiserror::Error as ThisError;
 
-use crate::waker::{new_waker, WakerToken, WeakWake};
-use crate::{queue::RunnableQueue, BlockingPool};
+use super::{
+    queue::RunnableQueue,
+    waker::{new_waker, WakerToken, WeakWake},
+    BlockingPool,
+};
 
+#[sorted]
 #[derive(Debug, ThisError)]
 pub enum Error {
     /// Failed to clone the EventFd for waking the executor.
     #[error("Failed to clone the EventFd for waking the executor: {0}")]
-    CloneEventFd(sys_util::Error),
+    CloneEventFd(base::Error),
     /// Failed to create the EventFd for waking the executor.
     #[error("Failed to create the EventFd for waking the executor: {0}")]
-    CreateEventFd(sys_util::Error),
+    CreateEventFd(base::Error),
+    /// Creating a context to wait on FDs failed.
+    #[error("An error creating the fd waiting context: {0}")]
+    CreatingContext(base::Error),
     /// Failed to copy the FD for the polling context.
     #[error("Failed to copy the FD for the polling context: {0}")]
-    DuplicatingFd(sys_util::Error),
+    DuplicatingFd(base::Error),
     /// The Executor is gone.
     #[error("The FDExecutor is gone")]
     ExecutorGone,
-    /// Creating a context to wait on FDs failed.
-    #[error("An error creating the fd waiting context: {0}")]
-    CreatingContext(sys_util::Error),
     /// PollContext failure.
     #[error("PollContext failure: {0}")]
-    PollContextError(sys_util::Error),
+    PollContextError(base::Error),
     /// An error occurred when setting the FD non-blocking.
     #[error("An error occurred setting the FD non-blocking: {0}.")]
-    SettingNonBlocking(sys_util::Error),
+    SettingNonBlocking(base::Error),
     /// Failed to submit the waker to the polling context.
     #[error("An error adding to the Aio context: {0}")]
-    SubmittingWaker(sys_util::Error),
+    SubmittingWaker(base::Error),
     /// A Waker was canceled, but the operation isn't running.
     #[error("Unknown waker")]
     UnknownWaker,
@@ -519,7 +527,7 @@ impl FdExecutor {
         let waker = new_waker(Arc::downgrade(&self.raw));
         let mut cx = Context::from_waker(&waker);
 
-        self.raw.run(&mut cx, crate::empty::<()>())
+        self.raw.run(&mut cx, super::empty::<()>())
     }
 
     pub fn run_until<F: Future>(&self, f: F) -> Result<F::Output> {
@@ -543,7 +551,7 @@ impl FdExecutor {
 unsafe fn dup_fd(fd: RawFd) -> Result<RawFd> {
     let ret = libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0);
     if ret < 0 {
-        Err(Error::DuplicatingFd(sys_util::Error::last()))
+        Err(Error::DuplicatingFd(base::Error::last()))
     } else {
         Ok(ret)
     }
@@ -551,9 +559,11 @@ unsafe fn dup_fd(fd: RawFd) -> Result<RawFd> {
 
 #[cfg(test)]
 mod test {
-    use std::cell::RefCell;
-    use std::io::{Read, Write};
-    use std::rc::Rc;
+    use std::{
+        cell::RefCell,
+        io::{Read, Write},
+        rc::Rc,
+    };
 
     use futures::future::Either;
 
@@ -562,7 +572,7 @@ mod test {
     #[test]
     fn test_it() {
         async fn do_test(ex: &FdExecutor) {
-            let (r, _w) = sys_util::pipe(true).unwrap();
+            let (r, _w) = base::pipe(true).unwrap();
             let done = Box::pin(async { 5usize });
             let source = ex.register_source(r).unwrap();
             let pending = source.wait_readable().unwrap();
@@ -581,7 +591,7 @@ mod test {
         }
 
         let x = Rc::new(RefCell::new(0));
-        crate::run_one_poll(my_async(x.clone())).unwrap();
+        super::super::run_one_poll(my_async(x.clone())).unwrap();
         assert_eq!(*x.borrow(), 4);
     }
 
@@ -602,7 +612,7 @@ mod test {
             }
         }
 
-        let (mut rx, tx) = sys_util::pipe(true).expect("Pipe failed");
+        let (mut rx, tx) = base::pipe(true).expect("Pipe failed");
 
         let ex = FdExecutor::new().unwrap();
 

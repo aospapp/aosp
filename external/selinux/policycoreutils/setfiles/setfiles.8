@@ -12,12 +12,15 @@ setfiles \- set SELinux file security contexts.
 .RB [ \-n ]
 .RB [ \-e
 .IR directory ]
+.RB [ \-E ]
 .RB [ \-p ]
 .RB [ \-s ]
 .RB [ \-v ]
 .RB [ \-W ]
 .RB [ \-F ]
 .RB [ \-I | \-D ]
+.RB [ \-T
+.IR nthreads ]
 .I spec_file
 .IR pathname \ ...
 
@@ -56,11 +59,14 @@ option will force a replacement of the entire context.
 check the validity of the contexts against the specified binary policy.
 .TP
 .B \-d
-show what specification matched each file (do not abort validation
-after ABORT_ON_ERRORS errors).
+show what specification matched each file.
 .TP
 .BI \-e \ directory
 directory to exclude (repeat option for more than one directory).
+.TP
+.BI \-E
+treat conflicting specifications as errors, such as where two hardlinks for
+the same inode have different contexts.
 .TP
 .BI \-f \ infilename
 .I infilename
@@ -157,6 +163,13 @@ quote marks or backslashes.  The
 option of GNU
 .B find
 produces input suitable for this mode.
+.TP
+.BI \-T \ nthreads
+use up to
+.I nthreads
+threads.  Specify 0 to create as many threads as there are available
+CPU cores; 1 to use only a single thread (default); or any positive
+number to use the given number of threads (if possible).
 
 .SH "ARGUMENTS"
 .TP
@@ -209,7 +222,8 @@ option is used.
 .SH "NOTES"
 .IP "1." 4
 .B setfiles
-follows symbolic links and operates recursively on directories.
+operates recursively on directories. Paths leading up the final
+component of the file(s) are not canonicalized before labeling.
 .IP "2." 4
 If the
 .I pathname

@@ -49,7 +49,7 @@
 
         <com.google.android.setupdesign.view.RichTextView
             android:id="@+id/sud_items_title"
-            style="@style/SudItemTitle.Verbose"
+            style="?attr/sudItemVerboseTitleStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"
@@ -58,7 +58,7 @@
 
         <com.google.android.setupdesign.view.RichTextView
             android:id="@+id/sud_items_summary"
-            style="@style/SudItemSummary"
+            style="?attr/sudItemSummaryStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"

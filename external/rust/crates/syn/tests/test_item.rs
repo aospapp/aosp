@@ -266,3 +266,71 @@ fn test_type_empty_bounds() {
     }
     "###);
 }
+
+#[test]
+fn test_impl_visibility() {
+    let tokens = quote! {
+        pub default unsafe impl union {}
+    };
+
+    snapshot!(tokens as Item, @"Verbatim(`pub default unsafe impl union { }`)");
+}
+
+#[test]
+fn test_impl_type_parameter_defaults() {
+    #[cfg(any())]
+    impl<T = ()> () {}
+    let tokens = quote! {
+        impl<T = ()> () {}
+    };
+    snapshot!(tokens as Item, @r###"
+    Item::Impl {
+        generics: Generics {
+            lt_token: Some,
+            params: [
+                Type(TypeParam {
+                    ident: "T",
+                    eq_token: Some,
+                    default: Some(Type::Tuple),
+                }),
+            ],
+            gt_token: Some,
+        },
+        self_ty: Type::Tuple,
+    }"###);
+}
+
+#[test]
+fn test_impl_trait_trailing_plus() {
+    let tokens = quote! {
+        fn f() -> impl Sized + {}
+    };
+
+    snapshot!(tokens as Item, @r###"
+    Item::Fn {
+        vis: Inherited,
+        sig: Signature {
+            ident: "f",
+            generics: Generics,
+            output: Type(
+                Type::ImplTrait {
+                    bounds: [
+                        Trait(TraitBound {
+                            modifier: None,
+                            path: Path {
+                                segments: [
+                                    PathSegment {
+                                        ident: "Sized",
+                                        arguments: None,
+                                    },
+                                ],
+                            },
+                        }),
+                    ],
+                },
+            ),
+        },
+        block: Block,
+    }
+    "###);
+}

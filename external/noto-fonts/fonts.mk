@@ -16,7 +16,12 @@
 # PRODUCT_COPY_FILES to install the font files, so that the NOTICE file can
 # get installed too.
 
+ifneq ($(CLOCKWORK_PRODUCT),true)
+	PRODUCT_PACKAGES := NotoColorEmojiLegacy.ttf
+endif
+
 PRODUCT_PACKAGES := \
+    $(PRODUCT_PACKAGES) \
     NotoColorEmoji.ttf \
     NotoColorEmojiFlags.ttf \
     NotoNaskhArabic-Bold.ttf \

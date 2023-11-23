@@ -41,6 +41,8 @@ rust_library {
     name: "libonce_cell",
     host_supported: true,
     crate_name: "once_cell",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.9.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -51,8 +53,62 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.compos",
         "com.android.resolv",
         "com.android.virt",
     ],
     min_sdk_version: "29",
+}
+
+rust_test {
+    name: "once_cell_test_src_lib",
+    host_supported: true,
+    crate_name: "once_cell",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.9.0",
+    srcs: ["src/lib.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2018",
+    features: [
+        "alloc",
+        "default",
+        "race",
+        "std",
+    ],
+    rustlibs: [
+        "libcrossbeam_utils",
+        "liblazy_static",
+        "libregex",
+    ],
+}
+
+rust_test {
+    name: "once_cell_test_tests_it",
+    host_supported: true,
+    crate_name: "it",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.9.0",
+    srcs: ["tests/it.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2018",
+    features: [
+        "alloc",
+        "default",
+        "race",
+        "std",
+    ],
+    rustlibs: [
+        "libcrossbeam_utils",
+        "liblazy_static",
+        "libonce_cell",
+        "libregex",
+    ],
 }

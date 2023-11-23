@@ -37,7 +37,7 @@ static int thread_state;
 static time_t currsec1;
 static int expired;
 
-static void *fn_rd_1(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *fn_rd_1(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	thread_state = ENTERED_THREAD;
 	struct timespec abs_timeout;
@@ -74,7 +74,7 @@ static void *fn_rd_1(void *arg LTP_ATTRIBUTE_UNUSED)
 	}
 
 	if (pthread_rwlock_destroy(&rwlock) != 0) {
-		printf("thread1: Error at pthread_rwlockattr_destroy()");
+		printf("thread1: Error at pthread_rwlockattr_destroy()\n");
 		exit(PTS_UNRESOLVED);
 	}
 	thread_state = EXITING_THREAD;
@@ -82,7 +82,7 @@ static void *fn_rd_1(void *arg LTP_ATTRIBUTE_UNUSED)
 	return NULL;
 }
 
-static void *fn_rd_2(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *fn_rd_2(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	thread_state = ENTERED_THREAD;
 	struct timespec abs_timeout;

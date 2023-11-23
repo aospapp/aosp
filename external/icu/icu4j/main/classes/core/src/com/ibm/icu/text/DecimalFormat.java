@@ -1248,7 +1248,10 @@ public class DecimalFormat extends NumberFormat {
     if (increment == 0) {
       setRoundingIncrement((java.math.BigDecimal) null);
     } else {
-      java.math.BigDecimal javaBigDecimal = java.math.BigDecimal.valueOf(increment);
+      // ICU-20425: Since doubles have no concept of trailing zeros, we should strip
+      // trailing zeros from the BigDecimal.
+      java.math.BigDecimal javaBigDecimal = java.math.BigDecimal.valueOf(increment)
+        .stripTrailingZeros();
       setRoundingIncrement(javaBigDecimal);
     }
   }
@@ -1399,7 +1402,7 @@ public class DecimalFormat extends NumberFormat {
    *
    * <p>Minimum integer and minimum and maximum fraction digits can be specified via the pattern
    * string. For example, "#,#00.00#" has 2 minimum integer digits, 2 minimum fraction digits, and 3
-   * maximum fraction digits. Note that it is not possible to specify maximium integer digits in the
+   * maximum fraction digits. Note that it is not possible to specify maximum integer digits in the
    * pattern except in scientific notation.
    *
    * <p>If minimum and maximum integer, fraction, or significant digits conflict with each other,
@@ -1441,7 +1444,7 @@ public class DecimalFormat extends NumberFormat {
    *
    * <p>Minimum integer and minimum and maximum fraction digits can be specified via the pattern
    * string. For example, "#,#00.00#" has 2 minimum integer digits, 2 minimum fraction digits, and 3
-   * maximum fraction digits. Note that it is not possible to specify maximium integer digits in the
+   * maximum fraction digits. Note that it is not possible to specify maximum integer digits in the
    * pattern except in scientific notation.
    *
    * <p>If minimum and maximum integer, fraction, or significant digits conflict with each other,
@@ -1483,7 +1486,7 @@ public class DecimalFormat extends NumberFormat {
    *
    * <p>Minimum integer and minimum and maximum fraction digits can be specified via the pattern
    * string. For example, "#,#00.00#" has 2 minimum integer digits, 2 minimum fraction digits, and 3
-   * maximum fraction digits. Note that it is not possible to specify maximium integer digits in the
+   * maximum fraction digits. Note that it is not possible to specify maximum integer digits in the
    * pattern except in scientific notation.
    *
    * <p>If minimum and maximum integer, fraction, or significant digits conflict with each other,
@@ -1532,7 +1535,7 @@ public class DecimalFormat extends NumberFormat {
    *
    * <p>Minimum integer and minimum and maximum fraction digits can be specified via the pattern
    * string. For example, "#,#00.00#" has 2 minimum integer digits, 2 minimum fraction digits, and 3
-   * maximum fraction digits. Note that it is not possible to specify maximium integer digits in the
+   * maximum fraction digits. Note that it is not possible to specify maximum integer digits in the
    * pattern except in scientific notation.
    *
    * <p>If minimum and maximum integer, fraction, or significant digits conflict with each other,
@@ -1702,7 +1705,7 @@ public class DecimalFormat extends NumberFormat {
    * "*x######0" has a format width of 7 and a pad character of 'x'.
    *
    * <p>Padding is currently counted in UTF-16 code units; see <a
-   * href="http://bugs.icu-project.org/trac/ticket/13034">ticket #13034</a> for more information.
+   * href="https://unicode-org.atlassian.net/browse/ICU-13034">ticket #13034</a> for more information.
    *
    * @param width The minimum number of characters in the output.
    * @see #setPadCharacter
@@ -2021,8 +2024,7 @@ public class DecimalFormat extends NumberFormat {
    * @see #setMinimumGroupingDigits(int)
    * @see #MINIMUM_GROUPING_DIGITS_MIN2
    * @category Separators
-   * @provisional This API might change or be removed in a future release.
-   * @draft ICU 68
+   * @stable ICU 68
    */
   public static final int MINIMUM_GROUPING_DIGITS_AUTO = -2;
 
@@ -2034,8 +2036,7 @@ public class DecimalFormat extends NumberFormat {
    * @see #setMinimumGroupingDigits(int)
    * @see #MINIMUM_GROUPING_DIGITS_AUTO
    * @category Separators
-   * @provisional This API might change or be removed in a future release.
-   * @draft ICU 68
+   * @stable ICU 68
    */
   public static final int MINIMUM_GROUPING_DIGITS_MIN2 = -3;
 
@@ -2246,16 +2247,6 @@ public class DecimalFormat extends NumberFormat {
     properties.setParseMode(mode);
     refreshFormatter();
   }
-
-  // BEGIN android-added: Allow libcore to use java-compatible parsing mode
-  /**
-   * @param parseJavaCompatible true for java-compatible mode, and otherwise lenient mode.
-   * @internal
-   */
-  public void setParseJavaCompatible(boolean parseJavaCompatible) {
-    setParseStrictMode(parseJavaCompatible ? ParseMode.JAVA_COMPATIBILITY : ParseMode.LENIENT);
-  }
-  // END android-added: Allow libcore to use java-compatible parsing mode
 
   /**
    * Android libcore uses this internal method to set {@link ParseMode#JAVA_COMPATIBILITY}.
@@ -2513,6 +2504,7 @@ public synchronized void setParseStrictMode(ParseMode parseMode) {
     boolean useCurrency = ((tprops.getCurrency() != null)
             || tprops.getCurrencyPluralInfo() != null
             || tprops.getCurrencyUsage() != null
+            || tprops.getCurrencyAsDecimal()
             || AffixUtils.hasCurrencySymbols(tprops.getPositivePrefixPattern())
             || AffixUtils.hasCurrencySymbols(tprops.getPositiveSuffixPattern())
             || AffixUtils.hasCurrencySymbols(tprops.getNegativePrefixPattern())

@@ -24,14 +24,14 @@ void xnn_f16_dwconv_minmax_ukernel_up16x9__neonfp16arith(
     size_t output_increment,
     size_t input_offset,
     const void* zero,
-    const struct xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
 
-  __fp16* output = ( __fp16*) output_ptr;
-  const float16x8_t vmax = vld1q_dup_f16(&params->max);
-  const float16x8_t vmin = vld1q_dup_f16(&params->min);
+  __fp16* output = (__fp16*) output_ptr;
+  const float16x8_t vmax = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.max));
+  const float16x8_t vmin = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.min));
   do {
     const __fp16* i0 = (const __fp16*) input[0];
     assert(i0 != NULL);
@@ -256,7 +256,7 @@ void xnn_f16_dwconv_minmax_ukernel_up16x9__neonfp16arith(
         vacc0123 = vget_high_f16(vacc01234567);
       }
       if (c & 2) {
-        vst1_lane_u32(__builtin_assume_aligned(output, 1), vreinterpret_u32_f16(vacc0123), 0); output += 2;
+        vst1_lane_u32((void*) output, vreinterpret_u32_f16(vacc0123), 0); output += 2;
         vacc0123 = vext_f16(vacc0123, vacc0123, 2);
       }
       if (c & 1) {

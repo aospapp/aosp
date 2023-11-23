@@ -24,9 +24,6 @@ from __future__ import division, print_function
 
 import argparse
 import json
-# Pylint recommends we use "from chromite.lib import cros_logging as logging".
-# Chromite specific policy message, we want to keep using the standard logging
-# pylint: disable=cros-logging-import
 import logging
 import os
 import random

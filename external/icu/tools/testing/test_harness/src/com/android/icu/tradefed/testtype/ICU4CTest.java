@@ -39,6 +39,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.LinkedList;
@@ -398,7 +399,9 @@ public class ICU4CTest
                             testPath, mDevice.getSerialNumber()));
         }
         if (!mExcludeFilters.isEmpty()) {
-            throw new IllegalStateException("ICU4C test suites do not support exclude filters");
+            // Log a message instead of throwing IllegalStateException. http://b/213284403
+            CLog.w("ICU4C test suites do not support exclude filters: %s",
+                Arrays.toString(mExcludeFilters.toArray()));
         }
         runTest(mDevice, testPath, listener);
     }

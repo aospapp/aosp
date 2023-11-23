@@ -19,7 +19,9 @@ use base::Error as BaseError;
 use base::{ExternalMappingError, TubeError};
 use data_model::{DataInit, Le32, Le64};
 use gpu_display::GpuDisplayError;
+use remain::sorted;
 use rutabaga_gfx::RutabagaError;
+use thiserror::Error;
 
 use crate::virtio::gpu::udmabuf::UdmabufError;
 
@@ -27,10 +29,10 @@ pub const VIRTIO_GPU_F_VIRGL: u32 = 0;
 pub const VIRTIO_GPU_F_EDID: u32 = 1;
 pub const VIRTIO_GPU_F_RESOURCE_UUID: u32 = 2;
 pub const VIRTIO_GPU_F_RESOURCE_BLOB: u32 = 3;
-/* The following capabilities are not upstreamed. */
 pub const VIRTIO_GPU_F_CONTEXT_INIT: u32 = 4;
-pub const VIRTIO_GPU_F_CREATE_GUEST_HANDLE: u32 = 5;
-pub const VIRTIO_GPU_F_RESOURCE_SYNC: u32 = 6;
+/* The following capabilities are not upstreamed. */
+pub const VIRTIO_GPU_F_RESOURCE_SYNC: u32 = 5;
+pub const VIRTIO_GPU_F_CREATE_GUEST_HANDLE: u32 = 6;
 
 pub const VIRTIO_GPU_UNDEFINED: u32 = 0x0;
 
@@ -143,7 +145,6 @@ pub fn virtio_gpu_cmd_str(cmd: u32) -> &'static str {
 }
 
 pub const VIRTIO_GPU_FLAG_FENCE: u32 = 1 << 0;
-/* Fence context index info flag not upstreamed. */
 pub const VIRTIO_GPU_FLAG_INFO_RING_IDX: u32 = 1 << 1;
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -153,7 +154,8 @@ pub struct virtio_gpu_ctrl_hdr {
     pub flags: Le32,
     pub fence_id: Le64,
     pub ctx_id: Le32,
-    pub info: Le32,
+    pub ring_idx: u8,
+    pub padding: [u8; 3],
 }
 
 unsafe impl DataInit for virtio_gpu_ctrl_hdr {}
@@ -364,7 +366,7 @@ pub struct virtio_gpu_resource_create_3d {
 
 unsafe impl DataInit for virtio_gpu_resource_create_3d {}
 
-/* VIRTIO_GPU_CMD_CTX_CREATE (context_init not upstreamed) */
+/* VIRTIO_GPU_CMD_CTX_CREATE */
 pub const VIRTIO_GPU_CONTEXT_INIT_CAPSET_ID_MASK: u32 = 1 << 0;
 #[derive(Copy)]
 #[repr(C)]
@@ -433,7 +435,6 @@ unsafe impl DataInit for virtio_gpu_cmd_submit {}
 
 pub const VIRTIO_GPU_CAPSET_VIRGL: u32 = 1;
 pub const VIRTIO_GPU_CAPSET_VIRGL2: u32 = 2;
-/* New capset IDs (not upstreamed) */
 pub const VIRTIO_GPU_CAPSET_GFXSTREAM: u32 = 3;
 pub const VIRTIO_GPU_CAPSET_VENUS: u32 = 4;
 pub const VIRTIO_GPU_CAPSET_CROSS_DOMAIN: u32 = 5;
@@ -635,30 +636,18 @@ pub enum GpuCommand {
 
 /// An error indicating something went wrong decoding a `GpuCommand`. These correspond to
 /// `VIRTIO_GPU_CMD_*`.
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 pub enum GpuCommandDecodeError {
-    /// The command referenced an inaccessible area of memory.
-    Memory(DescriptorError),
     /// The type of the command was invalid.
+    #[error("invalid command type ({0})")]
     InvalidType(u32),
     /// An I/O error occurred.
+    #[error("an I/O error occurred: {0}")]
     IO(io::Error),
-}
-
-impl Display for GpuCommandDecodeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::GpuCommandDecodeError::*;
-
-        match self {
-            Memory(e) => write!(
-                f,
-                "command referenced an inaccessible area of memory: {}",
-                e,
-            ),
-            InvalidType(n) => write!(f, "invalid command type ({})", n),
-            IO(e) => write!(f, "an I/O error occurred: {}", e),
-        }
-    }
+    /// The command referenced an inaccessible area of memory.
+    #[error("command referenced an inaccessible area of memory: {0}")]
+    Memory(DescriptorError),
 }
 
 impl From<DescriptorError> for GpuCommandDecodeError {
@@ -864,33 +853,21 @@ impl Display for GpuResponse {
 }
 
 /// An error indicating something went wrong decoding a `GpuCommand`.
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 pub enum GpuResponseEncodeError {
+    /// An I/O error occurred.
+    #[error("an I/O error occurred: {0}")]
+    IO(io::Error),
     /// The response was encoded to an inaccessible area of memory.
+    #[error("response was encoded to an inaccessible area of memory: {0}")]
     Memory(DescriptorError),
     /// More displays than are valid were in a `OkDisplayInfo`.
+    #[error("{0} is more displays than are valid")]
     TooManyDisplays(usize),
     /// More planes than are valid were in a `OkResourcePlaneInfo`.
+    #[error("{0} is more planes than are valid")]
     TooManyPlanes(usize),
-    /// An I/O error occurred.
-    IO(io::Error),
-}
-
-impl Display for GpuResponseEncodeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::GpuResponseEncodeError::*;
-
-        match self {
-            Memory(e) => write!(
-                f,
-                "response was encoded to an inaccessible area of memory: {}",
-                e,
-            ),
-            TooManyDisplays(n) => write!(f, "{} is more displays than are valid", n),
-            TooManyPlanes(n) => write!(f, "{} is more planes than are valid", n),
-            IO(e) => write!(f, "an I/O error occurred: {}", e),
-        }
-    }
 }
 
 impl From<DescriptorError> for GpuResponseEncodeError {
@@ -914,7 +891,7 @@ impl GpuResponse {
         flags: u32,
         fence_id: u64,
         ctx_id: u32,
-        info: u32,
+        ring_idx: u8,
         resp: &mut Writer,
     ) -> Result<u32, GpuResponseEncodeError> {
         let hdr = virtio_gpu_ctrl_hdr {
@@ -922,7 +899,8 @@ impl GpuResponse {
             flags: Le32::from(flags),
             fence_id: Le64::from(fence_id),
             ctx_id: Le32::from(ctx_id),
-            info: Le32::from(info),
+            ring_idx,
+            padding: Default::default(),
         };
         let len = match *self {
             GpuResponse::OkDisplayInfo(ref info) => {

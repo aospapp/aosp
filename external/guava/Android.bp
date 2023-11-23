@@ -49,6 +49,24 @@ license {
     ],
 }
 
+// Instructions for updating the guava version
+//
+// Guava updates must be merged to AOSP first. Make sure you are not using a
+// shallow copy of the Android tree to run the following instructions:
+//
+// 1. File a bug to generate a branch with the version you want to update to.
+//    You can use b/209469232 as starting point. This step will generate an
+//    upstream branch.
+// 2. Create your work branch using `repo start <your_branch_name>`.
+// 3. Fetch the upstream branch using `git fetch aosp <upstream_branch_name>`.
+// 4. Run the merge using `git merge FETCH_HEAD`.
+// 5. Update the METADATA file in this directory to reflect your changes.
+//
+// Note: When running `repo upload` to generate the CL, repo will produce a
+// warning about the number of commits you are trying to upload. This is
+// expected, and you can accept safely (a single gerrit "merge commit" change
+// will be created).
+
 java_library {
     name: "guava",
     host_supported: true,

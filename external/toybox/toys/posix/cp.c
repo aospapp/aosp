@@ -15,7 +15,7 @@
 // options shared between mv/cp must be in same order (right to left)
 // for FLAG macros to work out right in shared infrastructure.
 
-USE_CP(NEWTOY(cp, "<1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu]", TOYFLAG_BIN))
+USE_CP(NEWTOY(cp, "<1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu][+Rr]", TOYFLAG_BIN))
 USE_MV(NEWTOY(mv, "<1vnF(remove-destination)fit:T[-ni]", TOYFLAG_BIN))
 USE_INSTALL(NEWTOY(install, "<1cdDpsvt:m:o:g:", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -124,9 +124,10 @@ struct cp_preserve {
 static int cp_node(struct dirtree *try)
 {
   int fdout = -1, cfd = try->parent ? try->parent->extra : AT_FDCWD,
+      save = DIRTREE_SAVE*(CFG_MV && toys.which->name[0] == 'm'), rc = 0,
       tfd = dirtree_parentfd(try);
   unsigned flags = toys.optflags;
-  char *catch = try->parent ? try->name : TT.destname, *err = "%s";
+  char *s = 0, *catch = try->parent ? try->name : TT.destname, *err = "%s";
   struct stat cst;
 
   if (!dirtree_notdotdot(try)) return 0;
@@ -135,8 +136,13 @@ static int cp_node(struct dirtree *try)
   if (S_ISDIR(try->st.st_mode) && try->again) {
     fdout = try->extra;
     err = 0;
-  } else {
 
+    // If mv child had a problem, free data and don't try to delete parent dir.
+    if (try->child) {
+      save = 0;
+      llist_traverse(try->child, free);
+    }
+  } else {
     // -d is only the same as -r for symlinks, not for directories
     if (S_ISLNK(try->st.st_mode) && (flags & FLAG_d)) flags |= FLAG_r;
 
@@ -150,35 +156,27 @@ static int cp_node(struct dirtree *try)
       error_msg("'%s' is '%s'", catch, err = dirtree_path(try, 0));
       free(err);
 
-      return 0;
+      return save;
     }
 
     // Handle -inuvF
-
     if (!faccessat(cfd, catch, F_OK, 0) && !S_ISDIR(cst.st_mode)) {
-      char *s;
-
-      if (S_ISDIR(try->st.st_mode)) {
+      if (S_ISDIR(try->st.st_mode))
         error_msg("dir at '%s'", s = dirtree_path(try, 0));
-        free(s);
-        return 0;
-      } else if ((flags & FLAG_F) && unlinkat(cfd, catch, 0)) {
+      else if ((flags & FLAG_F) && unlinkat(cfd, catch, 0))
         error_msg("unlink '%s'", catch);
-        return 0;
-      } else if (flags & FLAG_n) return 0;
-      else if ((flags & FLAG_u) && nanodiff(&try->st.st_mtim, &cst.st_mtim)>0)
-        return 0;
       else if (flags & FLAG_i) {
         fprintf(stderr, "%s: overwrite '%s'", toys.which->name,
           s = dirtree_path(try, 0));
-        free(s);
-        if (!yesno(0)) return 0;
-      }
+        if (yesno(0)) rc++;
+      } else if (!((flags&FLAG_u) && nanodiff(&try->st.st_mtim, &cst.st_mtim)>0)
+                 && !(flags & FLAG_n)) rc++;
+      free(s);
+      if (!rc) return save;
     }
 
     if (flags & FLAG_v) {
-      char *s = dirtree_path(try, 0);
-      printf("%s '%s'\n", toys.which->name, s);
+      printf("%s '%s'\n", toys.which->name, s = dirtree_path(try, 0));
       free(s);
     }
 
@@ -192,7 +190,7 @@ static int cp_node(struct dirtree *try)
       if (S_ISDIR(try->st.st_mode)) {
         struct stat st2;
 
-        if (!(flags & (FLAG_a|FLAG_r|FLAG_R))) {
+        if (!(flags & (FLAG_a|FLAG_r))) {
           err = "Skipped dir '%s'";
           catch = try->name;
           break;
@@ -246,13 +244,11 @@ static int cp_node(struct dirtree *try)
       } else if (!S_ISREG(try->st.st_mode)
                  && (try->parent || (flags & (FLAG_a|FLAG_P|FLAG_r))))
       {
-        int i;
-
         // make symlink, or make block/char/fifo/socket
         if (S_ISLNK(try->st.st_mode)
-            ? ((i = readlinkat0(tfd, try->name, toybuf, sizeof(toybuf))) &&
-               ((!unlinkat(cfd, catch, 0) || ENOENT == errno) &&
-                !symlinkat(toybuf, cfd, catch)))
+            ? readlinkat0(tfd, try->name, toybuf, sizeof(toybuf)) &&
+              (!unlinkat(cfd, catch, 0) || ENOENT == errno) &&
+              !symlinkat(toybuf, cfd, catch)
             : !mknodat(cfd, catch, try->st.st_mode, try->st.st_rdev))
         {
           err = 0;
@@ -261,7 +257,7 @@ static int cp_node(struct dirtree *try)
 
       // Copy contents of file.
       } else {
-        int fdin;
+        int fdin, ii;
 
         fdin = openat(tfd, try->name, O_RDONLY);
         if (fdin < 0) {
@@ -286,8 +282,9 @@ static int cp_node(struct dirtree *try)
             xattr_flist(fdin, list, listlen);
             list[listlen-1] = 0; // I do not trust this API.
             for (name = list; name-list < listlen; name += strlen(name)+1) {
-              if (!(TT.pflags&_CP_xattr) && strncmp(name, "security.", 9))
-                continue;
+              // context copies security, xattr copies everything else
+              ii = strncmp(name, "security.", 9) ? _CP_xattr : _CP_context;
+              if (!(TT.pflags&ii)) continue;
               if ((len = xattr_fget(fdin, name, 0, 0))>0) {
                 value = xmalloc(len);
                 if (len == xattr_fget(fdin, name, value, len))
@@ -307,8 +304,6 @@ static int cp_node(struct dirtree *try)
 
   // Did we make a thing?
   if (fdout != -1) {
-    int rc;
-
     // Inability to set --preserve isn't fatal, some require root access.
 
     // ownership
@@ -342,23 +337,21 @@ static int cp_node(struct dirtree *try)
       xclose(fdout);
     }
 
-    if (CFG_MV && toys.which->name[0] == 'm')
+    if (save)
       if (unlinkat(tfd, try->name, S_ISDIR(try->st.st_mode) ? AT_REMOVEDIR :0))
         err = "%s";
   }
 
   if (err) {
-    char *f = 0;
-
     if (catch == try->name) {
-      f = dirtree_path(try, 0);
+      s = dirtree_path(try, 0);
       while (try->parent) try = try->parent;
-      catch = xmprintf("%s%s", TT.destname, f+strlen(try->name));
-      free(f);
-      f = catch;
-    }
+      catch = xmprintf("%s%s", TT.destname, s+strlen(try->name));
+      free(s);
+      s = catch;
+    } else s = 0;
     perror_msg(err, catch);
-    free(f);
+    free(s);
   }
   return 0;
 }
@@ -472,7 +465,7 @@ void cp_main(void)
 
 void mv_main(void)
 {
-  toys.optflags |= FLAG_d|FLAG_p|FLAG_R;
+  toys.optflags |= FLAG_d|FLAG_p|FLAG_r;
 
   cp_main();
 }
@@ -484,7 +477,6 @@ static inline int cp_flag_p(void) { return FLAG_p; };
 static inline int cp_flag_v(void) { return FLAG_v; };
 
 // Switch to install's flag context
-#define CLEANUP_cp
 #define FOR_install
 #include <generated/flags.h>
 

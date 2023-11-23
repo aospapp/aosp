@@ -125,8 +125,8 @@ static void SpMMBenchmark(benchmark::State& state,
   std::generate(a.begin(), a.end(), std::ref(f32rng));
   std::fill(c.begin(), c.end(), nanf(""));
 
-  xnn_f32_minmax_params params =
-    xnn_init_f32_minmax_params(-std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
+  xnn_f32_minmax_params params;
+  xnn_init_f32_minmax_params(&params, -std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
 
   size_t buffer_index = 0;
   for (auto _ : state) {
@@ -421,7 +421,7 @@ BENCHMARK_SPMM(spmm80_2x1__scalar_pipelined)
 BENCHMARK_SPMM(spmm80_4x1__scalar_pipelined)
 BENCHMARK_SPMM(spmm80_8x1__scalar_pipelined)
 
-#if XNN_ARCH_WASMSIMD
+#if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
   static void spmm80_4x1__wasmsimd_arm(benchmark::State& state, const char* net) {
     SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_arm, 4, 1, 0.8f);
   }
@@ -622,7 +622,7 @@ BENCHMARK_SPMM(spmm80_8x1__scalar_pipelined)
   BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86_pipelined)
   BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86_pipelined_x2)
 
-#endif  // XNN_ARCH_WASMSIMD
+#endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

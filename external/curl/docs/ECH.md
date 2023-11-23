@@ -55,7 +55,7 @@ The following set of resources is currently known to be available.
 
 ### PR 4011 (Jun 2019) expected in curl release 7.67.0 (Oct 2019)
 
--   Details [below](#pr4011);
+-   Details [below](#pr-4011);
 
 -   New configuration option: `--enable-ech`;
 
@@ -103,7 +103,7 @@ accordingly.
 
 Proposed-by: @niallor (Niall O'Reilly)\
 Encouraged-by: @sftcd (Stephen Farrell)\
-See-also: [this message](https://curl.haxx.se/mail/lib-2019-05/0108.html)
+See-also: [this message](https://curl.se/mail/lib-2019-05/0108.html)
 
 Limitations:
 -   Book-keeping (symbols-in-versions) needs real release number, not 'DUMMY'.

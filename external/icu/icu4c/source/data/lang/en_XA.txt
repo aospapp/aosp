@@ -395,7 +395,7 @@ en_XA{
         mgh{"[Ṁåķĥûŵå‐Ṁééţţö one two]"}
         mgo{"[Ṁéţåʼ one]"}
         mh{"[Ṁåŕšĥåļļéšé one two]"}
-        mi{"[Ṁåöŕî one]"}
+        mi{"[Ṁāöŕî one]"}
         mic{"[Ṁî'ķɱåǫ one two]"}
         min{"[Ṁîñåñĝķåƀåû one two]"}
         mk{"[Ṁåçéðöñîåñ one two]"}
@@ -491,6 +491,7 @@ en_XA{
         rap{"[Ŕåþåñûî one two]"}
         rar{"[Ŕåŕöţöñĝåñ one two]"}
         rgn{"[Ŕöɱåĝñöļ one two]"}
+        rhg{"[Ŕöĥîñĝýå one two]"}
         rif{"[Ŕîƒƒîåñ one two]"}
         rm{"[Ŕöɱåñšĥ one two]"}
         rn{"[Ŕûñðî one]"}
@@ -498,7 +499,6 @@ en_XA{
         ro_MD{"[Ṁöļðåṽîåñ one two]"}
         rof{"[Ŕöɱƀö one]"}
         rom{"[Ŕöɱåñý one]"}
-        root{"[Ŕööţ one]"}
         rtm{"[Ŕöţûɱåñ one two]"}
         ru{"[Ŕûššîåñ one two]"}
         rue{"[Ŕûšýñ one]"}
@@ -670,6 +670,11 @@ en_XA{
     Languages%menu{
         ars{"[Åŕåƀîç، Ñåĵðî one two]"}
         ckb{"[Ķûŕðîšĥ، Çéñţŕåļ one two three]"}
+        se{"[Šåɱî، Ñöŕţĥéŕñ one two]"}
+        sma{"[Šåɱî، Šöûţĥéŕñ one two]"}
+        smj{"[Šåɱî، Ļûļé one two]"}
+        smn{"[Šåɱî، Îñåŕî one two]"}
+        sms{"[Šåɱî، Šķöļţ one two]"}
         yue{"[Çĥîñéšé، Çåñţöñéšé one two three]"}
         zh{"[Çĥîñéšé، Ṁåñðåŕîñ one two three]"}
     }
@@ -715,6 +720,7 @@ en_XA{
         Chrs{"[Çĥöŕåšɱîåñ one two]"}
         Cirt{"[Çîŕţĥ one]"}
         Copt{"[Çöþţîç one]"}
+        Cpmn{"[Çýþŕö‐Ṁîñöåñ one two]"}
         Cprt{"[Çýþŕîöţ one two]"}
         Cyrl{"[Çýŕîļļîç one two]"}
         Cyrs{"[Öļð Çĥûŕçĥ Šļåṽöñîç Çýŕîļļîç one two three four]"}
@@ -813,6 +819,7 @@ en_XA{
         Orya{"[Öðîå one]"}
         Osge{"[Öšåĝé one]"}
         Osma{"[Öšɱåñýå one two]"}
+        Ougr{"[Öļð Ûýĝĥûŕ one two]"}
         Palm{"[Þåļɱýŕéñé one two]"}
         Pauc{"[Þåû Çîñ Ĥåû one two]"}
         Perm{"[Öļð Þéŕɱîç one two]"}
@@ -825,7 +832,7 @@ en_XA{
         Prti{"[Îñšçŕîþţîöñåļ Þåŕţĥîåñ one two three]"}
         Qaag{"[Žåŵĝýî one]"}
         Rjng{"[Ŕéĵåñĝ one]"}
-        Rohg{"[Ĥåñîƒî Ŕöĥîñĝýå one two three]"}
+        Rohg{"[Ĥåñîƒî one]"}
         Roro{"[Ŕöñĝöŕöñĝö one two]"}
         Runr{"[Ŕûñîç one]"}
         Samr{"[Šåɱåŕîţåñ one two]"}
@@ -863,9 +870,12 @@ en_XA{
         Thai{"[Ţĥåî one]"}
         Tibt{"[Ţîƀéţåñ one two]"}
         Tirh{"[Ţîŕĥûţå one two]"}
+        Tnsa{"[Ţåñĝšå one]"}
+        Toto{"[Ţöţö one]"}
         Ugar{"[Ûĝåŕîţîç one two]"}
         Vaii{"[Ṽåî one]"}
         Visp{"[Ṽîšîƀļé Šþééçĥ one two]"}
+        Vith{"[Ṽîţĥķûǫî one two]"}
         Wara{"[Ṽåŕåñĝ Ķšĥîţî one two]"}
         Wcho{"[Ŵåñçĥö one]"}
         Wole{"[Ŵöļéåî one]"}
@@ -889,6 +899,7 @@ en_XA{
     Scripts%stand-alone{
         Hans{"[Šîɱþļîƒîéð Ĥåñ one two]"}
         Hant{"[Ţŕåðîţîöñåļ Ĥåñ one two three]"}
+        Rohg{"[Ĥåñîƒî Ŕöĥîñĝýå one two three]"}
     }
     Scripts%variant{
         Arab{"[Þéŕšö‐Åŕåƀîç one two]"}
@@ -945,6 +956,13 @@ en_XA{
         colNumeric{
             no{"[Šöŕţ Ðîĝîţš Îñðîṽîðûåļļý one two three]"}
             yes{"[Šöŕţ Ðîĝîţš Ñûɱéŕîçåļļý one two three]"}
+        }
+        colReorder{
+            currency{"[Çûŕŕéñçý one two]"}
+            digit{"[Ðîĝîţš one]"}
+            punct{"[Þûñçţûåţîöñ one two]"}
+            space{"[Ŵĥîţéšþåçé one two]"}
+            symbol{"[Šýɱƀöļ one]"}
         }
         colStrength{
             identical{"[Šöŕţ Åļļ one two]"}
@@ -1065,13 +1083,6 @@ en_XA{
             var{"[Ķéýƀöåŕð Ṽåŕîåñţ one two three]"}
             viqr{"[Ṽîéţñåɱéšé ṼÎǪŔ Ķéýƀöåŕð one two three]"}
             windows{"[Ŵîñðöŵš Ķéýƀöåŕð one two three]"}
-        }
-        kr{
-            currency{"[Çûŕŕéñçý one two]"}
-            digit{"[Ðîĝîţš one]"}
-            punct{"[Þûñçţûåţîöñ one two]"}
-            space{"[Ŵĥîţéšþåçé one two]"}
-            symbol{"[Šýɱƀöļ one]"}
         }
         kv{
             currency{
@@ -1218,6 +1229,7 @@ en_XA{
             thai{"[Ţĥåî Ðîĝîţš one two]"}
             tibt{"[Ţîƀéţåñ Ðîĝîţš one two]"}
             tirh{"[Ţîŕĥûţå Ðîĝîţš one two]"}
+            tnsa{"[Ţåñĝšå Ðîĝîţš one two]"}
             traditional{"[Ţŕåðîţîöñåļ Ñûɱéŕåļš one two three]"}
             vaii{"[Ṽåî Ðîĝîţš one two]"}
             wara{"[Ŵåŕåñĝ Çîţî Ðîĝîţš one two three]"}

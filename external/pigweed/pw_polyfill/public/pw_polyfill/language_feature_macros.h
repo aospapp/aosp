@@ -12,9 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-// Macros for adapting to older versions of C++. A few keywords (consteval,
-// constinit) are handled by pw_polfyill/language_features.h, which is directly
-// -included by users of pw_polyfill.
+// Macros for using C++ features in older standards.
 #pragma once
 
 #ifdef __cpp_inline_variables
@@ -23,9 +21,27 @@
 #define PW_INLINE_VARIABLE
 #endif  // __cpp_inline_variables
 
-// Mark functions as constexpr if the relaxed constexpr rules are supported.
-#if __cpp_constexpr >= 201304L
-#define PW_CONSTEXPR_FUNCTION constexpr
+// Mark functions as constexpr if C++20 or newer
+#if __cplusplus >= 202002L
+#define PW_CONSTEXPR_CPP20 constexpr
 #else
-#define PW_CONSTEXPR_FUNCTION
+#define PW_CONSTEXPR_CPP20
 #endif  // __cpp_constexpr >= 201304L
+
+// Mark functions as consteval if supported.
+#if defined(__cpp_consteval) && __cpp_consteval >= 201811L
+#define PW_CONSTEVAL consteval
+#else
+#define PW_CONSTEVAL constexpr
+#endif  // __cpp_consteval >= 201811L
+
+// Mark functions as constinit if supported by the compiler.
+#if defined(__cpp_constinit)
+#define PW_CONSTINIT constinit
+#elif defined(__clang__)
+#define PW_CONSTINIT [[clang::require_constant_initialization]]
+#elif __GNUC__ >= 10
+#define PW_CONSTINIT __constinit
+#else
+#define PW_CONSTINIT
+#endif  // __cpp_constinit

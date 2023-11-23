@@ -280,7 +280,7 @@ TEST_F(ValidateAtomics, AtomicLoadVulkanWrongStorageClass) {
               AnyVUID("VUID-StandaloneSpirv-None-04645"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("in Vulkan evironment, Workgroup Storage Class is limited to "
+      HasSubstr("in Vulkan environment, Workgroup Storage Class is limited to "
                 "MeshNV, TaskNV, and GLCompute execution model"));
 }
 
@@ -318,7 +318,7 @@ TEST_F(ValidateAtomics, AtomicAddFloatVulkan) {
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("Opcode AtomicFAddEXT requires one of these capabilities: "
-                "AtomicFloat32AddEXT AtomicFloat64AddEXT"));
+                "AtomicFloat32AddEXT AtomicFloat64AddEXT AtomicFloat16AddEXT"));
 }
 
 TEST_F(ValidateAtomics, AtomicMinFloatVulkan) {
@@ -539,6 +539,27 @@ OpExtension "SPV_EXT_shader_atomic_float_min_max"
                         "require the AtomicFloat32MinMaxEXT capability"));
 }
 
+TEST_F(ValidateAtomics, AtomicAddFloat16VulkanSuccess) {
+  const std::string defs = R"(
+%f16 = OpTypeFloat 16
+%f16_1 = OpConstant %f16 1
+%f16_ptr = OpTypePointer Workgroup %f16
+%f16_var = OpVariable %f16_ptr Workgroup
+)";
+  const std::string body = R"(
+%val1 = OpAtomicFAddEXT %f16 %f16_var %device %relaxed %f16_1
+)";
+  const std::string extra = R"(
+OpCapability Float16
+OpCapability AtomicFloat16AddEXT
+OpExtension "SPV_EXT_shader_atomic_float16_add"
+)";
+
+  CompileSuccessfully(GenerateShaderComputeCode(body, extra, defs),
+                      SPV_ENV_VULKAN_1_0);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_VULKAN_1_0));
+}
+
 TEST_F(ValidateAtomics, AtomicAddFloatVulkanSuccess) {
   const std::string body = R"(
 %val1 = OpAtomicFAddEXT %f32 %f32_var %device %relaxed %f32_1
@@ -687,7 +708,7 @@ OpAtomicStore %f32_var %device %relaxed %f32_1
               AnyVUID("VUID-StandaloneSpirv-None-04645"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("in Vulkan evironment, Workgroup Storage Class is limited to "
+      HasSubstr("in Vulkan environment, Workgroup Storage Class is limited to "
                 "MeshNV, TaskNV, and GLCompute execution model"));
 }
 
@@ -2656,6 +2677,39 @@ OpFunctionEnd
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("Memory Semantics must be a constant instruction when "
                         "CooperativeMatrixNV capability is present"));
+}
+
+TEST_F(ValidateAtomics, IIncrementBadPointerDataType) {
+  const std::string spirv = R"(
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+       %uint = OpTypeInt 32 0
+%_ptr_Input_uint = OpTypePointer Input %uint
+     %v3uint = OpTypeVector %uint 3
+%_ptr_Input_v3uint = OpTypePointer Input %v3uint
+       %void = OpTypeVoid
+         %16 = OpTypeFunction %void
+%uint_538976288 = OpConstant %uint 538976288
+        %int = OpTypeInt 32 1
+%_runtimearr_int = OpTypeRuntimeArray %int
+  %_struct_5 = OpTypeStruct %_runtimearr_int
+%_ptr_Uniform__struct_5 = OpTypePointer Uniform %_struct_5
+          %3 = OpVariable %_ptr_Input_v3uint Input
+          %7 = OpVariable %_ptr_Uniform__struct_5 Uniform
+       %8224 = OpFunction %void None %16
+      %65312 = OpLabel
+         %25 = OpAccessChain %_ptr_Input_uint %3 %uint_538976288
+         %26 = OpLoad %uint %25
+    %2097184 = OpAtomicIIncrement %int %7 %uint_538976288 %26
+               OpUnreachable
+               OpFunctionEnd
+)";
+
+  CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("AtomicIIncrement: expected Pointer to point to a "
+                        "value of type Result Type"));
 }
 
 }  // namespace

@@ -78,6 +78,22 @@ TEST(PigweedTest, SucceedAndFailMacros) {
   }
 }
 
+TEST(PigweedTest, SkipMacro) {
+  GTEST_SKIP();
+  // This code should not run.
+  EXPECT_TRUE(false);
+}
+
+class SkipOnSetUpTest : public ::testing::Test {
+ public:
+  void SetUp() override { GTEST_SKIP(); }
+};
+
+TEST_F(SkipOnSetUpTest, FailTest) {
+  // This code should not run because the test was skipped in SetUp().
+  EXPECT_TRUE(false);
+}
+
 class NonCopyable {
  public:
   NonCopyable(int value) : value_(value) {}

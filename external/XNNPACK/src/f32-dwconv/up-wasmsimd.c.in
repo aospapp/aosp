@@ -28,16 +28,16 @@ void xnn_f32_dwconv${ACTIVATION_SUFFIX}_ukernel_up${CHANNEL_TILE}x${KERNEL_TILE}
     size_t output_increment,
     size_t input_offset,
     const float* zero,
-    const union ${PARAMS} params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union ${PARAMS} params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
 
   $if ACTIVATION == "MINMAX":
-    const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-    const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+    const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
+    const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
   $elif ACTIVATION == "RELU":
-    const v128_t vzero = wasm_f32x4_splat(0.0f);
+    const v128_t vzero = wasm_i32x4_const_splat(0);
   do {
     $for K in range(KERNEL_TILE):
       const float* i${K} = input[${K}];
@@ -84,13 +84,13 @@ void xnn_f32_dwconv${ACTIVATION_SUFFIX}_ukernel_up${CHANNEL_TILE}x${KERNEL_TILE}
       $if ACTIVATION == "MINMAX":
         $for C in range(0, CHANNEL_TILE, 4):
           $if X86:
-            v128_t vacc${ABC[C:C+4]} = wasm_v128_bitselect(vmin, vacc${ABC[C:C+4]}p0, wasm_f32x4_lt(vacc${ABC[C:C+4]}p0, vmin));
+            v128_t vacc${ABC[C:C+4]} = wasm_f32x4_pmax(vmin, vacc${ABC[C:C+4]}p0);
           $else:
             v128_t vacc${ABC[C:C+4]} = wasm_f32x4_max(vacc${ABC[C:C+4]}p0, vmin);
 
         $for C in range(0, CHANNEL_TILE, 4):
           $if X86:
-            vacc${ABC[C:C+4]} = wasm_v128_bitselect(vacc${ABC[C:C+4]}, vmax, wasm_f32x4_le(vacc${ABC[C:C+4]}, vmax));
+            vacc${ABC[C:C+4]} = wasm_f32x4_pmin(vmax, vacc${ABC[C:C+4]});
           $else:
             vacc${ABC[C:C+4]} = wasm_f32x4_min(vacc${ABC[C:C+4]}, vmax);
       $elif ACTIVATION == "RELU":
@@ -132,8 +132,8 @@ void xnn_f32_dwconv${ACTIVATION_SUFFIX}_ukernel_up${CHANNEL_TILE}x${KERNEL_TILE}
 
         $if ACTIVATION == "MINMAX":
           $if X86:
-            v128_t vacc0123 = wasm_v128_bitselect(vmin, vacc0123p0, wasm_f32x4_lt(vacc0123p0, vmin));
-            vacc0123 = wasm_v128_bitselect(vacc0123, vmax, wasm_f32x4_le(vacc0123, vmax));
+            v128_t vacc0123 = wasm_f32x4_pmax(vmin, vacc0123p0);
+            vacc0123 = wasm_f32x4_pmin(vmax, vacc0123);
           $else:
             v128_t vacc0123 = wasm_f32x4_max(vacc0123p0, vmin);
             vacc0123 = wasm_f32x4_min(vacc0123, vmax);
@@ -167,8 +167,8 @@ void xnn_f32_dwconv${ACTIVATION_SUFFIX}_ukernel_up${CHANNEL_TILE}x${KERNEL_TILE}
 
       $if ACTIVATION == "MINMAX":
         $if X86:
-          v128_t vacc0123 = wasm_v128_bitselect(vmin, vacc0123p0, wasm_f32x4_lt(vacc0123p0, vmin));
-          vacc0123 = wasm_v128_bitselect(vacc0123, vmax, wasm_f32x4_le(vacc0123, vmax));
+          v128_t vacc0123 = wasm_f32x4_pmax(vmin, vacc0123p0);
+          vacc0123 = wasm_f32x4_pmin(vmax, vacc0123);
         $else:
           v128_t vacc0123 = wasm_f32x4_max(vacc0123p0, vmin);
           vacc0123 = wasm_f32x4_min(vacc0123, vmax);

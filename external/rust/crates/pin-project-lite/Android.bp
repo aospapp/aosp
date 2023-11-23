@@ -43,12 +43,17 @@ rust_library {
     name: "libpin_project_lite",
     host_supported: true,
     crate_name: "pin_project_lite",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.8",
     srcs: ["src/lib.rs"],
     edition: "2018",
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
         "com.android.resolv",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }

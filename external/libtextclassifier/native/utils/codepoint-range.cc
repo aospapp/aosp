@@ -31,10 +31,11 @@ void SortCodepointRanges(
         CodepointRangeStruct(range->start(), range->end()));
   }
 
-  std::sort(sorted_codepoint_ranges->begin(), sorted_codepoint_ranges->end(),
-            [](const CodepointRangeStruct& a, const CodepointRangeStruct& b) {
-              return a.start < b.start;
-            });
+  std::stable_sort(
+      sorted_codepoint_ranges->begin(), sorted_codepoint_ranges->end(),
+      [](const CodepointRangeStruct& a, const CodepointRangeStruct& b) {
+        return a.start < b.start;
+      });
 }
 
 // Returns true if given codepoint is covered by the given sorted vector of

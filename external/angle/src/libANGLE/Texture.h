@@ -184,6 +184,9 @@ class TextureState final : private angle::NonCopyable
     friend bool operator==(const TextureState &a, const TextureState &b);
 
     bool computeSamplerCompleteness(const SamplerState &samplerState, const State &state) const;
+    bool computeSamplerCompletenessForCopyImage(const SamplerState &samplerState,
+                                                const State &state) const;
+
     bool computeMipmapCompleteness() const;
     bool computeLevelCompleteness(TextureTarget target, size_t level) const;
     SamplerFormat computeRequiredSamplerFormat(const SamplerState &samplerState) const;
@@ -487,7 +490,8 @@ class Texture final : public RefCountObject<TextureID>,
                                            MemoryObject *memoryObject,
                                            GLuint64 offset,
                                            GLbitfield createFlags,
-                                           GLbitfield usageFlags);
+                                           GLbitfield usageFlags,
+                                           const void *imageCreateInfoPNext);
 
     angle::Result setImageExternal(Context *context,
                                    TextureTarget target,
@@ -498,6 +502,11 @@ class Texture final : public RefCountObject<TextureID>,
                                    GLenum type);
 
     angle::Result setEGLImageTarget(Context *context, TextureType type, egl::Image *imageTarget);
+
+    angle::Result setStorageEGLImageTarget(Context *context,
+                                           TextureType type,
+                                           egl::Image *image,
+                                           const GLint *attrib_list);
 
     angle::Result generateMipmap(Context *context);
 
@@ -512,6 +521,8 @@ class Texture final : public RefCountObject<TextureID>,
     void signalDirtyStorage(InitState initState);
 
     bool isSamplerComplete(const Context *context, const Sampler *optionalSampler);
+    bool isSamplerCompleteForCopyImage(const Context *context,
+                                       const Sampler *optionalSampler) const;
 
     GLenum getImplementationColorReadFormat(const Context *context) const;
     GLenum getImplementationColorReadType(const Context *context) const;
@@ -525,6 +536,13 @@ class Texture final : public RefCountObject<TextureID>,
                               GLenum format,
                               GLenum type,
                               void *pixels);
+
+    angle::Result getCompressedTexImage(const Context *context,
+                                        const PixelPackState &packState,
+                                        Buffer *packBuffer,
+                                        TextureTarget target,
+                                        GLint level,
+                                        void *pixels);
 
     rx::TextureImpl *getImplementation() const { return mTexture; }
 
@@ -615,6 +633,11 @@ class Texture final : public RefCountObject<TextureID>,
 
     angle::Result syncState(const Context *context, Command source);
     bool hasAnyDirtyBit() const { return mDirtyBits.any(); }
+    bool hasAnyDirtyBitExcludingBoundAsAttachmentBit() const
+    {
+        static constexpr DirtyBits kBoundAsAttachment = DirtyBits({DIRTY_BIT_BOUND_AS_ATTACHMENT});
+        return mDirtyBits.any() && mDirtyBits != kBoundAsAttachment;
+    }
 
     // ObserverInterface implementation.
     void onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message) override;
@@ -646,6 +669,11 @@ class Texture final : public RefCountObject<TextureID>,
                                             const Box &area);
 
     angle::Result handleMipmapGenerationHint(Context *context, int level);
+
+    angle::Result setEGLImageTargetImpl(Context *context,
+                                        TextureType type,
+                                        GLuint levels,
+                                        egl::Image *imageTarget);
 
     void signalDirtyState(size_t dirtyBit);
 

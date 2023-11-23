@@ -65,7 +65,7 @@ tag-release-only:
 tag-release: tag-release-only
 
 upload-release-only:
-	scp $(TARBALL) sourceware.org:~ftp/pub/libabigail
+	scp $(TARBALL) sourceware.org:/var/ftp/pub/libabigail
 
 tarball: $(TARBALL)
 

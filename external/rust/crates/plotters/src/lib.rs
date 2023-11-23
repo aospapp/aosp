@@ -25,6 +25,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
 - To try Plotters with interactive Jupyter notebook, or view [here](https://plotters-rs.github.io/plotters-doc-data/evcxr-jupyter-integration.html) for the static HTML version.
 - To view the WASM example, go to this [link](https://plumberserver.com/plotters-wasm-demo/index.html)
 - Currently we have all the internal code ready for console plotting, but a console based backend is still not ready. See [this example](https://github.com/38/plotters/blob/master/examples/console.rs) for how to plotting on Console with a customized backend.
+- Plotters now moved all backend code to sperate repository, check [FAQ list](#faq-list) for details
 
 ## Gallery
 
@@ -102,7 +103,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Real-time Rendering
-        <a href="https://github.com/38/plotters/tree/master/examples/piston-demo">[code]</a>
+        <a href="https://github.com/plotters-rs/plotters-piston/blob/master/examples/cpustat.rs">[code]</a>
     </div>
 </div>
 
@@ -233,8 +234,38 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
         <img src="https://plotters-rs.github.io/plotters-doc-data/boxplot.svg" class="galleryItem"></img>
     </a>
     <div class="galleryText">
-        Drawing bitmap on chart
+        The boxplot demo
         <a href="https://github.com/38/plotters/blob/master/examples/boxplot.rs">[code]</a>
+    </div>
+</div>
+
+<div class="galleryItem">
+    <a href="https://plotters-rs.github.io/plotters-doc-data/3d-plot.svg">
+        <img src="https://plotters-rs.github.io/plotters-doc-data/3d-plot.svg" class="galleryItem"></img>
+    </a>
+    <div class="galleryText">
+        3D plot rendering
+        <a href="https://github.com/38/plotters/blob/master/examples/3d-plot.rs">[code]</a>
+    </div>
+</div>
+
+<div class="galleryItem">
+    <a href="https://plotters-rs.github.io/plotters-doc-data/3d-plot2.gif">
+        <img src="https://plotters-rs.github.io/plotters-doc-data/3d-plot2.gif" class="galleryItem"></img>
+    </a>
+    <div class="galleryText">
+        2-Var Gussian Distribution PDF
+        <a href="https://github.com/38/plotters/blob/master/examples/3d-plot2.rs">[code]</a>
+    </div>
+</div>
+
+<div class="galleryItem">
+    <a href="https://plotters-rs.github.io/plotters-doc-data/tick_control.svg">
+        <img src="https://plotters-rs.github.io/plotters-doc-data/tick_control.svg" class="galleryItem"></img>
+    </a>
+    <div class="galleryText">
+        COVID-19 Visualization
+        <a href="https://github.com/38/plotters/blob/master/examples/tick_control.rs">[code]</a>
     </div>
 </div>
 
@@ -248,7 +279,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
   * [Plotting on HTML5 canvas with WASM Backend](#plotting-on-html5-canvas-with-wasm-backend)
   * [What types of figure are supported?](#what-types-of-figure-are-supported)
   * [Concepts by examples](#concepts-by-examples)
-    + [Drawing Back-ends](#drawing-backends)
+    + [Drawing Back-ends](#drawing-back-ends)
     + [Drawing Area](#drawing-area)
     + [Elements](#elements)
     + [Composable Elements](#composable-elements)
@@ -264,7 +295,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
 To use Plotters, you can simply add Plotters into your `Cargo.toml`
 ```toml
 [dependencies]
-plotters = "^0.3.0"
+plotters = "^0.3.1"
 ```
 
 And the following code draws a quadratic function. `src/main.rs`,
@@ -279,7 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(30)
-        .build_ranged(-1f32..1f32, -0.1f32..1f32)?;
+        .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)?;
 
     chart.configure_mesh().draw()?;
 
@@ -323,7 +354,7 @@ let figure = evcxr_figure((640, 480), |root| {
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(30)
-        .build_ranged(-1f32..1f32, -0.1f32..1f32)?;
+        .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)?;
 
     chart.configure_mesh().draw()?;
 
@@ -662,6 +693,16 @@ The following list is a complete list of features that can be opt in and out.
     you have the freedom to draw anything you want on the drawing area.
     Use `DrawingArea::draw` to draw any element on the drawing area.
 
+* Where can I find the backend code ?
+
+    Since Plotters 0.3, all drawing backends are independent crate from the main Plotters crate.
+    Use the following link to find the backend code:
+
+    - [Bitmap Backend](https://github.com/plotters-rs/plotters-bitmap.git)
+    - [SVG Backend](https://github.com/plotters-rs/plotters-svg.git)
+    - [HTML5 Canvas Backend](https://github.com/plotters-rs/plotters-canvas.git)
+    - [GTK/Cairo Backend](https://github.com/plotters-rs/plotters-cairo.git)
+
 
 <style>
     img {
@@ -710,12 +751,15 @@ pub mod prelude {
         cartesian::Cartesian2d,
         combinators::{
             make_partial_axis, BindKeyPointMethod, BindKeyPoints, BuildNestedCoord, GroupBy,
-            IntoLinspace, IntoLogRange, IntoPartialAxis, Linspace, LogCoord, LogRange, LogScalable,
+            IntoLinspace, IntoLogRange, IntoPartialAxis, Linspace, LogCoord, LogScalable,
             NestedRange, NestedValue, ToGroupByRange,
         },
         ranged1d::{DiscreteRanged, IntoSegmentedCoord, Ranged, SegmentValue},
         CoordTranslate,
     };
+
+    #[allow(deprecated)]
+    pub use crate::coord::combinators::LogRange;
 
     #[cfg(feature = "chrono")]
     pub use crate::coord::types::{
@@ -742,14 +786,15 @@ pub mod prelude {
     // Styles
     pub use crate::style::{
         AsRelative, Color, FontDesc, FontFamily, FontStyle, FontTransform, HSLColor, IntoFont,
-        Palette, Palette100, Palette99, Palette9999, PaletteColor, RGBColor, ShapeStyle, TextStyle,
+        IntoTextStyle, Palette, Palette100, Palette99, Palette9999, PaletteColor, RGBColor,
+        ShapeStyle, TextStyle,
     };
     pub use crate::style::{BLACK, BLUE, CYAN, GREEN, MAGENTA, RED, TRANSPARENT, WHITE, YELLOW};
 
     // Elements
     pub use crate::element::{
-        Circle, Cross, DynElement, EmptyElement, IntoDynElement, MultiLineText, PathElement, Pixel,
-        Polygon, Rectangle, Text, TriangleMarker,
+        Circle, Cross, Cubiod, DynElement, EmptyElement, IntoDynElement, MultiLineText,
+        PathElement, Pixel, Polygon, Rectangle, Text, TriangleMarker,
     };
 
     #[cfg(feature = "boxplot")]

@@ -378,7 +378,7 @@ public class NumberRegressionTests extends TestFmwk {
                 sb = new StringBuffer("");
                 fp = new FieldPosition(0);
                 logln("  getMaximumFractionDigits() = " + i);
-                logln("  formated: " + df.format(d, sb, fp));
+                logln("  formatted: " + df.format(d, sb, fp));
             }
         } catch (Exception foo) {
             errln("Bug 4090504 regression test failed. Message : " + foo.getMessage());
@@ -552,7 +552,7 @@ public class NumberRegressionTests extends TestFmwk {
         String expectedPercent = "-578 998%";
     */
         String expectedDefault = "-5\u00a0789,988";
-        String expectedCurrency = "5\u00a0789,99\u00a0$\u00a0CA";
+        String expectedCurrency = "5\u00a0789,99\u00a0$";
         String expectedPercent = "-578\u00a0999\u00A0%";
 
         formatter = NumberFormat.getNumberInstance(Locale.CANADA_FRENCH);
@@ -753,7 +753,7 @@ public class NumberRegressionTests extends TestFmwk {
      * Tests all different comments.
      * Response to some comments :
      * [1] DecimalFormat.parse API documentation is more than just one line.
-     * This is not a reproducable doc error in 116 source code.
+     * This is not a reproducible doc error in 116 source code.
      * [2] See updated javadoc.
      * [3] Fixed.
      * [4] NumberFormat.parse(String, ParsePosition) : If parsing fails,
@@ -952,7 +952,7 @@ public class NumberRegressionTests extends TestFmwk {
         bigN = bigN.multiply(BigInteger.valueOf(m));
         df.setMultiplier(m);
         df.setGroupingUsed(false);
-        logln("formated: " +
+        logln("formatted: " +
             df.format(n, new StringBuffer(), new FieldPosition(0)));
         logln("expected: " + bigN.toString());
     }
@@ -1538,7 +1538,9 @@ public class NumberRegressionTests extends TestFmwk {
         Locale[] avail = NumberFormat.getAvailableLocales();
         for (int i=0; i<avail.length; ++i) {
             if ((avail[i].getLanguage().equals("ji") || avail[i].getLanguage().equals("bm")) &&
-                    logKnownIssue("11234", "Symbol roundtrip issues for locales ji, bm")) {
+                    logKnownIssue(
+                        "21527",
+                        "Remove bad currency test case in NumberRegressionTests.java")) {
                 continue;
             }
             for (int j=0; j<3; ++j) {
@@ -1802,7 +1804,7 @@ public class NumberRegressionTests extends TestFmwk {
     }
 
     /**
-     * 4241880: Decimal format doesnt round a double properly when the number is less than 1
+     * 4241880: Decimal format doesn't round a double properly when the number is less than 1
      */
     @Test
     public void test4241880() {
@@ -1887,4 +1889,3 @@ class MyNumberFormat extends NumberFormat {
         return new StringBuffer("");
     }
 }
-

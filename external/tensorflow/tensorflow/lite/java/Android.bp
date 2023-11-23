@@ -24,8 +24,10 @@ package {
 java_library_static {
     name: "tensorflowlite_java",
     sdk_version: "current",
+    min_sdk_version: "30",
     libs: [
         "android-support-annotations",
+        "guava-android-annotation-stubs",
     ],
     srcs: [
         ":tflite_nnapi_delegate_java",
@@ -38,6 +40,7 @@ java_library_static {
 cc_library_shared {
     name: "libtensorflowlite_jni",
     sdk_version: "current",
+    min_sdk_version: "30",
     export_include_dirs: [
         "src/main/native/",
     ],

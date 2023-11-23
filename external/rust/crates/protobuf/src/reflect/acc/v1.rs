@@ -9,21 +9,20 @@ use std::hash::Hash;
 use crate::enums::ProtobufEnum;
 use crate::message::message_down_cast;
 use crate::message::Message;
-use crate::reflect::EnumValueDescriptor;
-use crate::reflect::ProtobufValue;
-use crate::reflect::ReflectFieldRef;
-use crate::reflect::ReflectValueRef;
-use crate::types::*;
-
 use crate::reflect::map::ReflectMap;
 use crate::reflect::optional::ReflectOptional;
 use crate::reflect::repeated::ReflectRepeated;
 use crate::reflect::repeated::ReflectRepeatedEnum;
 use crate::reflect::repeated::ReflectRepeatedMessage;
 use crate::reflect::rt::FieldAccessor;
+use crate::reflect::EnumValueDescriptor;
+use crate::reflect::ProtobufValue;
+use crate::reflect::ReflectFieldRef;
+use crate::reflect::ReflectValueRef;
 use crate::repeated::RepeatedField;
 use crate::singular::SingularField;
 use crate::singular::SingularPtrField;
+use crate::types::*;
 
 /// this trait should not be used directly, use `FieldDescriptor` instead
 pub trait FieldAccessorTrait: Sync + 'static {
@@ -249,7 +248,24 @@ impl<M: Message + 'static> FieldAccessorTrait for FieldAccessorImpl<M> {
                 get_set: SingularGetSet::Enum(ref get),
                 ..
             } => get.get_enum(message_down_cast(m)),
-            _ => panic!(),
+            FieldAccessorFunctions::Optional(ref t) => {
+                match t
+                    .get_field(message_down_cast(m))
+                    .to_option()
+                    .expect("field unset")
+                    .as_ref()
+                {
+                    ReflectValueRef::Enum(e) => e,
+                    _ => panic!("not an enum"),
+                }
+            }
+            FieldAccessorFunctions::Simple(ref t) => {
+                match t.get_field(message_down_cast(m)).as_ref() {
+                    ReflectValueRef::Enum(e) => e,
+                    _ => panic!("not an enum"),
+                }
+            }
+            ref fns => panic!("unknown accessor type: {:?}", fns),
         }
     }
 

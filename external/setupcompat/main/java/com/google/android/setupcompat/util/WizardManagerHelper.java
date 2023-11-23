@@ -186,6 +186,17 @@ public final class WizardManagerHelper {
   }
 
   /**
+   * Checks whether an intent is running in the portal setup wizard flow.
+   *
+   * @param originalIntent The original intent that was used to start the step, usually via {@link
+   *     Activity#getIntent()}.
+   * @return true if the intent passed in was running in portal setup wizard.
+   */
+  public static boolean isPortalSetupWizard(Intent originalIntent) {
+    return originalIntent != null && originalIntent.getBooleanExtra(EXTRA_IS_PORTAL_SETUP, false);
+  }
+
+  /**
    * Checks whether an intent is running in the deferred setup wizard flow.
    *
    * @param originalIntent The original intent that was used to start the step, usually via {@link

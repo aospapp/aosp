@@ -41,7 +41,7 @@ import android.icu.util.ULocale;
  * StringSearch ensures that language eccentricity can be
  * handled, e.g. for the German collator, characters &szlig; and SS will be matched
  * if case is chosen to be ignored.
- * See the <a href="http://source.icu-project.org/repos/icu/icuhtml/trunk/design/collation/ICU_collation_design.htm">
+ * See the <a href="https://htmlpreview.github.io/?https://github.com/unicode-org/icu-docs/blob/main/design/collation/ICU_collation_design.htm">
  * "ICU Collation Design Document"</a> for more information.
  * <p>
  * There are 2 match options for selection:<br>
@@ -1019,7 +1019,7 @@ public final class StringSearch extends SearchIterator {
         // 2. An int64_t CE weight is determined for each resulting unit (high 16 bits are primary strength, next
         //    16 bits are secondary, next 16 (the high 16 bits of the low 32-bit half) are tertiary. Any of these
         //    fields that are for strengths below that of the collator are set to 0. If this makes the int64_t
-        //    CE weight 0 (as for a combining diacritic with secondary weight when the collator strentgh is primary),
+        //    CE weight 0 (as for a combining diacritic with secondary weight when the collator strength is primary),
         //    then the CE is deleted, so the following code sees only CEs that are relevant.
         // For each CE, the lowIndex and highIndex correspond to where this CE begins and ends in the original text.
         // If lowIndex==highIndex, either the CE resulted from an expansion/decomposition of one of the original text
@@ -1432,7 +1432,7 @@ public final class StringSearch extends SearchIterator {
                 // * do NOT require that match limit be on a breakIter boundary
 
                 // Advance the match end position to the first acceptable match boundary.
-                // This advances the index over any combining charcters.
+                // This advances the index over any combining characters.
                 if (minLimit < maxLimit) {
                     int nba = nextBoundaryAfter(minLimit);
                     // Note that we can have nba < maxLimit && nba >= minLImit, in which

@@ -265,7 +265,7 @@ class CharsetMBCS extends CharsetICU {
             try {
                 baseNameString = reader.readBaseTableName();
                 if (offset != 0) {
-                    // agljport:commment subtract 32 for sizeof(_MBCSHeader) and length of baseNameString and 1 null
+                    // agljport:comment subtract 32 for sizeof(_MBCSHeader) and length of baseNameString and 1 null
                     // terminator byte all already read;
                     mbcsTable.extIndexes = reader.readExtIndexes(offset - reader.bytesReadAfterStaticData());
                 }
@@ -441,7 +441,7 @@ class CharsetMBCS extends CharsetICU {
 
             if (offset != 0) {
                 try {
-                    // agljport:commment subtract 32 for sizeof(_MBCSHeader) and length of baseNameString and 1 null
+                    // agljport:comment subtract 32 for sizeof(_MBCSHeader) and length of baseNameString and 1 null
                     // terminator byte all already read;
                     // int namelen = baseNameString != null? baseNameString.length() + 1: 0;
                     mbcsTable.extIndexes = reader.readExtIndexes(offset - reader.bytesReadAfterStaticData());
@@ -669,7 +669,7 @@ class CharsetMBCS extends CharsetICU {
          * They do not lead to mappings.
          *
          * Bits 7..6
-         * 1 direct/initial state (stateful converters have mulitple)
+         * 1 direct/initial state (stateful converters have multiple)
          * 0 non-initial state with transitions or with nonignorable result actions
          * -1 final state with only ignorable actions
          *
@@ -2946,7 +2946,7 @@ class CharsetMBCS extends CharsetICU {
                 boolean doloop = true;
                 boolean doread = true;
                 if (c != 0 && target.hasRemaining()) {
-                    if (UTF16.isLeadSurrogate((char) c) && (uniMask & UConverterConstants.HAS_SURROGATES) == 0) {
+                    if (UTF16.isLeadSurrogate(c) && (uniMask & UConverterConstants.HAS_SURROGATES) == 0) {
                         // c is a lead surrogate, read another input
                         SideEffects x = new SideEffects(c, sourceArrayIndex, sourceIndex, nextSourceIndex,
                                 prevSourceIndex, prevLength);
@@ -2989,9 +2989,9 @@ class CharsetMBCS extends CharsetICU {
                                  * are not paired but mapped separately. Note that in this case unmatched surrogates are
                                  * not detected.
                                  */
-                                if (UTF16.isSurrogate((char) c)
+                                if (UTF16.isSurrogate(c)
                                         && (uniMask & UConverterConstants.HAS_SURROGATES) == 0) {
-                                    if (UTF16.isLeadSurrogate((char) c)) {
+                                    if (UTF16.isLeadSurrogate(c)) {
                                         // getTrail:
                                         SideEffects x = new SideEffects(c, sourceArrayIndex, sourceIndex,
                                                 nextSourceIndex, prevSourceIndex, prevLength);
@@ -3038,7 +3038,7 @@ class CharsetMBCS extends CharsetICU {
                              *
                              * For EUC encodings that use only either 0x8e or 0x8f as the first byte of their longest
                              * byte sequences, the first two bytes in this third stage indicate with their 7th bits
-                             * whether these bytes are to be written directly or actually need to be preceeded by one of
+                             * whether these bytes are to be written directly or actually need to be preceded by one of
                              * the two Single-Shift codes. With this, the third stage stores one byte fewer per
                              * character than the actual maximum length of EUC byte sequences.
                              *
@@ -4064,9 +4064,9 @@ class CharsetMBCS extends CharsetICU {
                         /* normal end of conversion: prepare for a new character */
                         c = 0;
                         continue;
-                    } else if (!UTF16.isSurrogate((char) c)) {
+                    } else if (!UTF16.isSurrogate(c)) {
                         /* normal, unassigned BMP character */
-                    } else if (UTF16.isLeadSurrogate((char) c)) {
+                    } else if (UTF16.isLeadSurrogate(c)) {
                         // getTrail:
                         SideEffectsSingleBMP x = new SideEffectsSingleBMP(c, sourceArrayIndex);
                         doloop = getTrailSingleBMP(source, x, cr);
@@ -4195,7 +4195,7 @@ class CharsetMBCS extends CharsetICU {
             boolean doloop = true;
             boolean doread = true;
             if (c != 0 && target.hasRemaining()) {
-                if (UTF16.isLeadSurrogate((char) c)) {
+                if (UTF16.isLeadSurrogate(c)) {
                     SideEffectsDouble x = new SideEffectsDouble(c, sourceArrayIndex, sourceIndex, nextSourceIndex);
                     doloop = getTrailDouble(source, target, uniMask, x, flush, cr);
                     doread = x.doread;
@@ -4225,8 +4225,8 @@ class CharsetMBCS extends CharsetICU {
                         if (doread) {
                             c = source.get(sourceArrayIndex++);
                             ++nextSourceIndex;
-                            if (UTF16.isSurrogate((char) c)) {
-                                if (UTF16.isLeadSurrogate((char) c)) {
+                            if (UTF16.isSurrogate(c)) {
+                                if (UTF16.isLeadSurrogate(c)) {
                                     // getTrail:
                                     SideEffectsDouble x = new SideEffectsDouble(c, sourceArrayIndex, sourceIndex,
                                             nextSourceIndex);
@@ -4340,7 +4340,7 @@ class CharsetMBCS extends CharsetICU {
             boolean doloop = true;
             boolean doread = true;
             if (c != 0 && target.hasRemaining()) {
-                if (UTF16.isLeadSurrogate((char) c)) {
+                if (UTF16.isLeadSurrogate(c)) {
                     SideEffectsDouble x = new SideEffectsDouble(c, sourceArrayIndex, sourceIndex, nextSourceIndex);
                     doloop = getTrailDouble(source, target, uniMask, x, flush, cr);
                     doread = x.doread;
@@ -4374,8 +4374,8 @@ class CharsetMBCS extends CharsetICU {
                              * not paired but mapped separately. Note that in this case unmatched surrogates are not
                              * detected.
                              */
-                            if (UTF16.isSurrogate((char) c) && (uniMask & UConverterConstants.HAS_SURROGATES) == 0) {
-                                if (UTF16.isLeadSurrogate((char) c)) {
+                            if (UTF16.isSurrogate(c) && (uniMask & UConverterConstants.HAS_SURROGATES) == 0) {
+                                if (UTF16.isLeadSurrogate(c)) {
                                     // getTrail:
                                     SideEffectsDouble x = new SideEffectsDouble(c, sourceArrayIndex, sourceIndex,
                                             nextSourceIndex);
@@ -4504,7 +4504,7 @@ class CharsetMBCS extends CharsetICU {
                 char trail = source.get(x.sourceArrayIndex);
                 if (UTF16.isTrailSurrogate(trail)) {
                     ++x.sourceArrayIndex;
-                    x.c = UCharacter.getCodePoint((char) x.c, trail);
+                    x.c = UCharacter.getCodePoint(x.c, trail);
                     /* this codepage does not map supplementary code points */
                     /* callback(unassigned) */
                     cr[0] = CoderResult.unmappableForLength(2);
@@ -4548,7 +4548,7 @@ class CharsetMBCS extends CharsetICU {
                     ++x.sourceArrayIndex;
                     ++x.nextSourceIndex;
                     /* convert this supplementary code point */
-                    x.c = UCharacter.getCodePoint((char) x.c, trail);
+                    x.c = UCharacter.getCodePoint(x.c, trail);
                     if ((uniMask & UConverterConstants.HAS_SUPPLEMENTARY) == 0) {
                         /* BMP-only codepages are stored without stage 1 entries for supplementary code points */
                         fromUnicodeStatus = x.prevLength; /* save the old state */
@@ -4622,7 +4622,7 @@ class CharsetMBCS extends CharsetICU {
                     ++x.sourceArrayIndex;
                     ++x.nextSourceIndex;
                     /* convert this supplementary code point */
-                    x.c = UCharacter.getCodePoint((char) x.c, trail);
+                    x.c = UCharacter.getCodePoint(x.c, trail);
                     if ((uniMask & UConverterConstants.HAS_SUPPLEMENTARY) == 0) {
                         /* BMP-only codepages are stored without stage 1 entries for supplementary code points */
                         /* callback(unassigned) */
@@ -4903,7 +4903,7 @@ class CharsetMBCS extends CharsetICU {
                                 }while((++c&0xf)!=0);
                                 break;
                             case UCNV_SET_FILTER_SJIS:
-                                /* only add code points that map tp Shift-JIS codes corrosponding to JIS X 0280. */
+                                /* only add code points that map tp Shift-JIS codes corresponding to JIS X 0280. */
                                 do{
                                     if(((st3&1) != 0 || useFallBack) && (value=chars[stage3 / 2])>=0x8140 && value<=0xeffc){
                                         setFillIn.add(c);
@@ -5087,7 +5087,7 @@ class CharsetMBCS extends CharsetICU {
                         }while((++c&0xf) != 0);
 
                     } else {
-                        c+=16;   /* emplty stage3 block */
+                        c+=16;   /* empty stage3 block */
                     }
                 }
             } else {

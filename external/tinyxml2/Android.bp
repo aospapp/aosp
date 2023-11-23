@@ -66,6 +66,15 @@ cc_library {
     },
 
     export_include_dirs: ["."],
+
+    min_sdk_version: "S",
+
+    apex_available: [
+        "com.android.art",
+        "com.android.art.debug",
+        "com.android.bluetooth",
+        "//apex_available:platform", // For odsign.
+    ],
 }
 
 cc_test {

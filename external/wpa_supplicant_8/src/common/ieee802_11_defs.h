@@ -22,7 +22,7 @@
 #define WLAN_FC_PWRMGT		0x1000
 #define WLAN_FC_MOREDATA	0x2000
 #define WLAN_FC_ISWEP		0x4000
-#define WLAN_FC_ORDER		0x8000
+#define WLAN_FC_HTC		0x8000
 
 #define WLAN_FC_GET_TYPE(fc)	(((fc) & 0x000c) >> 2)
 #define WLAN_FC_GET_STYPE(fc)	(((fc) & 0x00f0) >> 4)
@@ -446,6 +446,7 @@
 #define WLAN_EID_WHITE_SPACE_MAP 205
 #define WLAN_EID_FTM_PARAMETERS 206
 #define WLAN_EID_S1G_BCN_COMPAT 213
+#define WLAN_EID_TWT 216
 #define WLAN_EID_S1G_CAPABILITIES 217
 #define WLAN_EID_VENDOR_SPECIFIC 221
 #define WLAN_EID_S1G_OPERATION 232
@@ -603,6 +604,10 @@
 #define WLAN_ACTION_ROBUST_AV_STREAMING 19
 #define WLAN_ACTION_UNPROTECTED_DMG 20
 #define WLAN_ACTION_VHT 21
+#define WLAN_ACTION_S1G 22
+#define WLAN_ACTION_S1G_RELAY 23
+#define WLAN_ACTION_FLOW_CONTROL 24
+#define WLAN_ACTION_CTRL_RESP_MCS_NEG 25
 #define WLAN_ACTION_FILS 26
 #define WLAN_ACTION_PROTECTED_FTM 34
 #define WLAN_ACTION_VENDOR_SPECIFIC_PROTECTED 126
@@ -819,6 +824,19 @@ enum nai_realm_eap_cred_type {
 	NAI_REALM_CRED_TYPE_ANONYMOUS = 9,
 	NAI_REALM_CRED_TYPE_VENDOR_SPECIFIC = 10
 };
+
+/* Unprotected S1G Action field values for WLAN_ACTION_S1G */
+#define S1G_ACT_AID_SWITCH_REQUEST   0
+#define S1G_ACT_AID_SWITCH_RESPONSE  1
+#define S1G_ACT_SYNC_CONTROL         2
+#define S1G_ACT_STA_INFO_ANNOUNCE    3
+#define S1G_ACT_EDCA_PARAM_SET       4
+#define S1G_ACT_EL_OPERATION         5
+#define S1G_ACT_TWT_SETUP            6
+#define S1G_ACT_TWT_TEARDOWN         7
+#define S1G_ACT_SECT_GROUP_ID_LIST   8
+#define S1G_ACT_SECT_ID_FEEDBACK     9
+#define S1G_ACT_TWT_INFORMATION      11
 
 /*
  * IEEE P802.11-REVmc/D5.0 Table 9-81 - Measurement type definitions for
@@ -1325,6 +1343,7 @@ struct ieee80211_ampe_ie {
 #define CHANWIDTH_4320MHZ	5
 #define CHANWIDTH_6480MHZ	6
 #define CHANWIDTH_8640MHZ	7
+#define CHANWIDTH_40MHZ_6GHZ	8
 
 #define HE_NSS_MAX_STREAMS			    8
 
@@ -1348,6 +1367,10 @@ struct ieee80211_ampe_ie {
 #define DPP_CC_OUI_TYPE 0x1e
 #define SAE_PK_IE_VENDOR_TYPE 0x506f9a1f
 #define SAE_PK_OUI_TYPE 0x1f
+#define QM_IE_VENDOR_TYPE 0x506f9a22
+#define QM_IE_OUI_TYPE 0x22
+#define WFA_CAPA_IE_VENDOR_TYPE 0x506f9a23
+#define WFA_CAPA_OUI_TYPE 0x23
 
 #define MULTI_AP_SUB_ELEM_TYPE 0x06
 #define MULTI_AP_TEAR_DOWN BIT(4)
@@ -1645,6 +1668,7 @@ enum p2p_attr_id {
 #define P2P_DEV_CAPAB_INFRA_MANAGED BIT(3)
 #define P2P_DEV_CAPAB_DEVICE_LIMIT BIT(4)
 #define P2P_DEV_CAPAB_INVITATION_PROCEDURE BIT(5)
+#define P2P_DEV_CAPAB_6GHZ_BAND_CAPABLE BIT(6)
 
 /* P2P Capability - Group Capability bitmap */
 #define P2P_GROUP_CAPAB_GROUP_OWNER BIT(0)
@@ -2174,6 +2198,7 @@ struct ieee80211_he_capabilities {
 	* and optional variable length PPE Thresholds field. */
 	u8 optional[33];
 } STRUCT_PACKED;
+#define IEEE80211_HE_CAPAB_MIN_LEN (6 + 11)
 
 struct ieee80211_he_operation {
 	le32 he_oper_params; /* HE Operation Parameters[3] and
@@ -2349,6 +2374,26 @@ struct ieee80211_he_mu_edca_parameter_set {
 /* B7: Reserved if sent by an AP; More Data Ack if sent by a non-AP STA */
 #define HE_QOS_INFO_MORE_DATA_ACK ((u8) (BIT(7)))
 
+/*
+ * IEEE Std 802.11-2020 and IEEE Std 802.11ax-2021
+ * 9.4.2.170 Reduced Neighbor Report element
+ */
+#define RNR_HEADER_LEN                              2
+#define RNR_TBTT_HEADER_LEN                         4
+#define RNR_TBTT_INFO_COUNT(x)                      (((x) & 0xf) << 4)
+#define RNR_TBTT_INFO_COUNT_MAX                     16
+#define RNR_TBTT_INFO_LEN                           13
+#define RNR_NEIGHBOR_AP_OFFSET_UNKNOWN              255
+/* Figure 9-632a - BSS Parameters subfield format */
+#define RNR_BSS_PARAM_OCT_RECOMMENDED               BIT(0)
+#define RNR_BSS_PARAM_SAME_SSID                     BIT(1)
+#define RNR_BSS_PARAM_MULTIPLE_BSSID                BIT(2)
+#define RNR_BSS_PARAM_TRANSMITTED_BSSID             BIT(3)
+#define RNR_BSS_PARAM_MEMBER_CO_LOCATED_ESS         BIT(4)
+#define RNR_BSS_PARAM_UNSOLIC_PROBE_RESP_ACTIVE     BIT(5)
+#define RNR_BSS_PARAM_CO_LOCATED                    BIT(6)
+#define RNR_20_MHZ_PSD_MAX_TXPOWER                  255 /* dBm */
+
 /* IEEE P802.11ay/D4.0, 9.4.2.251 - EDMG Operation element */
 #define EDMG_BSS_OPERATING_CHANNELS_OFFSET	6
 #define EDMG_OPERATING_CHANNEL_WIDTH_OFFSET	7
@@ -2453,4 +2498,40 @@ enum mscs_description_subelem {
  */
 #define FD_MAX_INTERVAL_6GHZ                  20 /* TUs */
 
+/* Protected Vendor-specific QoS Management Action frame identifiers - WFA */
+#define QM_ACTION_VENDOR_TYPE 0x506f9a1a
+#define QM_ACTION_OUI_TYPE 0x1a
+
+/* QoS Management Action frame OUI subtypes */
+#define QM_DSCP_POLICY_QUERY 0
+#define QM_DSCP_POLICY_REQ 1
+#define QM_DSCP_POLICY_RESP 2
+
+/* QoS Management attributes */
+enum qm_attr_id {
+	QM_ATTR_PORT_RANGE = 1,
+	QM_ATTR_DSCP_POLICY = 2,
+	QM_ATTR_TCLAS = 3,
+	QM_ATTR_DOMAIN_NAME = 4,
+};
+
+/* DSCP Policy attribute - Request Type */
+enum dscp_policy_request_type {
+	DSCP_POLICY_REQ_ADD = 0, /* ADD/UPDATE */
+	DSCP_POLICY_REQ_REMOVE = 1,
+};
+
+/* Request/Response Control field of DSCP Policy Request/Response frame */
+#define DSCP_POLICY_CTRL_MORE	BIT(0)
+#define DSCP_POLICY_CTRL_RESET	BIT(1)
+
+/* Wi-Fi Alliance Capabilities element - Capabilities field */
+#define WFA_CAPA_QM_DSCP_POLICY BIT(0)
+#define WFA_CAPA_QM_UNSOLIC_DSCP BIT(1)
+
+#ifdef CONFIG_DRIVER_NL80211_BRCM
+#define WPA_KEY_MGMT_CROSS_AKM_ROAM (WPA_KEY_MGMT_SAE | WPA_KEY_MGMT_PSK)
+#define IS_CROSS_AKM_ROAM_KEY_MGMT(key_mgmt) \
+	((key_mgmt & WPA_KEY_MGMT_CROSS_AKM_ROAM) == WPA_KEY_MGMT_CROSS_AKM_ROAM)
+#endif /* CONFIG_DRIVER_NL80211_BRCM */
 #endif /* IEEE802_11_DEFS_H */

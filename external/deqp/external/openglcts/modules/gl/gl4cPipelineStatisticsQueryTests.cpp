@@ -74,7 +74,7 @@
 
 namespace glcts
 {
-const char* PipelineStatisticsQueryUtilities::dummy_cs_code =
+const char* PipelineStatisticsQueryUtilities::minimal_cs_code =
 	"#version 430\n"
 	"\n"
 	"layout(local_size_x=1, local_size_y = 1, local_size_z = 1) in;\n"
@@ -85,8 +85,9 @@ const char* PipelineStatisticsQueryUtilities::dummy_cs_code =
 	"{\n"
 	"    atomicCounterIncrement(test_counter);\n"
 	"}\n";
-const char* PipelineStatisticsQueryUtilities::dummy_cs_code_arb =
-	"#version 330\n"
+
+const char* PipelineStatisticsQueryUtilities::minimal_cs_code_arb =
+	"#version 420 core\n"
 	"#extension GL_ARB_compute_shader : require\n"
 	"#extension GL_ARB_shader_atomic_counters : require\n"
 	"\n"
@@ -98,7 +99,7 @@ const char* PipelineStatisticsQueryUtilities::dummy_cs_code_arb =
 	"{\n"
 	"    atomicCounterIncrement(test_counter);\n"
 	"}\n";
-const char* PipelineStatisticsQueryUtilities::dummy_fs_code = "#version 130\n"
+const char* PipelineStatisticsQueryUtilities::minimal_fs_code = "#version 130\n"
 															  "\n"
 															  "out vec4 result;\n"
 															  "\n"
@@ -106,7 +107,7 @@ const char* PipelineStatisticsQueryUtilities::dummy_fs_code = "#version 130\n"
 															  "{\n"
 															  "    result = gl_FragCoord;\n"
 															  "}\n";
-const char* PipelineStatisticsQueryUtilities::dummy_tc_code =
+const char* PipelineStatisticsQueryUtilities::minimal_tc_code =
 	"#version 400\n"
 	"\n"
 	"layout(vertices = 3) out;\n"
@@ -121,7 +122,7 @@ const char* PipelineStatisticsQueryUtilities::dummy_tc_code =
 	"    gl_TessLevelOuter[2]                = 5.0;\n"
 	"    gl_TessLevelOuter[3]                = 6.0;\n"
 	"}\n";
-const char* PipelineStatisticsQueryUtilities::dummy_te_code =
+const char* PipelineStatisticsQueryUtilities::minimal_te_code =
 	"#version 400\n"
 	"\n"
 	"layout(triangles) in;\n"
@@ -130,7 +131,7 @@ const char* PipelineStatisticsQueryUtilities::dummy_te_code =
 	"{\n"
 	"    gl_Position = gl_TessCoord.xyxy * gl_in[gl_PrimitiveID].gl_Position;\n"
 	"}\n";
-const char* PipelineStatisticsQueryUtilities::dummy_vs_code = "#version 130\n"
+const char* PipelineStatisticsQueryUtilities::minimal_vs_code = "#version 130\n"
 															  "\n"
 															  "in vec4 position;\n"
 															  "\n"
@@ -1670,6 +1671,11 @@ PipelineStatisticsQueryTestFunctionalBase::PipelineStatisticsQueryTestFunctional
 	, m_vbo_id(0)
 	, m_to_height(64)
 	, m_to_width(64)
+	, m_vbo_indirect_arrays_argument_offset(0)
+	, m_vbo_indirect_elements_argument_offset(0)
+	, m_vbo_index_data_offset(0)
+	, m_vbo_n_indices(0)
+	, m_vbo_vertex_data_offset(0)
 	, m_current_draw_call_type(PipelineStatisticsQueryUtilities::DRAW_CALL_TYPE_COUNT)
 	, m_current_primitive_type(PipelineStatisticsQueryUtilities::PRIMITIVE_TYPE_COUNT)
 	, m_indirect_draw_call_baseinstance_argument(0)
@@ -1935,7 +1941,7 @@ void PipelineStatisticsQueryTestFunctionalBase::deinit()
 	deinitObjects();
 }
 
-/** Dummy method that should be overloaded by inheriting methods.
+/** Empty method that should be overloaded by inheriting methods.
  *
  *  The method can be thought as of a placeholder for code that deinitializes
  *  test-specific GL objects.
@@ -1980,7 +1986,7 @@ void PipelineStatisticsQueryTestFunctionalBase::initFBO()
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glViewport() call failed.");
 }
 
-/** A dummy method, which can be thought of as a placeholder to initialize
+/** An empty method, which can be thought of as a placeholder to initialize
  *  test-specific GL objects.
  **/
 void PipelineStatisticsQueryTestFunctionalBase::initObjects()
@@ -3506,10 +3512,10 @@ void PipelineStatisticsQueryTestFunctional3::initObjects()
 	const glw::Functions& gl = m_context.getRenderContext().getFunctions();
 
 	buildProgram(DE_NULL,												   /* cs_body */
-				 PipelineStatisticsQueryUtilities::dummy_fs_code, DE_NULL, /* gs_body */
+				 PipelineStatisticsQueryUtilities::minimal_fs_code, DE_NULL, /* gs_body */
 				 DE_NULL,												   /* tc_body */
 				 DE_NULL,												   /* te_body */
-				 PipelineStatisticsQueryUtilities::dummy_vs_code);
+				 PipelineStatisticsQueryUtilities::minimal_vs_code);
 
 	gl.useProgram(m_po_id);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glUseProgram() call failed.");
@@ -3685,7 +3691,7 @@ void PipelineStatisticsQueryTestFunctional4::initObjects()
 				 DE_NULL, /* gs_body */
 				 DE_NULL, /* tc_body */
 				 DE_NULL, /* te_body */
-				 PipelineStatisticsQueryUtilities::dummy_vs_code);
+				 PipelineStatisticsQueryUtilities::minimal_vs_code);
 
 	gl.useProgram(m_po_id);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glUseProgram() call failed.");
@@ -3823,9 +3829,9 @@ void PipelineStatisticsQueryTestFunctional5::initObjects()
 	}
 
 	buildProgram(DE_NULL,												   /* cs_body */
-				 PipelineStatisticsQueryUtilities::dummy_fs_code, DE_NULL, /* gs_body */
-				 PipelineStatisticsQueryUtilities::dummy_tc_code, PipelineStatisticsQueryUtilities::dummy_te_code,
-				 PipelineStatisticsQueryUtilities::dummy_vs_code);
+				 PipelineStatisticsQueryUtilities::minimal_fs_code, DE_NULL, /* gs_body */
+				 PipelineStatisticsQueryUtilities::minimal_tc_code, PipelineStatisticsQueryUtilities::minimal_te_code,
+				 PipelineStatisticsQueryUtilities::minimal_vs_code);
 
 	gl.useProgram(m_po_id);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glUseProgram() call failed.");
@@ -3974,9 +3980,9 @@ bool PipelineStatisticsQueryTestFunctional6::executeTest(glw::GLenum current_que
 				}
 
 				buildProgram(DE_NULL,																	/* cs_body */
-							 PipelineStatisticsQueryUtilities::dummy_fs_code, gs_body.c_str(), DE_NULL, /* tc_body */
+							 PipelineStatisticsQueryUtilities::minimal_fs_code, gs_body.c_str(), DE_NULL, /* tc_body */
 							 DE_NULL,																	/* te_body */
-							 PipelineStatisticsQueryUtilities::dummy_vs_code);
+							 PipelineStatisticsQueryUtilities::minimal_vs_code);
 
 				gl.useProgram(m_po_id);
 				GLU_EXPECT_NO_ERROR(gl.getError(), "glUseProgram() call failed.");
@@ -4230,10 +4236,10 @@ void PipelineStatisticsQueryTestFunctional7::initObjects()
 	const glw::Functions& gl = m_context.getRenderContext().getFunctions();
 
 	buildProgram(DE_NULL,												   /* cs_body */
-				 PipelineStatisticsQueryUtilities::dummy_fs_code, DE_NULL, /* gs_body */
+				 PipelineStatisticsQueryUtilities::minimal_fs_code, DE_NULL, /* gs_body */
 				 DE_NULL,												   /* tc_body */
 				 DE_NULL,												   /* te_body */
-				 PipelineStatisticsQueryUtilities::dummy_vs_code);
+				 PipelineStatisticsQueryUtilities::minimal_vs_code);
 
 	gl.useProgram(m_po_id);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glUseProgram() call failed.");
@@ -4340,12 +4346,12 @@ void PipelineStatisticsQueryTestFunctional8::initObjects()
 	/* This test should not execute if we don't have compute shaders */
 	if (glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::core(4, 3)))
 	{
-		cs_code = PipelineStatisticsQueryUtilities::dummy_cs_code;
+		cs_code = PipelineStatisticsQueryUtilities::minimal_cs_code;
 	}
 	else if (m_context.getContextInfo().isExtensionSupported("GL_ARB_compute_shader") &&
 	m_context.getContextInfo().isExtensionSupported("GL_ARB_shader_atomic_counters"))
 	{
-		cs_code = PipelineStatisticsQueryUtilities::dummy_cs_code_arb;
+		cs_code = PipelineStatisticsQueryUtilities::minimal_cs_code_arb;
 	}
 	else
 	{

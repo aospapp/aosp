@@ -9,16 +9,20 @@ import contextlib
 import glob
 import inspect
 import os
+import shutil
 import subprocess
 import sys
+import zipfile
 
 import pytest
+from jaraco import path
 
 from pkg_resources import Distribution, PathMetadata, PY_MAJOR
+from setuptools.extern.packaging.utils import canonicalize_name
+from setuptools.extern.packaging.tags import parse_tag
 from setuptools.wheel import Wheel
 
 from .contexts import tempdir
-from .files import build_files
 from .textwrap import DALS
 
 
@@ -58,6 +62,7 @@ WHEEL_INFO_TESTS = (
     }),
 )
 
+
 @pytest.mark.parametrize(
     ('filename', 'info'), WHEEL_INFO_TESTS,
     ids=[t[0] for t in WHEEL_INFO_TESTS]
@@ -86,7 +91,7 @@ def build_wheel(extra_file_defs=None, **kwargs):
     if extra_file_defs:
         file_defs.update(extra_file_defs)
     with tempdir() as source_dir:
-        build_files(file_defs, source_dir)
+        path.build(file_defs, source_dir)
         subprocess.check_call((sys.executable, 'setup.py',
                                '-q', 'bdist_wheel'), cwd=source_dir)
         yield glob.glob(os.path.join(source_dir, 'dist', '*.whl'))[0]
@@ -118,11 +123,12 @@ def flatten_tree(tree):
 
 
 def format_install_tree(tree):
-    return {x.format(
-        py_version=PY_MAJOR,
-        platform=get_platform(),
-        shlib_ext=get_config_var('EXT_SUFFIX') or get_config_var('SO'))
-            for x in tree}
+    return {
+        x.format(
+            py_version=PY_MAJOR,
+            platform=get_platform(),
+            shlib_ext=get_config_var('EXT_SUFFIX') or get_config_var('SO'))
+        for x in tree}
 
 
 def _check_wheel_install(filename, install_dir, install_tree_includes,
@@ -142,10 +148,11 @@ def _check_wheel_install(filename, install_dir, install_tree_includes,
     if requires_txt is None:
         assert not dist.has_metadata('requires.txt')
     else:
+        # Order must match to ensure reproducibility.
         assert requires_txt == dist.get_metadata('requires.txt').lstrip()
 
 
-class Record(object):
+class Record:
 
     def __init__(self, id, **kwargs):
         self._id = id
@@ -414,6 +421,38 @@ WHEEL_INSTALL_TESTS = (
     ),
 
     dict(
+        id='requires_ensure_order',
+        install_requires='''
+        foo
+        bar
+        baz
+        qux
+        ''',
+        extras_require={
+            'extra': '''
+            foobar>3
+            barbaz>4
+            bazqux>5
+            quxzap>6
+            ''',
+        },
+        requires_txt=DALS(
+            '''
+            foo
+            bar
+            baz
+            qux
+
+            [extra]
+            foobar>3
+            barbaz>4
+            bazqux>5
+            quxzap>6
+            '''
+        ),
+    ),
+
+    dict(
         id='namespace_package',
         file_defs={
             'foo': {
@@ -439,6 +478,35 @@ WHEEL_INSTALL_TESTS = (
                 {'foo': [
                     '__init__.py',
                     {'bar': ['__init__.py']},
+                ]},
+            ]
+        }),
+    ),
+
+    dict(
+        id='empty_namespace_package',
+        file_defs={
+            'foobar': {
+                '__init__.py':
+                    "__import__('pkg_resources').declare_namespace(__name__)",
+            },
+        },
+        setup_kwargs=dict(
+            namespace_packages=['foobar'],
+            packages=['foobar'],
+        ),
+        install_tree=flatten_tree({
+            'foo-1.0-py{py_version}.egg': [
+                'foo-1.0-py{py_version}-nspkg.pth',
+                {'EGG-INFO': [
+                    'PKG-INFO',
+                    'RECORD',
+                    'WHEEL',
+                    'namespace_packages.txt',
+                    'top_level.txt',
+                ]},
+                {'foobar': [
+                    '__init__.py',
                 ]},
             ]
         }),
@@ -482,6 +550,7 @@ WHEEL_INSTALL_TESTS = (
 
 )
 
+
 @pytest.mark.parametrize(
     'params', WHEEL_INSTALL_TESTS,
     ids=list(params['id'] for params in WHEEL_INSTALL_TESTS),
@@ -506,3 +575,42 @@ def test_wheel_install(params):
         _check_wheel_install(filename, install_dir,
                              install_tree, project_name,
                              version, requires_txt)
+
+
+def test_wheel_install_pep_503():
+    project_name = 'Foo_Bar'    # PEP 503 canonicalized name is "foo-bar"
+    version = '1.0'
+    with build_wheel(
+        name=project_name,
+        version=version,
+    ) as filename, tempdir() as install_dir:
+        new_filename = filename.replace(project_name,
+                                        canonicalize_name(project_name))
+        shutil.move(filename, new_filename)
+        _check_wheel_install(new_filename, install_dir, None,
+                             canonicalize_name(project_name),
+                             version, None)
+
+
+def test_wheel_no_dist_dir():
+    project_name = 'nodistinfo'
+    version = '1.0'
+    wheel_name = '{0}-{1}-py2.py3-none-any.whl'.format(project_name, version)
+    with tempdir() as source_dir:
+        wheel_path = os.path.join(source_dir, wheel_name)
+        # create an empty zip file
+        zipfile.ZipFile(wheel_path, 'w').close()
+        with tempdir() as install_dir:
+            with pytest.raises(ValueError):
+                _check_wheel_install(wheel_path, install_dir, None,
+                                     project_name,
+                                     version, None)
+
+
+def test_wheel_is_compatible(monkeypatch):
+    def sys_tags():
+        for t in parse_tag('cp36-cp36m-manylinux1_x86_64'):
+            yield t
+    monkeypatch.setattr('setuptools.wheel.sys_tags', sys_tags)
+    assert Wheel(
+        'onnxruntime-0.1.2-cp36-cp36m-manylinux1_x86_64.whl').is_compatible()

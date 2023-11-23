@@ -41,6 +41,7 @@ license {
     name: "external_libcxxabi_license",
     visibility: [":__subpackages__"],
     license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-BSD",
         "SPDX-license-identifier-MIT",
         "SPDX-license-identifier-NCSA",
@@ -174,4 +175,31 @@ cc_fuzz {
         "fuzz/cxa_demangle_fuzzer.cpp",
         "src/cxa_demangle.cpp",
     ],
+}
+
+// Export libc++abi headers for inclusion in the musl sysroot.
+genrule {
+    name: "libc_musl_sysroot_libc++abi_headers",
+    visibility: ["//external/musl"],
+    srcs: [
+        "NOTICE",
+        "include/**/*",
+    ],
+    out: ["libc_musl_sysroot_libc++abi_headers.zip"],
+    tools: [
+        "soong_zip",
+        "zip2zip",
+    ],
+    cmd: "LIBCXXABI_DIR=$$(dirname $(location NOTICE)) && " +
+        "$(location soong_zip) -o $(genDir)/sysroot.zip -symlinks=false" +
+        // NOTICE
+        " -j -f $(location NOTICE) " +
+        // headers
+        " -P include/c++ " +
+        "  -C $${LIBCXXABI_DIR}/include " +
+        "  -D $${LIBCXXABI_DIR}/include " +
+        " && " +
+        "$(location zip2zip) -i $(genDir)/sysroot.zip -o $(out) " +
+        " include/**/*:include " +
+        " NOTICE:NOTICE.libc++abi",
 }

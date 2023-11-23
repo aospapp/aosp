@@ -30,6 +30,11 @@ namespace trace_processor {
 
 namespace {
 
+// Iterates all the references owned by the object `id`.
+//
+// Calls bool(*fn)(uint32_t) with the row index of each reference owned by `id`
+// in the `storage.heap_graph_reference()` table. When `fn` returns false (or
+// when there are no more rows owned by `id`), stops the iteration.
 template <typename F>
 void ForReferenceSet(const TraceStorage& storage,
                      tables::HeapGraphObjectTable::Id id,
@@ -183,6 +188,14 @@ BuildSuperclassMap(UniquePid upid, int64_t ts, TraceStorage* storage) {
   return superclass_map;
 }
 
+// Extract the size from `nar_size`, which is the value of a
+// libcore.util.NativeAllocationRegistry.size field: it encodes the size, but
+// uses the least significant bit to represent the source of the allocation.
+int64_t GetSizeFromNativeAllocationRegistry(int64_t nar_size) {
+  constexpr uint64_t kIsMalloced = 1;
+  return static_cast<int64_t>(static_cast<uint64_t>(nar_size) & ~kIsMalloced);
+}
+
 }  // namespace
 
 void MarkRoot(TraceStorage* storage,
@@ -275,7 +288,17 @@ std::string DenormalizeTypeName(NormalizedType normalized,
 }
 
 HeapGraphTracker::HeapGraphTracker(TraceProcessorContext* context)
-    : context_(context) {}
+    : context_(context),
+      cleaner_thunk_str_id_(
+          context_->storage->InternString("sun.misc.Cleaner.thunk")),
+      referent_str_id_(
+          context_->storage->InternString("java.lang.ref.Reference.referent")),
+      cleaner_thunk_this0_str_id_(context_->storage->InternString(
+          "libcore.util.NativeAllocationRegistry$CleanerThunk.this$0")),
+      native_size_str_id_(context_->storage->InternString(
+          "libcore.util.NativeAllocationRegistry.size")),
+      cleaner_next_str_id_(
+          context_->storage->InternString("sun.misc.Cleaner.next")) {}
 
 HeapGraphTracker::SequenceState& HeapGraphTracker::GetOrCreateSequence(
     uint32_t seq_id) {
@@ -309,6 +332,7 @@ tables::HeapGraphObjectTable::Id HeapGraphTracker::GetOrInsertObject(
             {sequence_state->current_upid,
              sequence_state->current_ts,
              -1,
+             0,
              /*reference_set_id=*/base::nullopt,
              /*reachable=*/0,
              {},
@@ -396,6 +420,11 @@ void HeapGraphTracker::AddObject(uint32_t seq_id,
       sequence_state.deferred_reference_objects_for_type_[type_id].push_back(
           owner_id);
     }
+  }
+
+  if (obj.native_allocation_registry_size.has_value()) {
+    sequence_state.nar_size_by_obj_id[owner_id] =
+        *obj.native_allocation_registry_size;
   }
 }
 
@@ -580,14 +609,14 @@ void HeapGraphTracker::FinalizeProfile(uint32_t seq_id) {
                   current_type->field_name_ids[field_offset_in_cls++];
               auto it = sequence_state.interned_fields.find(field_id);
               if (it == sequence_state.interned_fields.end()) {
-                PERFETTO_ELOG("Invalid field id.");
+                PERFETTO_DLOG("Invalid field id.");
                 context_->storage->IncrementIndexedStats(
                     stats::heap_graph_malformed_packet,
                     static_cast<int>(sequence_state.current_upid));
                 return true;
               }
               const InternedField& field = it->second;
-              auto hgr =
+              auto* hgr =
                   context_->storage->mutable_heap_graph_reference_table();
               hgr->mutable_field_name()->Set(reference_row, field.name);
               hgr->mutable_field_type_name()->Set(reference_row,
@@ -614,48 +643,37 @@ void HeapGraphTracker::FinalizeProfile(uint32_t seq_id) {
     base::StringView normalized_type =
         NormalizeTypeName(context_->storage->GetString(interned_type.name));
 
-    // Annoyingly, some apps have a relative path to base.apk. We take this to
-    // mean the main package, so we treat it as if the location was unknown.
-    bool is_base_apk = false;
+    base::Optional<StringPool::Id> class_package;
     if (location_name) {
-      base::StringView base_apk("base.apk");
-      is_base_apk = context_->storage->GetString(*location_name)
-                        .substr(0, base_apk.size()) == base_apk;
-    }
-
-    if (location_name && !is_base_apk) {
       base::Optional<std::string> package_name =
           PackageFromLocation(context_->storage.get(),
                               context_->storage->GetString(*location_name));
       if (package_name) {
-        class_to_rows_[std::make_pair(
-                           context_->storage->InternString(
-                               base::StringView(*package_name)),
-                           context_->storage->InternString(normalized_type))]
-            .emplace_back(type_id);
+        class_package =
+            context_->storage->InternString(base::StringView(*package_name));
       }
-    } else {
-      // TODO(b/153552977): Remove this workaround.
-      // For profiles collected for old versions of perfetto_hprof, we do not
-      // have any location information. We store them using the nullopt
-      // location, and assume they are all part of the main APK.
-      //
-      // This is to keep ingestion of old profiles working (especially
-      // important for the UI).
-      class_to_rows_[std::make_pair(
-                         base::nullopt,
-                         context_->storage->InternString(normalized_type))]
-          .emplace_back(type_id);
     }
+    if (!class_package) {
+      auto app_id = context_->storage->process_table()
+                        .android_appid()[sequence_state.current_upid];
+      if (app_id) {
+        auto pkg_row =
+            context_->storage->package_list_table().uid().IndexOf(*app_id);
+        if (pkg_row) {
+          class_package =
+              context_->storage->package_list_table().package_name()[*pkg_row];
+        }
+      }
+    }
+
+    class_to_rows_[std::make_pair(
+                       class_package,
+                       context_->storage->InternString(normalized_type))]
+        .emplace_back(type_id);
   }
 
-  if (!sequence_state.deferred_size_objects_for_type_.empty()) {
-    context_->storage->IncrementIndexedStats(
-        stats::heap_graph_malformed_packet,
-        static_cast<int>(sequence_state.current_upid));
-  }
-
-  if (!sequence_state.deferred_reference_objects_for_type_.empty()) {
+  if (!sequence_state.deferred_size_objects_for_type_.empty() ||
+      !sequence_state.deferred_reference_objects_for_type_.empty()) {
     context_->storage->IncrementIndexedStats(
         stats::heap_graph_malformed_packet,
         static_cast<int>(sequence_state.current_upid));
@@ -679,7 +697,110 @@ void HeapGraphTracker::FinalizeProfile(uint32_t seq_id) {
   }
 
   PopulateSuperClasses(sequence_state);
+  PopulateNativeSize(sequence_state);
   sequence_state_.erase(seq_id);
+}
+
+base::Optional<tables::HeapGraphObjectTable::Id>
+HeapGraphTracker::GetReferenceByFieldName(tables::HeapGraphObjectTable::Id obj,
+                                          StringPool::Id field) {
+  const auto& refs_tbl = context_->storage->heap_graph_reference_table();
+
+  base::Optional<tables::HeapGraphObjectTable::Id> referred;
+
+  ForReferenceSet(*context_->storage, obj, [&](uint32_t ref_row) -> bool {
+    if (refs_tbl.field_name()[ref_row] == field) {
+      referred = refs_tbl.owned_id()[ref_row];
+      return false;
+    }
+    return true;
+  });
+
+  return referred;
+}
+
+void HeapGraphTracker::PopulateNativeSize(const SequenceState& seq) {
+  //             +-------------------------------+  .referent   +--------+
+  //             |       sun.misc.Cleaner        | -----------> | Object |
+  //             +-------------------------------+              +--------+
+  //                |
+  //                | .thunk
+  //                v
+  // +----------------------------------------------------+
+  // | libcore.util.NativeAllocationRegistry$CleanerThunk |
+  // +----------------------------------------------------+
+  //   |
+  //   | .this$0
+  //   v
+  // +----------------------------------------------------+
+  // |       libcore.util.NativeAllocationRegistry        |
+  // |                       .size                        |
+  // +----------------------------------------------------+
+  //
+  // `.size` should be attributed as the native size of Object
+
+  const auto& class_tbl = context_->storage->heap_graph_class_table();
+  const auto& objects_tbl = context_->storage->heap_graph_object_table();
+
+  struct Cleaner {
+    tables::HeapGraphObjectTable::Id referent;
+    tables::HeapGraphObjectTable::Id thunk;
+  };
+  std::vector<Cleaner> cleaners;
+
+  auto cleaner_classes =
+      class_tbl.FilterToRowMap({class_tbl.name().eq("sun.misc.Cleaner")});
+  for (auto class_it = cleaner_classes.IterateRows(); class_it;
+       class_it.Next()) {
+    auto class_id = class_tbl.id()[class_it.index()];
+    auto cleaner_objs = objects_tbl.FilterToRowMap(
+        {objects_tbl.type_id().eq(class_id.value),
+         objects_tbl.upid().eq(seq.current_upid),
+         objects_tbl.graph_sample_ts().eq(seq.current_ts)});
+    for (auto obj_it = cleaner_objs.IterateRows(); obj_it; obj_it.Next()) {
+      tables::HeapGraphObjectTable::Id cleaner_obj_id =
+          objects_tbl.id()[obj_it.index()];
+      base::Optional<tables::HeapGraphObjectTable::Id> referent_id =
+          GetReferenceByFieldName(cleaner_obj_id, referent_str_id_);
+      base::Optional<tables::HeapGraphObjectTable::Id> thunk_id =
+          GetReferenceByFieldName(cleaner_obj_id, cleaner_thunk_str_id_);
+
+      if (!referent_id || !thunk_id) {
+        continue;
+      }
+
+      base::Optional<tables::HeapGraphObjectTable::Id> next_id =
+          GetReferenceByFieldName(cleaner_obj_id, cleaner_next_str_id_);
+      if (next_id.has_value() && *next_id == cleaner_obj_id) {
+        // sun.misc.Cleaner.next points to the sun.misc.Cleaner: this means
+        // that the sun.misc.Cleaner.clean() has already been called. Skip this.
+        continue;
+      }
+      cleaners.push_back(Cleaner{*referent_id, *thunk_id});
+    }
+  }
+
+  for (const auto& cleaner : cleaners) {
+    base::Optional<tables::HeapGraphObjectTable::Id> this0 =
+        GetReferenceByFieldName(cleaner.thunk, cleaner_thunk_this0_str_id_);
+    if (!this0) {
+      continue;
+    }
+
+    auto nar_size_it = seq.nar_size_by_obj_id.find(*this0);
+    if (nar_size_it == seq.nar_size_by_obj_id.end()) {
+      continue;
+    }
+
+    uint32_t referent_row = *objects_tbl.id().IndexOf(cleaner.referent);
+    int64_t native_size =
+        GetSizeFromNativeAllocationRegistry(nar_size_it->second);
+    int64_t total_native_size =
+        objects_tbl.native_size()[referent_row] + native_size;
+    context_->storage->mutable_heap_graph_object_table()
+        ->mutable_native_size()
+        ->Set(referent_row, total_native_size);
+  }
 }
 
 // TODO(fmayer): For Android S+ traces, use the superclass_id from the trace.
@@ -738,7 +859,7 @@ void FindPathFromRoot(TraceStorage* storage,
     size_t parent_id;  // id of parent node in the result tree.
     size_t i;          // Index of the next child of this node to handle.
     uint32_t depth;    // Depth in the resulting tree
-                       // (including artifical root).
+                       // (including artificial root).
     std::vector<tables::HeapGraphObjectTable::Id> children;
   };
 
@@ -795,9 +916,31 @@ void FindPathFromRoot(TraceStorage* storage,
           GetChildren(*storage, n);
       children.assign(children_set.cbegin(), children_set.cend());
       PERFETTO_CHECK(children.size() == children_set.size());
+
+      if (storage->heap_graph_object_table().native_size()[row]) {
+        StringPool::Id native_class_name_id = storage->InternString(
+            base::StringView(std::string("[native] ") +
+                             storage->GetString(class_name_id).ToStdString()));
+        std::map<StringId, size_t>::iterator native_it;
+        bool inserted_new_node;
+        std::tie(native_it, inserted_new_node) =
+            path->nodes[path_id].children.insert({native_class_name_id, 0});
+        if (inserted_new_node) {
+          native_it->second = path->nodes.size();
+          path->nodes.emplace_back(PathFromRoot::Node{});
+
+          path->nodes.back().class_name_id = native_class_name_id;
+          path->nodes.back().depth = depth + 1;
+          path->nodes.back().parent_id = path_id;
+        }
+        PathFromRoot::Node* new_output_tree_node = &path->nodes[native_it->second];
+
+        new_output_tree_node->size += storage->heap_graph_object_table().native_size()[row];
+        new_output_tree_node->count++;
+      }
     }
-    // Otherwise we have already handled this node and just need to get its
-    // i-th child.
+
+    // We have already handled this node and just need to get its i-th child.
     if (!children.empty()) {
       PERFETTO_CHECK(i < children.size());
       tables::HeapGraphObjectTable::Id child = children[i];
@@ -867,8 +1010,8 @@ HeapGraphTracker::BuildFlamegraph(const int64_t current_ts,
     FindPathFromRoot(context_->storage.get(), root, &init_path);
   }
 
-  std::vector<int32_t> node_to_cumulative_size(init_path.nodes.size());
-  std::vector<int32_t> node_to_cumulative_count(init_path.nodes.size());
+  std::vector<int64_t> node_to_cumulative_size(init_path.nodes.size());
+  std::vector<int64_t> node_to_cumulative_count(init_path.nodes.size());
   // i > 0 is to skip the artifical root node.
   for (size_t i = init_path.nodes.size() - 1; i > 0; --i) {
     const PathFromRoot::Node& node = init_path.nodes[i];
@@ -908,7 +1051,7 @@ HeapGraphTracker::BuildFlamegraph(const int64_t current_ts,
   return tbl;
 }
 
-void HeapGraphTracker::NotifyEndOfFile() {
+void HeapGraphTracker::FinalizeAllProfiles() {
   if (!sequence_state_.empty()) {
     context_->storage->IncrementStats(stats::heap_graph_non_finalized_graph);
     // There might still be valuable data even though the trace is truncated.

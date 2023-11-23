@@ -23,6 +23,7 @@ package android.icu.lang {
     method public static int getCharFromExtendedName(String);
     method public static int getCharFromName(String);
     method public static int getCharFromNameAlias(String);
+    method public static int getCodePoint(int, int);
     method public static int getCodePoint(char, char);
     method public static int getCodePoint(char);
     method public static int getCombiningClass(int);
@@ -53,6 +54,7 @@ package android.icu.lang {
     method public static boolean isBaseForm(int);
     method public static boolean isDefined(int);
     method public static boolean isDigit(int);
+    method public static boolean isHighSurrogate(int);
     method public static boolean isHighSurrogate(char);
     method public static boolean isISOControl(int);
     method public static boolean isIdentifierIgnorable(int);
@@ -62,6 +64,7 @@ package android.icu.lang {
     method public static boolean isLegal(String);
     method public static boolean isLetter(int);
     method public static boolean isLetterOrDigit(int);
+    method public static boolean isLowSurrogate(int);
     method public static boolean isLowSurrogate(char);
     method public static boolean isLowerCase(int);
     method public static boolean isMirrored(int);
@@ -69,6 +72,7 @@ package android.icu.lang {
     method public static boolean isSpaceChar(int);
     method public static boolean isSupplementary(int);
     method public static boolean isSupplementaryCodePoint(int);
+    method public static boolean isSurrogatePair(int, int);
     method public static boolean isSurrogatePair(char, char);
     method public static boolean isTitleCase(int);
     method public static boolean isUAlphabetic(int);
@@ -84,6 +88,7 @@ package android.icu.lang {
     method public static int offsetByCodePoints(char[], int, int, int, int);
     method public static int toChars(int, char[], int);
     method public static char[] toChars(int);
+    method public static int toCodePoint(int, int);
     method public static int toCodePoint(char, char);
     method public static int toLowerCase(int);
     method public static String toLowerCase(String);
@@ -342,6 +347,8 @@ package android.icu.lang {
     field public static final int TEH_MARBUTA = 42; // 0x2a
     field public static final int TEH_MARBUTA_GOAL = 14; // 0xe
     field public static final int TETH = 43; // 0x2b
+    field public static final int THIN_YEH = 102; // 0x66
+    field public static final int VERTICAL_TAIL = 103; // 0x67
     field public static final int WAW = 44; // 0x2c
     field public static final int YEH = 45; // 0x2d
     field public static final int YEH_BARREE = 46; // 0x2e
@@ -459,6 +466,8 @@ package android.icu.lang {
     field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC;
     field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC_EXTENDED_A;
     field public static final int ARABIC_EXTENDED_A_ID = 210; // 0xd2
+    field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC_EXTENDED_B;
+    field public static final int ARABIC_EXTENDED_B_ID = 309; // 0x135
     field public static final int ARABIC_ID = 12; // 0xc
     field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS;
     field public static final int ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS_ID = 211; // 0xd3
@@ -582,6 +591,8 @@ package android.icu.lang {
     field public static final int CURRENCY_SYMBOLS_ID = 42; // 0x2a
     field public static final android.icu.lang.UCharacter.UnicodeBlock CYPRIOT_SYLLABARY;
     field public static final int CYPRIOT_SYLLABARY_ID = 123; // 0x7b
+    field public static final android.icu.lang.UCharacter.UnicodeBlock CYPRO_MINOAN;
+    field public static final int CYPRO_MINOAN_ID = 310; // 0x136
     field public static final android.icu.lang.UCharacter.UnicodeBlock CYRILLIC;
     field public static final android.icu.lang.UCharacter.UnicodeBlock CYRILLIC_EXTENDED_A;
     field public static final int CYRILLIC_EXTENDED_A_ID = 158; // 0x9e
@@ -634,6 +645,8 @@ package android.icu.lang {
     field public static final android.icu.lang.UCharacter.UnicodeBlock ETHIOPIC_EXTENDED;
     field public static final android.icu.lang.UCharacter.UnicodeBlock ETHIOPIC_EXTENDED_A;
     field public static final int ETHIOPIC_EXTENDED_A_ID = 200; // 0xc8
+    field public static final android.icu.lang.UCharacter.UnicodeBlock ETHIOPIC_EXTENDED_B;
+    field public static final int ETHIOPIC_EXTENDED_B_ID = 311; // 0x137
     field public static final int ETHIOPIC_EXTENDED_ID = 133; // 0x85
     field public static final int ETHIOPIC_ID = 31; // 0x1f
     field public static final android.icu.lang.UCharacter.UnicodeBlock ETHIOPIC_SUPPLEMENT;
@@ -716,6 +729,8 @@ package android.icu.lang {
     field public static final int KAITHI_ID = 193; // 0xc1
     field public static final android.icu.lang.UCharacter.UnicodeBlock KANA_EXTENDED_A;
     field public static final int KANA_EXTENDED_A_ID = 275; // 0x113
+    field public static final android.icu.lang.UCharacter.UnicodeBlock KANA_EXTENDED_B;
+    field public static final int KANA_EXTENDED_B_ID = 312; // 0x138
     field public static final android.icu.lang.UCharacter.UnicodeBlock KANA_SUPPLEMENT;
     field public static final int KANA_SUPPLEMENT_ID = 203; // 0xcb
     field public static final android.icu.lang.UCharacter.UnicodeBlock KANBUN;
@@ -758,6 +773,10 @@ package android.icu.lang {
     field public static final int LATIN_EXTENDED_D_ID = 149; // 0x95
     field public static final android.icu.lang.UCharacter.UnicodeBlock LATIN_EXTENDED_E;
     field public static final int LATIN_EXTENDED_E_ID = 231; // 0xe7
+    field public static final android.icu.lang.UCharacter.UnicodeBlock LATIN_EXTENDED_F;
+    field public static final int LATIN_EXTENDED_F_ID = 313; // 0x139
+    field public static final android.icu.lang.UCharacter.UnicodeBlock LATIN_EXTENDED_G;
+    field public static final int LATIN_EXTENDED_G_ID = 314; // 0x13a
     field public static final android.icu.lang.UCharacter.UnicodeBlock LEPCHA;
     field public static final int LEPCHA_ID = 156; // 0x9c
     field public static final android.icu.lang.UCharacter.UnicodeBlock LETTERLIKE_SYMBOLS;
@@ -883,6 +902,8 @@ package android.icu.lang {
     field public static final int OLD_SOUTH_ARABIAN_ID = 187; // 0xbb
     field public static final android.icu.lang.UCharacter.UnicodeBlock OLD_TURKIC;
     field public static final int OLD_TURKIC_ID = 191; // 0xbf
+    field public static final android.icu.lang.UCharacter.UnicodeBlock OLD_UYGHUR;
+    field public static final int OLD_UYGHUR_ID = 315; // 0x13b
     field public static final android.icu.lang.UCharacter.UnicodeBlock OL_CHIKI;
     field public static final int OL_CHIKI_ID = 157; // 0x9d
     field public static final android.icu.lang.UCharacter.UnicodeBlock OPTICAL_CHARACTER_RECOGNITION;
@@ -1011,6 +1032,8 @@ package android.icu.lang {
     field public static final int TAMIL_ID = 20; // 0x14
     field public static final android.icu.lang.UCharacter.UnicodeBlock TAMIL_SUPPLEMENT;
     field public static final int TAMIL_SUPPLEMENT_ID = 299; // 0x12b
+    field public static final android.icu.lang.UCharacter.UnicodeBlock TANGSA;
+    field public static final int TANGSA_ID = 316; // 0x13c
     field public static final android.icu.lang.UCharacter.UnicodeBlock TANGUT;
     field public static final android.icu.lang.UCharacter.UnicodeBlock TANGUT_COMPONENTS;
     field public static final int TANGUT_COMPONENTS_ID = 273; // 0x111
@@ -1029,12 +1052,16 @@ package android.icu.lang {
     field public static final int TIFINAGH_ID = 144; // 0x90
     field public static final android.icu.lang.UCharacter.UnicodeBlock TIRHUTA;
     field public static final int TIRHUTA_ID = 251; // 0xfb
+    field public static final android.icu.lang.UCharacter.UnicodeBlock TOTO;
+    field public static final int TOTO_ID = 317; // 0x13d
     field public static final android.icu.lang.UCharacter.UnicodeBlock TRANSPORT_AND_MAP_SYMBOLS;
     field public static final int TRANSPORT_AND_MAP_SYMBOLS_ID = 207; // 0xcf
     field public static final android.icu.lang.UCharacter.UnicodeBlock UGARITIC;
     field public static final int UGARITIC_ID = 120; // 0x78
     field public static final android.icu.lang.UCharacter.UnicodeBlock UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS;
     field public static final android.icu.lang.UCharacter.UnicodeBlock UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS_EXTENDED;
+    field public static final android.icu.lang.UCharacter.UnicodeBlock UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS_EXTENDED_A;
+    field public static final int UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS_EXTENDED_A_ID = 318; // 0x13e
     field public static final int UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS_EXTENDED_ID = 173; // 0xad
     field public static final int UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS_ID = 33; // 0x21
     field public static final android.icu.lang.UCharacter.UnicodeBlock VAI;
@@ -1047,6 +1074,8 @@ package android.icu.lang {
     field public static final int VEDIC_EXTENSIONS_ID = 175; // 0xaf
     field public static final android.icu.lang.UCharacter.UnicodeBlock VERTICAL_FORMS;
     field public static final int VERTICAL_FORMS_ID = 145; // 0x91
+    field public static final android.icu.lang.UCharacter.UnicodeBlock VITHKUQI;
+    field public static final int VITHKUQI_ID = 319; // 0x13f
     field public static final android.icu.lang.UCharacter.UnicodeBlock WANCHO;
     field public static final int WANCHO_ID = 300; // 0x12c
     field public static final android.icu.lang.UCharacter.UnicodeBlock WARANG_CITI;
@@ -1061,6 +1090,8 @@ package android.icu.lang {
     field public static final int YI_SYLLABLES_ID = 72; // 0x48
     field public static final android.icu.lang.UCharacter.UnicodeBlock ZANABAZAR_SQUARE;
     field public static final int ZANABAZAR_SQUARE_ID = 280; // 0x118
+    field public static final android.icu.lang.UCharacter.UnicodeBlock ZNAMENNY_MUSICAL_NOTATION;
+    field public static final int ZNAMENNY_MUSICAL_NOTATION_ID = 320; // 0x140
   }
 
   public static interface UCharacter.VerticalOrientation {
@@ -1355,6 +1386,7 @@ package android.icu.lang {
     field public static final int COPTIC = 7; // 0x7
     field public static final int CUNEIFORM = 101; // 0x65
     field public static final int CYPRIOT = 47; // 0x2f
+    field public static final int CYPRO_MINOAN = 193; // 0xc1
     field public static final int CYRILLIC = 8; // 0x8
     field public static final int DEMOTIC_EGYPTIAN = 69; // 0x45
     field public static final int DESERET = 9; // 0x9
@@ -1461,6 +1493,7 @@ package android.icu.lang {
     field public static final int OLD_PERSIAN = 61; // 0x3d
     field public static final int OLD_SOGDIAN = 184; // 0xb8
     field public static final int OLD_SOUTH_ARABIAN = 133; // 0x85
+    field public static final int OLD_UYGHUR = 194; // 0xc2
     field public static final int OL_CHIKI = 109; // 0x6d
     field public static final int ORIYA = 31; // 0x1f
     field public static final int ORKHON = 88; // 0x58
@@ -1500,6 +1533,7 @@ package android.icu.lang {
     field public static final int TAI_VIET = 127; // 0x7f
     field public static final int TAKRI = 153; // 0x99
     field public static final int TAMIL = 35; // 0x23
+    field public static final int TANGSA = 195; // 0xc3
     field public static final int TANGUT = 154; // 0x9a
     field public static final int TELUGU = 36; // 0x24
     field public static final int TENGWAR = 98; // 0x62
@@ -1508,6 +1542,7 @@ package android.icu.lang {
     field public static final int TIBETAN = 39; // 0x27
     field public static final int TIFINAGH = 60; // 0x3c
     field public static final int TIRHUTA = 158; // 0x9e
+    field public static final int TOTO = 196; // 0xc4
     field public static final int TRADITIONAL_HAN = 74; // 0x4a
     field public static final int UCAS = 40; // 0x28
     field public static final int UGARITIC = 53; // 0x35
@@ -1515,6 +1550,7 @@ package android.icu.lang {
     field public static final int UNWRITTEN_LANGUAGES = 102; // 0x66
     field public static final int VAI = 99; // 0x63
     field public static final int VISIBLE_SPEECH = 100; // 0x64
+    field public static final int VITHKUQI = 197; // 0xc5
     field public static final int WANCHO = 188; // 0xbc
     field public static final int WARANG_CITI = 146; // 0x92
     field public static final int WESTERN_SYRIAC = 96; // 0x60
@@ -1649,6 +1685,7 @@ package android.icu.number {
   public class FormattedNumber implements android.icu.text.FormattedValue {
     method public <A extends java.lang.Appendable> A appendTo(A);
     method public char charAt(int);
+    method public android.icu.util.MeasureUnit getOutputUnit();
     method public int length();
     method public boolean nextPosition(android.icu.text.ConstrainedFieldPosition);
     method public CharSequence subSequence(int, int);
@@ -1730,11 +1767,13 @@ package android.icu.number {
   }
 
   public enum NumberFormatter.UnitWidth {
+    enum_constant public static final android.icu.number.NumberFormatter.UnitWidth FORMAL;
     enum_constant public static final android.icu.number.NumberFormatter.UnitWidth FULL_NAME;
     enum_constant public static final android.icu.number.NumberFormatter.UnitWidth HIDDEN;
     enum_constant public static final android.icu.number.NumberFormatter.UnitWidth ISO_CODE;
     enum_constant public static final android.icu.number.NumberFormatter.UnitWidth NARROW;
     enum_constant public static final android.icu.number.NumberFormatter.UnitWidth SHORT;
+    enum_constant public static final android.icu.number.NumberFormatter.UnitWidth VARIANT;
   }
 
   public abstract class NumberFormatterSettings<T extends android.icu.number.NumberFormatterSettings<?>> {
@@ -1751,6 +1790,7 @@ package android.icu.number {
     method public T symbols(android.icu.text.NumberingSystem);
     method public T unit(android.icu.util.MeasureUnit);
     method public T unitWidth(android.icu.number.NumberFormatter.UnitWidth);
+    method public T usage(String);
   }
 
   public abstract class NumberRangeFormatter {
@@ -2241,6 +2281,7 @@ package android.icu.text {
     method public static final android.icu.text.DateFormat getDateTimeInstance(android.icu.util.Calendar, int, int);
     method public static final android.icu.text.DateFormat getInstance();
     method public static final android.icu.text.DateFormat getInstance(android.icu.util.Calendar, java.util.Locale);
+    method public static final android.icu.text.DateFormat getInstance(android.icu.util.Calendar, android.icu.util.ULocale);
     method public static final android.icu.text.DateFormat getInstance(android.icu.util.Calendar);
     method public static final android.icu.text.DateFormat getInstanceForSkeleton(String);
     method public static final android.icu.text.DateFormat getInstanceForSkeleton(String, java.util.Locale);
@@ -2407,6 +2448,13 @@ package android.icu.text {
     field public static final android.icu.text.DateFormat.Field YEAR_WOY;
   }
 
+  public enum DateFormat.HourCycle {
+    enum_constant public static final android.icu.text.DateFormat.HourCycle HOUR_CYCLE_11;
+    enum_constant public static final android.icu.text.DateFormat.HourCycle HOUR_CYCLE_12;
+    enum_constant public static final android.icu.text.DateFormat.HourCycle HOUR_CYCLE_23;
+    enum_constant public static final android.icu.text.DateFormat.HourCycle HOUR_CYCLE_24;
+  }
+
   public class DateFormatSymbols implements java.lang.Cloneable java.io.Serializable {
     ctor public DateFormatSymbols();
     ctor public DateFormatSymbols(java.util.Locale);
@@ -2467,6 +2515,7 @@ package android.icu.text {
     method public final StringBuffer format(android.icu.util.Calendar, android.icu.util.Calendar, StringBuffer, java.text.FieldPosition);
     method public android.icu.text.DateIntervalFormat.FormattedDateInterval formatToValue(android.icu.util.DateInterval);
     method public android.icu.text.DateIntervalFormat.FormattedDateInterval formatToValue(android.icu.util.Calendar, android.icu.util.Calendar);
+    method public android.icu.text.DisplayContext getContext(android.icu.text.DisplayContext.Type);
     method public android.icu.text.DateFormat getDateFormat();
     method public android.icu.text.DateIntervalInfo getDateIntervalInfo();
     method public static final android.icu.text.DateIntervalFormat getInstance(String);
@@ -2477,6 +2526,7 @@ package android.icu.text {
     method public static final android.icu.text.DateIntervalFormat getInstance(String, android.icu.util.ULocale, android.icu.text.DateIntervalInfo);
     method public android.icu.util.TimeZone getTimeZone();
     method @Deprecated public Object parseObject(String, java.text.ParsePosition);
+    method public void setContext(android.icu.text.DisplayContext);
     method public void setDateIntervalInfo(android.icu.text.DateIntervalInfo);
     method public void setTimeZone(android.icu.util.TimeZone);
   }
@@ -2525,6 +2575,7 @@ package android.icu.text {
     method public String getBestPattern(String, int);
     method public String getDateTimeFormat();
     method public String getDecimal();
+    method public android.icu.text.DateFormat.HourCycle getDefaultHourCycle();
     method public static android.icu.text.DateTimePatternGenerator getEmptyInstance();
     method public String getFieldDisplayName(int, android.icu.text.DateTimePatternGenerator.DisplayWidth);
     method public static android.icu.text.DateTimePatternGenerator getInstance();
@@ -2652,6 +2703,8 @@ package android.icu.text {
     method public void setSignificantDigitsUsed(boolean);
     method public String toLocalizedPattern();
     method public String toPattern();
+    field public static final int MINIMUM_GROUPING_DIGITS_AUTO = -2; // 0xfffffffe
+    field public static final int MINIMUM_GROUPING_DIGITS_MIN2 = -3; // 0xfffffffd
     field public static final int PAD_AFTER_PREFIX = 1; // 0x1
     field public static final int PAD_AFTER_SUFFIX = 3; // 0x3
     field public static final int PAD_BEFORE_PREFIX = 0; // 0x0
@@ -2666,6 +2719,7 @@ package android.icu.text {
     method public static android.icu.text.DecimalFormatSymbols forNumberingSystem(java.util.Locale, android.icu.text.NumberingSystem);
     method public static android.icu.text.DecimalFormatSymbols forNumberingSystem(android.icu.util.ULocale, android.icu.text.NumberingSystem);
     method public static java.util.Locale[] getAvailableLocales();
+    method public static android.icu.util.ULocale[] getAvailableULocales();
     method public android.icu.util.Currency getCurrency();
     method public String getCurrencySymbol();
     method public char getDecimalSeparator();
@@ -2838,10 +2892,35 @@ package android.icu.text {
   public final class ListFormatter {
     method public String format(java.lang.Object...);
     method public String format(java.util.Collection<?>);
+    method public android.icu.text.ListFormatter.FormattedList formatToValue(java.lang.Object...);
+    method public android.icu.text.ListFormatter.FormattedList formatToValue(java.util.Collection<?>);
+    method public static android.icu.text.ListFormatter getInstance(android.icu.util.ULocale, android.icu.text.ListFormatter.Type, android.icu.text.ListFormatter.Width);
+    method public static android.icu.text.ListFormatter getInstance(java.util.Locale, android.icu.text.ListFormatter.Type, android.icu.text.ListFormatter.Width);
     method public static android.icu.text.ListFormatter getInstance(android.icu.util.ULocale);
     method public static android.icu.text.ListFormatter getInstance(java.util.Locale);
     method public static android.icu.text.ListFormatter getInstance();
     method public String getPatternForNumItems(int);
+  }
+
+  public static final class ListFormatter.FormattedList implements android.icu.text.FormattedValue {
+    method public <A extends java.lang.Appendable> A appendTo(A);
+    method public char charAt(int);
+    method public int length();
+    method public boolean nextPosition(android.icu.text.ConstrainedFieldPosition);
+    method public CharSequence subSequence(int, int);
+    method public java.text.AttributedCharacterIterator toCharacterIterator();
+  }
+
+  public enum ListFormatter.Type {
+    enum_constant public static final android.icu.text.ListFormatter.Type AND;
+    enum_constant public static final android.icu.text.ListFormatter.Type OR;
+    enum_constant public static final android.icu.text.ListFormatter.Type UNITS;
+  }
+
+  public enum ListFormatter.Width {
+    enum_constant public static final android.icu.text.ListFormatter.Width NARROW;
+    enum_constant public static final android.icu.text.ListFormatter.Width SHORT;
+    enum_constant public static final android.icu.text.ListFormatter.Width WIDE;
   }
 
   public abstract class LocaleDisplayNames {
@@ -3224,6 +3303,7 @@ package android.icu.text {
     method public static android.icu.text.PluralRules parseDescription(String) throws java.text.ParseException;
     method public String select(double);
     method public String select(android.icu.number.FormattedNumber);
+    method public String select(android.icu.number.FormattedNumberRange);
     field public static final android.icu.text.PluralRules DEFAULT;
     field public static final String KEYWORD_FEW = "few";
     field public static final String KEYWORD_MANY = "many";
@@ -4152,10 +4232,12 @@ package android.icu.util {
     method public String getSymbol(android.icu.util.ULocale);
     method public static boolean isAvailable(String, java.util.Date, java.util.Date);
     method public java.util.Currency toJavaCurrency();
+    field public static final int FORMAL_SYMBOL_NAME = 4; // 0x4
     field public static final int LONG_NAME = 1; // 0x1
     field public static final int NARROW_SYMBOL_NAME = 3; // 0x3
     field public static final int PLURAL_LONG_NAME = 2; // 0x2
     field public static final int SYMBOL_NAME = 0; // 0x0
+    field public static final int VARIANT_SYMBOL_NAME = 5; // 0x5
   }
 
   public enum Currency.CurrencyUsage {
@@ -4394,11 +4476,19 @@ package android.icu.util {
   }
 
   public class MeasureUnit implements java.io.Serializable {
+    method public static android.icu.util.MeasureUnit forIdentifier(String);
     method public static java.util.Set<android.icu.util.MeasureUnit> getAvailable(String);
     method public static java.util.Set<android.icu.util.MeasureUnit> getAvailable();
     method public static java.util.Set<java.lang.String> getAvailableTypes();
+    method public android.icu.util.MeasureUnit.Complexity getComplexity();
+    method public int getDimensionality();
+    method public String getIdentifier();
     method public String getSubtype();
     method public String getType();
+    method public android.icu.util.MeasureUnit product(android.icu.util.MeasureUnit);
+    method public android.icu.util.MeasureUnit reciprocal();
+    method public java.util.List<android.icu.util.MeasureUnit> splitToSingleUnits();
+    method public android.icu.util.MeasureUnit withDimensionality(int);
     field public static final android.icu.util.MeasureUnit ACRE;
     field public static final android.icu.util.MeasureUnit ACRE_FOOT;
     field public static final android.icu.util.MeasureUnit AMPERE;
@@ -4410,6 +4500,7 @@ package android.icu.util {
     field public static final android.icu.util.MeasureUnit BUSHEL;
     field public static final android.icu.util.MeasureUnit BYTE;
     field public static final android.icu.util.MeasureUnit CALORIE;
+    field public static final android.icu.util.MeasureUnit CANDELA;
     field public static final android.icu.util.MeasureUnit CARAT;
     field public static final android.icu.util.MeasureUnit CELSIUS;
     field public static final android.icu.util.MeasureUnit CENTILITER;
@@ -4429,6 +4520,7 @@ package android.icu.util {
     field public static final android.icu.util.MeasureUnit DECILITER;
     field public static final android.icu.util.MeasureUnit DECIMETER;
     field public static final android.icu.util.MeasureUnit DEGREE;
+    field public static final android.icu.util.MeasureUnit DOT;
     field public static final android.icu.util.MeasureUnit DOT_PER_CENTIMETER;
     field public static final android.icu.util.MeasureUnit DOT_PER_INCH;
     field public static final android.icu.util.MeasureUnit EM;
@@ -4473,6 +4565,7 @@ package android.icu.util {
     field public static final android.icu.util.MeasureUnit LITER;
     field public static final android.icu.util.MeasureUnit LITER_PER_100KILOMETERS;
     field public static final android.icu.util.MeasureUnit LITER_PER_KILOMETER;
+    field public static final android.icu.util.MeasureUnit LUMEN;
     field public static final android.icu.util.MeasureUnit LUX;
     field public static final android.icu.util.MeasureUnit MEGABIT;
     field public static final android.icu.util.MeasureUnit MEGABYTE;
@@ -4546,6 +4639,12 @@ package android.icu.util {
     field public static final android.icu.util.TimeUnit WEEK;
     field public static final android.icu.util.MeasureUnit YARD;
     field public static final android.icu.util.TimeUnit YEAR;
+  }
+
+  public enum MeasureUnit.Complexity {
+    enum_constant public static final android.icu.util.MeasureUnit.Complexity COMPOUND;
+    enum_constant public static final android.icu.util.MeasureUnit.Complexity MIXED;
+    enum_constant public static final android.icu.util.MeasureUnit.Complexity SINGLE;
   }
 
   public class Output<T> {
@@ -4658,6 +4757,7 @@ package android.icu.util {
     method public Object clone();
     method public int compareTo(android.icu.util.ULocale);
     method public static android.icu.util.ULocale createCanonical(String);
+    method public static android.icu.util.ULocale createCanonical(android.icu.util.ULocale);
     method public static android.icu.util.ULocale forLanguageTag(String);
     method public static android.icu.util.ULocale forLocale(java.util.Locale);
     method public static android.icu.util.ULocale[] getAvailableLocales();
@@ -4854,6 +4954,7 @@ package android.icu.util {
     field public static final android.icu.util.VersionInfo UNICODE_12_0;
     field public static final android.icu.util.VersionInfo UNICODE_12_1;
     field public static final android.icu.util.VersionInfo UNICODE_13_0;
+    field public static final android.icu.util.VersionInfo UNICODE_14_0;
     field public static final android.icu.util.VersionInfo UNICODE_1_0;
     field public static final android.icu.util.VersionInfo UNICODE_1_0_1;
     field public static final android.icu.util.VersionInfo UNICODE_1_1_0;

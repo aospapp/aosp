@@ -35,22 +35,31 @@ namespace stats {
   F(ftrace_bundle_tokenizer_errors,     kSingle,  kError,    kAnalysis, ""),   \
   F(ftrace_cpu_bytes_read_begin,        kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_bytes_read_end,          kIndexed, kInfo,     kTrace,    ""),   \
-  F(ftrace_cpu_commit_overrun_begin,    kIndexed, kError,    kTrace,    ""),   \
-  F(ftrace_cpu_commit_overrun_end,      kIndexed, kError,    kTrace,    ""),   \
-  F(ftrace_cpu_dropped_events_begin,    kIndexed, kError,    kTrace,    ""),   \
-  F(ftrace_cpu_dropped_events_end,      kIndexed, kError,    kTrace,    ""),   \
+  F(ftrace_cpu_bytes_read_delta,        kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_commit_overrun_begin,    kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_commit_overrun_end,      kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_commit_overrun_delta,    kIndexed, kError,    kTrace,    ""),   \
+  F(ftrace_cpu_dropped_events_begin,    kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_dropped_events_end,      kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_dropped_events_delta,    kIndexed, kError,    kTrace,    ""),   \
   F(ftrace_cpu_entries_begin,           kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_entries_end,             kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_entries_delta,           kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_now_ts_begin,            kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_now_ts_end,              kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_oldest_event_ts_begin,   kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_oldest_event_ts_end,     kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_overrun_begin,           kIndexed, kInfo,     kTrace,    ""),   \
-  F(ftrace_cpu_overrun_end,             kIndexed, kDataLoss, kTrace,           \
+  F(ftrace_cpu_overrun_end,             kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_overrun_delta,           kIndexed, kDataLoss, kTrace,           \
       "The kernel ftrace buffer cannot keep up with the rate of events "       \
       "produced. Indexed by CPU. This is likely a misconfiguration."),         \
   F(ftrace_cpu_read_events_begin,       kIndexed, kInfo,     kTrace,    ""),   \
   F(ftrace_cpu_read_events_end,         kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_cpu_read_events_delta,       kIndexed, kInfo,     kTrace,    ""),   \
+  F(ftrace_setup_errors,                kSingle,  kError,    kTrace,           \
+  "One or more atrace/ftrace categories were not found or failed to enable. "  \
+  "See ftrace_setup_errors in the metadata table for more details."),          \
   F(fuchsia_non_numeric_counters,       kSingle,  kError,    kAnalysis, ""),   \
   F(fuchsia_timestamp_overflow,         kSingle,  kError,    kAnalysis, ""),   \
   F(fuchsia_invalid_event,              kSingle,  kError,    kAnalysis, ""),   \
@@ -86,6 +95,7 @@ namespace stats {
   F(stackprofile_parser_error,          kSingle,  kError,    kTrace,    ""),   \
   F(systrace_parse_failure,             kSingle,  kError,    kAnalysis, ""),   \
   F(task_state_invalid,                 kSingle,  kError,    kAnalysis, ""),   \
+  F(traced_buf_abi_violations,          kIndexed, kDataLoss, kTrace,    ""),   \
   F(traced_buf_buffer_size,             kIndexed, kInfo,     kTrace,    ""),   \
   F(traced_buf_bytes_overwritten,       kIndexed, kInfo,     kTrace,    ""),   \
   F(traced_buf_bytes_read,              kIndexed, kInfo,     kTrace,    ""),   \
@@ -108,6 +118,11 @@ namespace stats {
   F(traced_chunks_discarded,            kSingle,  kInfo,     kTrace,    ""),   \
   F(traced_data_sources_registered,     kSingle,  kInfo,     kTrace,    ""),   \
   F(traced_data_sources_seen,           kSingle,  kInfo,     kTrace,    ""),   \
+  F(traced_final_flush_failed,          kSingle,  kDataLoss, kTrace,    ""),   \
+  F(traced_final_flush_succeeded,       kSingle,  kInfo,     kTrace,    ""),   \
+  F(traced_flushes_failed,              kSingle,  kDataLoss, kTrace,    ""),   \
+  F(traced_flushes_requested,           kSingle,  kInfo,     kTrace,    ""),   \
+  F(traced_flushes_succeeded,           kSingle,  kInfo,     kTrace,    ""),   \
   F(traced_patches_discarded,           kSingle,  kInfo,     kTrace,    ""),   \
   F(traced_producers_connected,         kSingle,  kInfo,     kTrace,    ""),   \
   F(traced_producers_seen,              kSingle,  kInfo,     kTrace,    ""),   \
@@ -124,6 +139,11 @@ namespace stats {
   F(process_tracker_errors,             kSingle,  kError,    kAnalysis, ""),   \
   F(json_tokenizer_failure,             kSingle,  kError,    kTrace,    ""),   \
   F(json_parser_failure,                kSingle,  kError,    kTrace,    ""),   \
+  F(json_display_time_unit,             kSingle,  kInfo,     kTrace,           \
+      "The displayTimeUnit key was set in the JSON trace. In some prior "      \
+      "versions of trace processor this key could effect how the trace "       \
+      "processor parsed timestamps and durations. In this version the key is " \
+      "ignored which more closely matches the bavahiour of catapult."),        \
   F(heap_graph_invalid_string_id,       kIndexed, kError,    kTrace,    ""),   \
   F(heap_graph_non_finalized_graph,     kSingle,  kError,    kTrace,    ""),   \
   F(heap_graph_malformed_packet,        kIndexed, kError,    kTrace,    ""),   \
@@ -181,7 +201,15 @@ namespace stats {
       "the tracing service. This happens if the ftrace buffers were not "      \
       "cleared properly. These packets are silently dropped by trace "         \
       "processor."),                                                           \
-  F(perf_guardrail_stop_ts,             kIndexed, kDataLoss, kTrace,    "")
+  F(perf_guardrail_stop_ts,             kIndexed, kDataLoss, kTrace,    ""),   \
+  F(sorter_push_event_out_of_order,     kSingle, kError,     kTrace,           \
+      "Trace events are out of order event after sorting. This can happen "    \
+      "due to many factors including clock sync drift, producers emitting "    \
+      "events out of order or a bug in trace processor's logic of sorting."),  \
+  F(unknown_extension_fields,           kSingle,  kError,    kTrace,           \
+      "TraceEvent had unknown extension fields, which might result in "        \
+      "missing some arguments. You may need a newer version of trace "         \
+      "processor to parse them.")
 // clang-format on
 
 enum Type {
@@ -193,8 +221,7 @@ enum Severity {
   kInfo,      // Diagnostic counters
   kDataLoss,  // Correct operation that still resulted in data loss
   kError      // If any kError counter is > 0 trace_processor_shell will
-              // raise an error. This is *not* surfaced in the web UI.
-              // TODO(b/148587181): Surface these errors in the UI.
+              // raise an error. This is also surfaced in the web UI.
 };
 
 enum Source {

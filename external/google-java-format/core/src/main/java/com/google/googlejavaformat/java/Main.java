@@ -14,6 +14,7 @@
 
 package com.google.googlejavaformat.java;
 
+import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.ByteStreams;
@@ -40,7 +41,7 @@ public final class Main {
   private static final int MAX_THREADS = 20;
   private static final String STDIN_FILENAME = "<stdin>";
 
-  static final String versionString() {
+  static String versionString() {
     return "google-java-format: Version " + GoogleJavaFormatVersion.version();
   }
 
@@ -62,20 +63,27 @@ public final class Main {
    * @param args the command-line arguments
    */
   public static void main(String[] args) {
-    int result;
     PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out, UTF_8));
     PrintWriter err = new PrintWriter(new OutputStreamWriter(System.err, UTF_8));
+    int result = main(out, err, args);
+    System.exit(result);
+  }
+
+  /**
+   * Package-private main entry point used this CLI program and the java.util.spi.ToolProvider
+   * implementation in the same package as this Main class.
+   */
+  static int main(PrintWriter out, PrintWriter err, String... args) {
     try {
       Main formatter = new Main(out, err, System.in);
-      result = formatter.format(args);
+      return formatter.format(args);
     } catch (UsageException e) {
       err.print(e.getMessage());
-      result = 0;
+      return 0;
     } finally {
       err.flush();
       out.flush();
     }
-    System.exit(result);
   }
 
   /**
@@ -109,7 +117,7 @@ public final class Main {
   }
 
   private int formatFiles(CommandLineOptions parameters, JavaFormatterOptions options) {
-    int numThreads = Math.min(MAX_THREADS, parameters.files().size());
+    int numThreads = min(MAX_THREADS, parameters.files().size());
     ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
 
     Map<Path, String> inputs = new LinkedHashMap<>();
@@ -146,7 +154,7 @@ public final class Main {
       } catch (ExecutionException e) {
         if (e.getCause() instanceof FormatterException) {
           for (FormatterDiagnostic diagnostic : ((FormatterException) e.getCause()).diagnostics()) {
-            errWriter.println(path + ":" + diagnostic.toString());
+            errWriter.println(path + ":" + diagnostic);
           }
         } else {
           errWriter.println(path + ": error: " + e.getCause().getMessage());
@@ -205,7 +213,7 @@ public final class Main {
       }
     } catch (FormatterException e) {
       for (FormatterDiagnostic diagnostic : e.diagnostics()) {
-        errWriter.println(stdinFilename + ":" + diagnostic.toString());
+        errWriter.println(stdinFilename + ":" + diagnostic);
       }
       ok = false;
       // TODO(cpovirk): Catch other types of exception (as we do in the formatFiles case).

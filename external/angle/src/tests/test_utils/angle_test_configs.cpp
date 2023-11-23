@@ -7,10 +7,36 @@
 #include "test_utils/angle_test_configs.h"
 
 #include "common/platform.h"
+#include "common/string_utils.h"
 #include "util/util_gl.h"
+
+#include <algorithm>
+#include <cctype>
 
 namespace angle
 {
+namespace
+{
+void AppendCapitalizedFeature(std::ostream &stream, Feature feature)
+{
+    const char *name = GetFeatureName(feature);
+
+    if (name == nullptr)
+    {
+        stream << "InternalError";
+        return;
+    }
+
+    const std::string camelCase = angle::ToCamelCase(name);
+
+    stream << static_cast<char>(std::toupper(camelCase[0])) << (camelCase.c_str() + 1);
+}
+
+bool HasFeatureOverride(const std::vector<Feature> &overrides, Feature feature)
+{
+    return std::find(overrides.begin(), overrides.end(), feature) != overrides.end();
+}
+}  // namespace
 
 PlatformParameters::PlatformParameters() : PlatformParameters(2, 0, GLESDriverType::AngleEGL) {}
 
@@ -59,15 +85,20 @@ bool PlatformParameters::isANGLE() const
     return driver == GLESDriverType::AngleEGL;
 }
 
-EGLint PlatformParameters::getAllocateNonZeroMemoryFeature() const
-{
-    return eglParameters.allocateNonZeroMemoryFeature;
-}
-
 void PlatformParameters::initDefaultParameters()
 {
     // Default debug layers to enabled in tests.
     eglParameters.debugLayersEnabled = EGL_TRUE;
+}
+
+bool PlatformParameters::isEnabled(Feature feature) const
+{
+    return HasFeatureOverride(eglParameters.enabledFeatureOverrides, feature);
+}
+
+bool PlatformParameters::isDisabled(Feature feature) const
+{
+    return HasFeatureOverride(eglParameters.disabledFeatureOverrides, feature);
 }
 
 bool operator<(const PlatformParameters &a, const PlatformParameters &b)
@@ -196,106 +227,25 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
         stream << "_NoFixture";
     }
 
-    if (pp.eglParameters.contextVirtualization == EGL_FALSE)
+    if (pp.eglParameters.displayPowerPreference == EGL_LOW_POWER_ANGLE)
     {
-        stream << "_NoVirtual";
+        stream << "_LowPowerGPU";
     }
 
-    if (pp.eglParameters.transformFeedbackFeature == EGL_FALSE)
+    if (pp.eglParameters.displayPowerPreference == EGL_HIGH_POWER_ANGLE)
     {
-        stream << "_NoTransformFeedback";
-    }
-    else if (pp.eglParameters.transformFeedbackFeature == EGL_TRUE)
-    {
-        stream << "_TransformFeedback";
+        stream << "_HighPowerGPU";
     }
 
-    if (pp.eglParameters.allocateNonZeroMemoryFeature == EGL_FALSE)
+    for (Feature feature : pp.eglParameters.enabledFeatureOverrides)
     {
-        stream << "_NoAllocateNonZeroMemory";
+        stream << "_";
+        AppendCapitalizedFeature(stream, feature);
     }
-    else if (pp.eglParameters.allocateNonZeroMemoryFeature == EGL_TRUE)
+    for (Feature feature : pp.eglParameters.disabledFeatureOverrides)
     {
-        stream << "_AllocateNonZeroMemory";
-    }
-
-    if (pp.eglParameters.emulateCopyTexImage2DFromRenderbuffers == EGL_TRUE)
-    {
-        stream << "_EmulateCopyTexImage2DFromRenderbuffers";
-    }
-
-    if (pp.eglParameters.shaderStencilOutputFeature == EGL_FALSE)
-    {
-        stream << "_NoStencilOutput";
-    }
-
-    if (pp.eglParameters.genMultipleMipsPerPassFeature == EGL_FALSE)
-    {
-        stream << "_NoGenMultipleMipsPerPass";
-    }
-
-    switch (pp.eglParameters.emulatedPrerotation)
-    {
-        case 90:
-            stream << "_PreRotate90";
-            break;
-        case 180:
-            stream << "_PreRotate180";
-            break;
-        case 270:
-            stream << "_PreRotate270";
-            break;
-        default:
-            break;
-    }
-
-    if (pp.eglParameters.asyncCommandQueueFeatureVulkan == EGL_TRUE)
-    {
-        stream << "_AsyncQueue";
-    }
-
-    if (pp.eglParameters.hasExplicitMemBarrierFeatureMtl == EGL_FALSE)
-    {
-        stream << "_NoMetalExplicitMemoryBarrier";
-    }
-
-    if (pp.eglParameters.hasCheapRenderPassFeatureMtl == EGL_FALSE)
-    {
-        stream << "_NoMetalCheapRenderPass";
-    }
-
-    if (pp.eglParameters.forceBufferGPUStorageFeatureMtl == EGL_TRUE)
-    {
-        stream << "_ForceMetalBufferGPUStorage";
-    }
-
-    if (pp.eglParameters.supportsVulkanViewportFlip == EGL_TRUE)
-    {
-        stream << "_VulkanViewportFlip";
-    }
-    else if (pp.eglParameters.supportsVulkanViewportFlip == EGL_FALSE)
-    {
-        stream << "_NoVulkanViewportFlip";
-    }
-
-    if (pp.eglParameters.emulatedVAOs == EGL_TRUE)
-    {
-        stream << "_EmulatedVAOs";
-    }
-
-    if (pp.eglParameters.directSPIRVGeneration == EGL_TRUE)
-    {
-        stream << "_DirectSPIRVGen";
-    }
-
-    if (pp.eglParameters.directMetalGeneration == EGL_TRUE)
-    {
-        stream << "_DirectMetalGen";
-    }
-
-    if (pp.eglParameters.forceInitShaderVariables == EGL_TRUE)
-    {
-        stream << "_InitShaderVars";
+        stream << "_No";
+        AppendCapitalizedFeature(stream, feature);
     }
 
     return stream;
@@ -371,12 +321,6 @@ EGLPlatformParameters D3D11_FL10_0()
                                  EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE);
 }
 
-EGLPlatformParameters D3D11_FL9_3()
-{
-    return EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, 9, 3,
-                                 EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE);
-}
-
 EGLPlatformParameters D3D11_NULL()
 {
     return EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, EGL_DONT_CARE, EGL_DONT_CARE,
@@ -413,12 +357,6 @@ EGLPlatformParameters D3D11_FL10_0_WARP()
                                  EGL_PLATFORM_ANGLE_DEVICE_TYPE_D3D_WARP_ANGLE);
 }
 
-EGLPlatformParameters D3D11_FL9_3_WARP()
-{
-    return EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, 9, 3,
-                                 EGL_PLATFORM_ANGLE_DEVICE_TYPE_D3D_WARP_ANGLE);
-}
-
 EGLPlatformParameters D3D11_REFERENCE()
 {
     return EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, EGL_DONT_CARE, EGL_DONT_CARE,
@@ -446,12 +384,6 @@ EGLPlatformParameters D3D11_FL10_1_REFERENCE()
 EGLPlatformParameters D3D11_FL10_0_REFERENCE()
 {
     return EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, 10, 0,
-                                 EGL_PLATFORM_ANGLE_DEVICE_TYPE_D3D_REFERENCE_ANGLE);
-}
-
-EGLPlatformParameters D3D11_FL9_3_REFERENCE()
-{
-    return EGLPlatformParameters(EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, 9, 3,
                                  EGL_PLATFORM_ANGLE_DEVICE_TYPE_D3D_REFERENCE_ANGLE);
 }
 
@@ -579,11 +511,6 @@ PlatformParameters ES2_D3D11_FL10_0()
     return PlatformParameters(2, 0, egl_platform::D3D11_FL10_0());
 }
 
-PlatformParameters ES2_D3D11_FL9_3()
-{
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL9_3());
-}
-
 PlatformParameters ES2_D3D11_WARP()
 {
     return PlatformParameters(2, 0, egl_platform::D3D11_WARP());
@@ -604,11 +531,6 @@ PlatformParameters ES2_D3D11_FL10_0_WARP()
     return PlatformParameters(2, 0, egl_platform::D3D11_FL10_0_WARP());
 }
 
-PlatformParameters ES2_D3D11_FL9_3_WARP()
-{
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL9_3_WARP());
-}
-
 PlatformParameters ES2_D3D11_REFERENCE()
 {
     return PlatformParameters(2, 0, egl_platform::D3D11_REFERENCE());
@@ -627,11 +549,6 @@ PlatformParameters ES2_D3D11_FL10_1_REFERENCE()
 PlatformParameters ES2_D3D11_FL10_0_REFERENCE()
 {
     return PlatformParameters(2, 0, egl_platform::D3D11_FL10_0_REFERENCE());
-}
-
-PlatformParameters ES2_D3D11_FL9_3_REFERENCE()
-{
-    return PlatformParameters(2, 0, egl_platform::D3D11_FL9_3_REFERENCE());
 }
 
 PlatformParameters ES3_D3D11()

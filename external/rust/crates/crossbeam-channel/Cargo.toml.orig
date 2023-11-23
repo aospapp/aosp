@@ -4,14 +4,12 @@ name = "crossbeam-channel"
 # - Update CHANGELOG.md
 # - Update README.md
 # - Create "crossbeam-channel-X.Y.Z" git tag
-version = "0.5.0"
-authors = ["The Crossbeam Project Developers"]
+version = "0.5.2"
 edition = "2018"
+rust-version = "1.36"
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/crossbeam-rs/crossbeam"
 homepage = "https://github.com/crossbeam-rs/crossbeam/tree/master/crossbeam-channel"
-documentation = "https://docs.rs/crossbeam-channel"
 description = "Multi-producer multi-consumer channels for message passing"
 keywords = ["channel", "mpmc", "select", "golang", "message"]
 categories = ["algorithms", "concurrency", "data-structures"]
@@ -21,6 +19,8 @@ default = ["std"]
 
 # Enable to use APIs that require `std`.
 # This is enabled by default.
+#
+# NOTE: Disabling `std` feature is not supported yet.
 std = ["crossbeam-utils/std"]
 
 [dependencies]
@@ -34,5 +34,5 @@ optional = true
 
 [dev-dependencies]
 num_cpus = "1.13.0"
-rand = "0.7.3"
-signal-hook = "0.1.15"
+rand = "0.8"
+signal-hook = "0.3"

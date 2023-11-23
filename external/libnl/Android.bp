@@ -53,6 +53,14 @@ cc_library {
                 "include/linux-private",
             ],
         },
+        host: {
+            srcs: [
+                "lib/route/link.c",
+                "lib/route/link/api.c",
+                "lib/route/link/macvlan.c",
+                "lib/route/link/sriov.c",
+            ],
+        },
     },
 
     srcs: [

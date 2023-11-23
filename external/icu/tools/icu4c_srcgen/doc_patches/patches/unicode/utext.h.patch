@@ -1,6 +1,6 @@
---- libicu/ndk_headers/unicode/utext.h	2021-02-10 23:39:51.649654277 +0000
-+++ libicu/ndk_headers/unicode/utext.h	2021-02-10 23:39:51.865655704 +0000
-@@ -625,787 +625,6 @@
+--- libicu/ndk_headers/unicode/utext.h	2021-07-29 18:38:27.265302620 +0100
++++ libicu/ndk_headers/unicode/utext.h	2021-07-29 18:38:27.533304961 +0100
+@@ -627,787 +627,6 @@
  
  
  
@@ -27,7 +27,7 @@
 - * Returns U_SENTINEL (-1) if the position is at the end of the
 - * text.
 - *
-- * @internal ICU 4.4 technology preview
+- * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. ICU 4.4 technology preview
 - */
 -#define UTEXT_CURRENT32(ut)  \
 -    ((ut)->chunkOffset < (ut)->chunkLength && ((ut)->chunkContents)[(ut)->chunkOffset]<0xd800 ? \
@@ -43,7 +43,7 @@
 - * Returns U_SENTINEL (-1) if the position is at the end of the
 - * text.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -#define UTEXT_NEXT32(ut)  \
 -    ((ut)->chunkOffset < (ut)->chunkLength && ((ut)->chunkContents)[(ut)->chunkOffset]<0xd800 ? \
@@ -57,7 +57,7 @@
 - *  This is a pre-decrement operation.
 - *  Returns U_SENTINEL (-1) if the position is at the start of the  text.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -#define UTEXT_PREVIOUS32(ut)  \
 -    ((ut)->chunkOffset > 0 && \
@@ -74,7 +74,7 @@
 -  * the corresponding UChar (UTF-16) index.
 -  * The returned position will always be aligned to a code point boundary. 
 -  *
--  * @stable ICU 3.6
+-  * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -  */
 -#define UTEXT_GETNATIVEINDEX(ut)                       \
 -    ((ut)->chunkOffset <= (ut)->nativeIndexingLimit?   \
@@ -90,7 +90,7 @@
 -  * If the index is out of range, it will be pinned to be within
 -  * the range of the input text.
 -  *
--  * @stable ICU 3.8
+-  * \xrefitem stable "Stable" "Stable List" ICU 3.8
 -  */
 -#define UTEXT_SETNATIVEINDEX(ut, ix) UPRV_BLOCK_MACRO_BEGIN { \
 -    int64_t __offset = (ix) - (ut)->chunkNativeStart; \
@@ -132,32 +132,32 @@
 - * UText provider properties (bit field indexes).
 - *
 - * @see UText
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -enum {
 -    /**
 -     * It is potentially time consuming for the provider to determine the length of the text.
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    UTEXT_PROVIDER_LENGTH_IS_EXPENSIVE = 1,
 -    /**
 -     * Text chunks remain valid and usable until the text object is modified or
 -     * deleted, not just until the next time the access() function is called
 -     * (which is the default).
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    UTEXT_PROVIDER_STABLE_CHUNKS = 2,
 -    /**
 -     * The provider supports modifying the text via the replace() and copy()
 -     * functions.
 -     * @see Replaceable
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    UTEXT_PROVIDER_WRITABLE = 3,
 -    /**
 -     * There is meta data associated with the text.
 -     * @see Replaceable::hasMetaData()
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */ 
 -    UTEXT_PROVIDER_HAS_META_DATA = 4,
 -    /**
@@ -165,7 +165,7 @@
 -     *  Generally occurs as the result of a deep clone of the UText.
 -     *  When closing the UText, the associated text must
 -     *  also be closed/deleted/freed/ whatever is appropriate.
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -     UTEXT_PROVIDER_OWNS_TEXT = 5
 -};
@@ -205,7 +205,7 @@
 -  *                original text.
 -  *  @return       The newly created clone, or NULL if the clone operation failed.
 -  *
--  * @stable ICU 3.4
+-  * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -  */
 -typedef UText * U_CALLCONV
 -UTextClone(UText *dest, const UText *src, UBool deep, UErrorCode *status);
@@ -217,7 +217,7 @@
 - * @param ut the UText to get the length of.
 - * @return the length, in the native units of the original text string.
 - * @see UText
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef int64_t U_CALLCONV
 -UTextNativeLength(UText *ut);
@@ -245,7 +245,7 @@
 - *                    (the requested index is out of bounds).
 - *
 - * @see UText
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef UBool U_CALLCONV
 -UTextAccess(UText *ut, int64_t nativeIndex, UBool forward);
@@ -275,7 +275,7 @@
 - *                       preflighting.
 - * @return Number of UChars in the data.  Does not include a trailing NUL.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef int32_t U_CALLCONV
 -UTextExtract(UText *ut,
@@ -310,7 +310,7 @@
 - * @return The signed number of (native) storage units by which
 - *         the length of the text expanded or contracted.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef int32_t U_CALLCONV
 -UTextReplace(UText *ut,
@@ -344,7 +344,7 @@
 - * @param move         If true, then the substring is moved, not copied/duplicated.
 - * @param status       receives any error status.  Possible errors include U_NO_WRITE_PERMISSION
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef void U_CALLCONV
 -UTextCopy(UText *ut,
@@ -364,7 +364,7 @@
 - * @return Absolute (native) index corresponding to chunkOffset in the current chunk.
 - *         The returned native index should always be to a code point boundary.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef int64_t U_CALLCONV
 -UTextMapOffsetToNative(const UText *ut);
@@ -382,7 +382,7 @@
 - * @return            Chunk-relative UTF-16 offset corresponding to the specified native
 - *                    index.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef int32_t U_CALLCONV
 -UTextMapNativeIndexToUTF16(const UText *ut, int64_t nativeIndex);
@@ -403,7 +403,7 @@
 - *
 - * @param ut A UText object to be closed.
 - *
-- * @stable ICU 3.4
+- * \xrefitem stable "Stable" "Stable List" ICU 3.4
 - */
 -typedef void U_CALLCONV
 -UTextClose(UText *ut);
@@ -416,7 +416,7 @@
 -  *             Each text provider implementation must provide an
 -  *              actual table that is initialized with the appropriate functions
 -  *              for the type of text being handled.
--  *   @stable ICU 3.6
+-  *   \xrefitem stable "Stable" "Stable List" ICU 3.6
 -  */
 -struct UTextFuncs {
 -    /**
@@ -431,23 +431,23 @@
 -     *             4 pointers,
 -     *             2 64-bit fields
 -     *             in sequence.
--     *   @stable ICU 3.6
+-     *   \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    int32_t       tableSize;
 -
 -    /**
 -      *   (private)  Alignment padding.
 -      *              Do not use, reserved for use by the UText framework only.
--      *   @internal
+-      *   \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -      */
--    int32_t       reserved1, /** @internal */ reserved2, /** @internal */ reserved3;
+-    int32_t       reserved1, /** \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */ reserved2, /** \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. */ reserved3;
 -
 -
 -    /**
 -     * (public) Function pointer for UTextClone
 -     *
 -     * @see UTextClone
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextClone *clone;
 -
@@ -456,7 +456,7 @@
 -     * May be expensive to compute!
 -     *
 -     * @see UTextLength
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextNativeLength *nativeLength;
 -
@@ -464,7 +464,7 @@
 -     * (public) Function pointer for UTextAccess.
 -     *
 -     * @see UTextAccess
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextAccess *access;
 -
@@ -472,7 +472,7 @@
 -     * (public) Function pointer for UTextExtract.
 -     *
 -     * @see UTextExtract
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextExtract *extract;
 -
@@ -480,7 +480,7 @@
 -     * (public) Function pointer for UTextReplace.
 -     *
 -     * @see UTextReplace
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextReplace *replace;
 -
@@ -488,7 +488,7 @@
 -     * (public) Function pointer for UTextCopy.
 -     *
 -     * @see UTextCopy
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextCopy *copy;
 -
@@ -496,7 +496,7 @@
 -     * (public) Function pointer for UTextMapOffsetToNative.
 -     *
 -     * @see UTextMapOffsetToNative
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextMapOffsetToNative *mapOffsetToNative;
 -
@@ -504,7 +504,7 @@
 -     * (public) Function pointer for UTextMapNativeIndexToUTF16.
 -     *
 -     * @see UTextMapNativeIndexToUTF16
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    UTextMapNativeIndexToUTF16 *mapNativeIndexToUTF16;
 -
@@ -512,25 +512,25 @@
 -     * (public) Function pointer for UTextClose.
 -      *
 -      * @see UTextClose
--      * @stable ICU 3.6
+-      * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -      */
 -    UTextClose  *close;
 -
 -    /**
 -      * (private)  Spare function pointer
--      * @internal
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -      */
 -    UTextClose  *spare1;
 -    
 -    /**
 -      * (private)  Spare function pointer
--      * @internal
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -      */
 -    UTextClose  *spare2;
 -
 -    /**
 -      * (private)  Spare function pointer
--      * @internal
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -      */
 -    UTextClose  *spare3;
 -
@@ -550,7 +550,7 @@
 -  *                  to pass text data to ICU services will have no need to view the
 -  *                  internals of the UText structs that they open.
 -  *
--  * @stable ICU 3.6
+-  * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -  */
 -struct UText {
 -    /**
@@ -563,7 +563,7 @@
 -     *                        Text provider close functions must NOT clear
 -     *                        the magic field because that would prevent
 -     *                        reuse of the UText struct.
--     * @internal
+-     * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -     */
 -    uint32_t       magic;
 -
@@ -571,7 +571,7 @@
 -    /**
 -     *     (private)  Flags for managing the allocation and freeing of
 -     *                memory associated with this UText.
--     * @internal
+-     * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -     */
 -    int32_t        flags;
 -
@@ -579,7 +579,7 @@
 -    /**
 -      *  Text provider properties.  This set of flags is maintained by the
 -      *                             text provider implementation.
--      *  @stable ICU 3.4
+-      *  \xrefitem stable "Stable" "Stable List" ICU 3.4
 -      */
 -    int32_t         providerProperties;
 -
@@ -587,7 +587,7 @@
 -     * (public) sizeOfStruct=sizeof(UText)
 -     * Allows possible backward compatible extension.
 -     *
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    int32_t         sizeOfStruct;
 -    
@@ -597,13 +597,13 @@
 -    /**
 -      *  (protected) Native index of the first character position following
 -      *              the current chunk.
--      *  @stable ICU 3.6
+-      *  \xrefitem stable "Stable" "Stable List" ICU 3.6
 -      */
 -    int64_t         chunkNativeLimit;
 -
 -    /**
 -     *   (protected)  Size in bytes of the extra space (pExtra).
--     *  @stable ICU 3.4
+-     *  \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    int32_t        extraSize;
 -
@@ -612,7 +612,7 @@
 -      *    chunk (UTF-16) indexing correspond.  For UTF-16 sources, value
 -      *    will be equal to chunkLength.
 -      *
--      *    @stable ICU 3.6
+-      *    \xrefitem stable "Stable" "Stable List" ICU 3.6
 -      */
 -    int32_t         nativeIndexingLimit;
 -
@@ -620,20 +620,20 @@
 -    
 -    /**
 -     *  (protected) Native index of the first character in the text chunk.
--     *  @stable ICU 3.6
+-     *  \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    int64_t         chunkNativeStart;
 -
 -    /**
 -     *  (protected) Current iteration position within the text chunk (UTF-16 buffer).
 -     *  This is the index to the character that will be returned by utext_next32().
--     *  @stable ICU 3.6
+-     *  \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    int32_t         chunkOffset;
 -
 -    /**
 -     *  (protected) Length the text chunk (UTF-16 buffer), in UChars.
--     *  @stable ICU 3.6
+-     *  \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    int32_t         chunkLength;
 -
@@ -644,20 +644,20 @@
 -     *  (protected)  pointer to a chunk of text in UTF-16 format.
 -     *  May refer either to original storage of the source of the text, or
 -     *  if conversion was required, to a buffer owned by the UText.
--     *  @stable ICU 3.6
+-     *  \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    const UChar    *chunkContents;
 -
 -     /**
 -      * (public)     Pointer to Dispatch table for accessing functions for this UText.
--      * @stable ICU 3.6
+-      * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -      */
 -    const UTextFuncs     *pFuncs;
 -
 -    /**
 -     *  (protected)  Pointer to additional space requested by the
 -     *               text provider during the utext_open operation.
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    void          *pExtra;
 -
@@ -665,7 +665,7 @@
 -     * (protected) Pointer to string or text-containing object or similar.
 -     * This is the source of the text that this UText is wrapping, in a format
 -     *  that is known to the text provider functions.
--     * @stable ICU 3.4
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -     */
 -    const void   *context;
 -
@@ -674,26 +674,26 @@
 -    /**
 -     * (protected) Pointer fields available for use by the text provider.
 -     * Not used by UText common code.
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    const void     *p; 
 -    /**
 -     * (protected) Pointer fields available for use by the text provider.
 -     * Not used by UText common code.
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -     */
 -    const void     *q;
 -     /**
 -     * (protected) Pointer fields available for use by the text provider.
 -     * Not used by UText common code.
--     * @stable ICU 3.6
+-     * \xrefitem stable "Stable" "Stable List" ICU 3.6
 -      */
 -    const void     *r;
 -
 -    /**
 -      *  Private field reserved for future use by the UText framework
 -      *     itself.  This is not to be touched by the text providers.
--      * @internal ICU 3.4
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. ICU 3.4
 -      */
 -    void           *privP;
 -
@@ -704,21 +704,21 @@
 -    /**
 -      * (protected) Integer field reserved for use by the text provider.
 -      * Not used by the UText framework, or by the client (user) of the UText.
--      * @stable ICU 3.4
+-      * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -      */
 -    int64_t         a;
 -
 -    /**
 -      * (protected) Integer field reserved for use by the text provider.
 -      * Not used by the UText framework, or by the client (user) of the UText.
--      * @stable ICU 3.4
+-      * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -      */
 -    int32_t         b;
 -
 -    /**
 -      * (protected) Integer field reserved for use by the text provider.
 -      * Not used by the UText framework, or by the client (user) of the UText.
--      * @stable ICU 3.4
+-      * \xrefitem stable "Stable" "Stable List" ICU 3.4
 -      */
 -    int32_t         c;
 -
@@ -728,19 +728,19 @@
 -    /**
 -      *  Private field reserved for future use by the UText framework
 -      *     itself.  This is not to be touched by the text providers.
--      * @internal ICU 3.4
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. ICU 3.4
 -      */
 -    int64_t         privA;
 -    /**
 -      *  Private field reserved for future use by the UText framework
 -      *     itself.  This is not to be touched by the text providers.
--      * @internal ICU 3.4
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. ICU 3.4
 -      */
 -    int32_t         privB;
 -    /**
 -      *  Private field reserved for future use by the UText framework
 -      *     itself.  This is not to be touched by the text providers.
--      * @internal ICU 3.4
+-      * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only. ICU 3.4
 -      */
 -    int32_t         privC;
 -};
@@ -750,7 +750,7 @@
 -
 -// do not use #ifndef U_HIDE_INTERNAL_API around the following!
 -/**
--  * @internal
+-  * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
 -  *  Value used to help identify correctly initialized UText structs.
 -  *  Note:  must be publicly visible so that UTEXT_INITIALIZER can access it.
 -  */
@@ -763,7 +763,7 @@
 - *  struct.  UText structs must be initialized before passing
 - *  them to one of the utext_open functions.
 - *
-- * @stable ICU 3.6
+- * \xrefitem stable "Stable" "Stable List" ICU 3.6
 - */
 -#define UTEXT_INITIALIZER {                                        \
 -                  UTEXT_MAGIC,          /* magic                */ \

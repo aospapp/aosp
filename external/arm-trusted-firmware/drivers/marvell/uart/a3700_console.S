@@ -45,25 +45,23 @@ func console_a3700_core_init
 	cbz	w2, init_fail
 
 	/* Program the baudrate */
-	/* Divisor =  Uart clock / (16 * baudrate) */
+	/* Divisor = Round(Uartclock / (16 * baudrate)) */
 	lsl	w2, w2, #4
+	add	w1, w1, w2, lsr #1
 	udiv	w2, w1, w2
-	and	w2, w2, #0x3ff
+	and	w2, w2, #0x3ff /* clear all other bits to use default clock */
 
-	ldr	w3, [x0, #UART_BAUD_REG]
-	bic	w3, w3, 0x3ff
-	orr	w3, w3, w2
-	str	w3, [x0, #UART_BAUD_REG]/* set baud rate divisor */
+	str	w2, [x0, #UART_BAUD_REG]/* set baud rate divisor */
 
 	/* Set UART to default 16X scheme */
 	mov	w3, #0
 	str	w3, [x0, #UART_POSSR_REG]
 
 	/*
-	 * Wait for the TX (THR and TSR) to be empty. If wait for 20ms, the TX FIFO is
+	 * Wait for the TX (THR and TSR) to be empty. If wait for 3ms, the TX FIFO is
 	 * still not empty, TX FIFO will reset by all means.
 	 */
-	mov	w1, #20				/* max time out 20ms */
+	mov	w1, #30				/* max time out 30 * 100 us */
 2:
 	/* Check whether TX (THR and TSR) is empty */
 	ldr	w3, [x0, #UART_STATUS_REG]
@@ -72,13 +70,13 @@ func console_a3700_core_init
 	b.ne	4f
 
 	/* Delay */
-	mov	w2, #30000
+	mov	w2, #60000	/* 60000 cycles of below 3 instructions on 1200 MHz CPU ~~ 100 us */
 3:
 	sub     w2, w2, #1
 	cmp	w2, #0
 	b.ne	3b
 
-	/* Check whether 10ms is waited */
+	/* Check whether wait timeout expired */
 	sub     w1, w1, #1
 	cmp	w1, #0
 	b.ne	2b

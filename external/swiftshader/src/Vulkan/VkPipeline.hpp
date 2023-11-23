@@ -93,11 +93,11 @@ public:
 
 	static size_t ComputeRequiredAllocationSize(const VkGraphicsPipelineCreateInfo *pCreateInfo);
 
-	void compileShaders(const VkAllocationCallbacks *pAllocator, const VkGraphicsPipelineCreateInfo *pCreateInfo, PipelineCache *pipelineCache);
+	VkResult compileShaders(const VkAllocationCallbacks *pAllocator, const VkGraphicsPipelineCreateInfo *pCreateInfo, PipelineCache *pipelineCache);
 
 	const GraphicsState getState(const DynamicState &ds) const { return state.combineStates(ds); }
 
-	void getIndexBuffers(uint32_t count, uint32_t first, bool indexed, std::vector<std::pair<uint32_t, void *>> *indexBuffers) const;
+	void getIndexBuffers(const vk::DynamicState &dynamicState, uint32_t count, uint32_t first, bool indexed, std::vector<std::pair<uint32_t, void *>> *indexBuffers) const;
 
 	IndexBuffer &getIndexBuffer() { return indexBuffer; }
 	const IndexBuffer &getIndexBuffer() const { return indexBuffer; }
@@ -139,7 +139,7 @@ public:
 
 	static size_t ComputeRequiredAllocationSize(const VkComputePipelineCreateInfo *pCreateInfo);
 
-	void compileShaders(const VkAllocationCallbacks *pAllocator, const VkComputePipelineCreateInfo *pCreateInfo, PipelineCache *pipelineCache);
+	VkResult compileShaders(const VkAllocationCallbacks *pAllocator, const VkComputePipelineCreateInfo *pCreateInfo, PipelineCache *pipelineCache);
 
 	void run(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ,
 	         uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ,

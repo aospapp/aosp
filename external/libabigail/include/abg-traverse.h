@@ -38,9 +38,7 @@ struct node_visitor_base
 class traversable_base
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
 protected:
 

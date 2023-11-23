@@ -19,16 +19,17 @@ RUN apt-get update && apt-get install -y make autoconf automake libtool \
     build-essential libbz2-dev ninja-build zlib1g-dev wget python python-dev \
     liblzma-dev uuid-dev pkg-config openjdk-8-jdk unzip mlton
 
-RUN git clone --recursive -b breaking https://github.com/ethereum/solidity.git solidity
+RUN git clone --recursive -b develop https://github.com/ethereum/solidity.git solidity
 RUN git clone --depth 1 https://github.com/ethereum/solidity-fuzzing-corpus.git
 RUN git clone --depth 1 https://github.com/google/libprotobuf-mutator.git
-RUN git clone --branch="v0.4.0" --recurse-submodules \
+# evmone v0.8.2 fixes: https://github.com/ethereum/evmone/issues/373
+RUN git clone --branch="v0.8.2" --recurse-submodules \
     https://github.com/ethereum/evmone.git
 
 # Install statically built dependencies in "/usr" directory
 # Install boost
 RUN cd $SRC; \
-    wget -q 'https://dl.bintray.com/boostorg/release/1.73.0/source/boost_1_73_0.tar.bz2' -O boost.tar.bz2; \
+    wget -q 'https://boostorg.jfrog.io/artifactory/main/release/1.73.0/source/boost_1_73_0.tar.bz2' -O boost.tar.bz2; \
     test "$(sha256sum boost.tar.bz2)" = "4eb3b8d442b426dc35346235c8733b5ae35ba431690e38c6a8263dce9fcbb402  boost.tar.bz2"; \
     tar -xf boost.tar.bz2; \
     rm boost.tar.bz2; \

@@ -699,7 +699,7 @@ impl PluginVcpu {
                     }
                 }
                 kvm_msrs.nmsrs = request_entries.len() as u32;
-                vcpu.set_msrs(&kvm_msrs)
+                vcpu.set_msrs(kvm_msrs)
             } else if request.has_set_cpuid() {
                 response.mut_set_cpuid();
                 let request_entries = &request.get_set_cpuid().entries;
@@ -725,8 +725,10 @@ impl PluginVcpu {
                 {
                     Err(SysError::new(EINVAL))
                 } else {
-                    let mut cap: kvm_enable_cap = Default::default();
-                    cap.cap = capability;
+                    let cap = kvm_enable_cap {
+                        cap: capability,
+                        ..Default::default()
+                    };
                     // Safe because the allowed capabilities don't take pointer arguments.
                     unsafe { vcpu.kvm_enable_cap(&cap) }
                 }

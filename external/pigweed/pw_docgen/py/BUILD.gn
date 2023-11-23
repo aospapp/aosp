@@ -17,10 +17,16 @@ import("//build_overrides/pigweed.gni")
 import("$dir_pw_build/python.gni")
 
 pw_python_package("py") {
-  setup = [ "setup.py" ]
+  setup = [
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+  ]
   sources = [
     "pw_docgen/__init__.py",
     "pw_docgen/docgen.py",
+    "pw_docgen/sphinx/__init__.py",
+    "pw_docgen/sphinx/google_analytics.py",
   ]
   pylintrc = "$dir_pigweed/.pylintrc"
 }

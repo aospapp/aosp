@@ -18,6 +18,8 @@
 #ifndef __GETADDR_H__
 #define __GETADDR_H__
 
+#include <netinet/in.h>
+
 union anyip {
   struct in6_addr ip6;
   struct in_addr ip4;

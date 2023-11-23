@@ -1,9 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
@@ -32,6 +33,11 @@ public interface IFilterContext {
 	 * @return vm names of the class annotations of the enclosing class
 	 */
 	Set<String> getClassAnnotations();
+
+	/**
+	 * @return names of the class attributes
+	 */
+	Set<String> getClassAttributes();
 
 	/**
 	 * @return file name of the corresponding source file or <code>null</code>

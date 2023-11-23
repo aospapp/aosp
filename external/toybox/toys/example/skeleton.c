@@ -6,7 +6,8 @@
  * See http://pubs.opengroup.org/onlinepubs/9699919799/utilities/
  * See http://refspecs.linuxfoundation.org/LSB_4.1.0/LSB-Core-generic/LSB-Core-generic/cmdbehav.html
  * See https://www.ietf.org/rfc/rfc3.txt
- * See http://man7.org/linux/man-pages/dir_section_1.html
+ * See https://man7.org/linux/man-pages/man1/intro.1.html
+ * No standard.
 
 // Accept many different kinds of command line argument (see top of lib/args.c)
 // Demonstrate two commands in the same file (see www/documentation.html)
@@ -35,7 +36,7 @@ config SKELETON_ALIAS
     usage: skeleton_alias [-dq] [-b NUMBER]
 
     Example of a second command with different arguments in the same source
-    file as the first. This allows shared infrastructure not added to lib/.
+    file as the first. This allows shared infrastructure outside of lib/.
 */
 
 #define FOR_skeleton
@@ -90,7 +91,6 @@ void skeleton_main(void)
 }
 
 // Switch gears from skeleton to skeleton_alias (swap FLAG macros).
-#define CLEANUP_skeleton
 #define FOR_skeleton_alias
 #include "generated/flags.h"
 

@@ -218,12 +218,12 @@ Name SymbolEnv::TemplateName::fullName(std::string &buffer) const
                     break;
 
                 case TemplateArg::Kind::Int:
-                    sprintf(argBuffer, "%i", value.i);
+                    snprintf(argBuffer, sizeof(argBuffer), "%i", value.i);
                     buffer += argBuffer;
                     break;
 
                 case TemplateArg::Kind::UInt:
-                    sprintf(argBuffer, "%u", value.u);
+                    snprintf(argBuffer, sizeof(argBuffer), "%u", value.u);
                     buffer += argBuffer;
                     break;
 
@@ -240,15 +240,15 @@ Name SymbolEnv::TemplateName::fullName(std::string &buffer) const
                         buffer += type.getBasicString();
                         if (type.isVector())
                         {
-                            sprintf(argBuffer, "%i", type.getNominalSize());
+                            snprintf(argBuffer, sizeof(argBuffer), "%u", type.getNominalSize());
                             buffer += argBuffer;
                         }
                         else if (type.isMatrix())
                         {
-                            sprintf(argBuffer, "%i", type.getCols());
+                            snprintf(argBuffer, sizeof(argBuffer), "%u", type.getCols());
                             buffer += argBuffer;
                             buffer += "x";
-                            sprintf(argBuffer, "%i", type.getRows());
+                            snprintf(argBuffer, sizeof(argBuffer), "%u", type.getRows());
                             buffer += argBuffer;
                         }
                     }
@@ -389,13 +389,12 @@ const TStructure &SymbolEnv::getTextureEnv(TBasicType samplerType)
     if (env == nullptr)
     {
         auto *textureType = new TType(samplerType);
-        auto *texture     = new TField(textureType, ImmutableString("texture"), kNoSourceLoc,
-                                   SymbolType::UserDefined);
+        auto *texture =
+            new TField(textureType, ImmutableString("texture"), kNoSourceLoc, SymbolType::BuiltIn);
         markAsPointer(*texture, AddressSpace::Thread);
 
-        auto *sampler =
-            new TField(new TType(&getSamplerStruct(), false), ImmutableString("sampler"),
-                       kNoSourceLoc, SymbolType::UserDefined);
+        auto *sampler = new TField(new TType(&getSamplerStruct(), false),
+                                   ImmutableString("sampler"), kNoSourceLoc, SymbolType::BuiltIn);
         markAsPointer(*sampler, AddressSpace::Thread);
 
         std::string envName;
@@ -414,7 +413,7 @@ const TStructure &SymbolEnv::getSamplerStruct()
     if (!mSampler)
     {
         mSampler = new TStructure(&mSymbolTable, ImmutableString("metal::sampler"),
-                                  new TFieldList(), SymbolType::UserDefined);
+                                  new TFieldList(), SymbolType::BuiltIn);
     }
     return *mSampler;
 }
@@ -698,5 +697,5 @@ Name sh::GetTextureTypeName(TBasicType samplerType)
 
 #undef HANDLE_TEXTURE_NAME
 
-    return Name(name, SymbolType::UserDefined);
+    return Name(name, SymbolType::BuiltIn);
 }

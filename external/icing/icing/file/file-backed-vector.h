@@ -56,10 +56,9 @@
 #ifndef ICING_FILE_FILE_BACKED_VECTOR_H_
 #define ICING_FILE_FILE_BACKED_VECTOR_H_
 
-#include <inttypes.h>
-#include <stdint.h>
 #include <sys/mman.h>
 
+#include <cinttypes>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -587,8 +586,11 @@ libtextclassifier3::Status FileBackedVector<T>::GrowIfNecessary(
   }
 
   int64_t current_file_size = filesystem_->GetFileSize(file_path_.c_str());
-  int64_t least_file_size_needed = sizeof(Header) + num_elements * sizeof(T);
+  if (current_file_size == Filesystem::kBadFileSize) {
+    return absl_ports::InternalError("Unable to retrieve file size.");
+  }
 
+  int64_t least_file_size_needed = sizeof(Header) + num_elements * sizeof(T);
   if (least_file_size_needed <= current_file_size) {
     // Our underlying file can hold the target num_elements cause we've grown
     // before

@@ -849,7 +849,7 @@ TEST_F(ResultStateManagerTest, ShouldGetSnippetContext) {
   ResultSpecProto result_spec = CreateResultSpec(/*num_per_page=*/1);
   result_spec.mutable_snippet_spec()->set_num_to_snippet(5);
   result_spec.mutable_snippet_spec()->set_num_matches_per_property(5);
-  result_spec.mutable_snippet_spec()->set_max_window_bytes(5);
+  result_spec.mutable_snippet_spec()->set_max_window_utf32_length(5);
 
   SearchSpecProto search_spec;
   search_spec.set_term_match_type(TermMatchType::EXACT_ONLY);
@@ -884,7 +884,7 @@ TEST_F(ResultStateManagerTest, ShouldGetDefaultSnippetContext) {
   // 0 indicates no snippeting
   result_spec.mutable_snippet_spec()->set_num_to_snippet(0);
   result_spec.mutable_snippet_spec()->set_num_matches_per_property(0);
-  result_spec.mutable_snippet_spec()->set_max_window_bytes(0);
+  result_spec.mutable_snippet_spec()->set_max_window_utf32_length(0);
 
   SearchSpecProto search_spec;
   search_spec.set_term_match_type(TermMatchType::EXACT_ONLY);

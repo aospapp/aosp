@@ -2,6 +2,8 @@
 #define USE_TOYBOX(...) __VA_ARGS__
 #define CFG_TOYBOX_CONTAINER 1
 #define USE_TOYBOX_CONTAINER(...) __VA_ARGS__
+#define CFG_TOYBOX_COPYFILERANGE 0
+#define USE_TOYBOX_COPYFILERANGE(...)
 #define CFG_TOYBOX_DEBUG 0
 #define USE_TOYBOX_DEBUG(...)
 #define CFG_TOYBOX_FALLOCATE 1
@@ -242,6 +244,16 @@
 #define USE_GETOPT(...) __VA_ARGS__
 #define CFG_GETTY 0
 #define USE_GETTY(...)
+#define CFG_GPIODETECT 0
+#define USE_GPIODETECT(...)
+#define CFG_GPIOFIND 0
+#define USE_GPIOFIND(...)
+#define CFG_GPIOGET 0
+#define USE_GPIOGET(...)
+#define CFG_GPIOINFO 0
+#define USE_GPIOINFO(...)
+#define CFG_GPIOSET 0
+#define USE_GPIOSET(...)
 #define CFG_GREP 1
 #define USE_GREP(...) __VA_ARGS__
 #define CFG_GROUPADD 0
@@ -262,8 +274,12 @@
 #define USE_HELP_EXTRAS(...) __VA_ARGS__
 #define CFG_HELP 1
 #define USE_HELP(...) __VA_ARGS__
+#define CFG_HEXDUMP 0
+#define USE_HEXDUMP(...)
 #define CFG_HEXEDIT 0
 #define USE_HEXEDIT(...)
+#define CFG_HD 0
+#define USE_HD(...)
 #define CFG_HOSTID 0
 #define USE_HOSTID(...)
 #define CFG_HOST 0
@@ -322,6 +338,8 @@
 #define USE_LAST(...)
 #define CFG_LINK 0
 #define USE_LINK(...)
+#define CFG_LINUX32 0
+#define USE_LINUX32(...)
 #define CFG_LN 1
 #define USE_LN(...) __VA_ARGS__
 #define CFG_LOAD_POLICY 1
@@ -332,6 +350,8 @@
 #define USE_LOGIN(...)
 #define CFG_LOGNAME 1
 #define USE_LOGNAME(...) __VA_ARGS__
+#define CFG_LOGPATH 0
+#define USE_LOGPATH(...)
 #define CFG_LOG 1
 #define USE_LOG(...) __VA_ARGS__
 #define CFG_LOGWRAPPER 0
@@ -348,8 +368,8 @@
 #define USE_LSOF(...) __VA_ARGS__
 #define CFG_LSPCI 1
 #define USE_LSPCI(...) __VA_ARGS__
-#define CFG_LSPCI_TEXT 0
-#define USE_LSPCI_TEXT(...)
+#define CFG_LSPCI_TEXT 1
+#define USE_LSPCI_TEXT(...) __VA_ARGS__
 #define CFG_LSUSB 1
 #define USE_LSUSB(...) __VA_ARGS__
 #define CFG_LS 1
@@ -554,6 +574,8 @@
 #define USE_SPLIT(...) __VA_ARGS__
 #define CFG_STAT 1
 #define USE_STAT(...) __VA_ARGS__
+#define CFG_STRACE 0
+#define USE_STRACE(...)
 #define CFG_STRINGS 1
 #define USE_STRINGS(...) __VA_ARGS__
 #define CFG_STTY 1
@@ -624,6 +646,8 @@
 #define USE_TTY(...) __VA_ARGS__
 #define CFG_TUNCTL 1
 #define USE_TUNCTL(...) __VA_ARGS__
+#define CFG_UCLAMPSET 1
+#define USE_UCLAMPSET(...) __VA_ARGS__
 #define CFG_ULIMIT 1
 #define USE_ULIMIT(...) __VA_ARGS__
 #define CFG_UMOUNT 1

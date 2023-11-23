@@ -234,6 +234,17 @@ public abstract class DecimalQuantity_AbstractBCD implements DecimalQuantity {
     }
 
     @Override
+    public void resetExponent() {
+        adjustMagnitude(exponent);
+        exponent = 0;
+    }
+
+    @Override
+    public boolean isHasIntegerValue() {
+        return scale >= 0;
+    }
+
+    @Override
     public StandardPlural getStandardPlural(PluralRules rules) {
         if (rules == null) {
             // Fail gracefully if the user didn't provide a PluralRules
@@ -264,6 +275,9 @@ public abstract class DecimalQuantity_AbstractBCD implements DecimalQuantity {
         case w:
             return fractionCountWithoutTrailingZeros();
         case e:
+            return getExponent();
+        case c:
+            // Plural operand `c` is currently an alias for `e`.
             return getExponent();
         default:
             return Math.abs(toDouble());
@@ -600,15 +614,7 @@ public abstract class DecimalQuantity_AbstractBCD implements DecimalQuantity {
         scale -= fracLength;
     }
 
-    /**
-     * Returns a long approximating the internal BCD. A long can only represent the integral part of the
-     * number.  Note: this method incorporates the value of {@code exponent}
-     * (for cases such as compact notation) to return the proper long value
-     * represented by the result.
-     *
-     * @param truncateIfOverflow if false and the number does NOT fit, fails with an assertion error.
-     * @return A 64-bit integer representation of the internal BCD.
-     */
+    @Override
     public long toLong(boolean truncateIfOverflow) {
         // NOTE: Call sites should be guarded by fitsInLong(), like this:
         // if (dq.fitsInLong()) { /* use dq.toLong() */ } else { /* use some fallback */ }
@@ -918,6 +924,7 @@ public abstract class DecimalQuantity_AbstractBCD implements DecimalQuantity {
 
             // Perform truncation
             if (position >= precision) {
+                assert trailingDigit == 0;
                 setBcdToZero();
                 scale = magnitude;
             } else {
@@ -935,6 +942,10 @@ public abstract class DecimalQuantity_AbstractBCD implements DecimalQuantity {
                     // do not return: use the bubbling logic below
                 } else {
                     setDigitPos(0, (byte) 5);
+                    // If the quantity was set to 0, we may need to restore a digit.
+                    if (precision == 0) {
+                        precision = 1;
+                    }
                     // compact not necessary: digit at position 0 is nonzero
                     return;
                 }
@@ -1159,8 +1170,10 @@ public abstract class DecimalQuantity_AbstractBCD implements DecimalQuantity {
     protected abstract byte getDigitPos(int position);
 
     /**
-     * Sets the digit in the BCD list. This method only sets the digit; it is the caller's responsibility
-     * to call {@link #compact} after setting the digit.
+     * Sets the digit in the BCD list. This method only sets the digit; it is the caller's
+     * responsibility to call {@link #compact} after setting the digit, and to ensure
+     * that the precision field is updated to reflect the correct number of digits if a
+     * nonzero digit is added to the decimal.
      *
      * @param position
      *            The position of the digit to pop, counted in BCD units from the least significant

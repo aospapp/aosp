@@ -656,15 +656,13 @@ TEST_P(LineLoopIndirectTest, UseAsUBOThenUpdateThenUShortIndexIndirectBuffer)
 }
 
 ANGLE_INSTANTIATE_TEST_ES2(LineLoopTest);
-ANGLE_INSTANTIATE_TEST_ES3_AND(LineLoopTestES3, WithDirectSPIRVGeneration(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3(LineLoopTestES3);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(LineLoopPrimitiveRestartTest);
 ANGLE_INSTANTIATE_TEST_ES3_AND(
     LineLoopPrimitiveRestartTest,
-    WithMetalForcedBufferGPUStorage(ES3_METAL()),
-    WithMetalMemoryBarrierAndCheapRenderPass(ES3_METAL(),
-                                             /* hasBarrier */ false,
-                                             /* cheapRenderPass */ false));
+    ES3_METAL().enable(Feature::ForceBufferGPUStorage),
+    ES3_METAL().disable(Feature::HasExplicitMemBarrier).disable(Feature::HasCheapRenderPass));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(LineLoopIndirectTest);
 ANGLE_INSTANTIATE_TEST_ES31(LineLoopIndirectTest);

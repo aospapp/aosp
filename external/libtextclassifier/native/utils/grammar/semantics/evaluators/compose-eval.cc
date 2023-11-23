@@ -36,7 +36,8 @@ template <>
 Status TrySetField<flatbuffers::Table>(const reflection::Field* field,
                                        const SemanticValue* value,
                                        MutableFlatbuffer* result) {
-  if (!result->Mutable(field)->MergeFrom(value->Table())) {
+  auto* flatbuffer = result->Mutable(field);
+  if (flatbuffer == nullptr || !flatbuffer->MergeFrom(value->Table())) {
     return Status(StatusCode::INVALID_ARGUMENT,
                   "Could not set sub-field in result.");
   }
@@ -47,7 +48,8 @@ Status TrySetField<flatbuffers::Table>(const reflection::Field* field,
 template <typename T>
 Status TryAddField(const reflection::Field* field, const SemanticValue* value,
                    MutableFlatbuffer* result) {
-  if (!result->Repeated(field)->Add(value->Value<T>())) {
+  auto* flatbuffer = result->Repeated(field);
+  if (flatbuffer == nullptr || !flatbuffer->Add(value->Value<T>())) {
     return Status(StatusCode::INVALID_ARGUMENT, "Could not add field.");
   }
   return Status::OK;
@@ -57,7 +59,9 @@ template <>
 Status TryAddField<flatbuffers::Table>(const reflection::Field* field,
                                        const SemanticValue* value,
                                        MutableFlatbuffer* result) {
-  if (!result->Repeated(field)->Add()->MergeFrom(value->Table())) {
+  auto* flatbuffer = result->Repeated(field);
+  auto* added = flatbuffer == nullptr ? nullptr : flatbuffer->Add();
+  if (added == nullptr || !added->MergeFrom(value->Table())) {
     return Status(StatusCode::INVALID_ARGUMENT,
                   "Could not add message to repeated field.");
   }

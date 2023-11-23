@@ -42,7 +42,7 @@ public class ShadowActivityThread {
               throws Exception {
             if (method.getName().equals("getApplicationInfo")) {
               String packageName = (String) args[0];
-              int flags = (Integer) args[1];
+              int flags = ((Number) args[1]).intValue();
 
               if (packageName.equals(ShadowActivityThread.applicationInfo.packageName)) {
                 return ShadowActivityThread.applicationInfo;
@@ -57,7 +57,7 @@ public class ShadowActivityThread {
               }
             } else if (method.getName().equals("getActivityInfo")) {
               ComponentName className = (ComponentName) args[0];
-              int flags = (Integer) args[1];
+              int flags = ((Number) args[1]).intValue();
 
               try {
                 return RuntimeEnvironment.application
@@ -68,7 +68,7 @@ public class ShadowActivityThread {
               }
             } else if (method.getName().equals("getServiceInfo")) {
               ComponentName className = (ComponentName) args[0];
-              int flags = (Integer) args[1];
+              int flags = ((Number) args[1]).intValue();
 
               try {
                 return RuntimeEnvironment.application
@@ -78,7 +78,7 @@ public class ShadowActivityThread {
                 throw new RemoteException(e.getMessage());
               }
             } else if (method.getName().equals("getInstalledApplications")) {
-              int flags = (Integer) args[0];
+              int flags = ((Number) args[0]).intValue();
               int userId = (Integer) args[1];
               return new ParceledListSlice<>(
                   RuntimeEnvironment.application

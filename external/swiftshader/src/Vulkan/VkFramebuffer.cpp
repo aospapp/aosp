@@ -25,7 +25,7 @@ namespace vk {
 
 Framebuffer::Framebuffer(const VkFramebufferCreateInfo *pCreateInfo, void *mem)
     : attachments(reinterpret_cast<ImageView **>(mem))
-    , extent{ pCreateInfo->width, pCreateInfo->height, pCreateInfo->layers }
+    , extent{ pCreateInfo->width, pCreateInfo->height }
 {
 	const VkBaseInStructure *curInfo = reinterpret_cast<const VkBaseInStructure *>(pCreateInfo->pNext);
 	const VkFramebufferAttachmentsCreateInfo *attachmentsCreateInfo = nullptr;
@@ -33,12 +33,15 @@ Framebuffer::Framebuffer(const VkFramebufferCreateInfo *pCreateInfo, void *mem)
 	{
 		switch(curInfo->sType)
 		{
-			case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
-				attachmentsCreateInfo = reinterpret_cast<const VkFramebufferAttachmentsCreateInfo *>(curInfo);
-				break;
-			default:
-				LOG_TRAP("pFramebufferCreateInfo->pNext->sType = %s", vk::Stringify(curInfo->sType).c_str());
-				break;
+		case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
+			attachmentsCreateInfo = reinterpret_cast<const VkFramebufferAttachmentsCreateInfo *>(curInfo);
+			break;
+		case VK_STRUCTURE_TYPE_MAX_ENUM:
+			// dEQP tests that this value is ignored.
+			break;
+		default:
+			UNSUPPORTED("pFramebufferCreateInfo->pNext->sType = %s", vk::Stringify(curInfo->sType).c_str());
+			break;
 		}
 		curInfo = curInfo->pNext;
 	}
@@ -66,44 +69,68 @@ Framebuffer::Framebuffer(const VkFramebufferCreateInfo *pCreateInfo, void *mem)
 
 void Framebuffer::destroy(const VkAllocationCallbacks *pAllocator)
 {
-	vk::deallocate(attachments, pAllocator);
+	vk::freeHostMemory(attachments, pAllocator);
 }
 
-void Framebuffer::clear(const RenderPass *renderPass, uint32_t clearValueCount, const VkClearValue *pClearValues, const VkRect2D &renderArea)
+void Framebuffer::executeLoadOp(const RenderPass *renderPass, uint32_t clearValueCount, const VkClearValue *pClearValues, const VkRect2D &renderArea)
 {
+	// This gets called at the start of a renderpass. Logically the `loadOp` gets executed at the
+	// subpass where an attachment is first used, but since we don't discard contents between subpasses,
+	// we can execute it sooner. Only clear operations have an effect.
+
 	ASSERT(attachmentCount == renderPass->getAttachmentCount());
 
 	const uint32_t count = std::min(clearValueCount, attachmentCount);
 	for(uint32_t i = 0; i < count; i++)
 	{
 		const VkAttachmentDescription attachment = renderPass->getAttachment(i);
+		VkImageAspectFlags clearMask = 0;
 
-		VkImageAspectFlags aspectMask = Format(attachment.format).getAspects();
-		if(attachment.loadOp != VK_ATTACHMENT_LOAD_OP_CLEAR)
-			aspectMask &= VK_IMAGE_ASPECT_STENCIL_BIT;
-		if(attachment.stencilLoadOp != VK_ATTACHMENT_LOAD_OP_CLEAR)
-			aspectMask &= ~VK_IMAGE_ASPECT_STENCIL_BIT;
+		switch(attachment.loadOp)
+		{
+		case VK_ATTACHMENT_LOAD_OP_CLEAR:
+			clearMask |= VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;
+			break;
+		case VK_ATTACHMENT_LOAD_OP_LOAD:
+		case VK_ATTACHMENT_LOAD_OP_DONT_CARE:
+		case VK_ATTACHMENT_LOAD_OP_NONE_EXT:
+			// Don't clear the attachment's color or depth aspect.
+			break;
+		default:
+			UNSUPPORTED("attachment.loadOp %d", attachment.loadOp);
+		}
 
-		if(!aspectMask || !renderPass->isAttachmentUsed(i))
+		switch(attachment.stencilLoadOp)
+		{
+		case VK_ATTACHMENT_LOAD_OP_CLEAR:
+			clearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			break;
+		case VK_ATTACHMENT_LOAD_OP_LOAD:
+		case VK_ATTACHMENT_LOAD_OP_DONT_CARE:
+		case VK_ATTACHMENT_LOAD_OP_NONE_EXT:
+			// Don't clear the attachment's stencil aspect.
+			break;
+		default:
+			UNSUPPORTED("attachment.stencilLoadOp %d", attachment.stencilLoadOp);
+		}
+
+		// Image::clear() demands that we only specify existing aspects.
+		clearMask &= Format(attachment.format).getAspects();
+
+		if(!clearMask || !renderPass->isAttachmentUsed(i))
 		{
 			continue;
 		}
 
-		if(renderPass->isMultiView())
-		{
-			attachments[i]->clearWithLayerMask(pClearValues[i], aspectMask, renderArea,
-			                                   renderPass->getAttachmentViewMask(i));
-		}
-		else
-		{
-			attachments[i]->clear(pClearValues[i], aspectMask, renderArea);
-		}
+		uint32_t viewMask = renderPass->isMultiView() ? renderPass->getAttachmentViewMask(i) : 0;
+		attachments[i]->clear(pClearValues[i], clearMask, renderArea, viewMask);
 	}
 }
 
 void Framebuffer::clearAttachment(const RenderPass *renderPass, uint32_t subpassIndex, const VkClearAttachment &attachment, const VkClearRect &rect)
 {
 	VkSubpassDescription subpass = renderPass->getSubpass(subpassIndex);
+	uint32_t viewMask = renderPass->getViewMask(subpassIndex);
 
 	if(attachment.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT)
 	{
@@ -115,15 +142,7 @@ void Framebuffer::clearAttachment(const RenderPass *renderPass, uint32_t subpass
 			ASSERT(attachmentIndex < attachmentCount);
 			ImageView *imageView = attachments[attachmentIndex];
 
-			if(renderPass->isMultiView())
-			{
-				imageView->clearWithLayerMask(attachment.clearValue, attachment.aspectMask, rect.rect,
-				                              renderPass->getViewMask(subpassIndex));
-			}
-			else
-			{
-				imageView->clear(attachment.clearValue, attachment.aspectMask, rect);
-			}
+			imageView->clear(attachment.clearValue, attachment.aspectMask, rect, viewMask);
 		}
 	}
 	else if(attachment.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT))
@@ -135,17 +154,11 @@ void Framebuffer::clearAttachment(const RenderPass *renderPass, uint32_t subpass
 			ASSERT(attachmentIndex < attachmentCount);
 			ImageView *imageView = attachments[attachmentIndex];
 
-			if(renderPass->isMultiView())
-			{
-				imageView->clearWithLayerMask(attachment.clearValue, attachment.aspectMask, rect.rect,
-				                              renderPass->getViewMask(subpassIndex));
-			}
-			else
-			{
-				imageView->clear(attachment.clearValue, attachment.aspectMask, rect);
-			}
+			imageView->clear(attachment.clearValue, attachment.aspectMask, rect, viewMask);
 		}
 	}
+	else
+		UNSUPPORTED("attachment.aspectMask %X", attachment.aspectMask);
 }
 
 void Framebuffer::setAttachment(ImageView *imageView, uint32_t index)
@@ -163,6 +176,8 @@ ImageView *Framebuffer::getAttachment(uint32_t index) const
 void Framebuffer::resolve(const RenderPass *renderPass, uint32_t subpassIndex)
 {
 	auto const &subpass = renderPass->getSubpass(subpassIndex);
+	uint32_t viewMask = renderPass->getViewMask(subpassIndex);
+
 	if(subpass.pResolveAttachments)
 	{
 		for(uint32_t i = 0; i < subpass.colorAttachmentCount; i++)
@@ -171,15 +186,7 @@ void Framebuffer::resolve(const RenderPass *renderPass, uint32_t subpassIndex)
 			if(resolveAttachment != VK_ATTACHMENT_UNUSED)
 			{
 				ImageView *imageView = attachments[subpass.pColorAttachments[i].attachment];
-				if(renderPass->isMultiView())
-				{
-					imageView->resolveWithLayerMask(attachments[resolveAttachment],
-					                                renderPass->getViewMask(subpassIndex));
-				}
-				else
-				{
-					imageView->resolve(attachments[resolveAttachment]);
-				}
+				imageView->resolve(attachments[resolveAttachment], viewMask);
 			}
 		}
 	}
@@ -191,7 +198,8 @@ void Framebuffer::resolve(const RenderPass *renderPass, uint32_t subpassIndex)
 		if(depthStencilAttachment != VK_ATTACHMENT_UNUSED)
 		{
 			ImageView *imageView = attachments[depthStencilAttachment];
-			imageView->resolveDepthStencil(attachments[dsResolve.pDepthStencilResolveAttachment->attachment], dsResolve);
+			imageView->resolveDepthStencil(attachments[dsResolve.pDepthStencilResolveAttachment->attachment],
+			                               dsResolve.depthResolveMode, dsResolve.stencilResolveMode);
 		}
 	}
 }
@@ -204,12 +212,15 @@ size_t Framebuffer::ComputeRequiredAllocationSize(const VkFramebufferCreateInfo 
 	{
 		switch(curInfo->sType)
 		{
-			case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
-				attachmentsInfo = reinterpret_cast<const VkFramebufferAttachmentsCreateInfo *>(curInfo);
-				break;
-			default:
-				LOG_TRAP("pFramebufferCreateInfo->pNext->sType = %s", vk::Stringify(curInfo->sType).c_str());
-				break;
+		case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
+			attachmentsInfo = reinterpret_cast<const VkFramebufferAttachmentsCreateInfo *>(curInfo);
+			break;
+		case VK_STRUCTURE_TYPE_MAX_ENUM:
+			// dEQP tests that this value is ignored.
+			break;
+		default:
+			UNSUPPORTED("pFramebufferCreateInfo->pNext->sType = %s", vk::Stringify(curInfo->sType).c_str());
+			break;
 		}
 
 		curInfo = curInfo->pNext;

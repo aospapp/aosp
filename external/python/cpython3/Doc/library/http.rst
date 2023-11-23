@@ -45,7 +45,7 @@ associated messages through the :class:`http.HTTPStatus` enum:
       >>> HTTPStatus.OK.description
       'Request fulfilled, document follows'
       >>> list(HTTPStatus)
-      [<HTTPStatus.CONTINUE: 100>, <HTTPStatus.SWITCHING_PROTOCOLS: 101>, ...]
+      [<HTTPStatus.CONTINUE: 100>, <HTTPStatus.SWITCHING_PROTOCOLS:101>, ...]
 
 .. _http-status-codes:
 

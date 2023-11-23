@@ -16,6 +16,8 @@
 #define SRC_VULKAN_BUFFER_DESCRIPTOR_H_
 
 #include <memory>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "amber/result.h"
@@ -24,6 +26,7 @@
 #include "src/buffer.h"
 #include "src/engine.h"
 #include "src/vulkan/buffer_backed_descriptor.h"
+#include "src/vulkan/pipeline.h"
 #include "src/vulkan/transfer_buffer.h"
 
 namespace amber {
@@ -40,24 +43,35 @@ class BufferDescriptor : public BufferBackedDescriptor {
                    DescriptorType type,
                    Device* device,
                    uint32_t desc_set,
-                   uint32_t binding);
+                   uint32_t binding,
+                   vulkan::Pipeline* pipeline);
   ~BufferDescriptor() override;
 
   void UpdateDescriptorSetIfNeeded(VkDescriptorSet descriptor_set) override;
   Result CreateResourceIfNeeded() override;
-  Result MoveResourceToBufferOutput() override;
   std::vector<uint32_t> GetDynamicOffsets() override {
     return dynamic_offsets_;
   }
   void AddDynamicOffset(uint32_t offset) { dynamic_offsets_.push_back(offset); }
+  std::vector<uint64_t> GetDescriptorOffsets() override {
+    return descriptor_offsets_;
+  }
+  void AddDescriptorOffset(uint64_t descriptor_offset) {
+    descriptor_offsets_.push_back(descriptor_offset);
+  }
+  std::vector<uint64_t> GetDescriptorRanges() override {
+    return descriptor_ranges_;
+  }
+  void AddDescriptorRange(uint64_t descriptor_range) {
+    descriptor_ranges_.push_back(descriptor_range);
+  }
+
   BufferDescriptor* AsBufferDescriptor() override { return this; }
 
- protected:
-  std::vector<Resource*> GetResources() override;
-
  private:
-  std::vector<std::unique_ptr<TransferBuffer>> transfer_buffers_;
   std::vector<uint32_t> dynamic_offsets_;
+  std::vector<VkDeviceSize> descriptor_offsets_;
+  std::vector<VkDeviceSize> descriptor_ranges_;
 };
 
 }  // namespace vulkan

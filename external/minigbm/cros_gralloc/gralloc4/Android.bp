@@ -40,6 +40,21 @@ filegroup {
     ],
 }
 
+cc_library {
+    name: "libminigbm_gralloc4_utils",
+    defaults: ["minigbm_cros_gralloc_defaults"],
+    vendor: true,
+    srcs: [
+        "CrosGralloc4Utils.cc",
+    ],
+    shared_libs: [
+        "android.hardware.graphics.mapper@4.0",
+        "libgralloctypes",
+        "libhidlbase",
+        "libminigbm_gralloc",
+    ],
+}
+
 cc_defaults {
     name: "minigbm_gralloc4_common_defaults",
     defaults: ["minigbm_cros_gralloc_defaults"],

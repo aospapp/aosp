@@ -23,18 +23,7 @@ limitations under the License.
 
 #include "tensorflow/core/platform/cord.h"
 #include "tensorflow/core/platform/ctstring.h"
-
-// TODO(dero): This include is temporary, and will be superfluous once
-// absl::string_view is aliased to std::string_view.
-namespace absl {
-#ifdef ABSL_NAMESPACE_BEGIN
-ABSL_NAMESPACE_BEGIN
-#endif  // ABSL_NAMESPACE_BEGIN
-class AlphaNum;
-#ifdef ABSL_NAMESPACE_END
-ABSL_NAMESPACE_END
-#endif  // ABSL_NAMESPACE_END
-}  // namespace absl
+#include "tensorflow/core/platform/stringpiece.h"
 
 namespace tensorflow {
 
@@ -110,7 +99,7 @@ class tstring {
   tstring(const char* str, size_t len);
   tstring(const char* str);  // NOLINT TODO(b/147740521): Make explicit.
   tstring(size_t n, char c);
-  explicit tstring(const std::string_view str);
+  explicit tstring(const StringPiece str);
 #ifdef PLATFORM_GOOGLE
   explicit tstring(const std::Cord& cord);
 #endif  // PLATFORM_GOOGLE
@@ -129,7 +118,7 @@ class tstring {
   tstring& operator=(const std::string& str);
   tstring& operator=(const char* str);
   tstring& operator=(char ch);
-  tstring& operator=(const std::string_view str);
+  tstring& operator=(const StringPiece str);
 #ifdef PLATFORM_GOOGLE
   tstring& operator=(const std::Cord& cord);
 #endif  // PLATFORM_GOOGLE
@@ -153,7 +142,7 @@ class tstring {
   // TODO(b/147740521): Make explicit.
   operator std::string() const;  // NOLINT
   // TODO(b/147740521): Make explicit.
-  operator std::string_view() const;  // NOLINT
+  operator StringPiece() const;  // NOLINT
 #ifdef PLATFORM_GOOGLE
   template <typename T,
             typename std::enable_if<std::is_same<T, std::AlphaNum>::value,
@@ -201,7 +190,7 @@ class tstring {
   // View Assignment
   tstring& assign_as_view(const tstring& str);
   tstring& assign_as_view(const std::string& str);
-  tstring& assign_as_view(const std::string_view str);
+  tstring& assign_as_view(const StringPiece str);
   tstring& assign_as_view(const char* str, size_t len);
   tstring& assign_as_view(const char* str);
 
@@ -255,7 +244,7 @@ inline tstring::tstring(size_t n, char c) {
 inline tstring::tstring(const std::string& str)
     : tstring(str.data(), str.size()) {}
 
-inline tstring::tstring(const std::string_view str)
+inline tstring::tstring(const StringPiece str)
     : tstring(str.data(), str.size()) {}
 
 #ifdef PLATFORM_GOOGLE
@@ -311,7 +300,7 @@ inline tstring& tstring::operator=(char c) {
   return *this;
 }
 
-inline tstring& tstring::operator=(const std::string_view str) {
+inline tstring& tstring::operator=(const StringPiece str) {
   TF_TString_Copy(&tstr_, str.data(), str.size());
 
   return *this;
@@ -387,15 +376,15 @@ inline tstring::operator std::string() const {
   return std::string(data(), size());
 }
 
-inline tstring::operator std::string_view() const {
-  return std::string_view(data(), size());
+inline tstring::operator StringPiece() const {
+  return StringPiece(data(), size());
 }
 
 #ifdef PLATFORM_GOOGLE
 template <typename T, typename std::enable_if<
                           std::is_same<T, std::AlphaNum>::value, T>::type*>
 inline tstring::operator T() const {
-  return T(std::string_view(*this));
+  return T(StringPiece(*this));
 }
 #endif  // PLATFORM_GOOGLE
 
@@ -487,7 +476,7 @@ inline tstring& tstring::assign_as_view(const std::string& str) {
   return *this;
 }
 
-inline tstring& tstring::assign_as_view(const std::string_view str) {
+inline tstring& tstring::assign_as_view(const StringPiece str) {
   assign_as_view(str.data(), str.size());
 
   return *this;
@@ -526,7 +515,10 @@ inline tstring& tstring::append(const char* str) {
 }
 
 inline tstring& tstring::append(size_t n, char c) {
-  resize(size() + n, c);
+  // For append use cases, we want to ensure amortized growth.
+  const size_t new_size = size() + n;
+  TF_TString_ReserveAmortized(&tstr_, new_size);
+  resize(new_size, c);
 
   return *this;
 }

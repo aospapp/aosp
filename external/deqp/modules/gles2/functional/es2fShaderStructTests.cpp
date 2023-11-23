@@ -646,7 +646,7 @@ void LocalStructTests::init (void)
 			<< "	if (s.red == vec3(1.0, 0.0, 0.0) && s.blue == vec3(0.0, 0.0, 1.0))"
 			<< "		${DST} = vec4(1.0, 1.0, 1.0, 1.0);"
 			<< "	${ASSIGN_POS}"
-			<< "}",
+			<< "}";
 
 
 	precisionParams["PRECISION"] = "lowp";
@@ -1292,7 +1292,7 @@ void setUniform (const glw::Functions& gl, deUint32 programID, const char* name,
 	SETUNIFORM(loc, 1, vec.getPtr());																		\
 	CHECK_SET_UNIFORM(name);																				\
 }																											\
-struct SetUniform##VECTYPE##Dummy_s { int unused; }
+struct SetUniform##VECTYPE##Unused_s { int unused; }
 
 #define MAKE_SET_VEC_UNIFORM_PTR(VECTYPE, SETUNIFORM)																		\
 void setUniform (const glw::Functions& gl, deUint32 programID, const char* name, const tcu::VECTYPE* vec, int arraySize)	\
@@ -1301,7 +1301,7 @@ void setUniform (const glw::Functions& gl, deUint32 programID, const char* name,
 	SETUNIFORM(loc, arraySize, vec->getPtr());																				\
 	CHECK_SET_UNIFORM(name);																								\
 }																															\
-struct SetUniformPtr##VECTYPE##Dummy_s { int unused; }
+struct SetUniformPtr##VECTYPE##Unused_s { int unused; }
 
 MAKE_SET_VEC_UNIFORM	(Vec2,	gl.uniform2fv);
 MAKE_SET_VEC_UNIFORM	(Vec3,	gl.uniform3fv);

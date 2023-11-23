@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(not(target_arch = "arm"))]
+
 use libc::{c_char, ioctl, open, O_RDWR};
 
 use kvm_sys::*;
 
-const KVM_PATH: &'static str = "/dev/kvm\0";
+const KVM_PATH: &str = "/dev/kvm\0";
 
 #[test]
 fn get_version() {

@@ -13,7 +13,6 @@
 >
 > -- *Joshua Bloch, author, Effective Java*
 
-
 ## <a name="background"></a>Background
 
 **Value classes** are extremely common in Java projects. These are classes for
@@ -150,17 +149,17 @@ Gradle users can declare the dependencies in their `build.gradle` script:
 
 ```groovy
 dependencies {
-  // Use 'api' rather than 'compile' for Android or java-library projects.
-  compile             "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
+  compileOnlyApi      "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
   annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
 }
 ```
 
-Note: If you are using a version of Gradle prior to 4.6, you must apply an
-annotation processing plugin [as described in these instructions][tbroyer-apt].
+Note: If you are using a version of Gradle prior to 6.7, use `compile` or (for
+Android or java-library projects) `api` instead of `compileOnlyApi`. If you are
+using a version prior to 4.6, you must apply an annotation processing plugin
+[as described in these instructions][tbroyer-apt].
 
 [tbroyer-apt]: https://plugins.gradle.org/plugin/net.ltgt.apt
-
 
 ### <a name="usage"></a>Usage
 
@@ -276,13 +275,7 @@ How do I...
     set?](howto.md#oneof)
 *   ... [copy annotations from a class/method to the implemented
     class/method/field?](howto.md#copy_annotations)
+*   ... [create a **pretty string** representation?](howto.md#toprettystring)
+
 
 <!-- TODO(kevinb): should the above be only a selected subset? -->
-
-## <a name="more"></a>More information
-
-See the links in the sidebar at the top left.
-
-<!-- TODO(kevinb): there are some tidbits of information that don't seem to
-     belong anywhere yet; such as how it implements floating-point equality -->
-

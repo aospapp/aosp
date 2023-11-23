@@ -195,6 +195,14 @@ def _only(collection):
         _error("Expected one element, has %s." % len(collection))
     return _first(collection)
 
+def _list_or_depset_to_list(list_or_depset):
+    if type(list_or_depset) == "list":
+        return list_or_depset
+    elif type(list_or_depset) == "depset":
+        return list_or_depset.to_list()
+    else:
+        return _error("Expected a list or a depset. Got %s" % type(list_or_depset))
+
 def _copy_file(ctx, src, dest):
     if src.is_directory or dest.is_directory:
         fail("Cannot use copy_file with directories")
@@ -277,6 +285,12 @@ def _expand_make_vars(ctx, vals):
     for k, v in vals.items():
         res[k] = _expand_var(ctx.var, v)
     return res
+
+def _dedupe_split_attr(attr):
+    if not attr:
+        return []
+    arch = _first(sorted(attr.keys()))
+    return attr[arch]
 
 def _get_runfiles(ctx, attrs):
     runfiles = ctx.runfiles()
@@ -430,6 +444,7 @@ utils = struct(
     copy_dir = _copy_dir,
     expand_make_vars = _expand_make_vars,
     first = _first,
+    dedupe_split_attr = _dedupe_split_attr,
     get_runfiles = _get_runfiles,
     join_depsets = _join_depsets,
     only = _only,
@@ -437,6 +452,7 @@ utils = struct(
     sanitize_string = _sanitize_string,
     sanitize_java_package = _sanitize_java_package,
     hex = _hex,
+    list_or_depset_to_list = _list_or_depset_to_list,
 )
 
 log = struct(

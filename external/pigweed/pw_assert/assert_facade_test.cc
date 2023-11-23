@@ -26,6 +26,7 @@
 // clang-format on
 
 #include "gtest/gtest.h"
+#include "pw_status/status.h"
 
 namespace {
 
@@ -193,38 +194,91 @@ TEST_F(AssertPass, UintGe3) { PW_CHECK_UINT_GE(2, 1); }
 // Test comparison boundaries.
 
 // PTR <
-TEST_F(AssertPass, PtrLt1) { PW_CHECK_PTR_LT(0xa, 0xb); }
-TEST_F(AssertFail, PtrLt2) { PW_CHECK_PTR_LT(0xb, 0xb); }
-TEST_F(AssertFail, PtrLt3) { PW_CHECK_PTR_LT(0xb, 0xa); }
+TEST_F(AssertPass, PtrLt1) {
+  PW_CHECK_PTR_LT(reinterpret_cast<void*>(0xa), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertFail, PtrLt2) {
+  PW_CHECK_PTR_LT(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertFail, PtrLt3) {
+  PW_CHECK_PTR_LT(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xa));
+}
 
 // PTR <=
-TEST_F(AssertPass, PtrLe1) { PW_CHECK_PTR_LE(0xa, 0xb); }
-TEST_F(AssertPass, PtrLe2) { PW_CHECK_PTR_LE(0xb, 0xb); }
-TEST_F(AssertFail, PtrLe3) { PW_CHECK_PTR_LE(0xb, 0xa); }
+TEST_F(AssertPass, PtrLe1) {
+  PW_CHECK_PTR_LE(reinterpret_cast<void*>(0xa), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertPass, PtrLe2) {
+  PW_CHECK_PTR_LE(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertFail, PtrLe3) {
+  PW_CHECK_PTR_LE(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xa));
+}
 
 // PTR ==
-TEST_F(AssertFail, PtrEq1) { PW_CHECK_PTR_EQ(0xa, 0xb); }
-TEST_F(AssertPass, PtrEq2) { PW_CHECK_PTR_EQ(0xb, 0xb); }
-TEST_F(AssertFail, PtrEq3) { PW_CHECK_PTR_EQ(0xb, 0xa); }
+TEST_F(AssertFail, PtrEq1) {
+  PW_CHECK_PTR_EQ(reinterpret_cast<void*>(0xa), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertPass, PtrEq2) {
+  PW_CHECK_PTR_EQ(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertFail, PtrEq3) {
+  PW_CHECK_PTR_EQ(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xa));
+}
 
 // PTR !=
-TEST_F(AssertPass, PtrNe1) { PW_CHECK_PTR_NE(0xa, 0xb); }
-TEST_F(AssertFail, PtrNe2) { PW_CHECK_PTR_NE(0xb, 0xb); }
-TEST_F(AssertPass, PtrNe3) { PW_CHECK_PTR_NE(0xb, 0xa); }
+TEST_F(AssertPass, PtrNe1) {
+  PW_CHECK_PTR_NE(reinterpret_cast<void*>(0xa), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertFail, PtrNe2) {
+  PW_CHECK_PTR_NE(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertPass, PtrNe3) {
+  PW_CHECK_PTR_NE(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xa));
+}
 
 // PTR >
-TEST_F(AssertFail, PtrGt1) { PW_CHECK_PTR_GT(0xa, 0xb); }
-TEST_F(AssertFail, PtrGt2) { PW_CHECK_PTR_GT(0xb, 0xb); }
-TEST_F(AssertPass, PtrGt3) { PW_CHECK_PTR_GT(0xb, 0xa); }
+TEST_F(AssertFail, PtrGt1) {
+  PW_CHECK_PTR_GT(reinterpret_cast<void*>(0xa), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertFail, PtrGt2) {
+  PW_CHECK_PTR_GT(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertPass, PtrGt3) {
+  PW_CHECK_PTR_GT(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xa));
+}
 
 // PTR >=
-TEST_F(AssertFail, PtrGe1) { PW_CHECK_PTR_GE(0xa, 0xb); }
-TEST_F(AssertPass, PtrGe2) { PW_CHECK_PTR_GE(0xb, 0xb); }
-TEST_F(AssertPass, PtrGe3) { PW_CHECK_PTR_GE(0xb, 0xa); }
+TEST_F(AssertFail, PtrGe1) {
+  PW_CHECK_PTR_GE(reinterpret_cast<void*>(0xa), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertPass, PtrGe2) {
+  PW_CHECK_PTR_GE(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xb));
+}
+TEST_F(AssertPass, PtrGe3) {
+  PW_CHECK_PTR_GE(reinterpret_cast<void*>(0xb), reinterpret_cast<void*>(0xa));
+}
 
 // NOTNULL
-TEST_F(AssertPass, PtrNotNull) { PW_CHECK_NOTNULL(0xa); }
-TEST_F(AssertFail, PtrNotNull) { PW_CHECK_NOTNULL(0x0); }
+TEST_F(AssertPass, PtrNotNull) {
+  PW_CHECK_NOTNULL(reinterpret_cast<void*>(0xa));
+}
+TEST_F(AssertFail, PtrNotNull) {
+  PW_CHECK_NOTNULL(reinterpret_cast<void*>(0x0));
+}
+
+[[maybe_unused]] void Function1() {}
+[[maybe_unused]] bool Function2(int) { return false; }
+
+// NOTNULL for function poionters
+TEST_F(AssertPass, FunctionPtrNotNull) {
+  PW_CHECK_NOTNULL(&Function1);
+  PW_CHECK_NOTNULL(&Function2);
+}
+TEST_F(AssertFail, FunctionPtrNotNull) {
+  void (*const function)() = nullptr;
+  PW_CHECK_NOTNULL(function);
+}
 
 // Note: Due to platform inconsistencies, the below test for the NOTNULL
 // message doesn't work. Some platforms print NULL formatted as %p as "(nil)",
@@ -344,113 +398,107 @@ TEST_F(AssertFail, CommaHandlingRightSide) {
 }
 
 // Verify that the CHECK_*(x,y) macros only evaluate their arguments once.
-static int global_state_for_multi_evaluate_test;
-static int IncrementsGlobal() {
-  global_state_for_multi_evaluate_test++;
-  return 0;
-}
+struct MultiEvaluateTestContext {
+  int IncrementAndReturnZero() {
+    counter += 1;
+    return 0;
+  }
+  int counter = 0;
+};
 
 TEST(AssertPass, CheckSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_CHECK(IncrementsGlobal() == 0);
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
+  MultiEvaluateTestContext ctx;
+  PW_CHECK(ctx.IncrementAndReturnZero() == 0);
+  EXPECT_EQ(ctx.counter, 1);
 }
 TEST(AssertFail, CheckSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_CHECK(IncrementsGlobal() == 1);
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
+  MultiEvaluateTestContext ctx;
+  PW_CHECK(ctx.IncrementAndReturnZero() == 1);
+  EXPECT_EQ(ctx.counter, 1);
 }
 TEST(AssertPass, BinaryOpSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_CHECK_INT_EQ(0, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
+  MultiEvaluateTestContext ctx;
+  PW_CHECK_INT_EQ(0, ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, 1);
 }
 TEST(AssertPass, BinaryOpTwoSideEffectingCalls) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_CHECK_INT_EQ(IncrementsGlobal(), IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 2);
+  MultiEvaluateTestContext ctx;
+  PW_CHECK_INT_EQ(ctx.IncrementAndReturnZero(), ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, 2);
 }
 TEST(AssertFail, BinaryOpSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_CHECK_INT_EQ(12314, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
+  MultiEvaluateTestContext ctx;
+  PW_CHECK_INT_EQ(12314, ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, 1);
 }
 TEST(AssertFail, BinaryOpTwoSideEffectingCalls) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_CHECK_INT_EQ(IncrementsGlobal() + 10, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 2);
+  MultiEvaluateTestContext ctx;
+  PW_CHECK_INT_EQ(ctx.IncrementAndReturnZero() + 10,
+                  ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, 2);
+}
+TEST(AssertPass, CheckOkSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_CHECK_OK(ctx.IncrementAndReturnZero() ? pw::OkStatus() : pw::OkStatus());
+  EXPECT_EQ(ctx.counter, 1);
+}
+TEST(AssertFail, CheckOkSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_CHECK_OK(ctx.IncrementAndReturnZero() ? pw::Status::NotFound()
+                                           : pw::Status::NotFound());
+  EXPECT_EQ(ctx.counter, 1);
 }
 
 // Verify side effects of debug checks work as expected.
 // Only check a couple of cases, since the logic is all the same.
-#if PW_ASSERT_ENABLE_DEBUG
+
 // When DCHECKs are enabled, they behave the same as normal checks.
-TEST(AssertPass, DCheckEnabledSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK(IncrementsGlobal() == 0);
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
-}
-TEST(AssertFail, DCheckEnabledSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK(IncrementsGlobal() == 1);
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
-}
-TEST(AssertPass, DCheckEnabledBinaryOpSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(0, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
-}
-TEST(AssertPass, DCheckEnabledBinaryOpTwoSideEffectingCalls) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(IncrementsGlobal(), IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 2);
-}
-TEST(AssertFail, DCheckEnabledBinaryOpSingleSideEffectingCall) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(12314, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 1);
-}
-TEST(AssertFail, DCheckEnabledBinaryOpTwoSideEffectingCalls) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(IncrementsGlobal() + 10, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 2);
-}
-
-#else  // PW_ASSERT_ENABLE_DEBUG
-
 // When DCHECKs are disabled, they should not trip, and their arguments
 // shouldn't be evaluated.
-TEST(AssertPass, DCheckDisabledSingleSideEffectingCall_1) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK(IncrementsGlobal() == 0);
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 0);
+constexpr int kExpectedSideEffects = PW_ASSERT_ENABLE_DEBUG;
+
+TEST(AssertPass, DCheckEnabledSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK(ctx.IncrementAndReturnZero() == 0);
+  EXPECT_EQ(ctx.counter, kExpectedSideEffects);
 }
-TEST(AssertPass, DCheckDisabledSingleSideEffectingCall_2) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK(IncrementsGlobal() == 1);
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 0);
+TEST(AssertFail, DCheckEnabledSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK(ctx.IncrementAndReturnZero() == 1);
+  EXPECT_EQ(ctx.counter, kExpectedSideEffects);
 }
-TEST(AssertPass, DCheckDisabledBinaryOpSingleSideEffectingCall_1) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(0, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 0);
+TEST(AssertPass, DCheckEnabledBinaryOpSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK_INT_EQ(0, ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, kExpectedSideEffects);
 }
-TEST(AssertPass, DCheckDisabledBinaryOpTwoSideEffectingCalls_1) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(IncrementsGlobal(), IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 0);
+TEST(AssertPass, DCheckEnabledBinaryOpTwoSideEffectingCalls) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK_INT_EQ(ctx.IncrementAndReturnZero(), ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, 2 * kExpectedSideEffects);
 }
-TEST(AssertPass, DCheckDisabledBinaryOpSingleSideEffectingCall_2) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(12314, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 0);
+TEST(AssertFail, DCheckEnabledBinaryOpSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK_INT_EQ(12314, ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, kExpectedSideEffects);
 }
-TEST(AssertPass, DCheckDisabledBinaryOpTwoSideEffectingCalls_2) {
-  global_state_for_multi_evaluate_test = 0;
-  PW_DCHECK_INT_EQ(IncrementsGlobal() + 10, IncrementsGlobal());
-  EXPECT_EQ(global_state_for_multi_evaluate_test, 0);
+TEST(AssertFail, DCheckEnabledBinaryOpTwoSideEffectingCalls) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK_INT_EQ(ctx.IncrementAndReturnZero() + 10,
+                   ctx.IncrementAndReturnZero());
+  EXPECT_EQ(ctx.counter, 2 * kExpectedSideEffects);
 }
-#endif  // PW_ASSERT_ENABLE_DEBUG
+TEST(AssertPass, DCheckOkSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK_OK(ctx.IncrementAndReturnZero() ? pw::OkStatus() : pw::OkStatus());
+  EXPECT_EQ(ctx.counter, kExpectedSideEffects);
+}
+TEST(AssertFail, DCheckOkSingleSideEffectingCall) {
+  MultiEvaluateTestContext ctx;
+  PW_DCHECK_OK(ctx.IncrementAndReturnZero() ? pw::Status::NotFound()
+                                            : pw::Status::NotFound());
+  EXPECT_EQ(ctx.counter, kExpectedSideEffects);
+}
 
 // Verify PW_CHECK_OK, including message handling.
 TEST_F(AssertFail, StatusNotOK) {
@@ -495,7 +543,7 @@ TEST_F(AssertPass, DCheckFunction) { PW_DCHECK_OK(pw::OkStatus()); }
 TEST_F(AssertPass, DCheckEnum) { PW_DCHECK_OK(PW_STATUS_OK); }
 TEST_F(AssertFail, DCheckFunction) { PW_DCHECK_OK(pw::Status::Unknown()); }
 TEST_F(AssertFail, DCheckEnum) { PW_DCHECK_OK(PW_STATUS_UNKNOWN); }
-#else  // PW_ASSERT_ENABLE_DEBUG
+#else   // PW_ASSERT_ENABLE_DEBUG
 
 // In release mode, all the asserts should pass.
 TEST_F(AssertPass, DCheckFunction_Ok) { PW_DCHECK_OK(pw::OkStatus()); }

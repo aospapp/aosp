@@ -23,6 +23,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
 - To try Plotters with interactive Jupyter notebook, or view [here](https://plotters-rs.github.io/plotters-doc-data/evcxr-jupyter-integration.html) for the static HTML version.
 - To view the WASM example, go to this [link](https://plumberserver.com/plotters-wasm-demo/index.html)
 - Currently we have all the internal code ready for console plotting, but a console based backend is still not ready. See [this example](https://github.com/38/plotters/blob/master/examples/console.rs) for how to plotting on Console with a customized backend.
+- Plotters now moved all backend code to sperate repository, check [FAQ list](#faq-list) for details
 
 ## Gallery
 
@@ -57,7 +58,7 @@ To view the source code for each example, please click on the example image.
 </a>
 
 
-<a href="https://github.com/38/plotters/tree/master/examples/piston-demo">
+<a href="https://github.com/plotters-rs/plotters-piston/blob/master/examples/cpustat.rs">
     <img src="https://plotters-rs.github.io/plotters-doc-data/plotters-piston.gif" class="galleryItem" width=200px></img>
 </a>
 
@@ -121,6 +122,14 @@ To view the source code for each example, please click on the example image.
 	<img src="https://plotters-rs.github.io/plotters-doc-data/3d-plot.svg" class="galleryItem" width=200px></img>
 </a>
 
+<a href="https://github.com/38/plotters/blob/master/examples/3d-plot2.rs">
+	<img src="https://plotters-rs.github.io/plotters-doc-data/3d-plot2.gif" class="galleryItem" width=200px></img>
+</a>
+
+<a href="https://github.com/38/plotters/blob/master/examples/tick_control.rs">
+	<img src="https://plotters-rs.github.io/plotters-doc-data/tick_control.svg" class="galleryItem" width=200px></img>
+</a>
+
 
 ## Table of Contents
   * [Gallery](#gallery)
@@ -131,7 +140,7 @@ To view the source code for each example, please click on the example image.
   * [Plotting on HTML5 canvas with WASM Backend](#plotting-on-html5-canvas-with-wasm-backend)
   * [What types of figure are supported?](#what-types-of-figure-are-supported)
   * [Concepts by examples](#concepts-by-examples)
-    + [Drawing Back-ends](#drawing-backends)
+    + [Drawing Back-ends](#drawing-back-ends)
     + [Drawing Area](#drawing-area)
     + [Elements](#elements)
     + [Composable Elements](#composable-elements)
@@ -147,7 +156,7 @@ To view the source code for each example, please click on the example image.
 To use Plotters, you can simply add Plotters into your `Cargo.toml`
 ```toml
 [dependencies]
-plotters = "^0.3.0"
+plotters = "^0.3.1"
 ```
 
 And the following code draws a quadratic function. `src/main.rs`,
@@ -162,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(30)
-        .build_ranged(-1f32..1f32, -0.1f32..1f32)?;
+        .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)?;
 
     chart.configure_mesh().draw()?;
 
@@ -206,7 +215,7 @@ let figure = evcxr_figure((640, 480), |root| {
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(30)
-        .build_ranged(-1f32..1f32, -0.1f32..1f32)?;
+        .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)?;
 
     chart.configure_mesh().draw()?;
 
@@ -544,5 +553,15 @@ The following list is a complete list of features that can be opt in and out.
 	As you may realized, Plotters is a drawing library rather than a traditional data plotting library, 
 	you have the freedom to draw anything you want on the drawing area.
 	Use `DrawingArea::draw` to draw any element on the drawing area. 
+
+* Where can I find the backend code ?
+	
+	Since Plotters 0.3, all drawing backends are independent crate from the main Plotters crate.
+	Use the following link to find the backend code:
+
+	- [Bitmap Backend](https://github.com/plotters-rs/plotters-bitmap.git)
+	- [SVG Backend](https://github.com/plotters-rs/plotters-svg.git)
+	- [HTML5 Canvas Backend](https://github.com/plotters-rs/plotters-canvas.git)
+	- [GTK/Cairo Backend](https://github.com/plotters-rs/plotters-cairo.git)
 
 

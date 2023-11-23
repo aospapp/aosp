@@ -11,7 +11,7 @@ third_party {
     value: "https://github.com/google/caliper/archive/73efbe138dafba57d6a890257961ba83f41b89f2.zip"
   }
   version: "73efbe138dafba57d6a890257961ba83f41b89f2"
-  # would be NOTICE save for lib/*.jar.txt
+  license_note: "would be NOTICE save for lib/*.jar.txt"
   license_type: RESTRICTED
   last_upgrade_date {
     year: 2015

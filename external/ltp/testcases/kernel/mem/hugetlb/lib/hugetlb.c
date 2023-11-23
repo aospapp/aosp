@@ -35,52 +35,11 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <pwd.h>
 #include "hugetlb.h"
 
-static long orig_hugepages = -1;
-
-long save_nr_hugepages(void)
-{
-	check_hugepage();
-
-	orig_hugepages = get_sys_tune("nr_hugepages");
-
-	return orig_hugepages;
-}
-
-void restore_nr_hugepages(void)
-{
-	if (orig_hugepages != -1)
-		set_sys_tune("nr_hugepages", orig_hugepages, 0);
-}
-
-void limit_hugepages(long *hpages)
-{
-	long mem_avail, max_hpages;
-
-	if (FILE_LINES_SCANF("/proc/meminfo",
-			"MemAvailable: %ld", &mem_avail)) {
-		/*
-		 * Dropping caches and using "MemFree:" on kernel
-		 * that doesn't have "MemAvailable:" in Meminfo
-		 */
-		tst_res(TINFO, "MemAvailable: not found in /proc/meminfo");
-
-		SAFE_FILE_PRINTF("/proc/sys/vm/drop_caches", "3");
-		mem_avail = SAFE_READ_MEMINFO("MemFree:");
-	}
-
-	max_hpages = mem_avail / SAFE_READ_MEMINFO("Hugepagesize:");
-
-	if (*hpages > max_hpages) {
-		tst_res(TINFO, "Requested number of hugepages too large, "
-				"limiting to 80%% of the max hugepage count %ld",
-				max_hpages);
-		*hpages = max_hpages * 0.8;
-	}
-}
+key_t shmkey;
 
 /*
  * getipckey() - generates and returns a message key used by the "get"
@@ -93,7 +52,7 @@ int getipckey(void)
 	char *curdir = NULL;
 	size_t size = 0;
 	key_t ipc_key;
-	struct timeb time_info;
+	struct timeval time_info;
 
 	curdir = getcwd(curdir, size);
 	if (curdir == NULL)
@@ -108,11 +67,11 @@ int getipckey(void)
 	 * project identifier is a "random character" produced by
 	 * generating a random number between 0 and 25 and then adding
 	 * that to the ascii value of 'a'.  The "seed" for the random
-	 * number is the millisecond value that is set in the timeb
-	 * structure after calling ftime().
+	 * number is the microseconds value that is set in the timeval
+	 * structure after calling gettimeofday().
 	 */
-	ftime(&time_info);
-	srandom((unsigned int)time_info.millitm);
+	gettimeofday(&time_info, NULL);
+	srandom((unsigned int)time_info.tv_usec);
 
 	ipc_key = ftok(curdir, ascii_a + random() % 26);
 	if (ipc_key == -1)

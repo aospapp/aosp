@@ -8,9 +8,8 @@ use core::ffi::c_void;
 use core::fmt::{self, Debug};
 use core::iter::FusedIterator;
 use core::marker::{PhantomData, PhantomPinned};
-use core::mem;
+use core::mem::{self, ManuallyDrop, MaybeUninit};
 use core::pin::Pin;
-use core::ptr;
 use core::slice;
 
 /// Binding to C++ `std::vector<T, std::allocator<T>>`.
@@ -23,7 +22,13 @@ use core::slice;
 /// pointer, as in `&CxxVector<T>` or `UniquePtr<CxxVector<T>>`.
 #[repr(C, packed)]
 pub struct CxxVector<T> {
-    _private: [T; 0],
+    // A thing, because repr(C) structs are not allowed to consist exclusively
+    // of PhantomData fields.
+    _void: [c_void; 0],
+    // The conceptual vector elements to ensure that autotraits are propagated
+    // correctly, e.g. CxxVector is UnwindSafe iff T is.
+    _elements: PhantomData<[T]>,
+    // Prevent unpin operation from Pin<&mut CxxVector<T>> to &mut CxxVector<T>.
     _pinned: PhantomData<PhantomPinned>,
 }
 
@@ -81,8 +86,10 @@ where
     /// [operator_at]: https://en.cppreference.com/w/cpp/container/vector/operator_at
     pub unsafe fn get_unchecked(&self, pos: usize) -> &T {
         let this = self as *const CxxVector<T> as *mut CxxVector<T>;
-        let ptr = T::__get_unchecked(this, pos) as *const T;
-        &*ptr
+        unsafe {
+            let ptr = T::__get_unchecked(this, pos) as *const T;
+            &*ptr
+        }
     }
 
     /// Returns a pinned mutable reference to an element without doing bounds
@@ -97,8 +104,10 @@ where
     ///
     /// [operator_at]: https://en.cppreference.com/w/cpp/container/vector/operator_at
     pub unsafe fn index_unchecked_mut(self: Pin<&mut Self>, pos: usize) -> Pin<&mut T> {
-        let ptr = T::__get_unchecked(self.get_unchecked_mut(), pos);
-        Pin::new_unchecked(&mut *ptr)
+        unsafe {
+            let ptr = T::__get_unchecked(self.get_unchecked_mut(), pos);
+            Pin::new_unchecked(&mut *ptr)
+        }
     }
 
     /// Returns a slice to the underlying contiguous array of elements.
@@ -145,6 +154,39 @@ where
     /// Returns an iterator over elements of type `Pin<&mut T>`.
     pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<T> {
         IterMut { v: self, index: 0 }
+    }
+
+    /// Appends an element to the back of the vector.
+    ///
+    /// Matches the behavior of C++ [std::vector\<T\>::push_back][push_back].
+    ///
+    /// [push_back]: https://en.cppreference.com/w/cpp/container/vector/push_back
+    pub fn push(self: Pin<&mut Self>, value: T)
+    where
+        T: ExternType<Kind = Trivial>,
+    {
+        let mut value = ManuallyDrop::new(value);
+        unsafe {
+            // C++ calls move constructor followed by destructor on `value`.
+            T::__push_back(self, &mut value);
+        }
+    }
+
+    /// Removes the last element from a vector and returns it, or `None` if the
+    /// vector is empty.
+    pub fn pop(self: Pin<&mut Self>) -> Option<T>
+    where
+        T: ExternType<Kind = Trivial>,
+    {
+        if self.is_empty() {
+            None
+        } else {
+            let mut value = MaybeUninit::uninit();
+            Some(unsafe {
+                T::__pop_back(self, &mut value);
+                value.assume_init()
+            })
+        }
     }
 }
 
@@ -296,19 +338,62 @@ pub unsafe trait VectorElement: Sized {
     #[doc(hidden)]
     unsafe fn __get_unchecked(v: *mut CxxVector<Self>, pos: usize) -> *mut Self;
     #[doc(hidden)]
-    fn __unique_ptr_null() -> *mut c_void;
+    unsafe fn __push_back(v: Pin<&mut CxxVector<Self>>, value: &mut ManuallyDrop<Self>) {
+        // Opaque C type vector elements do not get this method because they can
+        // never exist by value on the Rust side of the bridge.
+        let _ = v;
+        let _ = value;
+        unreachable!()
+    }
     #[doc(hidden)]
-    unsafe fn __unique_ptr_raw(raw: *mut CxxVector<Self>) -> *mut c_void;
+    unsafe fn __pop_back(v: Pin<&mut CxxVector<Self>>, out: &mut MaybeUninit<Self>) {
+        // Opaque C type vector elements do not get this method because they can
+        // never exist by value on the Rust side of the bridge.
+        let _ = v;
+        let _ = out;
+        unreachable!()
+    }
     #[doc(hidden)]
-    unsafe fn __unique_ptr_get(repr: *mut c_void) -> *const CxxVector<Self>;
+    fn __unique_ptr_null() -> MaybeUninit<*mut c_void>;
     #[doc(hidden)]
-    unsafe fn __unique_ptr_release(repr: *mut c_void) -> *mut CxxVector<Self>;
+    unsafe fn __unique_ptr_raw(raw: *mut CxxVector<Self>) -> MaybeUninit<*mut c_void>;
     #[doc(hidden)]
-    unsafe fn __unique_ptr_drop(repr: *mut c_void);
+    unsafe fn __unique_ptr_get(repr: MaybeUninit<*mut c_void>) -> *const CxxVector<Self>;
+    #[doc(hidden)]
+    unsafe fn __unique_ptr_release(repr: MaybeUninit<*mut c_void>) -> *mut CxxVector<Self>;
+    #[doc(hidden)]
+    unsafe fn __unique_ptr_drop(repr: MaybeUninit<*mut c_void>);
+}
+
+macro_rules! vector_element_by_value_methods {
+    (opaque, $segment:expr, $ty:ty) => {};
+    (trivial, $segment:expr, $ty:ty) => {
+        #[doc(hidden)]
+        unsafe fn __push_back(v: Pin<&mut CxxVector<$ty>>, value: &mut ManuallyDrop<$ty>) {
+            extern "C" {
+                attr! {
+                    #[link_name = concat!("cxxbridge1$std$vector$", $segment, "$push_back")]
+                    fn __push_back(_: Pin<&mut CxxVector<$ty>>, _: &mut ManuallyDrop<$ty>);
+                }
+            }
+            unsafe { __push_back(v, value) }
+        }
+        #[doc(hidden)]
+        unsafe fn __pop_back(v: Pin<&mut CxxVector<$ty>>, out: &mut MaybeUninit<$ty>) {
+            extern "C" {
+                attr! {
+                    #[link_name = concat!("cxxbridge1$std$vector$", $segment, "$pop_back")]
+                    fn __pop_back(_: Pin<&mut CxxVector<$ty>>, _: &mut MaybeUninit<$ty>);
+                }
+            }
+            unsafe { __pop_back(v, out) }
+        }
+    };
 }
 
 macro_rules! impl_vector_element {
-    ($segment:expr, $name:expr, $ty:ty) => {
+    ($kind:ident, $segment:expr, $name:expr, $ty:ty) => {
+        const_assert_eq!(0, mem::size_of::<CxxVector<$ty>>());
         const_assert_eq!(1, mem::align_of::<CxxVector<$ty>>());
 
         unsafe impl VectorElement for $ty {
@@ -334,61 +419,62 @@ macro_rules! impl_vector_element {
                         fn __get_unchecked(_: *mut CxxVector<$ty>, _: usize) -> *mut $ty;
                     }
                 }
-                __get_unchecked(v, pos)
+                unsafe { __get_unchecked(v, pos) }
             }
+            vector_element_by_value_methods!($kind, $segment, $ty);
             #[doc(hidden)]
-            fn __unique_ptr_null() -> *mut c_void {
+            fn __unique_ptr_null() -> MaybeUninit<*mut c_void> {
                 extern "C" {
                     attr! {
                         #[link_name = concat!("cxxbridge1$unique_ptr$std$vector$", $segment, "$null")]
-                        fn __unique_ptr_null(this: *mut *mut c_void);
+                        fn __unique_ptr_null(this: *mut MaybeUninit<*mut c_void>);
                     }
                 }
-                let mut repr = ptr::null_mut::<c_void>();
+                let mut repr = MaybeUninit::uninit();
                 unsafe { __unique_ptr_null(&mut repr) }
                 repr
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_raw(raw: *mut CxxVector<Self>) -> *mut c_void {
+            unsafe fn __unique_ptr_raw(raw: *mut CxxVector<Self>) -> MaybeUninit<*mut c_void> {
                 extern "C" {
                     attr! {
                         #[link_name = concat!("cxxbridge1$unique_ptr$std$vector$", $segment, "$raw")]
-                        fn __unique_ptr_raw(this: *mut *mut c_void, raw: *mut CxxVector<$ty>);
+                        fn __unique_ptr_raw(this: *mut MaybeUninit<*mut c_void>, raw: *mut CxxVector<$ty>);
                     }
                 }
-                let mut repr = ptr::null_mut::<c_void>();
-                __unique_ptr_raw(&mut repr, raw);
+                let mut repr = MaybeUninit::uninit();
+                unsafe { __unique_ptr_raw(&mut repr, raw) }
                 repr
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_get(repr: *mut c_void) -> *const CxxVector<Self> {
+            unsafe fn __unique_ptr_get(repr: MaybeUninit<*mut c_void>) -> *const CxxVector<Self> {
                 extern "C" {
                     attr! {
                         #[link_name = concat!("cxxbridge1$unique_ptr$std$vector$", $segment, "$get")]
-                        fn __unique_ptr_get(this: *const *mut c_void) -> *const CxxVector<$ty>;
+                        fn __unique_ptr_get(this: *const MaybeUninit<*mut c_void>) -> *const CxxVector<$ty>;
                     }
                 }
-                __unique_ptr_get(&repr)
+                unsafe { __unique_ptr_get(&repr) }
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_release(mut repr: *mut c_void) -> *mut CxxVector<Self> {
+            unsafe fn __unique_ptr_release(mut repr: MaybeUninit<*mut c_void>) -> *mut CxxVector<Self> {
                 extern "C" {
                     attr! {
                         #[link_name = concat!("cxxbridge1$unique_ptr$std$vector$", $segment, "$release")]
-                        fn __unique_ptr_release(this: *mut *mut c_void) -> *mut CxxVector<$ty>;
+                        fn __unique_ptr_release(this: *mut MaybeUninit<*mut c_void>) -> *mut CxxVector<$ty>;
                     }
                 }
-                __unique_ptr_release(&mut repr)
+                unsafe { __unique_ptr_release(&mut repr) }
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_drop(mut repr: *mut c_void) {
+            unsafe fn __unique_ptr_drop(mut repr: MaybeUninit<*mut c_void>) {
                 extern "C" {
                     attr! {
                         #[link_name = concat!("cxxbridge1$unique_ptr$std$vector$", $segment, "$drop")]
-                        fn __unique_ptr_drop(this: *mut *mut c_void);
+                        fn __unique_ptr_drop(this: *mut MaybeUninit<*mut c_void>);
                     }
                 }
-                __unique_ptr_drop(&mut repr);
+                unsafe { __unique_ptr_drop(&mut repr) }
             }
         }
     };
@@ -396,7 +482,7 @@ macro_rules! impl_vector_element {
 
 macro_rules! impl_vector_element_for_primitive {
     ($ty:ident) => {
-        impl_vector_element!(stringify!($ty), stringify!($ty), $ty);
+        impl_vector_element!(trivial, stringify!($ty), stringify!($ty), $ty);
     };
 }
 
@@ -413,4 +499,4 @@ impl_vector_element_for_primitive!(isize);
 impl_vector_element_for_primitive!(f32);
 impl_vector_element_for_primitive!(f64);
 
-impl_vector_element!("string", "CxxString", CxxString);
+impl_vector_element!(opaque, "string", "CxxString", CxxString);

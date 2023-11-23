@@ -27,7 +27,8 @@
       "properties": {
         "index": {"type": "integer", "minimum": 0},
         "type": {"type": "string", "enum": ["audio_source", "video_source"]},
-        "codecName": {"type": "string"},
+        "codecName": {"type": "string", "enum": ["aac", "opus", "h264", "vp8", "hevc", "vp9", "av1"]},
+        "codecParameter": {"type": "string"},
         "rtpProfile": {"type": "string", "enum": ["cast"]},
         "rtpPayloadType": {"type": "integer", "minimum": 96, "maximum": 127},
         "ssrc": {"$ref": "#/definitions/ssrc"},
@@ -115,16 +116,13 @@
     "video_constraints": {
       "properties": {
         "maxPixelsPerSecond": {"type": "number", "minimum": 0},
-        "minDimensions": {"$ref": "#/definitions/dimensions"},
+        "minResolution": {"$ref": "#/definitions/resolution"},
         "maxDimensions": {"$ref": "#/definitions/dimensions"},
         "minBitRate": {"type": "integer", "minimum": 300000},
         "maxBitRate": {"type": "integer", "minimum": 300000},
         "maxDelay": {"$ref": "#/definitions/delay"}
       },
-      "required": [
-        "maxDimensions",
-        "maxBitRate"
-      ]
+      "required": ["maxDimensions", "maxBitRate"]
     },
     "constraints": {
       "properties": {
@@ -168,23 +166,9 @@
           "type": "array",
           "items": {"type": "integer", "minimum": 0}
         },
-        "receiverGetStatus": {"type": "boolean"},
         "rtpExtensions": {"$ref": "#/definitions/rtp_extensions"}
       },
       "required": ["udpPort", "sendIndexes", "ssrcs"]
-    },
-    "status_response": {
-      "properties": {
-        "wifiSpeed": {
-          "type": "array",
-          "items": {"type": "integer", "minimum": 0}
-        },
-        "wifiFcsError": {
-          "type": "array",
-          "items": {"type": "integer", "minimum": 0}
-        },
-        "wifiSnr": {"type": "number", "examples": ["3.23", "50.1"]}
-      }
     },
     "capabilities": {
       "$id": "#capabilities",
@@ -221,14 +205,6 @@
     "result": {"type": "string", "enum": ["ok", "error"]},
     "seqNum": {"type": "integer", "minimum": 0},
     "sessionId": {"type": "integer"},
-    "get_status": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["wifiFcsError", "wifiSnr", "wifiSpeed"]
-      }
-    },
-    "status": {"$ref": "#/definitions/status_response"},
     "type": {
       "type": "string",
       "enum": [
@@ -242,13 +218,34 @@
       ]
     }
   },
-  "required": ["type", "seqNum"],
+  "required": ["type"],
   "allOf": [
     {
       "if": {
-        "properties": {"type": {"enum": ["ANSWER", "CAPABILITIES_RESPONSE", "STATUS_RESPONSE"]}}
+        "properties": {
+          "type": {
+            "enum": ["ANSWER", "CAPABILITIES_RESPONSE", "STATUS_RESPONSE"]
+          }
+        }
       },
       "then": {"required": ["result"]}
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "OFFER",
+              "ANSWER",
+              "GET_CAPABILITIES",
+              "CAPABILITIES_RESPONSE",
+              "GET_STATUS",
+              "STATUS_RESPONSE"
+            ]
+          }
+        }
+      },
+      "then": {"required": ["seqNum"]}
     },
     {
       "if": {"properties": {"type": {"const": "OFFER"}}},
@@ -268,14 +265,6 @@
         }
       },
       "then": {"required": ["capabilities"]}
-    },
-    {
-      "if": {"properties": {"type": {"const": "GET_STATUS"}}},
-      "then": {"required": ["get_status"]}
-    },
-    {
-      "if": {"properties": {"type": {"const": "STATUS_RESPONSE"}}},
-      "then": {"required": ["status"]}
     },
     {
       "if": {

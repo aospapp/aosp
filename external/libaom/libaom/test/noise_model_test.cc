@@ -212,6 +212,12 @@ TEST(NoiseStrengthSolver, SimplifiesCurve) {
   aom_noise_strength_solver_free(&solver);
 }
 
+TEST(NoiseStrengthLut, LutInitNegativeOrZeroSize) {
+  aom_noise_strength_lut_t lut;
+  ASSERT_FALSE(aom_noise_strength_lut_init(&lut, -1));
+  ASSERT_FALSE(aom_noise_strength_lut_init(&lut, 0));
+}
+
 TEST(NoiseStrengthLut, LutEvalSinglePoint) {
   aom_noise_strength_lut_t lut;
   ASSERT_TRUE(aom_noise_strength_lut_init(&lut, 1));
@@ -1153,7 +1159,7 @@ TEST(NoiseModelGetGrainParameters, GetGrainParametersReal) {
 template <typename T>
 class WienerDenoiseTest : public ::testing::Test, public T {
  public:
-  static void SetUpTestCase() { aom_dsp_rtcd(); }
+  static void SetUpTestSuite() { aom_dsp_rtcd(); }
 
  protected:
   void SetUp() {

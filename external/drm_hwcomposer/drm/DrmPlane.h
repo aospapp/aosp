@@ -17,9 +17,9 @@
 #ifndef ANDROID_DRM_PLANE_H_
 #define ANDROID_DRM_PLANE_H_
 
-#include <stdint.h>
 #include <xf86drmMode.h>
 
+#include <cstdint>
 #include <vector>
 
 #include "DrmCrtc.h"
@@ -29,48 +29,48 @@
 namespace android {
 
 class DrmDevice;
+struct DrmHwcLayer;
 
-class DrmPlane {
+class DrmPlane : public PipelineBindable<DrmPlane> {
  public:
-  DrmPlane(DrmDevice *drm, drmModePlanePtr p);
   DrmPlane(const DrmPlane &) = delete;
   DrmPlane &operator=(const DrmPlane &) = delete;
 
-  int Init();
+  static auto CreateInstance(DrmDevice &dev, uint32_t plane_id)
+      -> std::unique_ptr<DrmPlane>;
 
-  uint32_t id() const;
-
-  bool GetCrtcSupported(const DrmCrtc &crtc) const;
+  bool IsCrtcSupported(const DrmCrtc &crtc) const;
   bool IsValidForLayer(DrmHwcLayer *layer);
 
-  uint32_t type() const;
+  auto GetType() const {
+    return type_;
+  }
 
   bool IsFormatSupported(uint32_t format) const;
   bool HasNonRgbFormat() const;
 
-  const DrmProperty &crtc_property() const;
-  const DrmProperty &fb_property() const;
-  const DrmProperty &crtc_x_property() const;
-  const DrmProperty &crtc_y_property() const;
-  const DrmProperty &crtc_w_property() const;
-  const DrmProperty &crtc_h_property() const;
-  const DrmProperty &src_x_property() const;
-  const DrmProperty &src_y_property() const;
-  const DrmProperty &src_w_property() const;
-  const DrmProperty &src_h_property() const;
-  const DrmProperty &zpos_property() const;
-  const DrmProperty &rotation_property() const;
-  const DrmProperty &alpha_property() const;
-  const DrmProperty &blend_property() const;
-  const DrmProperty &in_fence_fd_property() const;
-  const DrmProperty &color_encoding_propery() const;
-  const DrmProperty &color_range_property() const;
+  auto AtomicSetState(drmModeAtomicReq &pset, DrmHwcLayer &layer, uint32_t zpos,
+                      uint32_t crtc_id) -> int;
+  auto AtomicDisablePlane(drmModeAtomicReq &pset) -> int;
+  auto &GetZPosProperty() const {
+    return zpos_property_;
+  }
+
+  auto GetId() const {
+    return plane_->plane_id;
+  }
 
  private:
-  DrmDevice *drm_;
-  uint32_t id_;
+  DrmPlane(DrmDevice &dev, DrmModePlaneUnique plane)
+      : drm_(&dev), plane_(std::move(plane)){};
+  DrmDevice *const drm_;
+  DrmModePlaneUnique plane_;
 
-  uint32_t possible_crtc_mask_;
+  enum class Presence { kOptional, kMandatory };
+
+  auto Init() -> int;
+  auto GetPlaneProperty(const char *prop_name, DrmProperty &property,
+                        Presence presence = Presence::kMandatory) -> bool;
 
   uint32_t type_{};
 
@@ -93,6 +93,11 @@ class DrmPlane {
   DrmProperty in_fence_fd_property_;
   DrmProperty color_encoding_propery_;
   DrmProperty color_range_property_;
+
+  std::map<DrmHwcBlending, uint64_t> blending_enum_map_;
+  std::map<DrmHwcColorSpace, uint64_t> color_encoding_enum_map_;
+  std::map<DrmHwcSampleRange, uint64_t> color_range_enum_map_;
+  std::map<DrmHwcTransform, uint64_t> transform_enum_map_;
 };
 }  // namespace android
 

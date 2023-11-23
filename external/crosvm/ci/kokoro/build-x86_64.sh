@@ -4,8 +4,10 @@
 # found in the LICENSE file.
 source "$(dirname $0)/common.sh"
 
-./ci/run_container.sh crosvm_builder --vm "\
-    ./run_tests -v --require-all \
-            --junit-file=/workspace/logs/cargo_test/sponge_log.xml \
-    && bin/clippy \
-    && bin/fmt --check"
+./tools/dev_container --hermetic bash -c "\
+    ./tools/run_tests --target=host -v \
+    && ./tools/clippy \
+    && ./tools/fmt --check \
+    && cargo build --verbose --no-default-features \
+    && mdbook build ./docs/book \
+    && ./tools/cargo-doc"

@@ -5,11 +5,11 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at https://curl.haxx.se/docs/copyright.html.
+# are also available at https://curl.se/docs/copyright.html.
 #
 # You may opt to use, copy, modify, merge, publish, distribute and/or sell
 # copies of the Software, and permit persons to whom the Software is
@@ -59,10 +59,6 @@ endif
 ifndef LIBRTMP_PATH
 LIBRTMP_PATH = ../../../librtmp-2.4
 endif
-# Edit the path below to point to the base of your libmetalink package.
-ifndef LIBMETALINK_PATH
-LIBMETALINK_PATH = ../../../libmetalink-0.1.3
-endif
 # Edit the path below to point to the base of your libexpat package.
 ifndef LIBEXPAT_PATH
 LIBEXPAT_PATH = ../../../expat-2.1.0
@@ -70,6 +66,10 @@ endif
 # Edit the path below to point to the base of your libxml2 package.
 ifndef LIBXML2_PATH
 LIBXML2_PATH = ../../../libxml2-2.9.2
+endif
+# Edit the path below to point to the base of your libgsasl package.
+ifndef LIBGSASL_PATH
+LIBGSASL_PATH = ../../../libgsasl-1.10.0
 endif
 # Edit the path below to point to the base of your libidn2 package.
 ifndef LIBIDN2_PATH
@@ -88,6 +88,14 @@ endif
 # Edit the path below to point to the base of your nghttp2 package.
 ifndef NGHTTP2_PATH
 NGHTTP2_PATH = ../../../nghttp2-1.0.0
+endif
+# Edit the path below to point to the base of your nghttp3 package.
+ifndef NGHTTP3_PATH
+NGHTTP3_PATH = ../../../nghttp3-1.0.0
+endif
+# Edit the path below to point to the base of your ngtcp2 package.
+ifndef NGTCP2_PATH
+NGTCP2_PATH = ../../../ngtcp2-1.0.0
 endif
 
 PROOT = ../..
@@ -170,12 +178,10 @@ ARES = 1
 endif
 ifeq ($(findstring -rtmp,$(CFG)),-rtmp)
 RTMP = 1
-SSL = 1
 ZLIB = 1
 endif
 ifeq ($(findstring -ssh2,$(CFG)),-ssh2)
 SSH2 = 1
-SSL = 1
 ZLIB = 1
 endif
 ifeq ($(findstring -ssl,$(CFG)),-ssl)
@@ -189,6 +195,9 @@ ZSTD = 1
 endif
 ifeq ($(findstring -brotli,$(CFG)),-brotli)
 BROTLI = 1
+endif
+ifeq ($(findstring -gsasl,$(CFG)),-gsasl)
+GSASL = 1
 endif
 ifeq ($(findstring -idn2,$(CFG)),-idn2)
 IDN2 = 1
@@ -205,15 +214,25 @@ endif
 ifeq ($(findstring -ipv6,$(CFG)),-ipv6)
 IPV6 = 1
 endif
-ifeq ($(findstring -metalink,$(CFG)),-metalink)
-METALINK = 1
-endif
 ifeq ($(findstring -winssl,$(CFG)),-winssl)
 WINSSL = 1
 SSPI = 1
 endif
 ifeq ($(findstring -nghttp2,$(CFG)),-nghttp2)
 NGHTTP2 = 1
+endif
+ifeq ($(findstring -nghttp3,$(CFG)),-nghttp3)
+NGHTTP3 = 1
+endif
+ifeq ($(findstring -ngtcp2,$(CFG)),-ngtcp2)
+NGTCP2 = 1
+endif
+
+# SSH2 and RTMP require an SSL library; assume OpenSSL if none specified
+ifneq ($(SSH2)$(RTMP),)
+  ifeq ($(SSL)$(WINSSL),)
+    SSL = 1
+  endif
 endif
 
 INCLUDES = -I. -I$(PROOT) -I$(PROOT)/include -I$(PROOT)/lib
@@ -252,6 +271,15 @@ ifdef SSH2
   endif
 endif
 ifdef SSL
+  ifdef NGHTTP3
+    CFLAGS += -DUSE_NGHTTP3
+    curl_LDADD += -L"$(NGHTTP3_PATH)/lib" -lnghttp3
+    ifdef NGTCP2
+      CFLAGS += -DUSE_NGTCP2
+      curl_LDADD += -L"$(NGTCP2_PATH)/lib" -lngtcp2 -lngtcp2_crypto_openssl
+    endif
+  endif
+
   ifndef OPENSSL_INCLUDE
     ifeq "$(wildcard $(OPENSSL_PATH)/outinc)" "$(OPENSSL_PATH)/outinc"
       OPENSSL_INCLUDE = $(OPENSSL_PATH)/outinc
@@ -261,7 +289,7 @@ ifdef SSL
     endif
   endif
   ifneq "$(wildcard $(OPENSSL_INCLUDE)/openssl/opensslv.h)" "$(OPENSSL_INCLUDE)/openssl/opensslv.h"
-  $(error Invalid path to OpenSSL package: $(OPENSSL_PATH))
+    $(error Invalid path to OpenSSL package: $(OPENSSL_PATH))
   endif
   ifndef OPENSSL_LIBPATH
     OPENSSL_LIBS = -lssl -lcrypto
@@ -311,6 +339,10 @@ ifdef BROTLI
     curl_LDADD += -lbrotlidec
   endif
 endif
+ifdef GSASL
+  CFLAGS += -DUSE_GSASL
+  curl_LDADD += -L"$(LIBGSASL_PATH)/lib" -lgsasl
+endif
 ifdef IDN2
   CFLAGS += -DUSE_LIBIDN2
   curl_LDADD += -L"$(LIBIDN2_PATH)/lib" -lidn2
@@ -319,18 +351,6 @@ ifdef WINIDN
   CFLAGS += -DUSE_WIN32_IDN
   curl_LDADD += -L"$(WINIDN_PATH)" -lnormaliz
 endif
-endif
-ifdef METALINK
-  INCLUDES += -I"$(LIBMETALINK_PATH)/include"
-  CFLAGS += -DUSE_METALINK
-  curl_LDADD += -L"$(LIBMETALINK_PATH)/lib" -lmetalink
-  ifndef DYN
-    ifeq ($(findstring libexpat_metalink_parser.o,$(shell $(AR) t "$(LIBMETALINK_PATH)/lib/libmetalink.a")),libexpat_metalink_parser.o)
-      curl_LDADD += -L"$(LIBEXPAT_PATH)/lib" -lexpat
-    else
-      curl_LDADD += -L"$(LIBXML2_PATH)/lib" -lxml2
-    endif
-  endif
 endif
 ifdef SSPI
   CFLAGS += -DUSE_WINDOWS_SSPI

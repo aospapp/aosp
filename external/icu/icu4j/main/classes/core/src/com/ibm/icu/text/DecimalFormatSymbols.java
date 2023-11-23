@@ -200,7 +200,6 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      * @return An array of <code>ULocale</code>s for which localized
      * <code>DecimalFormatSymbols</code> instances are available.
      * @stable ICU 3.8 (retain)
-     * @provisional This API might change or be removed in a future release.
      */
     public static ULocale[] getAvailableULocales() {
         return ICUResourceBundle.getAvailableULocales();
@@ -822,6 +821,27 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     }
 
     /**
+     * @internal ICU 70 technology preview
+     * @deprecated This API is for technology preview only.
+     */
+    @Deprecated
+    public String getApproximatelySignString() {
+        return approximatelyString;
+    }
+
+    /**
+     * @internal ICU 70 technology preview
+     * @deprecated This API is for technology preview only.
+     */
+    @Deprecated
+    public void setApproximatelySignString(String approximatelySignString) {
+        if (approximatelySignString == null) {
+            throw new NullPointerException("The input plus sign is null");
+        }
+        this.approximatelyString = approximatelySignString;
+    }
+
+    /**
      * Returns the string denoting the local currency.
      * @return the local currency String.
      * @stable ICU 2.0
@@ -966,7 +986,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
         if (sep.length() == 1) {
             this.monetarySeparator = sep.charAt(0);
         } else {
-            // Use default decimap separator character as fallbacl
+            // Use default decimal separator character as fallback
             this.monetarySeparator = DEF_DECIMAL_SEPARATOR;
         }
     }
@@ -1270,6 +1290,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
         padEscape == other.padEscape &&
         plusSign == other.plusSign &&
         plusString.equals(other.plusString) &&
+        approximatelyString.equals(other.approximatelyString) &&
         exponentSeparator.equals(other.exponentSeparator) &&
         monetarySeparator == other.monetarySeparator &&
         monetaryGroupingSeparator == other.monetaryGroupingSeparator &&
@@ -1306,6 +1327,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
             "currencyDecimal",
             "currencyGroup",
             "superscriptingExponent",
+            "approximatelySign",
     // Android-added: Libcore bridge needs localized pattern separator. http://b/112080617
             "list",
     };
@@ -1344,7 +1366,8 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
             "NaN", // NaN
             null, // currency decimal
             null, // currency group
-            "\u00D7" // superscripting exponent
+            "\u00D7", // superscripting exponent
+            "~", // // approximately sign
         };
 
     /**
@@ -1391,7 +1414,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      */
     public static String getLocalizedPatternSeparator(ULocale locale, NumberingSystem ns) {
         CacheData data = getCachedLocaleData(locale, ns);
-        return data.numberElements[12];
+        return data.numberElements[13];
     }
 
     private static CacheData getCachedLocaleData(ULocale locale, NumberingSystem ns) {
@@ -1432,6 +1455,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
         setMonetaryDecimalSeparatorString(numberElements[9]);
         setMonetaryGroupingSeparatorString(numberElements[10]);
         setExponentMultiplicationSign(numberElements[11]);
+        setApproximatelySignString(numberElements[12]);
 
         digit = '#';  // Localized pattern character no longer in CLDR
         padEscape = '*';
@@ -1634,6 +1658,10 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
                 monetaryGroupingSeparatorString = String.valueOf(monetaryGroupingSeparator);
             }
         }
+        if (serialVersionOnStream < 10) {
+            // Approximately sign
+            approximatelyString = "~"; // fallback
+        }
 
         serialVersionOnStream = currentSerialVersion;
 
@@ -1803,6 +1831,13 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     private String plusString;
 
     /**
+     * The string used to indicate an approximately sign.
+     * @serial
+     * @since ICU 69
+     */
+    private String approximatelyString;
+
+    /**
      * String denoting the local currency, e.g. "$".
      * @serial
      * @see #getCurrencySymbol
@@ -1908,7 +1943,8 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     // - 7 for ICU 52, which includes the minusString and plusString fields
     // - 8 for ICU 54, which includes exponentMultiplicationSign field.
     // - 9 for ICU 58, which includes a series of String symbol fields.
-    private static final int currentSerialVersion = 8;
+    // - 10 for ICU 69, which includes the approximatelyString field.
+    private static final int currentSerialVersion = 10;
 
     /**
      * Describes the version of <code>DecimalFormatSymbols</code> present on the stream.
@@ -1973,7 +2009,6 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      * @see com.ibm.icu.util.ULocale#VALID_LOCALE
      * @see com.ibm.icu.util.ULocale#ACTUAL_LOCALE
      * @draft ICU 2.8 (retain)
-     * @provisional This API might change or be removed in a future release.
      */
     public final ULocale getLocale(ULocale.Type type) {
         return type == ULocale.ACTUAL_LOCALE ?

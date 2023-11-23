@@ -55,6 +55,7 @@ class SurfaceImpl : public FramebufferAttachmentObjectImpl
                                                       const gl::FramebufferState &state) = 0;
     virtual egl::Error makeCurrent(const gl::Context *context);
     virtual egl::Error unMakeCurrent(const gl::Context *context);
+    virtual egl::Error prepareSwap(const gl::Context *);
     virtual egl::Error swap(const gl::Context *context) = 0;
     virtual egl::Error swapWithDamage(const gl::Context *context,
                                       const EGLint *rects,
@@ -110,6 +111,17 @@ class SurfaceImpl : public FramebufferAttachmentObjectImpl
                                           const EGLint *timestamps,
                                           EGLnsecsANDROID *values) const;
     virtual egl::Error getBufferAge(const gl::Context *context, EGLint *age);
+
+    // EGL_KHR_lock_surface3
+    virtual egl::Error lockSurface(const egl::Display *display,
+                                   EGLint usageHint,
+                                   bool preservePixels,
+                                   uint8_t **bufferPtrOut,
+                                   EGLint *bufferPitchOut);
+    virtual egl::Error unlockSurface(const egl::Display *display, bool preservePixels);
+    virtual EGLint origin() const;
+
+    virtual egl::Error setRenderBuffer(EGLint renderBuffer);
 
   protected:
     const egl::SurfaceState &mState;

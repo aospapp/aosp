@@ -1,4 +1,4 @@
-# Copyright (c) 2020, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2020-2021, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -23,6 +23,8 @@ BL1_SOURCES		+=	${SGI_CPU_SOURCES}			\
 BL2_SOURCES		+=	${RDV1MC_BASE}/rdv1mc_plat.c	\
 				${RDV1MC_BASE}/rdv1mc_security.c	\
 				${RDV1MC_BASE}/rdv1mc_err.c	\
+				drivers/arm/tzc/tzc400.c	\
+				plat/arm/common/arm_tzc400.c	\
 				lib/utils/mem_region.c			\
 				plat/arm/common/arm_nor_psci_mem_protect.c
 
@@ -66,3 +68,9 @@ NT_FW_CONFIG		:=	${BUILD_PLAT}/fdts/${PLAT}_nt_fw_config.dtb
 $(eval $(call TOOL_ADD_PAYLOAD,${NT_FW_CONFIG},--nt-fw-config,${NT_FW_CONFIG}))
 
 override CTX_INCLUDE_AARCH32_REGS	:= 0
+override ENABLE_AMU			:= 1
+
+ifneq ($(CSS_SGI_PLATFORM_VARIANT),0)
+ $(error "CSS_SGI_PLATFORM_VARIANT for RD-V1-MC should always be 0, \
+     currently set to ${CSS_SGI_PLATFORM_VARIANT}.")
+endif

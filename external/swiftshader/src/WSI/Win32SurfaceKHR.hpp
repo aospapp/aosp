@@ -25,8 +25,6 @@
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
 
-#include <map>
-
 namespace vk {
 
 class Win32SurfaceKHR : public SurfaceKHR, public ObjectBase<Win32SurfaceKHR, VkSurfaceKHR>
@@ -45,19 +43,11 @@ public:
 	VkResult present(PresentImage *image) override;
 
 private:
-	void lazyCreateFrameBuffer();
-	void destroyFrameBuffer();
-
 	const HWND hwnd;
 
 	HDC windowContext = {};
 	HDC bitmapContext = {};
-	VkExtent2D windowExtent = {};
-
-	HBITMAP bitmap = {};
-	unsigned int bitmapRowPitch = 0;
-	void *framebuffer = nullptr;
 };
 
 }  // namespace vk
-#endif  //SWIFTSHADER_WIN32SURFACEKHR_HPP
+#endif  // SWIFTSHADER_WIN32SURFACEKHR_HPP

@@ -5,7 +5,7 @@
 #define FORCED_FLAGLL 1ULL
 #else
 #define FORCED_FLAG 0
-#define FORCED_FLAGLL 0
+#define FORCED_FLAGLL 0LL
 #endif
 
 // acpi   abctV
@@ -200,9 +200,9 @@
 #undef FOR_bzcat
 #endif
 
-// cal   >2h
+// cal   >3h
 #undef OPTSTR_cal
-#define OPTSTR_cal ">2h"
+#define OPTSTR_cal ">3h"
 #ifdef CLEANUP_cal
 #undef CLEANUP_cal
 #undef FOR_cal
@@ -352,12 +352,13 @@
 #undef FOR_clear
 #endif
 
-// cmp <1>2ls(silent)(quiet)[!ls] <1>2ls(silent)(quiet)[!ls]
+// cmp <1>4ls(silent)(quiet)n#<1[!ls] <1>4ls(silent)(quiet)n#<1[!ls]
 #undef OPTSTR_cmp
-#define OPTSTR_cmp "<1>2ls(silent)(quiet)[!ls]"
+#define OPTSTR_cmp "<1>4ls(silent)(quiet)n#<1[!ls]"
 #ifdef CLEANUP_cmp
 #undef CLEANUP_cmp
 #undef FOR_cmp
+#undef FLAG_n
 #undef FLAG_s
 #undef FLAG_l
 #endif
@@ -381,9 +382,9 @@
 #undef FOR_count
 #endif
 
-// cp <1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu] <1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu]
+// cp <1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu][+Rr] <1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu][+Rr]
 #undef OPTSTR_cp
-#define OPTSTR_cp "<1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu]"
+#define OPTSTR_cp "<1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu][+Rr]"
 #ifdef CLEANUP_cp
 #undef CLEANUP_cp
 #undef FOR_cp
@@ -409,9 +410,9 @@
 #undef FLAG_preserve
 #endif
 
-// cpio (quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF] (quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF]
+// cpio (ignore-devno)(renumber-inodes)(quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF] (ignore-devno)(renumber-inodes)(quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF]
 #undef OPTSTR_cpio
-#define OPTSTR_cpio "(quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF]"
+#define OPTSTR_cpio "(ignore-devno)(renumber-inodes)(quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF]"
 #ifdef CLEANUP_cpio
 #undef CLEANUP_cpio
 #undef FOR_cpio
@@ -427,6 +428,8 @@
 #undef FLAG_m
 #undef FLAG_no_preserve_owner
 #undef FLAG_quiet
+#undef FLAG_renumber_inodes
+#undef FLAG_ignore_devno
 #endif
 
 // crc32    
@@ -465,9 +468,9 @@
 #undef FLAG_c
 #endif
 
-// cut b*|c*|f*|F*|C*|O(output-delimiter):d:sDn[!cbf] b*|c*|f*|F*|C*|O(output-delimiter):d:sDn[!cbf]
+// cut b*|c*|f*|F*|C*|O(output-delimiter):d:sDn[!cbfF] b*|c*|f*|F*|C*|O(output-delimiter):d:sDn[!cbfF]
 #undef OPTSTR_cut
-#define OPTSTR_cut "b*|c*|f*|F*|C*|O(output-delimiter):d:sDn[!cbf]"
+#define OPTSTR_cut "b*|c*|f*|F*|C*|O(output-delimiter):d:sDn[!cbfF]"
 #ifdef CLEANUP_cut
 #undef CLEANUP_cut
 #undef FOR_cut
@@ -483,13 +486,14 @@
 #undef FLAG_b
 #endif
 
-// date d:D:I(iso)(iso-8601):;r:u(utc)[!dr] d:D:I(iso)(iso-8601):;r:u(utc)[!dr]
+// date d:D:I(iso)(iso-8601):;r:s:u(utc)[!dr] d:D:I(iso)(iso-8601):;r:s:u(utc)[!dr]
 #undef OPTSTR_date
-#define OPTSTR_date "d:D:I(iso)(iso-8601):;r:u(utc)[!dr]"
+#define OPTSTR_date "d:D:I(iso)(iso-8601):;r:s:u(utc)[!dr]"
 #ifdef CLEANUP_date
 #undef CLEANUP_date
 #undef FOR_date
 #undef FLAG_u
+#undef FLAG_s
 #undef FLAG_r
 #undef FLAG_I
 #undef FLAG_D
@@ -510,6 +514,23 @@
 #ifdef CLEANUP_deallocvt
 #undef CLEANUP_deallocvt
 #undef FOR_deallocvt
+#endif
+
+// declare   pAailunxr
+#undef OPTSTR_declare
+#define OPTSTR_declare "pAailunxr"
+#ifdef CLEANUP_declare
+#undef CLEANUP_declare
+#undef FOR_declare
+#undef FLAG_r
+#undef FLAG_x
+#undef FLAG_n
+#undef FLAG_u
+#undef FLAG_l
+#undef FLAG_i
+#undef FLAG_a
+#undef FLAG_A
+#undef FLAG_p
 #endif
 
 // demo_many_options   ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlkjihgfedcba
@@ -974,9 +995,9 @@
 #undef FLAG_b
 #endif
 
-// free   htgmkb[!htgmkb]
+// free   hgmkb[!hgmkb]
 #undef OPTSTR_free
-#define OPTSTR_free "htgmkb[!htgmkb]"
+#define OPTSTR_free "hgmkb[!hgmkb]"
 #ifdef CLEANUP_free
 #undef CLEANUP_free
 #undef FOR_free
@@ -984,7 +1005,6 @@
 #undef FLAG_k
 #undef FLAG_m
 #undef FLAG_g
-#undef FLAG_t
 #undef FLAG_h
 #endif
 
@@ -1124,9 +1144,51 @@
 #undef FLAG_t
 #endif
 
-// grep (line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw] (line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw]
+// gpiodetect   >0
+#undef OPTSTR_gpiodetect
+#define OPTSTR_gpiodetect ">0"
+#ifdef CLEANUP_gpiodetect
+#undef CLEANUP_gpiodetect
+#undef FOR_gpiodetect
+#endif
+
+// gpiofind   <1>1
+#undef OPTSTR_gpiofind
+#define OPTSTR_gpiofind "<1>1"
+#ifdef CLEANUP_gpiofind
+#undef CLEANUP_gpiofind
+#undef FOR_gpiofind
+#endif
+
+// gpioget   <2l
+#undef OPTSTR_gpioget
+#define OPTSTR_gpioget "<2l"
+#ifdef CLEANUP_gpioget
+#undef CLEANUP_gpioget
+#undef FOR_gpioget
+#undef FLAG_l
+#endif
+
+// gpioinfo    
+#undef OPTSTR_gpioinfo
+#define OPTSTR_gpioinfo 0
+#ifdef CLEANUP_gpioinfo
+#undef CLEANUP_gpioinfo
+#undef FOR_gpioinfo
+#endif
+
+// gpioset   <2l
+#undef OPTSTR_gpioset
+#define OPTSTR_gpioset "<2l"
+#ifdef CLEANUP_gpioset
+#undef CLEANUP_gpioset
+#undef FOR_gpioset
+#undef FLAG_l
+#endif
+
+// grep (line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcL(files-without-match)l(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EF] (line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcL(files-without-match)l(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EF]
 #undef OPTSTR_grep
-#define OPTSTR_grep "(line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw]"
+#define OPTSTR_grep "(line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcL(files-without-match)l(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EF]"
 #ifdef CLEANUP_grep
 #undef CLEANUP_grep
 #undef FOR_grep
@@ -1139,6 +1201,7 @@
 #undef FLAG_e
 #undef FLAG_q
 #undef FLAG_l
+#undef FLAG_L
 #undef FLAG_c
 #undef FLAG_w
 #undef FLAG_v
@@ -1264,6 +1327,23 @@
 #undef FLAG_a
 #endif
 
+// hexdump   bcCdn#<0os#<0vx[!bcCdox]
+#undef OPTSTR_hexdump
+#define OPTSTR_hexdump "bcCdn#<0os#<0vx[!bcCdox]"
+#ifdef CLEANUP_hexdump
+#undef CLEANUP_hexdump
+#undef FOR_hexdump
+#undef FLAG_x
+#undef FLAG_v
+#undef FLAG_s
+#undef FLAG_o
+#undef FLAG_n
+#undef FLAG_d
+#undef FLAG_C
+#undef FLAG_c
+#undef FLAG_b
+#endif
+
 // hexedit   <1>1r
 #undef OPTSTR_hexedit
 #define OPTSTR_hexedit "<1>1r"
@@ -1321,13 +1401,15 @@
 #undef FLAG_fast
 #endif
 
-// i2cdetect   >3aFly
+// i2cdetect   >3aFlqry[!qr]
 #undef OPTSTR_i2cdetect
-#define OPTSTR_i2cdetect ">3aFly"
+#define OPTSTR_i2cdetect ">3aFlqry[!qr]"
 #ifdef CLEANUP_i2cdetect
 #undef CLEANUP_i2cdetect
 #undef FOR_i2cdetect
 #undef FLAG_y
+#undef FLAG_r
+#undef FLAG_q
 #undef FLAG_l
 #undef FLAG_F
 #undef FLAG_a
@@ -1423,7 +1505,7 @@
 #undef FOR_insmod
 #endif
 
-// install   <1cdDpsvt:m:o:g:
+// install <1cdDpsvt:m:o:g: <1cdDpsvt:m:o:g:
 #undef OPTSTR_install
 #define OPTSTR_install "<1cdDpsvt:m:o:g:"
 #ifdef CLEANUP_install
@@ -1453,9 +1535,9 @@
 #undef FLAG_t
 #endif
 
-// iorenice   ?<1>3
+// iorenice   <1>3
 #undef OPTSTR_iorenice
-#define OPTSTR_iorenice "?<1>3"
+#define OPTSTR_iorenice "<1>3"
 #ifdef CLEANUP_iorenice
 #undef CLEANUP_iorenice
 #undef FOR_iorenice
@@ -1600,6 +1682,14 @@
 #undef FOR_link
 #endif
 
+// linux32    
+#undef OPTSTR_linux32
+#define OPTSTR_linux32 0
+#ifdef CLEANUP_linux32
+#undef CLEANUP_linux32
+#undef FOR_linux32
+#endif
+
 // ln <1rt:Tvnfs <1rt:Tvnfs
 #undef OPTSTR_ln
 #define OPTSTR_ln "<1rt:Tvnfs"
@@ -1623,9 +1713,9 @@
 #undef FOR_load_policy
 #endif
 
-// log   <1p:t:
+// log   p:t:
 #undef OPTSTR_log
-#define OPTSTR_log "<1p:t:"
+#define OPTSTR_log "p:t:"
 #ifdef CLEANUP_log
 #undef CLEANUP_log
 #undef FOR_log
@@ -1663,12 +1753,12 @@
 #undef FOR_logname
 #endif
 
-// logwrapper    
-#undef OPTSTR_logwrapper
-#define OPTSTR_logwrapper 0
-#ifdef CLEANUP_logwrapper
-#undef CLEANUP_logwrapper
-#undef FOR_logwrapper
+// logpath    
+#undef OPTSTR_logpath
+#define OPTSTR_logpath 0
+#ifdef CLEANUP_logpath
+#undef CLEANUP_logpath
+#undef FOR_logpath
 #endif
 
 // losetup   >2S(sizelimit)#s(show)ro#j:fdcaD[!afj]
@@ -1776,12 +1866,13 @@
 #undef FLAG_e
 #endif
 
-// lsusb    
+// lsusb   i:
 #undef OPTSTR_lsusb
-#define OPTSTR_lsusb 0
+#define OPTSTR_lsusb "i:"
 #ifdef CLEANUP_lsusb
 #undef CLEANUP_lsusb
 #undef FOR_lsusb
+#undef FLAG_i
 #endif
 
 // makedevs   <1>1d:
@@ -2077,16 +2168,16 @@
 #undef FLAG_n
 #endif
 
-// nl v#=1l#w#<0=6Eb:n:s: v#=1l#w#<0=6Eb:n:s:
+// nl v#=1l#w#<0=6b:n:s:E v#=1l#w#<0=6b:n:s:E
 #undef OPTSTR_nl
-#define OPTSTR_nl "v#=1l#w#<0=6Eb:n:s:"
+#define OPTSTR_nl "v#=1l#w#<0=6b:n:s:E"
 #ifdef CLEANUP_nl
 #undef CLEANUP_nl
 #undef FOR_nl
+#undef FLAG_E
 #undef FLAG_s
 #undef FLAG_n
 #undef FLAG_b
-#undef FLAG_E
 #undef FLAG_w
 #undef FLAG_l
 #undef FLAG_v
@@ -2157,9 +2248,9 @@
 #undef FLAG_n
 #endif
 
-// openvt   c#<1>63sw
+// openvt   ^<1c#<1>63sw
 #undef OPTSTR_openvt
-#define OPTSTR_openvt "c#<1>63sw"
+#define OPTSTR_openvt "^<1c#<1>63sw"
 #ifdef CLEANUP_openvt
 #undef CLEANUP_openvt
 #undef FOR_openvt
@@ -2243,9 +2334,9 @@
 #undef FLAG_c
 #endif
 
-// pidof   <1so:x
+// pidof   so:x
 #undef OPTSTR_pidof
-#define OPTSTR_pidof "<1so:x"
+#define OPTSTR_pidof "so:x"
 #ifdef CLEANUP_pidof
 #undef CLEANUP_pidof
 #undef FOR_pidof
@@ -2304,14 +2395,15 @@
 #undef FLAG_V
 #endif
 
-// pmap   <1xq
+// pmap   <1pqx
 #undef OPTSTR_pmap
-#define OPTSTR_pmap "<1xq"
+#define OPTSTR_pmap "<1pqx"
 #ifdef CLEANUP_pmap
 #undef CLEANUP_pmap
 #undef FOR_pmap
-#undef FLAG_q
 #undef FLAG_x
+#undef FLAG_q
+#undef FLAG_p
 #endif
 
 // printenv   (null)0
@@ -2442,22 +2534,15 @@
 #undef FLAG_n
 #endif
 
-// realpath <1 <1
-#undef OPTSTR_realpath
-#define OPTSTR_realpath "<1"
-#ifdef CLEANUP_realpath
-#undef CLEANUP_realpath
-#undef FOR_realpath
-#endif
-
-// reboot   fn
+// reboot   d:fn
 #undef OPTSTR_reboot
-#define OPTSTR_reboot "fn"
+#define OPTSTR_reboot "d:fn"
 #ifdef CLEANUP_reboot
 #undef CLEANUP_reboot
 #undef FOR_reboot
 #undef FLAG_n
 #undef FLAG_f
+#undef FLAG_d
 #endif
 
 // renice   <1gpun#|
@@ -2670,17 +2755,6 @@
 #undef FLAG_noediting
 #endif
 
-// sha1sum bc(check)s(status)[!bc] bc(check)s(status)[!bc]
-#undef OPTSTR_sha1sum
-#define OPTSTR_sha1sum "bc(check)s(status)[!bc]"
-#ifdef CLEANUP_sha1sum
-#undef CLEANUP_sha1sum
-#undef FOR_sha1sum
-#undef FLAG_s
-#undef FLAG_c
-#undef FLAG_b
-#endif
-
 // sha3sum   bSa#<128>512=224
 #undef OPTSTR_sha3sum
 #define OPTSTR_sha3sum "bSa#<128>512=224"
@@ -2805,12 +2879,13 @@
 #undef FOR_source
 #endif
 
-// split   >2a#<1=2>9b#<1l#<1[!bl]
+// split   >2a#<1=2>9b#<1l#<1n#<1[!bl][!bn][!ln]
 #undef OPTSTR_split
-#define OPTSTR_split ">2a#<1=2>9b#<1l#<1[!bl]"
+#define OPTSTR_split ">2a#<1=2>9b#<1l#<1n#<1[!bl][!bn][!ln]"
 #ifdef CLEANUP_split
 #undef CLEANUP_split
 #undef FOR_split
+#undef FLAG_n
 #undef FLAG_l
 #undef FLAG_b
 #undef FLAG_a
@@ -2826,6 +2901,17 @@
 #undef FLAG_L
 #undef FLAG_f
 #undef FLAG_c
+#endif
+
+// strace   ^p#s#v
+#undef OPTSTR_strace
+#define OPTSTR_strace "^p#s#v"
+#ifdef CLEANUP_strace
+#undef CLEANUP_strace
+#undef FOR_strace
+#undef FLAG_v
+#undef FLAG_s
+#undef FLAG_p
 #endif
 
 // strings   t:an#=4<1fo
@@ -2958,20 +3044,22 @@
 #undef FOR_tac
 #endif
 
-// tail ?fc-n-[-cn] ?fc-n-[-cn]
+// tail ?fFs:c(bytes)-n(lines)-[-cn][-fF] ?fFs:c(bytes)-n(lines)-[-cn][-fF]
 #undef OPTSTR_tail
-#define OPTSTR_tail "?fc-n-[-cn]"
+#define OPTSTR_tail "?fFs:c(bytes)-n(lines)-[-cn][-fF]"
 #ifdef CLEANUP_tail
 #undef CLEANUP_tail
 #undef FOR_tail
 #undef FLAG_n
 #undef FLAG_c
+#undef FLAG_s
+#undef FLAG_F
 #undef FLAG_f
 #endif
 
-// tar &(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa] &(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa]
+// tar &(strip-components)#(selinux)(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa] &(strip-components)#(selinux)(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa]
 #undef OPTSTR_tar
-#define OPTSTR_tar "&(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa]"
+#define OPTSTR_tar "&(strip-components)#(selinux)(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa]"
 #ifdef CLEANUP_tar
 #undef CLEANUP_tar
 #undef FOR_tar
@@ -3008,6 +3096,8 @@
 #undef FLAG_no_recursion
 #undef FLAG_full_time
 #undef FLAG_restrict
+#undef FLAG_selinux
+#undef FLAG_strip_components
 #endif
 
 // taskset   <1^pa
@@ -3104,9 +3194,9 @@
 #undef FLAG_r
 #endif
 
-// time   <1^pv
+// time   <1^pv[-pv]
 #undef OPTSTR_time
-#define OPTSTR_time "<1^pv"
+#define OPTSTR_time "<1^pv[-pv]"
 #ifdef CLEANUP_time
 #undef CLEANUP_time
 #undef FOR_time
@@ -3127,9 +3217,9 @@
 #undef FLAG_foreground
 #endif
 
-// top   >0O*Hk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]
+// top   >0O*hHk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]
 #undef OPTSTR_top
-#define OPTSTR_top ">0O*Hk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]"
+#define OPTSTR_top ">0O*hHk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]"
 #ifdef CLEANUP_top
 #undef CLEANUP_top
 #undef FOR_top
@@ -3144,6 +3234,7 @@
 #undef FLAG_o
 #undef FLAG_k
 #undef FLAG_H
+#undef FLAG_h
 #undef FLAG_O
 #endif
 
@@ -3250,6 +3341,19 @@
 #undef FLAG_t
 #endif
 
+// uclampset   p#am#<-1>1024M#<-1>1024R
+#undef OPTSTR_uclampset
+#define OPTSTR_uclampset "p#am#<-1>1024M#<-1>1024R"
+#ifdef CLEANUP_uclampset
+#undef CLEANUP_uclampset
+#undef FOR_uclampset
+#undef FLAG_R
+#undef FLAG_M
+#undef FLAG_m
+#undef FLAG_a
+#undef FLAG_p
+#endif
+
 // ulimit   >1P#<1SHavutsrRqpnmlifedc[-SH][!apvutsrRqnmlifedc]
 #undef OPTSTR_ulimit
 #define OPTSTR_ulimit ">1P#<1SHavutsrRqpnmlifedc[-SH][!apvutsrRqnmlifedc]"
@@ -3296,9 +3400,9 @@
 #undef FLAG_c
 #endif
 
-// uname oamvrns[+os] oamvrns[+os]
+// uname aomvrns aomvrns
 #undef OPTSTR_uname
-#define OPTSTR_uname "oamvrns[+os]"
+#define OPTSTR_uname "aomvrns"
 #ifdef CLEANUP_uname
 #undef CLEANUP_uname
 #undef FOR_uname
@@ -3307,8 +3411,8 @@
 #undef FLAG_r
 #undef FLAG_v
 #undef FLAG_m
-#undef FLAG_a
 #undef FLAG_o
+#undef FLAG_a
 #endif
 
 // unicode   <1
@@ -3527,14 +3631,16 @@
 #undef FLAG_m
 #endif
 
-// wget   (no-check-certificate)O:
+// wget   <1>1(max-redirect)#<0=20d(debug)O(output-document):p(post-data):
 #undef OPTSTR_wget
-#define OPTSTR_wget "(no-check-certificate)O:"
+#define OPTSTR_wget "<1>1(max-redirect)#<0=20d(debug)O(output-document):p(post-data):"
 #ifdef CLEANUP_wget
 #undef CLEANUP_wget
 #undef FOR_wget
+#undef FLAG_p
 #undef FLAG_O
-#undef FLAG_no_check_certificate
+#undef FLAG_d
+#undef FLAG_max_redirect
 #endif
 
 // which <1a <1a
@@ -3572,9 +3678,9 @@
 #undef FLAG_E
 #endif
 
-// xxd >1c#l#o#g#<1=2iprs#[!rs] >1c#l#o#g#<1=2iprs#[!rs]
+// xxd >1c#<0>256l#o#g#<1=2iprs#[!rs] >1c#<0>256l#o#g#<1=2iprs#[!rs]
 #undef OPTSTR_xxd
-#define OPTSTR_xxd ">1c#l#o#g#<1=2iprs#[!rs]"
+#define OPTSTR_xxd ">1c#<0>256l#o#g#<1=2iprs#[!rs]"
 #ifdef CLEANUP_xxd
 #undef CLEANUP_xxd
 #undef FOR_xxd
@@ -3626,6 +3732,7 @@
 #endif
 
 #ifdef FOR_acpi
+#define CLEANUP_acpi
 #ifndef TT
 #define TT this.acpi
 #endif
@@ -3637,12 +3744,14 @@
 #endif
 
 #ifdef FOR_arch
+#define CLEANUP_arch
 #ifndef TT
 #define TT this.arch
 #endif
 #endif
 
 #ifdef FOR_arp
+#define CLEANUP_arp
 #ifndef TT
 #define TT this.arp
 #endif
@@ -3659,6 +3768,7 @@
 #endif
 
 #ifdef FOR_arping
+#define CLEANUP_arping
 #ifndef TT
 #define TT this.arping
 #endif
@@ -3675,12 +3785,14 @@
 #endif
 
 #ifdef FOR_ascii
+#define CLEANUP_ascii
 #ifndef TT
 #define TT this.ascii
 #endif
 #endif
 
 #ifdef FOR_base32
+#define CLEANUP_base32
 #ifndef TT
 #define TT this.base32
 #endif
@@ -3690,6 +3802,7 @@
 #endif
 
 #ifdef FOR_base64
+#define CLEANUP_base64
 #ifndef TT
 #define TT this.base64
 #endif
@@ -3699,6 +3812,7 @@
 #endif
 
 #ifdef FOR_basename
+#define CLEANUP_basename
 #ifndef TT
 #define TT this.basename
 #endif
@@ -3707,6 +3821,7 @@
 #endif
 
 #ifdef FOR_bc
+#define CLEANUP_bc
 #ifndef TT
 #define TT this.bc
 #endif
@@ -3718,6 +3833,7 @@
 #endif
 
 #ifdef FOR_blkdiscard
+#define CLEANUP_blkdiscard
 #ifndef TT
 #define TT this.blkdiscard
 #endif
@@ -3729,6 +3845,7 @@
 #endif
 
 #ifdef FOR_blkid
+#define CLEANUP_blkid
 #ifndef TT
 #define TT this.blkid
 #endif
@@ -3738,6 +3855,7 @@
 #endif
 
 #ifdef FOR_blockdev
+#define CLEANUP_blockdev
 #ifndef TT
 #define TT this.blockdev
 #endif
@@ -3757,18 +3875,21 @@
 #endif
 
 #ifdef FOR_bootchartd
+#define CLEANUP_bootchartd
 #ifndef TT
 #define TT this.bootchartd
 #endif
 #endif
 
 #ifdef FOR_brctl
+#define CLEANUP_brctl
 #ifndef TT
 #define TT this.brctl
 #endif
 #endif
 
 #ifdef FOR_bunzip2
+#define CLEANUP_bunzip2
 #ifndef TT
 #define TT this.bunzip2
 #endif
@@ -3780,12 +3901,14 @@
 #endif
 
 #ifdef FOR_bzcat
+#define CLEANUP_bzcat
 #ifndef TT
 #define TT this.bzcat
 #endif
 #endif
 
 #ifdef FOR_cal
+#define CLEANUP_cal
 #ifndef TT
 #define TT this.cal
 #endif
@@ -3793,6 +3916,7 @@
 #endif
 
 #ifdef FOR_cat
+#define CLEANUP_cat
 #ifndef TT
 #define TT this.cat
 #endif
@@ -3803,6 +3927,7 @@
 #endif
 
 #ifdef FOR_catv
+#define CLEANUP_catv
 #ifndef TT
 #define TT this.catv
 #endif
@@ -3812,6 +3937,7 @@
 #endif
 
 #ifdef FOR_cd
+#define CLEANUP_cd
 #ifndef TT
 #define TT this.cd
 #endif
@@ -3820,6 +3946,7 @@
 #endif
 
 #ifdef FOR_chattr
+#define CLEANUP_chattr
 #ifndef TT
 #define TT this.chattr
 #endif
@@ -3829,6 +3956,7 @@
 #endif
 
 #ifdef FOR_chcon
+#define CLEANUP_chcon
 #ifndef TT
 #define TT this.chcon
 #endif
@@ -3838,6 +3966,7 @@
 #endif
 
 #ifdef FOR_chgrp
+#define CLEANUP_chgrp
 #ifndef TT
 #define TT this.chgrp
 #endif
@@ -3851,6 +3980,7 @@
 #endif
 
 #ifdef FOR_chmod
+#define CLEANUP_chmod
 #ifndef TT
 #define TT this.chmod
 #endif
@@ -3860,12 +3990,14 @@
 #endif
 
 #ifdef FOR_chroot
+#define CLEANUP_chroot
 #ifndef TT
 #define TT this.chroot
 #endif
 #endif
 
 #ifdef FOR_chrt
+#define CLEANUP_chrt
 #ifndef TT
 #define TT this.chrt
 #endif
@@ -3880,6 +4012,7 @@
 #endif
 
 #ifdef FOR_chsh
+#define CLEANUP_chsh
 #ifndef TT
 #define TT this.chsh
 #endif
@@ -3887,12 +4020,14 @@
 #endif
 
 #ifdef FOR_chvt
+#define CLEANUP_chvt
 #ifndef TT
 #define TT this.chvt
 #endif
 #endif
 
 #ifdef FOR_cksum
+#define CLEANUP_cksum
 #ifndef TT
 #define TT this.cksum
 #endif
@@ -3904,20 +4039,24 @@
 #endif
 
 #ifdef FOR_clear
+#define CLEANUP_clear
 #ifndef TT
 #define TT this.clear
 #endif
 #endif
 
 #ifdef FOR_cmp
+#define CLEANUP_cmp
 #ifndef TT
 #define TT this.cmp
 #endif
-#define FLAG_s (1<<0)
-#define FLAG_l (1<<1)
+#define FLAG_n (1<<0)
+#define FLAG_s (1<<1)
+#define FLAG_l (1<<2)
 #endif
 
 #ifdef FOR_comm
+#define CLEANUP_comm
 #ifndef TT
 #define TT this.comm
 #endif
@@ -3927,12 +4066,14 @@
 #endif
 
 #ifdef FOR_count
+#define CLEANUP_count
 #ifndef TT
 #define TT this.count
 #endif
 #endif
 
 #ifdef FOR_cp
+#define CLEANUP_cp
 #ifndef TT
 #define TT this.cp
 #endif
@@ -3959,6 +4100,7 @@
 #endif
 
 #ifdef FOR_cpio
+#define CLEANUP_cpio
 #ifndef TT
 #define TT this.cpio
 #endif
@@ -3974,15 +4116,19 @@
 #define FLAG_m (1<<9)
 #define FLAG_no_preserve_owner (1<<10)
 #define FLAG_quiet (1<<11)
+#define FLAG_renumber_inodes (1<<12)
+#define FLAG_ignore_devno (1<<13)
 #endif
 
 #ifdef FOR_crc32
+#define CLEANUP_crc32
 #ifndef TT
 #define TT this.crc32
 #endif
 #endif
 
 #ifdef FOR_crond
+#define CLEANUP_crond
 #ifndef TT
 #define TT this.crond
 #endif
@@ -3996,6 +4142,7 @@
 #endif
 
 #ifdef FOR_crontab
+#define CLEANUP_crontab
 #ifndef TT
 #define TT this.crontab
 #endif
@@ -4007,6 +4154,7 @@
 #endif
 
 #ifdef FOR_cut
+#define CLEANUP_cut
 #ifndef TT
 #define TT this.cut
 #endif
@@ -4023,29 +4171,50 @@
 #endif
 
 #ifdef FOR_date
+#define CLEANUP_date
 #ifndef TT
 #define TT this.date
 #endif
 #define FLAG_u (1<<0)
-#define FLAG_r (1<<1)
-#define FLAG_I (1<<2)
-#define FLAG_D (1<<3)
-#define FLAG_d (1<<4)
+#define FLAG_s (1<<1)
+#define FLAG_r (1<<2)
+#define FLAG_I (1<<3)
+#define FLAG_D (1<<4)
+#define FLAG_d (1<<5)
 #endif
 
 #ifdef FOR_dd
+#define CLEANUP_dd
 #ifndef TT
 #define TT this.dd
 #endif
 #endif
 
 #ifdef FOR_deallocvt
+#define CLEANUP_deallocvt
 #ifndef TT
 #define TT this.deallocvt
 #endif
 #endif
 
+#ifdef FOR_declare
+#define CLEANUP_declare
+#ifndef TT
+#define TT this.declare
+#endif
+#define FLAG_r (FORCED_FLAG<<0)
+#define FLAG_x (FORCED_FLAG<<1)
+#define FLAG_n (FORCED_FLAG<<2)
+#define FLAG_u (FORCED_FLAG<<3)
+#define FLAG_l (FORCED_FLAG<<4)
+#define FLAG_i (FORCED_FLAG<<5)
+#define FLAG_a (FORCED_FLAG<<6)
+#define FLAG_A (FORCED_FLAG<<7)
+#define FLAG_p (FORCED_FLAG<<8)
+#endif
+
 #ifdef FOR_demo_many_options
+#define CLEANUP_demo_many_options
 #ifndef TT
 #define TT this.demo_many_options
 #endif
@@ -4104,6 +4273,7 @@
 #endif
 
 #ifdef FOR_demo_number
+#define CLEANUP_demo_number
 #ifndef TT
 #define TT this.demo_number
 #endif
@@ -4117,24 +4287,28 @@
 #endif
 
 #ifdef FOR_demo_scankey
+#define CLEANUP_demo_scankey
 #ifndef TT
 #define TT this.demo_scankey
 #endif
 #endif
 
 #ifdef FOR_demo_utf8towc
+#define CLEANUP_demo_utf8towc
 #ifndef TT
 #define TT this.demo_utf8towc
 #endif
 #endif
 
 #ifdef FOR_devmem
+#define CLEANUP_devmem
 #ifndef TT
 #define TT this.devmem
 #endif
 #endif
 
 #ifdef FOR_df
+#define CLEANUP_df
 #ifndef TT
 #define TT this.df
 #endif
@@ -4148,6 +4322,7 @@
 #endif
 
 #ifdef FOR_dhcp
+#define CLEANUP_dhcp
 #ifndef TT
 #define TT this.dhcp
 #endif
@@ -4177,6 +4352,7 @@
 #endif
 
 #ifdef FOR_dhcp6
+#define CLEANUP_dhcp6
 #ifndef TT
 #define TT this.dhcp6
 #endif
@@ -4197,6 +4373,7 @@
 #endif
 
 #ifdef FOR_dhcpd
+#define CLEANUP_dhcpd
 #ifndef TT
 #define TT this.dhcpd
 #endif
@@ -4209,6 +4386,7 @@
 #endif
 
 #ifdef FOR_diff
+#define CLEANUP_diff
 #ifndef TT
 #define TT this.diff
 #endif
@@ -4233,12 +4411,14 @@
 #endif
 
 #ifdef FOR_dirname
+#define CLEANUP_dirname
 #ifndef TT
 #define TT this.dirname
 #endif
 #endif
 
 #ifdef FOR_dmesg
+#define CLEANUP_dmesg
 #ifndef TT
 #define TT this.dmesg
 #endif
@@ -4254,18 +4434,21 @@
 #endif
 
 #ifdef FOR_dnsdomainname
+#define CLEANUP_dnsdomainname
 #ifndef TT
 #define TT this.dnsdomainname
 #endif
 #endif
 
 #ifdef FOR_dos2unix
+#define CLEANUP_dos2unix
 #ifndef TT
 #define TT this.dos2unix
 #endif
 #endif
 
 #ifdef FOR_du
+#define CLEANUP_du
 #ifndef TT
 #define TT this.du
 #endif
@@ -4285,6 +4468,7 @@
 #endif
 
 #ifdef FOR_dumpleases
+#define CLEANUP_dumpleases
 #ifndef TT
 #define TT this.dumpleases
 #endif
@@ -4294,6 +4478,7 @@
 #endif
 
 #ifdef FOR_echo
+#define CLEANUP_echo
 #ifndef TT
 #define TT this.echo
 #endif
@@ -4303,6 +4488,7 @@
 #endif
 
 #ifdef FOR_eject
+#define CLEANUP_eject
 #ifndef TT
 #define TT this.eject
 #endif
@@ -4312,6 +4498,7 @@
 #endif
 
 #ifdef FOR_env
+#define CLEANUP_env
 #ifndef TT
 #define TT this.env
 #endif
@@ -4321,12 +4508,14 @@
 #endif
 
 #ifdef FOR_eval
+#define CLEANUP_eval
 #ifndef TT
 #define TT this.eval
 #endif
 #endif
 
 #ifdef FOR_exec
+#define CLEANUP_exec
 #ifndef TT
 #define TT this.exec
 #endif
@@ -4336,12 +4525,14 @@
 #endif
 
 #ifdef FOR_exit
+#define CLEANUP_exit
 #ifndef TT
 #define TT this.exit
 #endif
 #endif
 
 #ifdef FOR_expand
+#define CLEANUP_expand
 #ifndef TT
 #define TT this.expand
 #endif
@@ -4349,6 +4540,7 @@
 #endif
 
 #ifdef FOR_export
+#define CLEANUP_export
 #ifndef TT
 #define TT this.export
 #endif
@@ -4357,18 +4549,21 @@
 #endif
 
 #ifdef FOR_expr
+#define CLEANUP_expr
 #ifndef TT
 #define TT this.expr
 #endif
 #endif
 
 #ifdef FOR_factor
+#define CLEANUP_factor
 #ifndef TT
 #define TT this.factor
 #endif
 #endif
 
 #ifdef FOR_fallocate
+#define CLEANUP_fallocate
 #ifndef TT
 #define TT this.fallocate
 #endif
@@ -4377,12 +4572,14 @@
 #endif
 
 #ifdef FOR_false
+#define CLEANUP_false
 #ifndef TT
 #define TT this.false
 #endif
 #endif
 
 #ifdef FOR_fdisk
+#define CLEANUP_fdisk
 #ifndef TT
 #define TT this.fdisk
 #endif
@@ -4395,6 +4592,7 @@
 #endif
 
 #ifdef FOR_file
+#define CLEANUP_file
 #ifndef TT
 #define TT this.file
 #endif
@@ -4405,6 +4603,7 @@
 #endif
 
 #ifdef FOR_find
+#define CLEANUP_find
 #ifndef TT
 #define TT this.find
 #endif
@@ -4413,6 +4612,7 @@
 #endif
 
 #ifdef FOR_flock
+#define CLEANUP_flock
 #ifndef TT
 #define TT this.flock
 #endif
@@ -4423,6 +4623,7 @@
 #endif
 
 #ifdef FOR_fmt
+#define CLEANUP_fmt
 #ifndef TT
 #define TT this.fmt
 #endif
@@ -4430,6 +4631,7 @@
 #endif
 
 #ifdef FOR_fold
+#define CLEANUP_fold
 #ifndef TT
 #define TT this.fold
 #endif
@@ -4440,6 +4642,7 @@
 #endif
 
 #ifdef FOR_free
+#define CLEANUP_free
 #ifndef TT
 #define TT this.free
 #endif
@@ -4447,17 +4650,18 @@
 #define FLAG_k (FORCED_FLAG<<1)
 #define FLAG_m (FORCED_FLAG<<2)
 #define FLAG_g (FORCED_FLAG<<3)
-#define FLAG_t (FORCED_FLAG<<4)
-#define FLAG_h (FORCED_FLAG<<5)
+#define FLAG_h (FORCED_FLAG<<4)
 #endif
 
 #ifdef FOR_freeramdisk
+#define CLEANUP_freeramdisk
 #ifndef TT
 #define TT this.freeramdisk
 #endif
 #endif
 
 #ifdef FOR_fsck
+#define CLEANUP_fsck
 #ifndef TT
 #define TT this.fsck
 #endif
@@ -4473,6 +4677,7 @@
 #endif
 
 #ifdef FOR_fsfreeze
+#define CLEANUP_fsfreeze
 #ifndef TT
 #define TT this.fsfreeze
 #endif
@@ -4481,12 +4686,14 @@
 #endif
 
 #ifdef FOR_fstype
+#define CLEANUP_fstype
 #ifndef TT
 #define TT this.fstype
 #endif
 #endif
 
 #ifdef FOR_fsync
+#define CLEANUP_fsync
 #ifndef TT
 #define TT this.fsync
 #endif
@@ -4494,6 +4701,7 @@
 #endif
 
 #ifdef FOR_ftpget
+#define CLEANUP_ftpget
 #ifndef TT
 #define TT this.ftpget
 #endif
@@ -4513,6 +4721,7 @@
 #endif
 
 #ifdef FOR_getconf
+#define CLEANUP_getconf
 #ifndef TT
 #define TT this.getconf
 #endif
@@ -4521,12 +4730,14 @@
 #endif
 
 #ifdef FOR_getenforce
+#define CLEANUP_getenforce
 #ifndef TT
 #define TT this.getenforce
 #endif
 #endif
 
 #ifdef FOR_getfattr
+#define CLEANUP_getfattr
 #ifndef TT
 #define TT this.getfattr
 #endif
@@ -4537,6 +4748,7 @@
 #endif
 
 #ifdef FOR_getopt
+#define CLEANUP_getopt
 #ifndef TT
 #define TT this.getopt
 #endif
@@ -4549,6 +4761,7 @@
 #endif
 
 #ifdef FOR_getty
+#define CLEANUP_getty
 #ifndef TT
 #define TT this.getty
 #endif
@@ -4565,7 +4778,45 @@
 #define FLAG_t (FORCED_FLAG<<10)
 #endif
 
+#ifdef FOR_gpiodetect
+#define CLEANUP_gpiodetect
+#ifndef TT
+#define TT this.gpiodetect
+#endif
+#endif
+
+#ifdef FOR_gpiofind
+#define CLEANUP_gpiofind
+#ifndef TT
+#define TT this.gpiofind
+#endif
+#endif
+
+#ifdef FOR_gpioget
+#define CLEANUP_gpioget
+#ifndef TT
+#define TT this.gpioget
+#endif
+#define FLAG_l (FORCED_FLAG<<0)
+#endif
+
+#ifdef FOR_gpioinfo
+#define CLEANUP_gpioinfo
+#ifndef TT
+#define TT this.gpioinfo
+#endif
+#endif
+
+#ifdef FOR_gpioset
+#define CLEANUP_gpioset
+#ifndef TT
+#define TT this.gpioset
+#endif
+#define FLAG_l (FORCED_FLAG<<0)
+#endif
+
 #ifdef FOR_grep
+#define CLEANUP_grep
 #ifndef TT
 #define TT this.grep
 #endif
@@ -4578,32 +4829,34 @@
 #define FLAG_e (1<<6)
 #define FLAG_q (1<<7)
 #define FLAG_l (1<<8)
-#define FLAG_c (1<<9)
-#define FLAG_w (1<<10)
-#define FLAG_v (1<<11)
-#define FLAG_s (1<<12)
-#define FLAG_R (1<<13)
-#define FLAG_r (1<<14)
-#define FLAG_o (1<<15)
-#define FLAG_n (1<<16)
-#define FLAG_i (1<<17)
-#define FLAG_h (1<<18)
-#define FLAG_b (1<<19)
-#define FLAG_a (1<<20)
-#define FLAG_I (1<<21)
-#define FLAG_H (1<<22)
-#define FLAG_F (1<<23)
-#define FLAG_E (1<<24)
-#define FLAG_z (1<<25)
-#define FLAG_Z (1<<26)
-#define FLAG_M (1<<27)
-#define FLAG_S (1<<28)
-#define FLAG_exclude_dir (1<<29)
-#define FLAG_color (1<<30)
-#define FLAG_line_buffered (1LL<<31)
+#define FLAG_L (1<<9)
+#define FLAG_c (1<<10)
+#define FLAG_w (1<<11)
+#define FLAG_v (1<<12)
+#define FLAG_s (1<<13)
+#define FLAG_R (1<<14)
+#define FLAG_r (1<<15)
+#define FLAG_o (1<<16)
+#define FLAG_n (1<<17)
+#define FLAG_i (1<<18)
+#define FLAG_h (1<<19)
+#define FLAG_b (1<<20)
+#define FLAG_a (1<<21)
+#define FLAG_I (1<<22)
+#define FLAG_H (1<<23)
+#define FLAG_F (1<<24)
+#define FLAG_E (1<<25)
+#define FLAG_z (1<<26)
+#define FLAG_Z (1<<27)
+#define FLAG_M (1<<28)
+#define FLAG_S (1<<29)
+#define FLAG_exclude_dir (1<<30)
+#define FLAG_color (1LL<<31)
+#define FLAG_line_buffered (1LL<<32)
 #endif
 
 #ifdef FOR_groupadd
+#define CLEANUP_groupadd
 #ifndef TT
 #define TT this.groupadd
 #endif
@@ -4612,18 +4865,21 @@
 #endif
 
 #ifdef FOR_groupdel
+#define CLEANUP_groupdel
 #ifndef TT
 #define TT this.groupdel
 #endif
 #endif
 
 #ifdef FOR_groups
+#define CLEANUP_groups
 #ifndef TT
 #define TT this.groups
 #endif
 #endif
 
 #ifdef FOR_gunzip
+#define CLEANUP_gunzip
 #ifndef TT
 #define TT this.gunzip
 #endif
@@ -4643,6 +4899,7 @@
 #endif
 
 #ifdef FOR_gzip
+#define CLEANUP_gzip
 #ifndef TT
 #define TT this.gzip
 #endif
@@ -4663,6 +4920,7 @@
 #endif
 
 #ifdef FOR_head
+#define CLEANUP_head
 #ifndef TT
 #define TT this.head
 #endif
@@ -4673,12 +4931,14 @@
 #endif
 
 #ifdef FOR_hello
+#define CLEANUP_hello
 #ifndef TT
 #define TT this.hello
 #endif
 #endif
 
 #ifdef FOR_help
+#define CLEANUP_help
 #ifndef TT
 #define TT this.help
 #endif
@@ -4687,7 +4947,24 @@
 #define FLAG_a (FORCED_FLAG<<2)
 #endif
 
+#ifdef FOR_hexdump
+#define CLEANUP_hexdump
+#ifndef TT
+#define TT this.hexdump
+#endif
+#define FLAG_x (FORCED_FLAG<<0)
+#define FLAG_v (FORCED_FLAG<<1)
+#define FLAG_s (FORCED_FLAG<<2)
+#define FLAG_o (FORCED_FLAG<<3)
+#define FLAG_n (FORCED_FLAG<<4)
+#define FLAG_d (FORCED_FLAG<<5)
+#define FLAG_C (FORCED_FLAG<<6)
+#define FLAG_c (FORCED_FLAG<<7)
+#define FLAG_b (FORCED_FLAG<<8)
+#endif
+
 #ifdef FOR_hexedit
+#define CLEANUP_hexedit
 #ifndef TT
 #define TT this.hexedit
 #endif
@@ -4695,6 +4972,7 @@
 #endif
 
 #ifdef FOR_host
+#define CLEANUP_host
 #ifndef TT
 #define TT this.host
 #endif
@@ -4704,12 +4982,14 @@
 #endif
 
 #ifdef FOR_hostid
+#define CLEANUP_hostid
 #ifndef TT
 #define TT this.hostid
 #endif
 #endif
 
 #ifdef FOR_hostname
+#define CLEANUP_hostname
 #ifndef TT
 #define TT this.hostname
 #endif
@@ -4721,6 +5001,7 @@
 #endif
 
 #ifdef FOR_hwclock
+#define CLEANUP_hwclock
 #ifndef TT
 #define TT this.hwclock
 #endif
@@ -4735,16 +5016,20 @@
 #endif
 
 #ifdef FOR_i2cdetect
+#define CLEANUP_i2cdetect
 #ifndef TT
 #define TT this.i2cdetect
 #endif
 #define FLAG_y (FORCED_FLAG<<0)
-#define FLAG_l (FORCED_FLAG<<1)
-#define FLAG_F (FORCED_FLAG<<2)
-#define FLAG_a (FORCED_FLAG<<3)
+#define FLAG_r (FORCED_FLAG<<1)
+#define FLAG_q (FORCED_FLAG<<2)
+#define FLAG_l (FORCED_FLAG<<3)
+#define FLAG_F (FORCED_FLAG<<4)
+#define FLAG_a (FORCED_FLAG<<5)
 #endif
 
 #ifdef FOR_i2cdump
+#define CLEANUP_i2cdump
 #ifndef TT
 #define TT this.i2cdump
 #endif
@@ -4753,6 +5038,7 @@
 #endif
 
 #ifdef FOR_i2cget
+#define CLEANUP_i2cget
 #ifndef TT
 #define TT this.i2cget
 #endif
@@ -4761,6 +5047,7 @@
 #endif
 
 #ifdef FOR_i2cset
+#define CLEANUP_i2cset
 #ifndef TT
 #define TT this.i2cset
 #endif
@@ -4769,6 +5056,7 @@
 #endif
 
 #ifdef FOR_iconv
+#define CLEANUP_iconv
 #ifndef TT
 #define TT this.iconv
 #endif
@@ -4779,6 +5067,7 @@
 #endif
 
 #ifdef FOR_id
+#define CLEANUP_id
 #ifndef TT
 #define TT this.id
 #endif
@@ -4791,6 +5080,7 @@
 #endif
 
 #ifdef FOR_ifconfig
+#define CLEANUP_ifconfig
 #ifndef TT
 #define TT this.ifconfig
 #endif
@@ -4799,40 +5089,45 @@
 #endif
 
 #ifdef FOR_init
+#define CLEANUP_init
 #ifndef TT
 #define TT this.init
 #endif
 #endif
 
 #ifdef FOR_inotifyd
+#define CLEANUP_inotifyd
 #ifndef TT
 #define TT this.inotifyd
 #endif
 #endif
 
 #ifdef FOR_insmod
+#define CLEANUP_insmod
 #ifndef TT
 #define TT this.insmod
 #endif
 #endif
 
 #ifdef FOR_install
+#define CLEANUP_install
 #ifndef TT
 #define TT this.install
 #endif
-#define FLAG_g (FORCED_FLAG<<0)
-#define FLAG_o (FORCED_FLAG<<1)
-#define FLAG_m (FORCED_FLAG<<2)
-#define FLAG_t (FORCED_FLAG<<3)
-#define FLAG_v (FORCED_FLAG<<4)
-#define FLAG_s (FORCED_FLAG<<5)
-#define FLAG_p (FORCED_FLAG<<6)
-#define FLAG_D (FORCED_FLAG<<7)
-#define FLAG_d (FORCED_FLAG<<8)
-#define FLAG_c (FORCED_FLAG<<9)
+#define FLAG_g (1<<0)
+#define FLAG_o (1<<1)
+#define FLAG_m (1<<2)
+#define FLAG_t (1<<3)
+#define FLAG_v (1<<4)
+#define FLAG_s (1<<5)
+#define FLAG_p (1<<6)
+#define FLAG_D (1<<7)
+#define FLAG_d (1<<8)
+#define FLAG_c (1<<9)
 #endif
 
 #ifdef FOR_ionice
+#define CLEANUP_ionice
 #ifndef TT
 #define TT this.ionice
 #endif
@@ -4843,12 +5138,14 @@
 #endif
 
 #ifdef FOR_iorenice
+#define CLEANUP_iorenice
 #ifndef TT
 #define TT this.iorenice
 #endif
 #endif
 
 #ifdef FOR_iotop
+#define CLEANUP_iotop
 #ifndef TT
 #define TT this.iotop
 #endif
@@ -4870,12 +5167,14 @@
 #endif
 
 #ifdef FOR_ip
+#define CLEANUP_ip
 #ifndef TT
 #define TT this.ip
 #endif
 #endif
 
 #ifdef FOR_ipcrm
+#define CLEANUP_ipcrm
 #ifndef TT
 #define TT this.ipcrm
 #endif
@@ -4888,6 +5187,7 @@
 #endif
 
 #ifdef FOR_ipcs
+#define CLEANUP_ipcs
 #ifndef TT
 #define TT this.ipcs
 #endif
@@ -4904,6 +5204,7 @@
 #endif
 
 #ifdef FOR_jobs
+#define CLEANUP_jobs
 #ifndef TT
 #define TT this.jobs
 #endif
@@ -4915,6 +5216,7 @@
 #endif
 
 #ifdef FOR_kill
+#define CLEANUP_kill
 #ifndef TT
 #define TT this.kill
 #endif
@@ -4923,6 +5225,7 @@
 #endif
 
 #ifdef FOR_killall
+#define CLEANUP_killall
 #ifndef TT
 #define TT this.killall
 #endif
@@ -4935,6 +5238,7 @@
 #endif
 
 #ifdef FOR_killall5
+#define CLEANUP_killall5
 #ifndef TT
 #define TT this.killall5
 #endif
@@ -4944,6 +5248,7 @@
 #endif
 
 #ifdef FOR_klogd
+#define CLEANUP_klogd
 #ifndef TT
 #define TT this.klogd
 #endif
@@ -4952,6 +5257,7 @@
 #endif
 
 #ifdef FOR_last
+#define CLEANUP_last
 #ifndef TT
 #define TT this.last
 #endif
@@ -4960,12 +5266,21 @@
 #endif
 
 #ifdef FOR_link
+#define CLEANUP_link
 #ifndef TT
 #define TT this.link
 #endif
 #endif
 
+#ifdef FOR_linux32
+#define CLEANUP_linux32
+#ifndef TT
+#define TT this.linux32
+#endif
+#endif
+
 #ifdef FOR_ln
+#define CLEANUP_ln
 #ifndef TT
 #define TT this.ln
 #endif
@@ -4979,12 +5294,14 @@
 #endif
 
 #ifdef FOR_load_policy
+#define CLEANUP_load_policy
 #ifndef TT
 #define TT this.load_policy
 #endif
 #endif
 
 #ifdef FOR_log
+#define CLEANUP_log
 #ifndef TT
 #define TT this.log
 #endif
@@ -4993,6 +5310,7 @@
 #endif
 
 #ifdef FOR_logger
+#define CLEANUP_logger
 #ifndef TT
 #define TT this.logger
 #endif
@@ -5002,6 +5320,7 @@
 #endif
 
 #ifdef FOR_login
+#define CLEANUP_login
 #ifndef TT
 #define TT this.login
 #endif
@@ -5011,18 +5330,21 @@
 #endif
 
 #ifdef FOR_logname
+#define CLEANUP_logname
 #ifndef TT
 #define TT this.logname
 #endif
 #endif
 
-#ifdef FOR_logwrapper
+#ifdef FOR_logpath
+#define CLEANUP_logpath
 #ifndef TT
-#define TT this.logwrapper
+#define TT this.logpath
 #endif
 #endif
 
 #ifdef FOR_losetup
+#define CLEANUP_losetup
 #ifndef TT
 #define TT this.losetup
 #endif
@@ -5039,6 +5361,7 @@
 #endif
 
 #ifdef FOR_ls
+#define CLEANUP_ls
 #ifndef TT
 #define TT this.ls
 #endif
@@ -5078,6 +5401,7 @@
 #endif
 
 #ifdef FOR_lsattr
+#define CLEANUP_lsattr
 #ifndef TT
 #define TT this.lsattr
 #endif
@@ -5090,12 +5414,14 @@
 #endif
 
 #ifdef FOR_lsmod
+#define CLEANUP_lsmod
 #ifndef TT
 #define TT this.lsmod
 #endif
 #endif
 
 #ifdef FOR_lsof
+#define CLEANUP_lsof
 #ifndef TT
 #define TT this.lsof
 #endif
@@ -5105,6 +5431,7 @@
 #endif
 
 #ifdef FOR_lspci
+#define CLEANUP_lspci
 #ifndef TT
 #define TT this.lspci
 #endif
@@ -5116,12 +5443,15 @@
 #endif
 
 #ifdef FOR_lsusb
+#define CLEANUP_lsusb
 #ifndef TT
 #define TT this.lsusb
 #endif
+#define FLAG_i (FORCED_FLAG<<0)
 #endif
 
 #ifdef FOR_makedevs
+#define CLEANUP_makedevs
 #ifndef TT
 #define TT this.makedevs
 #endif
@@ -5129,6 +5459,7 @@
 #endif
 
 #ifdef FOR_man
+#define CLEANUP_man
 #ifndef TT
 #define TT this.man
 #endif
@@ -5137,6 +5468,7 @@
 #endif
 
 #ifdef FOR_mcookie
+#define CLEANUP_mcookie
 #ifndef TT
 #define TT this.mcookie
 #endif
@@ -5145,6 +5477,7 @@
 #endif
 
 #ifdef FOR_md5sum
+#define CLEANUP_md5sum
 #ifndef TT
 #define TT this.md5sum
 #endif
@@ -5154,6 +5487,7 @@
 #endif
 
 #ifdef FOR_mdev
+#define CLEANUP_mdev
 #ifndef TT
 #define TT this.mdev
 #endif
@@ -5161,6 +5495,7 @@
 #endif
 
 #ifdef FOR_microcom
+#define CLEANUP_microcom
 #ifndef TT
 #define TT this.microcom
 #endif
@@ -5169,6 +5504,7 @@
 #endif
 
 #ifdef FOR_mix
+#define CLEANUP_mix
 #ifndef TT
 #define TT this.mix
 #endif
@@ -5179,6 +5515,7 @@
 #endif
 
 #ifdef FOR_mkdir
+#define CLEANUP_mkdir
 #ifndef TT
 #define TT this.mkdir
 #endif
@@ -5189,6 +5526,7 @@
 #endif
 
 #ifdef FOR_mke2fs
+#define CLEANUP_mke2fs
 #ifndef TT
 #define TT this.mke2fs
 #endif
@@ -5203,6 +5541,7 @@
 #endif
 
 #ifdef FOR_mkfifo
+#define CLEANUP_mkfifo
 #ifndef TT
 #define TT this.mkfifo
 #endif
@@ -5211,6 +5550,7 @@
 #endif
 
 #ifdef FOR_mknod
+#define CLEANUP_mknod
 #ifndef TT
 #define TT this.mknod
 #endif
@@ -5219,6 +5559,7 @@
 #endif
 
 #ifdef FOR_mkpasswd
+#define CLEANUP_mkpasswd
 #ifndef TT
 #define TT this.mkpasswd
 #endif
@@ -5228,6 +5569,7 @@
 #endif
 
 #ifdef FOR_mkswap
+#define CLEANUP_mkswap
 #ifndef TT
 #define TT this.mkswap
 #endif
@@ -5235,6 +5577,7 @@
 #endif
 
 #ifdef FOR_mktemp
+#define CLEANUP_mktemp
 #ifndef TT
 #define TT this.mktemp
 #endif
@@ -5247,6 +5590,7 @@
 #endif
 
 #ifdef FOR_modinfo
+#define CLEANUP_modinfo
 #ifndef TT
 #define TT this.modinfo
 #endif
@@ -5257,6 +5601,7 @@
 #endif
 
 #ifdef FOR_modprobe
+#define CLEANUP_modprobe
 #ifndef TT
 #define TT this.modprobe
 #endif
@@ -5272,12 +5617,14 @@
 #endif
 
 #ifdef FOR_more
+#define CLEANUP_more
 #ifndef TT
 #define TT this.more
 #endif
 #endif
 
 #ifdef FOR_mount
+#define CLEANUP_mount
 #ifndef TT
 #define TT this.mount
 #endif
@@ -5293,6 +5640,7 @@
 #endif
 
 #ifdef FOR_mountpoint
+#define CLEANUP_mountpoint
 #ifndef TT
 #define TT this.mountpoint
 #endif
@@ -5302,6 +5650,7 @@
 #endif
 
 #ifdef FOR_mv
+#define CLEANUP_mv
 #ifndef TT
 #define TT this.mv
 #endif
@@ -5315,6 +5664,7 @@
 #endif
 
 #ifdef FOR_nbd_client
+#define CLEANUP_nbd_client
 #ifndef TT
 #define TT this.nbd_client
 #endif
@@ -5323,6 +5673,7 @@
 #endif
 
 #ifdef FOR_netcat
+#define CLEANUP_netcat
 #ifndef TT
 #define TT this.netcat
 #endif
@@ -5343,6 +5694,7 @@
 #endif
 
 #ifdef FOR_netstat
+#define CLEANUP_netstat
 #ifndef TT
 #define TT this.netstat
 #endif
@@ -5360,6 +5712,7 @@
 #endif
 
 #ifdef FOR_nice
+#define CLEANUP_nice
 #ifndef TT
 #define TT this.nice
 #endif
@@ -5367,25 +5720,28 @@
 #endif
 
 #ifdef FOR_nl
+#define CLEANUP_nl
 #ifndef TT
 #define TT this.nl
 #endif
-#define FLAG_s (1<<0)
-#define FLAG_n (1<<1)
-#define FLAG_b (1<<2)
-#define FLAG_E (1<<3)
+#define FLAG_E (1<<0)
+#define FLAG_s (1<<1)
+#define FLAG_n (1<<2)
+#define FLAG_b (1<<3)
 #define FLAG_w (1<<4)
 #define FLAG_l (1<<5)
 #define FLAG_v (1<<6)
 #endif
 
 #ifdef FOR_nohup
+#define CLEANUP_nohup
 #ifndef TT
 #define TT this.nohup
 #endif
 #endif
 
 #ifdef FOR_nproc
+#define CLEANUP_nproc
 #ifndef TT
 #define TT this.nproc
 #endif
@@ -5393,6 +5749,7 @@
 #endif
 
 #ifdef FOR_nsenter
+#define CLEANUP_nsenter
 #ifndef TT
 #define TT this.nsenter
 #endif
@@ -5407,6 +5764,7 @@
 #endif
 
 #ifdef FOR_od
+#define CLEANUP_od
 #ifndef TT
 #define TT this.od
 #endif
@@ -5425,6 +5783,7 @@
 #endif
 
 #ifdef FOR_oneit
+#define CLEANUP_oneit
 #ifndef TT
 #define TT this.oneit
 #endif
@@ -5435,6 +5794,7 @@
 #endif
 
 #ifdef FOR_openvt
+#define CLEANUP_openvt
 #ifndef TT
 #define TT this.openvt
 #endif
@@ -5444,12 +5804,14 @@
 #endif
 
 #ifdef FOR_partprobe
+#define CLEANUP_partprobe
 #ifndef TT
 #define TT this.partprobe
 #endif
 #endif
 
 #ifdef FOR_passwd
+#define CLEANUP_passwd
 #ifndef TT
 #define TT this.passwd
 #endif
@@ -5460,6 +5822,7 @@
 #endif
 
 #ifdef FOR_paste
+#define CLEANUP_paste
 #ifndef TT
 #define TT this.paste
 #endif
@@ -5468,6 +5831,7 @@
 #endif
 
 #ifdef FOR_patch
+#define CLEANUP_patch
 #ifndef TT
 #define TT this.patch
 #endif
@@ -5487,6 +5851,7 @@
 #endif
 
 #ifdef FOR_pgrep
+#define CLEANUP_pgrep
 #ifndef TT
 #define TT this.pgrep
 #endif
@@ -5509,6 +5874,7 @@
 #endif
 
 #ifdef FOR_pidof
+#define CLEANUP_pidof
 #ifndef TT
 #define TT this.pidof
 #endif
@@ -5518,6 +5884,7 @@
 #endif
 
 #ifdef FOR_ping
+#define CLEANUP_ping
 #ifndef TT
 #define TT this.ping
 #endif
@@ -5536,12 +5903,14 @@
 #endif
 
 #ifdef FOR_pivot_root
+#define CLEANUP_pivot_root
 #ifndef TT
 #define TT this.pivot_root
 #endif
 #endif
 
 #ifdef FOR_pkill
+#define CLEANUP_pkill
 #ifndef TT
 #define TT this.pkill
 #endif
@@ -5562,14 +5931,17 @@
 #endif
 
 #ifdef FOR_pmap
+#define CLEANUP_pmap
 #ifndef TT
 #define TT this.pmap
 #endif
-#define FLAG_q (FORCED_FLAG<<0)
-#define FLAG_x (FORCED_FLAG<<1)
+#define FLAG_x (FORCED_FLAG<<0)
+#define FLAG_q (FORCED_FLAG<<1)
+#define FLAG_p (FORCED_FLAG<<2)
 #endif
 
 #ifdef FOR_printenv
+#define CLEANUP_printenv
 #ifndef TT
 #define TT this.printenv
 #endif
@@ -5578,12 +5950,14 @@
 #endif
 
 #ifdef FOR_printf
+#define CLEANUP_printf
 #ifndef TT
 #define TT this.printf
 #endif
 #endif
 
 #ifdef FOR_ps
+#define CLEANUP_ps
 #ifndef TT
 #define TT this.ps
 #endif
@@ -5612,6 +5986,7 @@
 #endif
 
 #ifdef FOR_pwd
+#define CLEANUP_pwd
 #ifndef TT
 #define TT this.pwd
 #endif
@@ -5620,6 +5995,7 @@
 #endif
 
 #ifdef FOR_pwdx
+#define CLEANUP_pwdx
 #ifndef TT
 #define TT this.pwdx
 #endif
@@ -5627,6 +6003,7 @@
 #endif
 
 #ifdef FOR_pwgen
+#define CLEANUP_pwgen
 #ifndef TT
 #define TT this.pwgen
 #endif
@@ -5645,12 +6022,14 @@
 #endif
 
 #ifdef FOR_readahead
+#define CLEANUP_readahead
 #ifndef TT
 #define TT this.readahead
 #endif
 #endif
 
 #ifdef FOR_readelf
+#define CLEANUP_readelf
 #ifndef TT
 #define TT this.readelf
 #endif
@@ -5669,6 +6048,7 @@
 #endif
 
 #ifdef FOR_readlink
+#define CLEANUP_readlink
 #ifndef TT
 #define TT this.readlink
 #endif
@@ -5679,21 +6059,18 @@
 #define FLAG_n (1<<4)
 #endif
 
-#ifdef FOR_realpath
-#ifndef TT
-#define TT this.realpath
-#endif
-#endif
-
 #ifdef FOR_reboot
+#define CLEANUP_reboot
 #ifndef TT
 #define TT this.reboot
 #endif
 #define FLAG_n (FORCED_FLAG<<0)
 #define FLAG_f (FORCED_FLAG<<1)
+#define FLAG_d (FORCED_FLAG<<2)
 #endif
 
 #ifdef FOR_renice
+#define CLEANUP_renice
 #ifndef TT
 #define TT this.renice
 #endif
@@ -5704,12 +6081,14 @@
 #endif
 
 #ifdef FOR_reset
+#define CLEANUP_reset
 #ifndef TT
 #define TT this.reset
 #endif
 #endif
 
 #ifdef FOR_restorecon
+#define CLEANUP_restorecon
 #ifndef TT
 #define TT this.restorecon
 #endif
@@ -5722,18 +6101,21 @@
 #endif
 
 #ifdef FOR_rev
+#define CLEANUP_rev
 #ifndef TT
 #define TT this.rev
 #endif
 #endif
 
 #ifdef FOR_rfkill
+#define CLEANUP_rfkill
 #ifndef TT
 #define TT this.rfkill
 #endif
 #endif
 
 #ifdef FOR_rm
+#define CLEANUP_rm
 #ifndef TT
 #define TT this.rm
 #endif
@@ -5745,6 +6127,7 @@
 #endif
 
 #ifdef FOR_rmdir
+#define CLEANUP_rmdir
 #ifndef TT
 #define TT this.rmdir
 #endif
@@ -5753,6 +6136,7 @@
 #endif
 
 #ifdef FOR_rmmod
+#define CLEANUP_rmmod
 #ifndef TT
 #define TT this.rmmod
 #endif
@@ -5761,6 +6145,7 @@
 #endif
 
 #ifdef FOR_route
+#define CLEANUP_route
 #ifndef TT
 #define TT this.route
 #endif
@@ -5770,6 +6155,7 @@
 #endif
 
 #ifdef FOR_rtcwake
+#define CLEANUP_rtcwake
 #ifndef TT
 #define TT this.rtcwake
 #endif
@@ -5786,12 +6172,14 @@
 #endif
 
 #ifdef FOR_runcon
+#define CLEANUP_runcon
 #ifndef TT
 #define TT this.runcon
 #endif
 #endif
 
 #ifdef FOR_sed
+#define CLEANUP_sed
 #ifndef TT
 #define TT this.sed
 #endif
@@ -5808,12 +6196,14 @@
 #endif
 
 #ifdef FOR_sendevent
+#define CLEANUP_sendevent
 #ifndef TT
 #define TT this.sendevent
 #endif
 #endif
 
 #ifdef FOR_seq
+#define CLEANUP_seq
 #ifndef TT
 #define TT this.seq
 #endif
@@ -5823,18 +6213,21 @@
 #endif
 
 #ifdef FOR_set
+#define CLEANUP_set
 #ifndef TT
 #define TT this.set
 #endif
 #endif
 
 #ifdef FOR_setenforce
+#define CLEANUP_setenforce
 #ifndef TT
 #define TT this.setenforce
 #endif
 #endif
 
 #ifdef FOR_setfattr
+#define CLEANUP_setfattr
 #ifndef TT
 #define TT this.setfattr
 #endif
@@ -5845,6 +6238,7 @@
 #endif
 
 #ifdef FOR_setsid
+#define CLEANUP_setsid
 #ifndef TT
 #define TT this.setsid
 #endif
@@ -5854,6 +6248,7 @@
 #endif
 
 #ifdef FOR_sh
+#define CLEANUP_sh
 #ifndef TT
 #define TT this.sh
 #endif
@@ -5865,16 +6260,8 @@
 #define FLAG_noediting (FORCED_FLAG<<5)
 #endif
 
-#ifdef FOR_sha1sum
-#ifndef TT
-#define TT this.sha1sum
-#endif
-#define FLAG_s (1<<0)
-#define FLAG_c (1<<1)
-#define FLAG_b (1<<2)
-#endif
-
 #ifdef FOR_sha3sum
+#define CLEANUP_sha3sum
 #ifndef TT
 #define TT this.sha3sum
 #endif
@@ -5884,12 +6271,14 @@
 #endif
 
 #ifdef FOR_shift
+#define CLEANUP_shift
 #ifndef TT
 #define TT this.shift
 #endif
 #endif
 
 #ifdef FOR_shred
+#define CLEANUP_shred
 #ifndef TT
 #define TT this.shred
 #endif
@@ -5903,6 +6292,7 @@
 #endif
 
 #ifdef FOR_skeleton
+#define CLEANUP_skeleton
 #ifndef TT
 #define TT this.skeleton
 #endif
@@ -5917,6 +6307,7 @@
 #endif
 
 #ifdef FOR_skeleton_alias
+#define CLEANUP_skeleton_alias
 #ifndef TT
 #define TT this.skeleton_alias
 #endif
@@ -5926,12 +6317,14 @@
 #endif
 
 #ifdef FOR_sleep
+#define CLEANUP_sleep
 #ifndef TT
 #define TT this.sleep
 #endif
 #endif
 
 #ifdef FOR_sntp
+#define CLEANUP_sntp
 #ifndef TT
 #define TT this.sntp
 #endif
@@ -5949,6 +6342,7 @@
 #endif
 
 #ifdef FOR_sort
+#define CLEANUP_sort
 #ifndef TT
 #define TT this.sort
 #endif
@@ -5975,21 +6369,25 @@
 #endif
 
 #ifdef FOR_source
+#define CLEANUP_source
 #ifndef TT
 #define TT this.source
 #endif
 #endif
 
 #ifdef FOR_split
+#define CLEANUP_split
 #ifndef TT
 #define TT this.split
 #endif
-#define FLAG_l (FORCED_FLAG<<0)
-#define FLAG_b (FORCED_FLAG<<1)
-#define FLAG_a (FORCED_FLAG<<2)
+#define FLAG_n (FORCED_FLAG<<0)
+#define FLAG_l (FORCED_FLAG<<1)
+#define FLAG_b (FORCED_FLAG<<2)
+#define FLAG_a (FORCED_FLAG<<3)
 #endif
 
 #ifdef FOR_stat
+#define CLEANUP_stat
 #ifndef TT
 #define TT this.stat
 #endif
@@ -5999,7 +6397,18 @@
 #define FLAG_c (1<<3)
 #endif
 
+#ifdef FOR_strace
+#define CLEANUP_strace
+#ifndef TT
+#define TT this.strace
+#endif
+#define FLAG_v (FORCED_FLAG<<0)
+#define FLAG_s (FORCED_FLAG<<1)
+#define FLAG_p (FORCED_FLAG<<2)
+#endif
+
 #ifdef FOR_strings
+#define CLEANUP_strings
 #ifndef TT
 #define TT this.strings
 #endif
@@ -6011,6 +6420,7 @@
 #endif
 
 #ifdef FOR_stty
+#define CLEANUP_stty
 #ifndef TT
 #define TT this.stty
 #endif
@@ -6020,6 +6430,7 @@
 #endif
 
 #ifdef FOR_su
+#define CLEANUP_su
 #ifndef TT
 #define TT this.su
 #endif
@@ -6033,6 +6444,7 @@
 #endif
 
 #ifdef FOR_sulogin
+#define CLEANUP_sulogin
 #ifndef TT
 #define TT this.sulogin
 #endif
@@ -6040,12 +6452,14 @@
 #endif
 
 #ifdef FOR_swapoff
+#define CLEANUP_swapoff
 #ifndef TT
 #define TT this.swapoff
 #endif
 #endif
 
 #ifdef FOR_swapon
+#define CLEANUP_swapon
 #ifndef TT
 #define TT this.swapon
 #endif
@@ -6054,6 +6468,7 @@
 #endif
 
 #ifdef FOR_switch_root
+#define CLEANUP_switch_root
 #ifndef TT
 #define TT this.switch_root
 #endif
@@ -6062,12 +6477,14 @@
 #endif
 
 #ifdef FOR_sync
+#define CLEANUP_sync
 #ifndef TT
 #define TT this.sync
 #endif
 #endif
 
 #ifdef FOR_sysctl
+#define CLEANUP_sysctl
 #ifndef TT
 #define TT this.sysctl
 #endif
@@ -6082,6 +6499,7 @@
 #endif
 
 #ifdef FOR_syslogd
+#define CLEANUP_syslogd
 #ifndef TT
 #define TT this.syslogd
 #endif
@@ -6102,21 +6520,26 @@
 #endif
 
 #ifdef FOR_tac
+#define CLEANUP_tac
 #ifndef TT
 #define TT this.tac
 #endif
 #endif
 
 #ifdef FOR_tail
+#define CLEANUP_tail
 #ifndef TT
 #define TT this.tail
 #endif
 #define FLAG_n (1<<0)
 #define FLAG_c (1<<1)
-#define FLAG_f (1<<2)
+#define FLAG_s (1<<2)
+#define FLAG_F (1<<3)
+#define FLAG_f (1<<4)
 #endif
 
 #ifdef FOR_tar
+#define CLEANUP_tar
 #ifndef TT
 #define TT this.tar
 #endif
@@ -6153,9 +6576,12 @@
 #define FLAG_no_recursion (1<<30)
 #define FLAG_full_time (1LL<<31)
 #define FLAG_restrict (1LL<<32)
+#define FLAG_selinux (1LL<<33)
+#define FLAG_strip_components (1LL<<34)
 #endif
 
 #ifdef FOR_taskset
+#define CLEANUP_taskset
 #ifndef TT
 #define TT this.taskset
 #endif
@@ -6164,6 +6590,7 @@
 #endif
 
 #ifdef FOR_tcpsvd
+#define CLEANUP_tcpsvd
 #ifndef TT
 #define TT this.tcpsvd
 #endif
@@ -6178,6 +6605,7 @@
 #endif
 
 #ifdef FOR_tee
+#define CLEANUP_tee
 #ifndef TT
 #define TT this.tee
 #endif
@@ -6186,12 +6614,14 @@
 #endif
 
 #ifdef FOR_telnet
+#define CLEANUP_telnet
 #ifndef TT
 #define TT this.telnet
 #endif
 #endif
 
 #ifdef FOR_telnetd
+#define CLEANUP_telnetd
 #ifndef TT
 #define TT this.telnetd
 #endif
@@ -6207,12 +6637,14 @@
 #endif
 
 #ifdef FOR_test
+#define CLEANUP_test
 #ifndef TT
 #define TT this.test
 #endif
 #endif
 
 #ifdef FOR_tftp
+#define CLEANUP_tftp
 #ifndef TT
 #define TT this.tftp
 #endif
@@ -6224,6 +6656,7 @@
 #endif
 
 #ifdef FOR_tftpd
+#define CLEANUP_tftpd
 #ifndef TT
 #define TT this.tftpd
 #endif
@@ -6234,6 +6667,7 @@
 #endif
 
 #ifdef FOR_time
+#define CLEANUP_time
 #ifndef TT
 #define TT this.time
 #endif
@@ -6242,6 +6676,7 @@
 #endif
 
 #ifdef FOR_timeout
+#define CLEANUP_timeout
 #ifndef TT
 #define TT this.timeout
 #endif
@@ -6253,6 +6688,7 @@
 #endif
 
 #ifdef FOR_top
+#define CLEANUP_top
 #ifndef TT
 #define TT this.top
 #endif
@@ -6267,10 +6703,12 @@
 #define FLAG_o (FORCED_FLAG<<8)
 #define FLAG_k (FORCED_FLAG<<9)
 #define FLAG_H (FORCED_FLAG<<10)
-#define FLAG_O (FORCED_FLAG<<11)
+#define FLAG_h (FORCED_FLAG<<11)
+#define FLAG_O (FORCED_FLAG<<12)
 #endif
 
 #ifdef FOR_touch
+#define CLEANUP_touch
 #ifndef TT
 #define TT this.touch
 #endif
@@ -6285,12 +6723,14 @@
 #endif
 
 #ifdef FOR_toybox
+#define CLEANUP_toybox
 #ifndef TT
 #define TT this.toybox
 #endif
 #endif
 
 #ifdef FOR_tr
+#define CLEANUP_tr
 #ifndef TT
 #define TT this.tr
 #endif
@@ -6301,6 +6741,7 @@
 #endif
 
 #ifdef FOR_traceroute
+#define CLEANUP_traceroute
 #ifndef TT
 #define TT this.traceroute
 #endif
@@ -6327,12 +6768,14 @@
 #endif
 
 #ifdef FOR_true
+#define CLEANUP_true
 #ifndef TT
 #define TT this.true
 #endif
 #endif
 
 #ifdef FOR_truncate
+#define CLEANUP_truncate
 #ifndef TT
 #define TT this.truncate
 #endif
@@ -6341,6 +6784,7 @@
 #endif
 
 #ifdef FOR_tty
+#define CLEANUP_tty
 #ifndef TT
 #define TT this.tty
 #endif
@@ -6348,6 +6792,7 @@
 #endif
 
 #ifdef FOR_tunctl
+#define CLEANUP_tunctl
 #ifndef TT
 #define TT this.tunctl
 #endif
@@ -6357,7 +6802,20 @@
 #define FLAG_t (FORCED_FLAG<<3)
 #endif
 
+#ifdef FOR_uclampset
+#define CLEANUP_uclampset
+#ifndef TT
+#define TT this.uclampset
+#endif
+#define FLAG_R (FORCED_FLAG<<0)
+#define FLAG_M (FORCED_FLAG<<1)
+#define FLAG_m (FORCED_FLAG<<2)
+#define FLAG_a (FORCED_FLAG<<3)
+#define FLAG_p (FORCED_FLAG<<4)
+#endif
+
 #ifdef FOR_ulimit
+#define CLEANUP_ulimit
 #ifndef TT
 #define TT this.ulimit
 #endif
@@ -6384,6 +6842,7 @@
 #endif
 
 #ifdef FOR_umount
+#define CLEANUP_umount
 #ifndef TT
 #define TT this.umount
 #endif
@@ -6400,6 +6859,7 @@
 #endif
 
 #ifdef FOR_uname
+#define CLEANUP_uname
 #ifndef TT
 #define TT this.uname
 #endif
@@ -6408,17 +6868,19 @@
 #define FLAG_r (1<<2)
 #define FLAG_v (1<<3)
 #define FLAG_m (1<<4)
-#define FLAG_a (1<<5)
-#define FLAG_o (1<<6)
+#define FLAG_o (1<<5)
+#define FLAG_a (1<<6)
 #endif
 
 #ifdef FOR_unicode
+#define CLEANUP_unicode
 #ifndef TT
 #define TT this.unicode
 #endif
 #endif
 
 #ifdef FOR_uniq
+#define CLEANUP_uniq
 #ifndef TT
 #define TT this.uniq
 #endif
@@ -6433,18 +6895,21 @@
 #endif
 
 #ifdef FOR_unix2dos
+#define CLEANUP_unix2dos
 #ifndef TT
 #define TT this.unix2dos
 #endif
 #endif
 
 #ifdef FOR_unlink
+#define CLEANUP_unlink
 #ifndef TT
 #define TT this.unlink
 #endif
 #endif
 
 #ifdef FOR_unset
+#define CLEANUP_unset
 #ifndef TT
 #define TT this.unset
 #endif
@@ -6454,6 +6919,7 @@
 #endif
 
 #ifdef FOR_unshare
+#define CLEANUP_unshare
 #ifndef TT
 #define TT this.unshare
 #endif
@@ -6468,6 +6934,7 @@
 #endif
 
 #ifdef FOR_uptime
+#define CLEANUP_uptime
 #ifndef TT
 #define TT this.uptime
 #endif
@@ -6476,6 +6943,7 @@
 #endif
 
 #ifdef FOR_useradd
+#define CLEANUP_useradd
 #ifndef TT
 #define TT this.useradd
 #endif
@@ -6490,6 +6958,7 @@
 #endif
 
 #ifdef FOR_userdel
+#define CLEANUP_userdel
 #ifndef TT
 #define TT this.userdel
 #endif
@@ -6497,12 +6966,14 @@
 #endif
 
 #ifdef FOR_usleep
+#define CLEANUP_usleep
 #ifndef TT
 #define TT this.usleep
 #endif
 #endif
 
 #ifdef FOR_uudecode
+#define CLEANUP_uudecode
 #ifndef TT
 #define TT this.uudecode
 #endif
@@ -6510,6 +6981,7 @@
 #endif
 
 #ifdef FOR_uuencode
+#define CLEANUP_uuencode
 #ifndef TT
 #define TT this.uuencode
 #endif
@@ -6517,6 +6989,7 @@
 #endif
 
 #ifdef FOR_uuidgen
+#define CLEANUP_uuidgen
 #ifndef TT
 #define TT this.uuidgen
 #endif
@@ -6524,12 +6997,14 @@
 #endif
 
 #ifdef FOR_vconfig
+#define CLEANUP_vconfig
 #ifndef TT
 #define TT this.vconfig
 #endif
 #endif
 
 #ifdef FOR_vi
+#define CLEANUP_vi
 #ifndef TT
 #define TT this.vi
 #endif
@@ -6537,6 +7012,7 @@
 #endif
 
 #ifdef FOR_vmstat
+#define CLEANUP_vmstat
 #ifndef TT
 #define TT this.vmstat
 #endif
@@ -6544,12 +7020,14 @@
 #endif
 
 #ifdef FOR_w
+#define CLEANUP_w
 #ifndef TT
 #define TT this.w
 #endif
 #endif
 
 #ifdef FOR_wait
+#define CLEANUP_wait
 #ifndef TT
 #define TT this.wait
 #endif
@@ -6557,6 +7035,7 @@
 #endif
 
 #ifdef FOR_watch
+#define CLEANUP_watch
 #ifndef TT
 #define TT this.watch
 #endif
@@ -6568,6 +7047,7 @@
 #endif
 
 #ifdef FOR_watchdog
+#define CLEANUP_watchdog
 #ifndef TT
 #define TT this.watchdog
 #endif
@@ -6577,6 +7057,7 @@
 #endif
 
 #ifdef FOR_wc
+#define CLEANUP_wc
 #ifndef TT
 #define TT this.wc
 #endif
@@ -6587,14 +7068,18 @@
 #endif
 
 #ifdef FOR_wget
+#define CLEANUP_wget
 #ifndef TT
 #define TT this.wget
 #endif
-#define FLAG_O (FORCED_FLAG<<0)
-#define FLAG_no_check_certificate (FORCED_FLAG<<1)
+#define FLAG_p (FORCED_FLAG<<0)
+#define FLAG_O (FORCED_FLAG<<1)
+#define FLAG_d (FORCED_FLAG<<2)
+#define FLAG_max_redirect (FORCED_FLAG<<3)
 #endif
 
 #ifdef FOR_which
+#define CLEANUP_which
 #ifndef TT
 #define TT this.which
 #endif
@@ -6602,6 +7087,7 @@
 #endif
 
 #ifdef FOR_who
+#define CLEANUP_who
 #ifndef TT
 #define TT this.who
 #endif
@@ -6609,6 +7095,7 @@
 #endif
 
 #ifdef FOR_xargs
+#define CLEANUP_xargs
 #ifndef TT
 #define TT this.xargs
 #endif
@@ -6624,6 +7111,7 @@
 #endif
 
 #ifdef FOR_xxd
+#define CLEANUP_xxd
 #ifndef TT
 #define TT this.xxd
 #endif
@@ -6638,18 +7126,21 @@
 #endif
 
 #ifdef FOR_xzcat
+#define CLEANUP_xzcat
 #ifndef TT
 #define TT this.xzcat
 #endif
 #endif
 
 #ifdef FOR_yes
+#define CLEANUP_yes
 #ifndef TT
 #define TT this.yes
 #endif
 #endif
 
 #ifdef FOR_zcat
+#define CLEANUP_zcat
 #ifndef TT
 #define TT this.zcat
 #endif

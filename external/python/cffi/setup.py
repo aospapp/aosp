@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, platform
 import subprocess
 import errno
 
@@ -56,7 +56,7 @@ def no_working_compiler_found():
     tries to compile C code.  (Hints: on OS/X 10.8, for errors about
     -mno-fused-madd see http://stackoverflow.com/questions/22313407/
     Otherwise, see https://wiki.python.org/moin/CompLangPython or
-    the IRC channel #python on irc.freenode.net.)
+    the IRC channel #python on irc.libera.chat.)
 
     Trying to continue anyway.  If you are trying to install CFFI from
     a build done in a different context, you can ignore this warning.
@@ -123,50 +123,38 @@ def use_homebrew_for_libffi():
     os.environ['PKG_CONFIG_PATH'] = (
         os.environ.get('PKG_CONFIG_PATH', '') + ':' + pkgconfig)
 
-
-if sys.platform == 'win32' and uses_msvc():
-    COMPILE_LIBFFI = 'c/libffi_msvc'    # from the CPython distribution
-else:
-    COMPILE_LIBFFI = None
-
-if COMPILE_LIBFFI:
-    assert os.path.isdir(COMPILE_LIBFFI), "directory not found!"
-    include_dirs[:] = [COMPILE_LIBFFI]
-    libraries[:] = []
-    _filenames = [filename.lower() for filename in os.listdir(COMPILE_LIBFFI)]
-    _filenames = [filename for filename in _filenames
-                           if filename.endswith('.c')]
-    if sys.maxsize > 2**32:
-        # 64-bit: unlist win32.c, and add instead win64.obj.  If the obj
-        # happens to get outdated at some point in the future, you need to
-        # rebuild it manually from win64.asm.
-        _filenames.remove('win32.c')
-        extra_link_args.append(os.path.join(COMPILE_LIBFFI, 'win64.obj'))
-    sources.extend(os.path.join(COMPILE_LIBFFI, filename)
-                   for filename in _filenames)
+if sys.platform == "win32" and uses_msvc():
+    if platform.machine() == "ARM64":
+        include_dirs.append(os.path.join("c/libffi_arm64/include"))
+        library_dirs.append(os.path.join("c/libffi_arm64"))
+    else:
+        COMPILE_LIBFFI = 'c/libffi_x86_x64'    # from the CPython distribution
+        assert os.path.isdir(COMPILE_LIBFFI), "directory not found!"
+        include_dirs[:] = [COMPILE_LIBFFI]
+        libraries[:] = []
+        _filenames = [filename.lower() for filename in os.listdir(COMPILE_LIBFFI)]
+        _filenames = [filename for filename in _filenames
+                            if filename.endswith('.c')]
+        if sys.maxsize > 2**32:
+            # 64-bit: unlist win32.c, and add instead win64.obj.  If the obj
+            # happens to get outdated at some point in the future, you need to
+            # rebuild it manually from win64.asm.
+            _filenames.remove('win32.c')
+            extra_link_args.append(os.path.join(COMPILE_LIBFFI, 'win64.obj'))
+        sources.extend(os.path.join(COMPILE_LIBFFI, filename)
+                    for filename in _filenames)
 else:
     use_pkg_config()
     ask_supports_thread()
     ask_supports_sync_synchronize()
 
+if 'darwin' in sys.platform:
+    # priority is given to `pkg_config`, but always fall back on SDK's libffi.
+    extra_compile_args += ['-iwithsysroot/usr/include/ffi']
+
 if 'freebsd' in sys.platform:
     include_dirs.append('/usr/local/include')
     library_dirs.append('/usr/local/lib')
-
-if 'darwin' in sys.platform:
-    try:
-        p = subprocess.Popen(['xcrun', '--show-sdk-path'],
-                             stdout=subprocess.PIPE)
-    except OSError as e:
-        if e.errno not in [errno.ENOENT, errno.EACCES]:
-            raise
-    else:
-        t = p.stdout.read().decode().strip()
-        p.stdout.close()
-        if p.wait() == 0:
-            include_dirs.append(t + '/usr/include/ffi')
-
-
 
 if __name__ == '__main__':
     from setuptools import setup, Distribution, Extension
@@ -198,7 +186,7 @@ Contact
 
 `Mailing list <https://groups.google.com/forum/#!forum/python-cffi>`_
 """,
-        version='1.12.2',
+        version='1.15.0',
         packages=['cffi'] if cpython else [],
         package_data={'cffi': ['_cffi_include.h', 'parse_c_type.h', 
                                '_embedding.h', '_cffi_errors.h']}
@@ -236,15 +224,15 @@ Contact
         classifiers=[
             'Programming Language :: Python',
             'Programming Language :: Python :: 2',
-            'Programming Language :: Python :: 2.6',
             'Programming Language :: Python :: 2.7',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.2',
-            'Programming Language :: Python :: 3.3',
-            'Programming Language :: Python :: 3.4',
-            'Programming Language :: Python :: 3.5',
             'Programming Language :: Python :: 3.6',
+            'Programming Language :: Python :: 3.7',
+            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.9',
+            'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: Implementation :: CPython',
             'Programming Language :: Python :: Implementation :: PyPy',
+            'License :: OSI Approved :: MIT License',
         ],
     )

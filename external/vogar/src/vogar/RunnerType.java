@@ -21,33 +21,40 @@ package vogar;
  */
 public enum RunnerType {
     /**
-     * Runs both JUnit classes and classes with a main(String[] args) method.
+     * Runs JUnit classes, TestNG classes and classes with a main(String[] args) method.
      */
-    DEFAULT(false, true, true),
+    DEFAULT(false, true, true, true),
 
     /**
      * Runs only Caliper benchmarks.
      */
-    CALIPER(true, false, false),
+    CALIPER(true, false, false, false),
 
     /**
      * Runs only JUnit classes.
      */
-    JUNIT(false, true, false),
+    JUNIT(false, true, false, false),
 
     /**
      * Runs only classes with a main(String[] args) method.
      */
-    MAIN(false, false, true);
+    MAIN(false, false, true, false),
+
+    /**
+     * Runs only TestNG classes.
+     */
+    TESTNG(false, false, false, true);
 
     private final boolean supportsCaliper;
     private final boolean supportsJUnit;
     private final boolean supportsMain;
+    private final boolean supportsTestNg;
 
-    RunnerType(boolean supportsCaliper, boolean supportsJUnit, boolean supportsMain) {
+    RunnerType(boolean supportsCaliper, boolean supportsJUnit, boolean supportsMain, boolean supportsTestNg) {
         this.supportsCaliper = supportsCaliper;
         this.supportsJUnit = supportsJUnit;
         this.supportsMain = supportsMain;
+        this.supportsTestNg = supportsTestNg;
     }
 
     public boolean supportsCaliper() {
@@ -60,5 +67,9 @@ public enum RunnerType {
 
     public boolean supportsMain() {
         return supportsMain;
+    }
+
+    public boolean supportsTestNg() {
+        return supportsTestNg;
     }
 }

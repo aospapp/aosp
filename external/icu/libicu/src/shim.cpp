@@ -6,6 +6,7 @@
 #include <unicode/ubidi.h>
 #include <unicode/ubrk.h>
 #include <unicode/uchar.h>
+#include <unicode/ucol.h>
 #include <unicode/uenum.h>
 #include <unicode/uldnames.h>
 #include <unicode/uloc.h>
@@ -14,6 +15,7 @@
 #include <unicode/uscript.h>
 #include <unicode/ustring.h>
 #include <unicode/utext.h>
+#include <unicode/utrans.h>
 #include <unicode/utypes.h>
 #include <unicode/uversion.h>
 
@@ -184,6 +186,31 @@
 #undef ubrk_previous
 #undef ubrk_setText
 #undef ubrk_setUText
+#undef ucol_clone
+#undef ucol_close
+#undef ucol_countAvailable
+#undef ucol_getAttribute
+#undef ucol_getAvailable
+#undef ucol_getDisplayName
+#undef ucol_getEquivalentReorderCodes
+#undef ucol_getFunctionalEquivalent
+#undef ucol_getKeywordValues
+#undef ucol_getKeywordValuesForLocale
+#undef ucol_getKeywords
+#undef ucol_getMaxVariable
+#undef ucol_getReorderCodes
+#undef ucol_getSortKey
+#undef ucol_getStrength
+#undef ucol_mergeSortkeys
+#undef ucol_open
+#undef ucol_openAvailableLocales
+#undef ucol_openRules
+#undef ucol_setAttribute
+#undef ucol_setMaxVariable
+#undef ucol_setReorderCodes
+#undef ucol_setStrength
+#undef ucol_strcoll
+#undef ucol_strcollUTF8
 #undef uenum_close
 #undef uenum_count
 #undef uenum_next
@@ -288,6 +315,17 @@
 #undef utext_previous32
 #undef utext_previous32From
 #undef utext_setNativeIndex
+#undef utrans_clone
+#undef utrans_close
+#undef utrans_openIDs
+#undef utrans_openInverse
+#undef utrans_openU
+#undef utrans_setFilter
+#undef utrans_toRules
+#undef utrans_trans
+#undef utrans_transIncremental
+#undef utrans_transIncrementalUChars
+#undef utrans_transUChars
 
 extern "C" {
 void u_charAge(UChar32 c, UVersionInfo versionArray) {
@@ -788,6 +826,81 @@ void ubrk_setText(UBreakIterator * bi, const UChar * text, int32_t textLength, U
 void ubrk_setUText(UBreakIterator * bi, UText * text, UErrorCode * status) {
   U_ICU_ENTRY_POINT_RENAME(ubrk_setUText)(bi, text, status);
 }
+UCollator * ucol_clone(const UCollator * coll, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_clone)(coll, status);
+}
+void ucol_close(UCollator * coll) {
+  U_ICU_ENTRY_POINT_RENAME(ucol_close)(coll);
+}
+int32_t ucol_countAvailable() {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_countAvailable)();
+}
+UColAttributeValue ucol_getAttribute(const UCollator * coll, UColAttribute attr, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getAttribute)(coll, attr, status);
+}
+const char * ucol_getAvailable(int32_t localeIndex) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getAvailable)(localeIndex);
+}
+int32_t ucol_getDisplayName(const char * objLoc, const char * dispLoc, UChar * result, int32_t resultLength, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getDisplayName)(objLoc, dispLoc, result, resultLength, status);
+}
+int32_t ucol_getEquivalentReorderCodes(int32_t reorderCode, int32_t * dest, int32_t destCapacity, UErrorCode * pErrorCode) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getEquivalentReorderCodes)(reorderCode, dest, destCapacity, pErrorCode);
+}
+int32_t ucol_getFunctionalEquivalent(char * result, int32_t resultCapacity, const char * keyword, const char * locale, UBool * isAvailable, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getFunctionalEquivalent)(result, resultCapacity, keyword, locale, isAvailable, status);
+}
+UEnumeration * ucol_getKeywordValues(const char * keyword, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getKeywordValues)(keyword, status);
+}
+UEnumeration * ucol_getKeywordValuesForLocale(const char * key, const char * locale, UBool commonlyUsed, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getKeywordValuesForLocale)(key, locale, commonlyUsed, status);
+}
+UEnumeration * ucol_getKeywords(UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getKeywords)(status);
+}
+UColReorderCode ucol_getMaxVariable(const UCollator * coll) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getMaxVariable)(coll);
+}
+int32_t ucol_getReorderCodes(const UCollator * coll, int32_t * dest, int32_t destCapacity, UErrorCode * pErrorCode) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getReorderCodes)(coll, dest, destCapacity, pErrorCode);
+}
+int32_t ucol_getSortKey(const UCollator * coll, const UChar * source, int32_t sourceLength, uint8_t * result, int32_t resultLength) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getSortKey)(coll, source, sourceLength, result, resultLength);
+}
+UCollationStrength ucol_getStrength(const UCollator * coll) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_getStrength)(coll);
+}
+int32_t ucol_mergeSortkeys(const uint8_t * src1, int32_t src1Length, const uint8_t * src2, int32_t src2Length, uint8_t * dest, int32_t destCapacity) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_mergeSortkeys)(src1, src1Length, src2, src2Length, dest, destCapacity);
+}
+UCollator * ucol_open(const char * loc, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_open)(loc, status);
+}
+UEnumeration * ucol_openAvailableLocales(UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_openAvailableLocales)(status);
+}
+UCollator * ucol_openRules(const UChar * rules, int32_t rulesLength, UColAttributeValue normalizationMode, UCollationStrength strength, UParseError * parseError, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_openRules)(rules, rulesLength, normalizationMode, strength, parseError, status);
+}
+void ucol_setAttribute(UCollator * coll, UColAttribute attr, UColAttributeValue value, UErrorCode * status) {
+  U_ICU_ENTRY_POINT_RENAME(ucol_setAttribute)(coll, attr, value, status);
+}
+void ucol_setMaxVariable(UCollator * coll, UColReorderCode group, UErrorCode * pErrorCode) {
+  U_ICU_ENTRY_POINT_RENAME(ucol_setMaxVariable)(coll, group, pErrorCode);
+}
+void ucol_setReorderCodes(UCollator * coll, const int32_t * reorderCodes, int32_t reorderCodesLength, UErrorCode * pErrorCode) {
+  U_ICU_ENTRY_POINT_RENAME(ucol_setReorderCodes)(coll, reorderCodes, reorderCodesLength, pErrorCode);
+}
+void ucol_setStrength(UCollator * coll, UCollationStrength strength) {
+  U_ICU_ENTRY_POINT_RENAME(ucol_setStrength)(coll, strength);
+}
+UCollationResult ucol_strcoll(const UCollator * coll, const UChar * source, int32_t sourceLength, const UChar * target, int32_t targetLength) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_strcoll)(coll, source, sourceLength, target, targetLength);
+}
+UCollationResult ucol_strcollUTF8(const UCollator * coll, const char * source, int32_t sourceLength, const char * target, int32_t targetLength, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(ucol_strcollUTF8)(coll, source, sourceLength, target, targetLength, status);
+}
 void uenum_close(UEnumeration * en) {
   U_ICU_ENTRY_POINT_RENAME(uenum_close)(en);
 }
@@ -797,10 +910,10 @@ int32_t uenum_count(UEnumeration * en, UErrorCode * status) {
 const char * uenum_next(UEnumeration * en, int32_t * resultLength, UErrorCode * status) {
   return U_ICU_ENTRY_POINT_RENAME(uenum_next)(en, resultLength, status);
 }
-UEnumeration * uenum_openCharStringsEnumeration(const char *const  strings[], int32_t count, UErrorCode * ec) {
+UEnumeration * uenum_openCharStringsEnumeration(const char *const strings[], int32_t count, UErrorCode * ec) {
   return U_ICU_ENTRY_POINT_RENAME(uenum_openCharStringsEnumeration)(strings, count, ec);
 }
-UEnumeration * uenum_openUCharStringsEnumeration(const UChar *const  strings[], int32_t count, UErrorCode * ec) {
+UEnumeration * uenum_openUCharStringsEnumeration(const UChar *const strings[], int32_t count, UErrorCode * ec) {
   return U_ICU_ENTRY_POINT_RENAME(uenum_openUCharStringsEnumeration)(strings, count, ec);
 }
 void uenum_reset(UEnumeration * en, UErrorCode * status) {
@@ -1099,5 +1212,38 @@ UChar32 utext_previous32From(UText * ut, int64_t nativeIndex) {
 }
 void utext_setNativeIndex(UText * ut, int64_t nativeIndex) {
   U_ICU_ENTRY_POINT_RENAME(utext_setNativeIndex)(ut, nativeIndex);
+}
+UTransliterator * utrans_clone(const UTransliterator * trans, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(utrans_clone)(trans, status);
+}
+void utrans_close(UTransliterator * trans) {
+  U_ICU_ENTRY_POINT_RENAME(utrans_close)(trans);
+}
+UEnumeration * utrans_openIDs(UErrorCode * pErrorCode) {
+  return U_ICU_ENTRY_POINT_RENAME(utrans_openIDs)(pErrorCode);
+}
+UTransliterator * utrans_openInverse(const UTransliterator * trans, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(utrans_openInverse)(trans, status);
+}
+UTransliterator * utrans_openU(const UChar * id, int32_t idLength, UTransDirection dir, const UChar * rules, int32_t rulesLength, UParseError * parseError, UErrorCode * pErrorCode) {
+  return U_ICU_ENTRY_POINT_RENAME(utrans_openU)(id, idLength, dir, rules, rulesLength, parseError, pErrorCode);
+}
+void utrans_setFilter(UTransliterator * trans, const UChar * filterPattern, int32_t filterPatternLen, UErrorCode * status) {
+  U_ICU_ENTRY_POINT_RENAME(utrans_setFilter)(trans, filterPattern, filterPatternLen, status);
+}
+int32_t utrans_toRules(const UTransliterator * trans, UBool escapeUnprintable, UChar * result, int32_t resultLength, UErrorCode * status) {
+  return U_ICU_ENTRY_POINT_RENAME(utrans_toRules)(trans, escapeUnprintable, result, resultLength, status);
+}
+void utrans_trans(const UTransliterator * trans, UReplaceable * rep, const UReplaceableCallbacks * repFunc, int32_t start, int32_t * limit, UErrorCode * status) {
+  U_ICU_ENTRY_POINT_RENAME(utrans_trans)(trans, rep, repFunc, start, limit, status);
+}
+void utrans_transIncremental(const UTransliterator * trans, UReplaceable * rep, const UReplaceableCallbacks * repFunc, UTransPosition * pos, UErrorCode * status) {
+  U_ICU_ENTRY_POINT_RENAME(utrans_transIncremental)(trans, rep, repFunc, pos, status);
+}
+void utrans_transIncrementalUChars(const UTransliterator * trans, UChar * text, int32_t * textLength, int32_t textCapacity, UTransPosition * pos, UErrorCode * status) {
+  U_ICU_ENTRY_POINT_RENAME(utrans_transIncrementalUChars)(trans, text, textLength, textCapacity, pos, status);
+}
+void utrans_transUChars(const UTransliterator * trans, UChar * text, int32_t * textLength, int32_t textCapacity, int32_t start, int32_t * limit, UErrorCode * status) {
+  U_ICU_ENTRY_POINT_RENAME(utrans_transUChars)(trans, text, textLength, textCapacity, start, limit, status);
 }
 }

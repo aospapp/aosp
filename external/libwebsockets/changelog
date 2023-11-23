@@ -1,6 +1,199 @@
 Changelog
 ---------
 
+v4.3.0
+======
+
+ - Add full CBOR stream parsing and writing support, with huge
+   amount of test vectors and resumable printf type write apis
+   See ./READMEs/README.cbor-lecp.md
+ - Add COSE key and signing / validation support with huge amount of
+   test vectors
+    cose_sign[1] ES256/384/512, RS256/384/512
+    cose_mac0    HS256/384/512
+   See ./READMEs/README.cbor-cose.md
+ - JIT Trust: for constrained devices, provides a way to determine the
+   trusted CA certs the peer requires, and instantiate just those.
+   This allows generic client browsing without the overhead of ~130
+   x.509 CA certs in memory permanently.
+   See ./READMEs/README.jit-trust.md
+ - Add support for client Netscape cookie jar with caching
+ - Secure Streams: issue LWSSSCS_EVENT_WAIT_CANCELLED state() when
+   lws_cancel_service() called, so cross-thread events can be handled
+   in SS
+ - Actively assert() on attempt to destroy SS handles still active in
+   the call stack, use DESTROY_ME returns instead so caller can choose
+   how to handle it.
+ - Improved Client Connection Error report strings for tls errors
+ - SMP: Use a private fakewsi for PROTOCOL_INIT so pts cannot try to
+   use the same one concurrently
+ - MbedTLS v3 support for all release changes, as well as retaining
+   support for v2.x
+ - MQTT client: support QoS2
+ - Event lib ops can now be set at context creation time directly,
+   bringing full event lib hooking to custom event loops.  See
+   minimal-http-server-eventlib-custom
+ - Extra APIs to recover AKID and SKID from x.509 in mbedtls and openssl
+ - Improve http redirect to handle h2-> h2 cleanly
+ - IPv4+6 listen sockets on vhosts are now done with two separate
+   sockets bound individually to AF_INET and AF_INET6 addresses,
+   handled by the same vhost listen flow.
+ - Improved tls restriction handling
+ - Log contexts: allow objects to log into local logging contexts, by
+   lws_context, vhost, wsi and ss handle.  Each context has its own
+   emit function and log level. See ./READMEs/README.logging.md
+ - Upgrade compiler checking to default to -Werror -Wall -Wextra
+ - Fault injection apis now also support pseudo-random number binding
+   within a specified range, eg,
+   --fault-injection "f1(10%),f1_delay(123..456)"
+ - Remove LWS_WITH_DEPRECATED_THINGS, remove master branch
+ - Interface binding now uses ipv6 scoring to select bind address
+
+v4.2.0
+======
+
+ - Sai coverage upgrades, 495 builds on 27 platforms, including OSX M1,
+   Xenial, Bionic and Focal Ubuntu, Debian Sid and Buster on both 32 and
+   64-bit OS, and NetBSD, Solaris, FreeBSD, Windows, ESP32.
+   Ctest run on more scenarios including all LWS_WITH_DISTRO_RECOMMENDED.
+   More tests use valgrind if available on platform.
+ - RFC7231 date and time parsing and retry-after wired up to lws_retry
+ - `LWS_WITH_SUL_DEBUGGING` checks that no sul belonging to Secure Streams
+   and wsi objects are left registered on destruction
+ - Netlink monitoring on Linux dynamically tracks interface address and
+   routing changes, and immediately closes connections on invalidated
+   routes.
+ - RFC6724 DNS results sorting over ipv4 + ipv6 results, according to
+   available dynamic route information
+ - Support new event library, sdevent (systemd native loop), via
+   `LWS_WITH_SDEVENT`
+ - Reduce .rodata cost of role structs by making them sparse
+ - Additional Secure Streams QA tests and runtime state transition
+   validation
+ - SMD-over-ss-proxy documentation and helpers to simplify forwarding
+ - SSPC stream buffering at proxy and client set from policy by streamtype
+ - Trigger Captive Portal Detection if DNS resolution fails
+ - Switch all logs related to wsi and Secure Streams to use unique,
+   descriptive tags instead of pointers (which may be reallocated)
+ - Use NOITCE logging for Secure Streams and wsi lifecycle logging using
+   tags
+ - Update SSPC serialization to include versioning on initial handshake,
+   and pass client pid to proxy so related objects are tagged with it
+ - Enable errors on -Wconversion pedantic type-related build issues
+   throughout the lws sources and upgrade every affected cast.
+ - Windows remove WSA event implementation and replace with WSAPoll, with
+   a pair of UDP sockets instead of pipe() for `lws_cancel_service()`
+ - `lws_strcmp_wildcard()` helper that understand "x*", "x*y", "x*y*" etc
+ - `LWS_WITH_PLUGINS_BUILTIN` cmake option just builds plugins into the main
+ library image directly
+ - Secure Streams proxy supports policy for flow control between proxy and
+ clients
+ - libressl also supported along with boringssl, wolfssl
+ - prepared for openssl v3 compatibility, for main function and GENCRYPTO
+ - Fault injection apis can confirm operation of 48 error paths and counting
+ - `LWS_WITH_SYS_METRICS` keeps stats and reports them to user-defined
+ function, compatible with openmetrics
+ - windows platform knows how to prepare openssl with system trust store certs
+ - `LWS_WITH_SYS_CONMON` allows selected client connections to make precise
+ measurements of connection performance and DNS results, and report them in a struct
+ - New native support for uloop event loop (OpenWRT loop)
+ - More options around JWT
+ - Support TLS session caching and reuse by default, on both OpenSSL and
+ mbedtls
+ - Many fixes and improvements...
+
+v4.1.0
+======
+
+ - NEW: travis / appveyor / bintray are replaced by Sai
+   https://libwebsockets.org/sai/ which for lws currently does 193 builds per
+   git push on 16 platforms, all self-hosted.  The homebrew bash scripts used
+   to select Minimal examples are replaced by CTest.  Platforms currently
+   include Fedora/AMD/GCC, Windows/AMD/mingw32, Windows/AMD/mingw64, Android/
+   aarch64/LLVM, esp-idf (on WROVER-KIT and HELTEC physical boards), Fedora/
+   RISCV (on QEMU)/GCC, CentOS8/AMD/GCC, Gentoo/AMD/GCC, Bionic/AMD/GCC,
+   Linkit 7697, Focal/AMD/GCC, Windows (on QEMU)/AMD/MSVC,
+   Focal/aarch64-RPI4/GCC, iOS/aarch64/LLVM and OSX/AMD/LLVM.
+
+ - NEW: The single CMakeLists.txt has been refactored and modernized into smaller
+ CMakeLists.txt in the subdirectory along with the code that is being managed
+ for build by it.  Build options are still listed in the top level as before
+ but the new way is much more maintainable.
+
+ - NEW: event lib support on Unix is now built into dynamically loaded plugins
+ and brought in at runtime, allowing all of the support to be built in
+ isolation without conflicts, and separately packaged with individual
+ dependencies.  See ./READMEs/event-libs.md for details and how to force
+ the old static build into lws method.
+
+ - NEW: Captive Portal Detection.  Lws can determine if the active default
+ route is able to connect to the internet, or is in a captive portal type
+ situation, by trying to connect to a remote server that will respond in an
+ unusual way, like provide a 204.
+
+ - NEW: Secure streams: Support system trust store if it exists
+                        Build on Windows
+			Support lws raw socket protocol in SS
+			Support Unix Domain Socket transport
+
+ - NEW: Windows: Support Unix Domain Sockets same as other platforms
+
+ - NEW: Windows: Build using native pthreads, async dns, ipv6 on MSVC
+
+ - NEW: lws_struct: BLOB support
+
+ - NEW: lws_sul: Now provides two sorted timer domains, a default one as
+ before, and another whose scheduled events are capable to wake the system from suspend
+
+ - NEW: System Message Distribution: lws_smd provides a very lightweight way
+ to pass short messages between subsystems both in RTOS type case where the
+ subsystems are all on the lws event loop, and in the case participants are in
+ different processes, using Secure Streams proxying.   Participants register a bitmap
+ of message classes they care about; if no particpant cares about a particular message,
+ it is rejected at allocation time for the sender, making it cheap to provide messages
+ speculatively.  See lib/system/smd/README.md for full details.
+
+ - NEW: lws_drivers: wrappers for SDK driver abstractions (or actual drivers)
+		 See lib/drivers/README.md, example implementations
+		 minimal-examples/embedded/esp32/esp-wrover-kit
+                     - generic gpio
+		     - generic LED (by name)    lib/drivers/led/README.md
+		     - generic PWM, sophisticated interpolated table
+		                    sequencers with crossfade  
+		     - generic button (by name), with debounce and press classification
+		                       emitting rich SMD click, long-click, double-click,
+				       down, repeat, up JSON messages
+				       lib/drivers/button/README.md
+		     - bitbang i2c on generic gpio (hw support can use same
+		                       abstract API)
+		     - bitbang spi on generic gpio (hw support can use same
+		                       abstract API)
+		     - generic display object, can be wired up to controller
+		                  drivers that hook up by generic i2c or spi,
+				  generic backlight PWM sequencing and
+				  blanking timer support
+		     - generic settings storage: get and set blobs by name
+		     - generic network device: netdev abstract class with
+	                                       WIFI / Ethernet implementations
+					       using underlying SDK APIs;
+					       generic 80211 Scan managements
+					       and credentials handling via
+					       lws_settings
+		     This is the new way to provide embedded platform
+		     functionality that was in the past done like
+		     esp32-factory.  Unlike the old way, the new way has no
+		     native apis in it and can be built on other SDK / SoCs
+		     the same.
+
+ - NEW: Security-aware JWS JWT (JSON Web Tokens) apis are provided on top of the existing
+ JOSE / JWS apis.  All the common algorithms are available along with some
+ high level apis like lws http cookie -> JWT struct -> lws http cookie.
+
+ - REMOVED: esp32-helper and friends used by esp32-factory now lws_drivers
+ exists
+
+ - REMOVED: generic sessions and friends now JWT is provided
+
 v4.0.0
 ======
 

@@ -1,6 +1,7 @@
 - hosts: backupdb
   become: yes
   vars_files:
+    # variables are used in templates
     - vars/main.yml
     - local-vars/local.yml
   tasks:
@@ -34,7 +35,7 @@
     - name: set up /home/cldrbackup/.ssh/config
       template:
         src: templates/cldrbackup/config.j2
-        dest: /home/cldrbackup/.ssh/config.j2
+        dest: /home/cldrbackup/.ssh/config
         owner: cldrbackup
         group: cldrbackup
         mode: '0640'
@@ -45,7 +46,7 @@
         dest: /home/cldrbackup/.ssh/id_rsa
         owner: cldrbackup
         group: cldrbackup
-        mode: '0640'
+        mode: '0600'
     - name: set up /home/cldrbackup/.ssh/id_rsa.pub
       copy:
         src: local-vars/cldrbackup/id_rsa.pub
@@ -63,13 +64,14 @@
     - name: set up /home/cldrbackup/backup.sh
       template:
         src: templates/cldrbackup/backup_sh.j2
-        dest: /home/cldrbackup/.ssh/backup.sh
+        dest: /home/cldrbackup/backup.sh
         owner: cldrbackup
         group: cldrbackup
         mode: '0640'
     - name: set up daily db backup cron job
       cron:
         name: "backup db"
-        minute: "37"
-        hour: "7"
+        user: cldrbackup
+        minute: "53"
+        hour: "13" # 13:53 UTC = 6:53 PDT or 5:53 PST
         job: "sh /home/cldrbackup/backup.sh >/dev/null 2>&1"

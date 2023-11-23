@@ -126,6 +126,8 @@ BSSL_NAMESPACE_BEGIN
 
 SSL_HANDSHAKE::SSL_HANDSHAKE(SSL *ssl_arg)
     : ssl(ssl_arg),
+      ech_present(false),
+      ech_is_inner_present(false),
       scts_requested(false),
       needs_psk_binder(false),
       handshake_finalized(false),
@@ -235,13 +237,13 @@ bool ssl_hash_message(SSL_HANDSHAKE *hs, const SSLMessage &msg) {
   return hs->transcript.Update(msg.raw);
 }
 
-int ssl_parse_extensions(const CBS *cbs, uint8_t *out_alert,
-                         const SSL_EXTENSION_TYPE *ext_types,
-                         size_t num_ext_types, int ignore_unknown) {
+bool ssl_parse_extensions(const CBS *cbs, uint8_t *out_alert,
+                          Span<const SSL_EXTENSION_TYPE> ext_types,
+                          bool ignore_unknown) {
   // Reset everything.
-  for (size_t i = 0; i < num_ext_types; i++) {
-    *ext_types[i].out_present = 0;
-    CBS_init(ext_types[i].out_data, NULL, 0);
+  for (const SSL_EXTENSION_TYPE &ext_type : ext_types) {
+    *ext_type.out_present = false;
+    CBS_init(ext_type.out_data, nullptr, 0);
   }
 
   CBS copy = *cbs;
@@ -252,38 +254,38 @@ int ssl_parse_extensions(const CBS *cbs, uint8_t *out_alert,
         !CBS_get_u16_length_prefixed(&copy, &data)) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_PARSE_TLSEXT);
       *out_alert = SSL_AD_DECODE_ERROR;
-      return 0;
+      return false;
     }
 
-    const SSL_EXTENSION_TYPE *ext_type = NULL;
-    for (size_t i = 0; i < num_ext_types; i++) {
-      if (type == ext_types[i].type) {
-        ext_type = &ext_types[i];
+    const SSL_EXTENSION_TYPE *found = nullptr;
+    for (const SSL_EXTENSION_TYPE &ext_type : ext_types) {
+      if (type == ext_type.type) {
+        found = &ext_type;
         break;
       }
     }
 
-    if (ext_type == NULL) {
+    if (found == nullptr) {
       if (ignore_unknown) {
         continue;
       }
       OPENSSL_PUT_ERROR(SSL, SSL_R_UNEXPECTED_EXTENSION);
       *out_alert = SSL_AD_UNSUPPORTED_EXTENSION;
-      return 0;
+      return false;
     }
 
     // Duplicate ext_types are forbidden.
-    if (*ext_type->out_present) {
+    if (*found->out_present) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_DUPLICATE_EXTENSION);
       *out_alert = SSL_AD_ILLEGAL_PARAMETER;
-      return 0;
+      return false;
     }
 
-    *ext_type->out_present = 1;
-    *ext_type->out_data = data;
+    *found->out_present = 1;
+    *found->out_data = data;
   }
 
-  return 1;
+  return true;
 }
 
 enum ssl_verify_result_t ssl_verify_peer_cert(SSL_HANDSHAKE *hs) {
@@ -441,7 +443,7 @@ enum ssl_hs_wait_t ssl_get_finished(SSL_HANDSHAKE *hs) {
   uint8_t finished[EVP_MAX_MD_SIZE];
   size_t finished_len;
   if (!hs->transcript.GetFinishedMAC(finished, &finished_len,
-                                     SSL_get_session(ssl), !ssl->server) ||
+                                     ssl_handshake_session(hs), !ssl->server) ||
       !ssl_hash_message(hs, msg)) {
     return ssl_hs_error;
   }
@@ -484,7 +486,7 @@ enum ssl_hs_wait_t ssl_get_finished(SSL_HANDSHAKE *hs) {
 
 bool ssl_send_finished(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
-  const SSL_SESSION *session = SSL_get_session(ssl);
+  const SSL_SESSION *session = ssl_handshake_session(hs);
 
   uint8_t finished[EVP_MAX_MD_SIZE];
   size_t finished_len;
@@ -494,9 +496,8 @@ bool ssl_send_finished(SSL_HANDSHAKE *hs) {
   }
 
   // Log the master secret, if logging is enabled.
-  if (!ssl_log_secret(
-          ssl, "CLIENT_RANDOM",
-          MakeConstSpan(session->master_key, session->master_key_length))) {
+  if (!ssl_log_secret(ssl, "CLIENT_RANDOM",
+                      MakeConstSpan(session->secret, session->secret_length))) {
     return 0;
   }
 
@@ -539,6 +540,13 @@ bool ssl_output_cert_chain(SSL_HANDSHAKE *hs) {
   }
 
   return true;
+}
+
+const SSL_SESSION *ssl_handshake_session(const SSL_HANDSHAKE *hs) {
+  if (hs->new_session) {
+    return hs->new_session.get();
+  }
+  return hs->ssl->session.get();
 }
 
 int ssl_run_handshake(SSL_HANDSHAKE *hs, bool *out_early_return) {

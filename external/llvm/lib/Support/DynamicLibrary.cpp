@@ -143,7 +143,7 @@ void* DynamicLibrary::SearchForAddressOfSymbol(const char *symbolName) {
 // On linux we have a weird situation. The stderr/out/in symbols are both
 // macros and global variables because of standards requirements. So, we
 // boldly use the EXPLICIT_SYMBOL macro without checking for a #define first.
-#if defined(__linux__) and !defined(__ANDROID__)
+#if defined(__linux__) and !defined(__ANDROID__) && !defined(ANDROID_HOST_MUSL)
   {
     EXPLICIT_SYMBOL(stderr);
     EXPLICIT_SYMBOL(stdout);

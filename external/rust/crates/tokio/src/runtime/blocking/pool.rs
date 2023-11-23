@@ -4,12 +4,10 @@ use crate::loom::sync::{Arc, Condvar, Mutex};
 use crate::loom::thread;
 use crate::runtime::blocking::schedule::NoopSchedule;
 use crate::runtime::blocking::shutdown;
-use crate::runtime::blocking::task::BlockingTask;
 use crate::runtime::builder::ThreadNameFn;
 use crate::runtime::context;
 use crate::runtime::task::{self, JoinHandle};
 use crate::runtime::{Builder, Callback, Handle};
-use crate::util::error::CONTEXT_MISSING_ERROR;
 
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
@@ -26,28 +24,28 @@ pub(crate) struct Spawner {
 }
 
 struct Inner {
-    /// State shared between worker threads
+    /// State shared between worker threads.
     shared: Mutex<Shared>,
 
     /// Pool threads wait on this.
     condvar: Condvar,
 
-    /// Spawned threads use this name
+    /// Spawned threads use this name.
     thread_name: ThreadNameFn,
 
-    /// Spawned thread stack size
+    /// Spawned thread stack size.
     stack_size: Option<usize>,
 
-    /// Call after a thread starts
+    /// Call after a thread starts.
     after_start: Option<Callback>,
 
-    /// Call before a thread stops
+    /// Call before a thread stops.
     before_stop: Option<Callback>,
 
-    // Maximum number of threads
+    // Maximum number of threads.
     thread_cap: usize,
 
-    // Customizable wait timeout
+    // Customizable wait timeout.
     keep_alive: Duration,
 }
 
@@ -61,41 +59,29 @@ struct Shared {
     /// Prior to shutdown, we clean up JoinHandles by having each timed-out
     /// thread join on the previous timed-out thread. This is not strictly
     /// necessary but helps avoid Valgrind false positives, see
-    /// https://github.com/tokio-rs/tokio/commit/646fbae76535e397ef79dbcaacb945d4c829f666
+    /// <https://github.com/tokio-rs/tokio/commit/646fbae76535e397ef79dbcaacb945d4c829f666>
     /// for more information.
     last_exiting_thread: Option<thread::JoinHandle<()>>,
     /// This holds the JoinHandles for all running threads; on shutdown, the thread
     /// calling shutdown handles joining on these.
     worker_threads: HashMap<usize, thread::JoinHandle<()>>,
     /// This is a counter used to iterate worker_threads in a consistent order (for loom's
-    /// benefit)
+    /// benefit).
     worker_thread_index: usize,
 }
 
-type Task = task::Notified<NoopSchedule>;
+type Task = task::UnownedTask<NoopSchedule>;
 
 const KEEP_ALIVE: Duration = Duration::from_secs(10);
 
-/// Run the provided function on an executor dedicated to blocking operations.
+/// Runs the provided function on an executor dedicated to blocking operations.
 pub(crate) fn spawn_blocking<F, R>(func: F) -> JoinHandle<R>
 where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
 {
-    let rt = context::current().expect(CONTEXT_MISSING_ERROR);
+    let rt = context::current();
     rt.spawn_blocking(func)
-}
-
-#[allow(dead_code)]
-pub(crate) fn try_spawn_blocking<F, R>(func: F) -> Result<(), ()>
-where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-{
-    let rt = context::current().expect(CONTEXT_MISSING_ERROR);
-
-    let (task, _handle) = task::joinable(BlockingTask::new(func));
-    rt.blocking_spawner.spawn(task, &rt)
 }
 
 // ===== impl BlockingPool =====
@@ -151,7 +137,7 @@ impl BlockingPool {
         self.spawner.inner.condvar.notify_all();
 
         let last_exited_thread = std::mem::take(&mut shared.last_exiting_thread);
-        let workers = std::mem::replace(&mut shared.worker_threads, HashMap::new());
+        let workers = std::mem::take(&mut shared.worker_threads);
 
         drop(shared);
 

@@ -23,7 +23,7 @@ FileTime = namedtuple('FileTime', 'st_ctime, st_atime, st_mtime')
 class FakeStatTestBase(RealFsTestCase):
 
     def setUp(self):
-        super(FakeStatTestBase, self).setUp()
+        super().setUp()
         # we disable the tests for MacOS to avoid very long builds due
         # to the 1s time resolution - we know that the functionality is
         # similar to Linux
@@ -35,8 +35,12 @@ class FakeStatTestBase(RealFsTestCase):
 
     def stat_time(self, path):
         stat = self.os.stat(path)
-        # sleep a bit so in the next call the time has changed
-        time.sleep(self.sleep_time)
+        if self.use_real_fs():
+            # sleep a bit so in the next call the time has changed
+            time.sleep(self.sleep_time)
+        else:
+            # calling time.time() advances mocked time
+            time.time()
         return FileTime(st_ctime=stat.st_ctime,
                         st_atime=stat.st_atime,
                         st_mtime=stat.st_mtime)
@@ -54,103 +58,111 @@ class FakeStatTestBase(RealFsTestCase):
             self.assertEqual(time1, time2)
 
     def open_close_new_file(self):
-        with self.open(self.file_path, self.mode):
-            created = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
-
-        return created, closed
+        with self.mock_time():
+            with self.open(self.file_path, self.mode):
+                created = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
+            return created, closed
 
     def open_write_close_new_file(self):
-        with self.open(self.file_path, self.mode) as f:
-            created = self.stat_time(self.file_path)
-            f.write('foo')
-            written = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+        with self.mock_time():
+            with self.open(self.file_path, self.mode) as f:
+                created = self.stat_time(self.file_path)
+                f.write('foo')
+                written = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
         return created, written, closed
 
     def open_close(self):
-        self.create_file(self.file_path)
+        with self.mock_time():
+            self.create_file(self.file_path)
 
-        before = self.stat_time(self.file_path)
-        with self.open(self.file_path, self.mode):
-            opened = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+            before = self.stat_time(self.file_path)
+            with self.open(self.file_path, self.mode):
+                opened = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return before, opened, closed
+            return before, opened, closed
 
     def open_write_close(self):
-        self.create_file(self.file_path)
+        with self.mock_time():
+            self.create_file(self.file_path)
 
-        before = self.stat_time(self.file_path)
-        with self.open(self.file_path, self.mode) as f:
-            opened = self.stat_time(self.file_path)
-            f.write('foo')
-            written = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+            before = self.stat_time(self.file_path)
+            with self.open(self.file_path, self.mode) as f:
+                opened = self.stat_time(self.file_path)
+                f.write('foo')
+                written = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return before, opened, written, closed
+            return before, opened, written, closed
 
     def open_flush_close(self):
-        self.create_file(self.file_path)
+        with self.mock_time():
+            self.create_file(self.file_path)
 
-        before = self.stat_time(self.file_path)
-        with self.open(self.file_path, self.mode) as f:
-            opened = self.stat_time(self.file_path)
-            f.flush()
-            flushed = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+            before = self.stat_time(self.file_path)
+            with self.open(self.file_path, self.mode) as f:
+                opened = self.stat_time(self.file_path)
+                f.flush()
+                flushed = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return before, opened, flushed, closed
+            return before, opened, flushed, closed
 
     def open_write_flush(self):
-        self.create_file(self.file_path)
+        with self.mock_time():
+            self.create_file(self.file_path)
 
-        before = self.stat_time(self.file_path)
-        with self.open(self.file_path, self.mode) as f:
-            opened = self.stat_time(self.file_path)
-            f.write('foo')
-            written = self.stat_time(self.file_path)
-            f.flush()
-            flushed = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+            before = self.stat_time(self.file_path)
+            with self.open(self.file_path, self.mode) as f:
+                opened = self.stat_time(self.file_path)
+                f.write('foo')
+                written = self.stat_time(self.file_path)
+                f.flush()
+                flushed = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return before, opened, written, flushed, closed
+            return before, opened, written, flushed, closed
 
     def open_read_flush(self):
-        self.create_file(self.file_path)
+        with self.mock_time():
+            self.create_file(self.file_path)
 
-        before = self.stat_time(self.file_path)
-        with self.open(self.file_path, 'r') as f:
-            opened = self.stat_time(self.file_path)
-            f.read()
-            read = self.stat_time(self.file_path)
-            f.flush()
-            flushed = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+            before = self.stat_time(self.file_path)
+            with self.open(self.file_path, 'r') as f:
+                opened = self.stat_time(self.file_path)
+                f.read()
+                read = self.stat_time(self.file_path)
+                f.flush()
+                flushed = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return before, opened, read, flushed, closed
+            return before, opened, read, flushed, closed
 
     def open_read_close_new_file(self):
-        with self.open(self.file_path, self.mode) as f:
-            created = self.stat_time(self.file_path)
-            f.read()
-            read = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+        with self.mock_time():
+            with self.open(self.file_path, self.mode) as f:
+                created = self.stat_time(self.file_path)
+                f.read()
+                read = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return created, read, closed
+            return created, read, closed
 
     def open_read_close(self):
-        self.create_file(self.file_path)
+        with self.mock_time():
+            self.create_file(self.file_path)
 
-        before = self.stat_time(self.file_path)
-        with self.open(self.file_path, self.mode) as f:
-            opened = self.stat_time(self.file_path)
-            f.read()
-            read = self.stat_time(self.file_path)
-        closed = self.stat_time(self.file_path)
+            before = self.stat_time(self.file_path)
+            with self.open(self.file_path, self.mode) as f:
+                opened = self.stat_time(self.file_path)
+                f.read()
+                read = self.stat_time(self.file_path)
+            closed = self.stat_time(self.file_path)
 
-        return before, opened, read, closed
+            return before, opened, read, closed
 
     def check_open_close_new_file(self):
         """
@@ -334,15 +346,15 @@ class FakeStatTestBase(RealFsTestCase):
         """
         before, opened, written, flushed, closed = self.open_write_flush()
 
-        self.assertLessExceptWindows(before.st_ctime, opened.st_ctime)
-        self.assertLessExceptWindows(written.st_ctime, flushed.st_ctime)
+        self.assertLessEqual(before.st_ctime, opened.st_ctime)
+        self.assertLessEqual(written.st_ctime, flushed.st_ctime)
         self.assertEqual(opened.st_ctime, written.st_ctime)
         self.assertEqual(flushed.st_ctime, closed.st_ctime)
 
         self.assertLessEqual(before.st_atime, opened.st_atime)
         self.assertEqual(opened.st_atime, written.st_atime)
         self.assertLessEqual(written.st_atime, flushed.st_atime)
-        self.assertEqual(flushed.st_atime, closed.st_atime)
+        self.assertLessEqual(flushed.st_atime, closed.st_atime)
 
         self.assertLess(before.st_mtime, opened.st_mtime)
         self.assertEqual(opened.st_mtime, written.st_mtime)
@@ -365,7 +377,7 @@ class FakeStatTestBase(RealFsTestCase):
         self.assertEqual(before.st_atime, opened.st_atime)
         self.assertEqual(opened.st_atime, written.st_atime)
         self.assertLessEqual(written.st_atime, flushed.st_atime)
-        self.assertEqual(flushed.st_atime, closed.st_atime)
+        self.assertLessEqual(flushed.st_atime, closed.st_atime)
 
         self.assertEqual(before.st_mtime, opened.st_mtime)
         self.assertEqual(opened.st_mtime, written.st_mtime)

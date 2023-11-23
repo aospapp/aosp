@@ -81,6 +81,17 @@ struct lws_acme_cert_aging_args {
 };
 
 /*
+ * With LWS_CALLBACK_FILTER_NETWORK_CONNECTION callback, user_data pointer
+ * points to one of these
+ */
+
+struct lws_filter_network_conn_args {
+	struct sockaddr_storage		cli_addr;
+	socklen_t			clilen;
+	lws_sockfd_type			accept_fd;
+};
+
+/*
  * NOTE: These public enums are part of the abi.  If you want to add one,
  * add it at where specified so existing users are unaffected.
  */
@@ -390,6 +401,9 @@ enum lws_callback_reasons {
 	 * lws know by calling lws_client_http_body_pending(wsi, 0)
 	 */
 
+	LWS_CALLBACK_CLIENT_HTTP_REDIRECT			= 104,
+	/**< we're handling a 3xx redirect... return nonzero to hang up */
+
 	LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL			= 85,
 	LWS_CALLBACK_CLIENT_HTTP_DROP_PROTOCOL			= 76,
 
@@ -578,9 +592,17 @@ enum lws_callback_reasons {
 	/**< called when a client connects to
 	 * the server at network level; the connection is accepted but then
 	 * passed to this callback to decide whether to hang up immediately
-	 * or not, based on the client IP.  in contains the connection
-	 * socket's descriptor. Since the client connection information is
-	 * not available yet, wsi still pointing to the main server socket.
+	 * or not, based on the client IP.
+	 *
+	 * user_data in the callback points to a
+	 * struct lws_filter_network_conn_args that is prepared with the
+	 * sockfd, and the peer's address information.
+	 *
+	 * in contains the connection socket's descriptor.
+	 *
+	 * Since the client connection information is not available yet,
+	 * wsi still pointing to the main server socket.
+	 *
 	 * Return non-zero to terminate the connection before sending or
 	 * receiving anything. Because this happens immediately after the
 	 * network connection from the client, there's no websocket protocol
@@ -804,6 +826,15 @@ enum lws_callback_reasons {
 	 * destroyed.  in is the child wsi.
 	 */
 
+	LWS_CALLBACK_CONNECTING					= 105,
+	/**< Called before a socketfd is about to connect().  In is the
+	 * socketfd, cast to a (void *), if on a platform where the socketfd
+	 * is an int, recover portably using (lws_sockfd_type)(intptr_t)in.
+	 *
+	 * It's also called in SOCKS5 or http_proxy cases where the socketfd is
+	 * going to try to connect to its proxy.
+	 */
+
 	/* ---------------------------------------------------------------------
 	 * ----- Callbacks related to TLS certificate management -----
 	 */
@@ -847,8 +878,13 @@ enum lws_callback_reasons {
 	 * close the wsi.
 	 */
 	LWS_CALLBACK_MQTT_RESEND				= 210,
-	/**< In QoS1, this callback is generated instead of the _ACK one if
-	 * we timed out waiting for a PUBACK and we must resend the message.
+	/**< In QoS1 or QoS2, this callback is generated instead of the _ACK one
+	 * if we timed out waiting for a PUBACK or a PUBREC, and we must resend
+	 * the message.  Return nonzero to close the wsi.
+	 */
+	LWS_CALLBACK_MQTT_UNSUBSCRIBE_TIMEOUT			= 211,
+	/**< When a UNSUBSCRIBE is sent, this callback is generated instead of
+	 * the _UNSUBSCRIBED one if we timed out waiting for a UNSUBACK.
 	 * Return nonzero to close the wsi.
 	 */
 

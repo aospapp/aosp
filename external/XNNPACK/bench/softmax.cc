@@ -91,6 +91,7 @@ static void xnnpack_softmax_qu8(benchmark::State& state) {
   state.counters["bytes"] =
     benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
+#endif  // XNN_NO_QU8_OPERATORS
 
 static void xnnpack_softmax_f32(benchmark::State& state) {
   const size_t batch_size = static_cast<size_t>(state.range(0));
@@ -157,7 +158,6 @@ static void xnnpack_softmax_f32(benchmark::State& state) {
   state.counters["bytes"] =
     benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
-#endif  // XNN_NO_QU8_OPERATORS
 
 #ifdef BENCHMARK_TENSORFLOW_LITE
 static void tflite_softmax_f32(benchmark::State& state) {
@@ -231,7 +231,7 @@ static void tflite_softmax_f32(benchmark::State& state) {
   builder.Finish(model_buffer);
 
   const tflite::Model* model = tflite::GetModel(builder.GetBufferPointer());
-  tflite::ops::builtin::BuiltinOpResolver resolver;
+  tflite::ops::builtin::BuiltinOpResolverWithoutDefaultDelegates resolver;
   tflite::InterpreterBuilder interpreterBuilder(model, resolver);
   std::unique_ptr<tflite::Interpreter> interpreter;
   if (interpreterBuilder(&interpreter) != kTfLiteOk) {

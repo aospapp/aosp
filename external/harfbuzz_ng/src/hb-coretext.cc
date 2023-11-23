@@ -34,7 +34,6 @@
 
 #include "hb-coretext.h"
 #include "hb-aat-layout.hh"
-#include <math.h>
 
 
 /**
@@ -190,7 +189,10 @@ create_ct_font (CGFontRef cg_font, CGFloat font_size)
    * reconfiguring the cascade list causes CoreText crashes. For details, see
    * crbug.com/549610 */
   // 0x00070000 stands for "kCTVersionNumber10_10", see CoreText.h
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   if (&CTGetCoreTextVersion != nullptr && CTGetCoreTextVersion() < 0x00070000) {
+#pragma GCC diagnostic pop
     CFStringRef fontName = CTFontCopyPostScriptName (ct_font);
     bool isEmojiFont = CFStringCompare (fontName, CFSTR("AppleColorEmoji"), 0) == kCFCompareEqualTo;
     CFRelease (fontName);
@@ -278,13 +280,32 @@ _hb_coretext_shaper_face_data_destroy (hb_coretext_face_data_t *data)
   CFRelease ((CGFontRef) data);
 }
 
+/**
+ * hb_coretext_face_create:
+ * @cg_font: The CGFontRef to work upon
+ *
+ * Creates an #hb_face_t face object from the specified
+ * CGFontRef.
+ *
+ * Return value: the new #hb_face_t face object
+ *
+ * Since: 0.9.10
+ */
 hb_face_t *
 hb_coretext_face_create (CGFontRef cg_font)
 {
   return hb_face_create_for_tables (_hb_cg_reference_table, CGFontRetain (cg_font), _hb_cg_font_release);
 }
 
-/*
+/**
+ * hb_coretext_face_get_cg_font:
+ * @face: The #hb_face_t to work upon
+ *
+ * Fetches the CGFontRef associated with an #hb_face_t
+ * face object
+ *
+ * Return value: the CGFontRef found
+ *
  * Since: 0.9.10
  */
 CGFontRef
@@ -311,6 +332,44 @@ _hb_coretext_shaper_font_data_create (hb_font_t *font)
     return nullptr;
   }
 
+  if (font->coords)
+  {
+    CFMutableDictionaryRef variations =
+      CFDictionaryCreateMutable (kCFAllocatorDefault,
+				 font->num_coords,
+				 &kCFTypeDictionaryKeyCallBacks,
+				 &kCFTypeDictionaryValueCallBacks);
+
+    for (unsigned i = 0; i < font->num_coords; i++)
+    {
+      if (font->coords[i] == 0.) continue;
+
+      hb_ot_var_axis_info_t info;
+      unsigned int c = 1;
+      hb_ot_var_get_axis_infos (font->face, i, &c, &info);
+      CFDictionarySetValue (variations,
+	CFNumberCreate (kCFAllocatorDefault, kCFNumberIntType, &info.tag),
+	CFNumberCreate (kCFAllocatorDefault, kCFNumberFloatType, &font->design_coords[i])
+      );
+    }
+
+    CFDictionaryRef attributes =
+      CFDictionaryCreate (kCFAllocatorDefault,
+			  (const void **) &kCTFontVariationAttribute,
+			  (const void **) &variations,
+			  1,
+			  &kCFTypeDictionaryKeyCallBacks,
+			  &kCFTypeDictionaryValueCallBacks);
+
+    CTFontDescriptorRef varDesc = CTFontDescriptorCreateWithAttributes (attributes);
+    CTFontRef new_ct_font = CTFontCreateCopyWithAttributes (ct_font, 0, nullptr, varDesc);
+
+    CFRelease (ct_font);
+    CFRelease (attributes);
+    CFRelease (variations);
+    ct_font = new_ct_font;
+  }
+
   return (hb_coretext_font_data_t *) ct_font;
 }
 
@@ -327,7 +386,7 @@ retry:
   const hb_coretext_font_data_t *data = font->data.coretext;
   if (unlikely (!data)) return nullptr;
 
-  if (fabs (CTFontGetSize ((CTFontRef) data) - (CGFloat) font->ptem) > .5)
+  if (fabs (CTFontGetSize ((CTFontRef) data) - (CGFloat) font->ptem) > (CGFloat) .5)
   {
     /* XXX-MT-bug
      * Note that evaluating condition above can be dangerous if another thread
@@ -351,10 +410,17 @@ retry:
   return font->data.coretext;
 }
 
-
-/*
+/**
+ * hb_coretext_font_create:
+ * @ct_font: The CTFontRef to work upon
+ *
+ * Creates an #hb_font_t font object from the specified
+ * CTFontRef.
+ *
+ * Return value: the new #hb_font_t font object
+ *
  * Since: 1.7.2
- */
+ **/
 hb_font_t *
 hb_coretext_font_create (CTFontRef ct_font)
 {
@@ -375,6 +441,17 @@ hb_coretext_font_create (CTFontRef ct_font)
   return font;
 }
 
+/**
+ * hb_coretext_font_get_ct_font:
+ * @font: #hb_font_t to work upon
+ *
+ * Fetches the CTFontRef associated with the specified
+ * #hb_font_t font object.
+ *
+ * Return value: the CTFontRef found
+ *
+ * Since: 0.9.10
+ */
 CTFontRef
 hb_coretext_font_get_ct_font (hb_font_t *font)
 {
@@ -475,13 +552,19 @@ _hb_coretext_shape (hb_shape_plan_t    *shape_plan,
     hb_vector_t<feature_event_t> feature_events;
     for (unsigned int i = 0; i < num_features; i++)
     {
+      active_feature_t feature;
+
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 101000
       const hb_aat_feature_mapping_t * mapping = hb_aat_layout_find_feature_mapping (features[i].tag);
       if (!mapping)
 	continue;
 
-      active_feature_t feature;
       feature.rec.feature = mapping->aatFeatureType;
       feature.rec.setting = features[i].value ? mapping->selectorToEnable : mapping->selectorToDisable;
+#else
+      feature.rec.feature = features[i].tag;
+      feature.rec.setting = features[i].value;
+#endif
       feature.order = i;
 
       feature_event_t *event;
@@ -530,6 +613,7 @@ _hb_coretext_shape (hb_shape_plan_t    *shape_plan,
 	  /* active_features.qsort (); */
 	  for (unsigned int j = 0; j < active_features.length; j++)
 	  {
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 101000
 	    CFStringRef keys[] = {
 	      kCTFontFeatureTypeIdentifierKey,
 	      kCTFontFeatureSelectorIdentifierKey
@@ -538,6 +622,17 @@ _hb_coretext_shape (hb_shape_plan_t    *shape_plan,
 	      CFNumberCreate (kCFAllocatorDefault, kCFNumberIntType, &active_features[j].rec.feature),
 	      CFNumberCreate (kCFAllocatorDefault, kCFNumberIntType, &active_features[j].rec.setting)
 	    };
+#else
+	    char tag[5] = {HB_UNTAG (active_features[j].rec.feature)};
+	    CFTypeRef keys[] = {
+	      kCTFontOpenTypeFeatureTag,
+	      kCTFontOpenTypeFeatureValue
+	    };
+	    CFTypeRef values[] = {
+	      CFStringCreateWithCString (kCFAllocatorDefault, tag, kCFStringEncodingASCII),
+	      CFNumberCreate (kCFAllocatorDefault, kCFNumberIntType, &active_features[j].rec.setting)
+	    };
+#endif
 	    static_assert ((ARRAY_LENGTH_CONST (keys) == ARRAY_LENGTH_CONST (values)), "");
 	    CFDictionaryRef dict = CFDictionaryCreate (kCFAllocatorDefault,
 						       (const void **) keys,
@@ -605,7 +700,7 @@ _hb_coretext_shape (hb_shape_plan_t    *shape_plan,
     scratch_size -= _consumed; \
   } while (0)
 
-  ALLOCATE_ARRAY (UniChar, pchars, buffer->len * 2, /*nothing*/);
+  ALLOCATE_ARRAY (UniChar, pchars, buffer->len * 2, ((void)nullptr) /*nothing*/);
   unsigned int chars_len = 0;
   for (unsigned int i = 0; i < buffer->len; i++) {
     hb_codepoint_t c = buffer->info[i].codepoint;
@@ -619,7 +714,7 @@ _hb_coretext_shape (hb_shape_plan_t    *shape_plan,
     }
   }
 
-  ALLOCATE_ARRAY (unsigned int, log_clusters, chars_len, /*nothing*/);
+  ALLOCATE_ARRAY (unsigned int, log_clusters, chars_len, ((void)nullptr) /*nothing*/);
   chars_len = 0;
   for (unsigned int i = 0; i < buffer->len; i++)
   {
@@ -803,7 +898,7 @@ resize_and_retry:
 
     buffer->len = 0;
     uint32_t status_and = ~0, status_or = 0;
-    double advances_so_far = 0;
+    CGFloat advances_so_far = 0;
     /* For right-to-left runs, CoreText returns the glyphs positioned such that
      * any trailing whitespace is to the left of (0,0).  Adjust coordinate system
      * to fix for that.  Test with any RTL string with trailing spaces.
@@ -825,10 +920,10 @@ resize_and_retry:
       status_or  |= run_status;
       status_and &= run_status;
       DEBUG_MSG (CORETEXT, run, "CTRunStatus: %x", run_status);
-      double run_advance = CTRunGetTypographicBounds (run, range_all, nullptr, nullptr, nullptr);
+      CGFloat run_advance = CTRunGetTypographicBounds (run, range_all, nullptr, nullptr, nullptr);
       if (HB_DIRECTION_IS_VERTICAL (buffer->props.direction))
 	  run_advance = -run_advance;
-      DEBUG_MSG (CORETEXT, run, "Run advance: %g", run_advance);
+      DEBUG_MSG (CORETEXT, run, "Run advance: %g", (double) run_advance);
 
       /* CoreText does automatic font fallback (AKA "cascading") for  characters
        * not supported by the requested font, and provides no way to turn it off,
@@ -1004,32 +1099,32 @@ resize_and_retry:
 	hb_glyph_info_t *info = run_info;
 	if (HB_DIRECTION_IS_HORIZONTAL (buffer->props.direction))
 	{
-	  hb_position_t x_offset = (positions[0].x - advances_so_far) * x_mult;
+	  hb_position_t x_offset = round ((positions[0].x - advances_so_far) * x_mult);
 	  for (unsigned int j = 0; j < num_glyphs; j++)
 	  {
-	    double advance;
+	    CGFloat advance;
 	    if (likely (j + 1 < num_glyphs))
 	      advance = positions[j + 1].x - positions[j].x;
 	    else /* last glyph */
 	      advance = run_advance - (positions[j].x - positions[0].x);
-	    info->mask = advance * x_mult;
+	    info->mask = round (advance * x_mult);
 	    info->var1.i32 = x_offset;
-	    info->var2.i32 = positions[j].y * y_mult;
+	    info->var2.i32 = round (positions[j].y * y_mult);
 	    info++;
 	  }
 	}
 	else
 	{
-	  hb_position_t y_offset = (positions[0].y - advances_so_far) * y_mult;
+	  hb_position_t y_offset = round ((positions[0].y - advances_so_far) * y_mult);
 	  for (unsigned int j = 0; j < num_glyphs; j++)
 	  {
-	    double advance;
+	    CGFloat advance;
 	    if (likely (j + 1 < num_glyphs))
 	      advance = positions[j + 1].y - positions[j].y;
 	    else /* last glyph */
 	      advance = run_advance - (positions[j].y - positions[0].y);
-	    info->mask = advance * y_mult;
-	    info->var1.i32 = positions[j].x * x_mult;
+	    info->mask = round (advance * y_mult);
+	    info->var1.i32 = round (positions[j].x * x_mult);
 	    info->var2.i32 = y_offset;
 	    info++;
 	  }

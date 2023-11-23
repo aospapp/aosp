@@ -24,8 +24,8 @@
 #include <span>
 
 #include "pw_polyfill/standard.h"
-#include "pw_preprocessor/concat.h"
 #include "pw_preprocessor/util.h"
+#include "pw_unit_test/config.h"
 #include "pw_unit_test/event_handler.h"
 
 #if PW_CXX_STANDARD_IS_SUPPORTED(17)
@@ -35,7 +35,7 @@
 #endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
 
 #define PW_TEST(test_suite_name, test_name) \
-  _PW_TEST(test_suite_name, test_name, ::pw::unit_test::Test)
+  _PW_TEST(test_suite_name, test_name, ::pw::unit_test::internal::Test)
 
 // TEST() is a pretty generic macro name which could conflict with other code.
 // If GTEST_DONT_DEFINE_TEST is set, don't alias PW_TEST to TEST.
@@ -46,34 +46,40 @@
 #define TEST_F(test_fixture, test_name) \
   _PW_TEST(test_fixture, test_name, test_fixture)
 
-#define EXPECT_TRUE(expr) _PW_EXPECT_BOOL(expr, true)
-#define EXPECT_FALSE(expr) _PW_EXPECT_BOOL(expr, false)
-#define EXPECT_EQ(lhs, rhs) _PW_TEST_OP(_PW_TEST_EXPECT, lhs, rhs, ==)
-#define EXPECT_NE(lhs, rhs) _PW_TEST_OP(_PW_TEST_EXPECT, lhs, rhs, !=)
-#define EXPECT_GT(lhs, rhs) _PW_TEST_OP(_PW_TEST_EXPECT, lhs, rhs, >)
-#define EXPECT_GE(lhs, rhs) _PW_TEST_OP(_PW_TEST_EXPECT, lhs, rhs, >=)
-#define EXPECT_LT(lhs, rhs) _PW_TEST_OP(_PW_TEST_EXPECT, lhs, rhs, <)
-#define EXPECT_LE(lhs, rhs) _PW_TEST_OP(_PW_TEST_EXPECT, lhs, rhs, <=)
-#define EXPECT_STREQ(lhs, rhs) _PW_TEST_STREQ(_PW_TEST_EXPECT, lhs, rhs)
-#define EXPECT_STRNE(lhs, rhs) _PW_TEST_STRNE(_PW_TEST_EXPECT, lhs, rhs)
+#define EXPECT_TRUE(expr) static_cast<void>(_PW_TEST_BOOL(expr, true))
+#define EXPECT_FALSE(expr) static_cast<void>(_PW_TEST_BOOL(expr, false))
+#define EXPECT_EQ(lhs, rhs) static_cast<void>(_PW_TEST_OP(lhs, rhs, ==))
+#define EXPECT_NE(lhs, rhs) static_cast<void>(_PW_TEST_OP(lhs, rhs, !=))
+#define EXPECT_GT(lhs, rhs) static_cast<void>(_PW_TEST_OP(lhs, rhs, >))
+#define EXPECT_GE(lhs, rhs) static_cast<void>(_PW_TEST_OP(lhs, rhs, >=))
+#define EXPECT_LT(lhs, rhs) static_cast<void>(_PW_TEST_OP(lhs, rhs, <))
+#define EXPECT_LE(lhs, rhs) static_cast<void>(_PW_TEST_OP(lhs, rhs, <=))
+#define EXPECT_STREQ(lhs, rhs) static_cast<void>(_PW_TEST_C_STR(lhs, rhs, ==))
+#define EXPECT_STRNE(lhs, rhs) static_cast<void>(_PW_TEST_C_STR(lhs, rhs, !=))
 
-#define ASSERT_TRUE(expr) _PW_ASSERT_BOOL(expr, true)
-#define ASSERT_FALSE(expr) _PW_ASSERT_BOOL(expr, false)
-#define ASSERT_EQ(lhs, rhs) _PW_TEST_OP(_PW_TEST_ASSERT, lhs, rhs, ==)
-#define ASSERT_NE(lhs, rhs) _PW_TEST_OP(_PW_TEST_ASSERT, lhs, rhs, !=)
-#define ASSERT_GT(lhs, rhs) _PW_TEST_OP(_PW_TEST_ASSERT, lhs, rhs, >)
-#define ASSERT_GE(lhs, rhs) _PW_TEST_OP(_PW_TEST_ASSERT, lhs, rhs, >=)
-#define ASSERT_LT(lhs, rhs) _PW_TEST_OP(_PW_TEST_ASSERT, lhs, rhs, <)
-#define ASSERT_LE(lhs, rhs) _PW_TEST_OP(_PW_TEST_ASSERT, lhs, rhs, <=)
-#define ASSERT_STREQ(lhs, rhs) _PW_TEST_STREQ(_PW_TEST_ASSERT, lhs, rhs)
-#define ASSERT_STRNE(lhs, rhs) _PW_TEST_STRNE(_PW_TEST_ASSERT, lhs, rhs)
+#define ASSERT_TRUE(expr) _PW_TEST_ASSERT(_PW_TEST_BOOL(expr, true))
+#define ASSERT_FALSE(expr) _PW_TEST_ASSERT(_PW_TEST_BOOL(expr, false))
+#define ASSERT_EQ(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_OP(lhs, rhs, ==))
+#define ASSERT_NE(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_OP(lhs, rhs, !=))
+#define ASSERT_GT(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_OP(lhs, rhs, >))
+#define ASSERT_GE(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_OP(lhs, rhs, >=))
+#define ASSERT_LT(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_OP(lhs, rhs, <))
+#define ASSERT_LE(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_OP(lhs, rhs, <=))
+#define ASSERT_STREQ(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_C_STR(lhs, rhs, ==))
+#define ASSERT_STRNE(lhs, rhs) _PW_TEST_ASSERT(_PW_TEST_C_STR(lhs, rhs, !=))
 
 // Generates a non-fatal failure with a generic message.
-#define ADD_FAILURE() \
-  _PW_TEST_MESSAGE("(line is not executed)", "(line was executed)", false)
+#define ADD_FAILURE()                                                  \
+  ::pw::unit_test::internal::Framework::Get().CurrentTestExpectSimple( \
+      "(line is not executed)", "(line was executed)", __LINE__, false)
 
 // Generates a fatal failure with a generic message.
 #define GTEST_FAIL() return ADD_FAILURE()
+
+// Skips test at runtime, which is neither successful nor failed. Skip aborts
+// current function.
+#define GTEST_SKIP() \
+  return ::pw::unit_test::internal::Framework::Get().CurrentTestSkip(__LINE__)
 
 // Define either macro to 1 to omit the definition of FAIL(), which is a
 // generic name and clashes with some other libraries.
@@ -82,7 +88,9 @@
 #endif  // !GTEST_DONT_DEFINE_FAIL
 
 // Generates a success with a generic message.
-#define GTEST_SUCCEED() _PW_TEST_MESSAGE("(success)", "(success)", true)
+#define GTEST_SUCCEED()                                                \
+  ::pw::unit_test::internal::Framework::Get().CurrentTestExpectSimple( \
+      "(success)", "(success)", __LINE__, true)
 
 // Define either macro to 1 to omit the definition of SUCCEED(), which
 // is a generic name and clashes with some other libraries.
@@ -106,6 +114,19 @@
 //
 #define RUN_ALL_TESTS() \
   ::pw::unit_test::internal::Framework::Get().RunAllTests()
+
+// Death tests are not supported. The *_DEATH_IF_SUPPORTED macros do nothing.
+#define GTEST_HAS_DEATH_TEST 0
+
+#define EXPECT_DEATH_IF_SUPPORTED(statement, regex) \
+  if (0) {                                          \
+    static_cast<void>(statement);                   \
+    static_cast<void>(regex);                       \
+  }                                                 \
+  static_assert(true, "Macros must be termianted with a semicolon")
+
+#define ASSERT_DEATH_IF_SUPPORTED(statement, regex) \
+  EXPECT_DEATH_IF_SUPPORTED(statement, regex)
 
 namespace pw {
 
@@ -142,12 +163,16 @@ StatusWithSize UnknownTypeToString(const T& value, std::span<char> buffer) {
 #endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
 
 namespace unit_test {
-
-class Test;
-
 namespace internal {
 
+class Test;
 class TestInfo;
+
+// Used to tag arguments to EXPECT_STREQ/EXPECT_STRNE so they are treated like C
+// strings rather than pointers.
+struct CStringArg {
+  const char* const c_str;
+};
 
 // Singleton test framework class responsible for managing and running test
 // cases. This implementation is internal to Pigweed test; free functions
@@ -169,7 +194,7 @@ class Framework {
 
   // Registers a single test case with the framework. The framework owns the
   // registered unit test. Called during static initialization.
-  void RegisterTest(TestInfo* test);
+  void RegisterTest(TestInfo* test) const;
 
   // Sets the handler to which the framework dispatches test events. During a
   // test run, the framework owns the event handler.
@@ -191,7 +216,10 @@ class Framework {
   }
 #endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
 
-  bool ShouldRunTest(const TestInfo& test_info);
+  bool ShouldRunTest(const TestInfo& test_info) const;
+
+  // Whether the current test is skipped.
+  bool IsSkipped() const { return current_result_ == TestResult::kSkipped; }
 
   // Constructs an instance of a unit test class and runs the test.
   //
@@ -234,40 +262,59 @@ class Framework {
   bool CurrentTestExpect(Expectation expectation,
                          const Lhs& lhs,
                          const Rhs& rhs,
-                         const char* expectation_string,
+                         [[maybe_unused]] const char* expectation_string,
                          const char* expression,
                          int line) {
     // Size of the buffer into which to write the string with the evaluated
     // version of the arguments. This buffer is allocated on the unit test's
     // stack, so it shouldn't be too large.
     // TODO(hepler): Make this configurable.
-    constexpr size_t kExpectationBufferSizeBytes = 128;
+    [[maybe_unused]] constexpr size_t kExpectationBufferSizeBytes = 128;
 
-    bool result = expectation(lhs, rhs);
-    ExpectationResult(expression,
+    const bool success = expectation(lhs, rhs);
+    CurrentTestExpectSimple(
+        expression,
 #if PW_CXX_STANDARD_IS_SUPPORTED(17)
-                      MakeString<kExpectationBufferSizeBytes>(
-                          lhs, ' ', expectation_string, ' ', rhs)
-                          .c_str(),
+        MakeString<kExpectationBufferSizeBytes>(ConvertForPrint(lhs),
+                                                ' ',
+                                                expectation_string,
+                                                ' ',
+                                                ConvertForPrint(rhs))
+            .c_str(),
 #else
-                      "(evaluation requires C++17)",
+        "(evaluation requires C++17)",
 #endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
-                      line,
-                      result);
-
-    static_cast<void>(expectation_string);
-    static_cast<void>(kExpectationBufferSizeBytes);
-
-    return result;
+        line,
+        success);
+    return success;
   }
 
+  // Skips the current test and dispatches an event for it.
+  void CurrentTestSkip(int line);
+
   // Dispatches an event indicating the result of an expectation.
-  void ExpectationResult(const char* expression,
-                         const char* evaluated_expression,
-                         int line,
-                         bool success);
+  void CurrentTestExpectSimple(const char* expression,
+                               const char* evaluated_expression,
+                               int line,
+                               bool success);
 
  private:
+  // Convert char* to void* so that they are printed as pointers instead of
+  // strings in EXPECT_EQ and other macros. EXPECT_STREQ wraps its pointers in a
+  // CStringArg so its pointers are treated like C strings.
+  static constexpr const void* ConvertForPrint(const char* str) { return str; }
+
+  static constexpr const void* ConvertForPrint(char* str) { return str; }
+
+  static constexpr const char* ConvertForPrint(CStringArg value) {
+    return value.c_str;
+  }
+
+  template <typename T>
+  static constexpr T ConvertForPrint(T&& value) {
+    return std::forward<T>(value);
+  }
+
   // Sets current_test_ and dispatches an event indicating that a test started.
   void StartTest(const TestInfo& test);
 
@@ -284,7 +331,7 @@ class Framework {
   // The current test case which is running.
   const TestInfo* current_test_;
 
-  // Overall result of the current test case (pass/fail).
+  // Overall result of the current test case (pass/fail/skip).
   TestResult current_result_;
 
   // Overall result of the ongoing test run, which covers multiple tests.
@@ -298,12 +345,11 @@ class Framework {
 
 #if PW_CXX_STANDARD_IS_SUPPORTED(17)
   std::span<std::string_view> test_suites_to_run_;
+#else
+  std::span<const char*> test_suites_to_run_;  // Always empty in C++14.
 #endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
 
-  // Memory region in which to construct test case classes as they are run.
-  // TODO(frolv): Make the memory pool size configurable.
-  static constexpr size_t kTestMemoryPoolSizeBytes = 16384;
-  std::aligned_storage_t<kTestMemoryPoolSizeBytes, alignof(std::max_align_t)>
+  std::aligned_storage_t<config::kMemoryPoolSize, alignof(std::max_align_t)>
       memory_pool_;
 };
 
@@ -347,8 +393,6 @@ class TestInfo {
   TestInfo* next_ = nullptr;
 };
 
-}  // namespace internal
-
 // Base class for all test cases or custom test fixtures.
 // Every unit test created using the TEST or TEST_F macro defines a class that
 // inherits from this (or a subclass of this).
@@ -372,7 +416,10 @@ class Test {
   // Runs the unit test.
   void PigweedTestRun() {
     SetUp();
-    PigweedTestBody();
+    // TODO(deymo): Skip the test body if there's a fatal error in SetUp().
+    if (!Framework::Get().IsSkipped()) {
+      PigweedTestBody();
+    }
     TearDown();
   }
 
@@ -396,6 +443,25 @@ class Test {
   virtual void PigweedTestBody() = 0;
 };
 
+// Checks that a test suite name is valid.
+constexpr bool HasNoUnderscores(const char* suite) {
+  const char* disabled_prefix = "DISABLED_";
+
+  for (; *suite != '\0'; ++suite) {
+    if (*suite == *disabled_prefix) {
+      disabled_prefix += 1;
+    } else {
+      disabled_prefix = "";
+      if (*suite == '_') {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+}  // namespace internal
+
 #if PW_CXX_STANDARD_IS_SUPPORTED(17)
 inline void SetTestSuitesToRun(std::span<std::string_view> test_suites) {
   internal::Framework::Get().SetTestSuitesToRun(test_suites);
@@ -405,63 +471,43 @@ inline void SetTestSuitesToRun(std::span<std::string_view> test_suites) {
 }  // namespace unit_test
 }  // namespace pw
 
-#define _PW_TEST_CLASS_NAME(test_suite_name, test_name) \
-  PW_CONCAT(test_suite_name, _, test_name, _Test)
+#define _PW_TEST(test_suite_name, test_name, parent_class)                     \
+  static_assert(sizeof(#test_suite_name) > 1,                                  \
+                "The test suite name must not be empty");                      \
+  static_assert(::pw::unit_test::internal::HasNoUnderscores(#test_suite_name), \
+                "The test suite name (" #test_suite_name                       \
+                ") cannot contain underscores");                               \
+  static_assert(sizeof(#test_name) > 1, "The test name must not be empty");    \
+                                                                               \
+  _PW_TEST_CLASS(test_suite_name,                                              \
+                 test_name,                                                    \
+                 test_suite_name##_##test_name##_Test,                         \
+                 parent_class)
 
-#define _PW_TEST(test_suite_name, test_name, parent_class)              \
-  static_assert(sizeof(#test_suite_name) > 1,                           \
-                "test_suite_name must not be empty");                   \
-  static_assert(sizeof(#test_name) > 1, "test_name must not be empty"); \
-                                                                        \
-  class _PW_TEST_CLASS_NAME(test_suite_name, test_name) final           \
-      : public parent_class {                                           \
-   private:                                                             \
-    void PigweedTestBody() override;                                    \
-                                                                        \
-    static ::pw::unit_test::internal::TestInfo test_info_;              \
-  };                                                                    \
-                                                                        \
-  ::pw::unit_test::internal::TestInfo                                   \
-      _PW_TEST_CLASS_NAME(test_suite_name, test_name)::test_info_(      \
-          #test_suite_name,                                             \
-          #test_name,                                                   \
-          __FILE__,                                                     \
-          ::pw::unit_test::internal::Framework::CreateAndRunTest<       \
-              _PW_TEST_CLASS_NAME(test_suite_name, test_name)>);        \
-                                                                        \
-  void _PW_TEST_CLASS_NAME(test_suite_name, test_name)::PigweedTestBody()
+#define _PW_TEST_CLASS(suite, name, class_name, parent_class)              \
+  class class_name final : public parent_class {                           \
+   private:                                                                \
+    void PigweedTestBody() override;                                       \
+                                                                           \
+    static ::pw::unit_test::internal::TestInfo test_info_;                 \
+  };                                                                       \
+                                                                           \
+  ::pw::unit_test::internal::TestInfo class_name::test_info_(              \
+      #suite,                                                              \
+      #name,                                                               \
+      __FILE__,                                                            \
+      ::pw::unit_test::internal::Framework::CreateAndRunTest<class_name>); \
+                                                                           \
+  void class_name::PigweedTestBody()
 
-#define _PW_TEST_EXPECT(lhs, rhs, expectation, expectation_string) \
-  ::pw::unit_test::internal::Framework::Get().CurrentTestExpect(   \
-      expectation,                                                 \
-      (lhs),                                                       \
-      (rhs),                                                       \
-      expectation_string,                                          \
-      #lhs " " expectation_string " " #rhs,                        \
-      __LINE__)
-
-#define _PW_TEST_ASSERT(lhs, rhs, expectation, expectation_string)     \
-  do {                                                                 \
-    if (!_PW_TEST_EXPECT(lhs, rhs, expectation, expectation_string)) { \
-      return;                                                          \
-    }                                                                  \
+#define _PW_TEST_ASSERT(expectation) \
+  do {                               \
+    if (!(expectation)) {            \
+      return;                        \
+    }                                \
   } while (0)
 
-#define _PW_TEST_MESSAGE(expected, actual, success)              \
-  ::pw::unit_test::internal::Framework::Get().ExpectationResult( \
-      expected, actual, __LINE__, success)
-
-#define _PW_TEST_OP(expect_or_assert, lhs, rhs, op)  \
-  expect_or_assert(                                  \
-      lhs,                                           \
-      rhs,                                           \
-      [](const auto& _pw_lhs, const auto& _pw_rhs) { \
-        return _pw_lhs op _pw_rhs;                   \
-      },                                             \
-      #op)
-
-// Implement boolean expectations in a C++11-compatible way.
-#define _PW_EXPECT_BOOL(expr, value)                             \
+#define _PW_TEST_BOOL(expr, value)                               \
   ::pw::unit_test::internal::Framework::Get().CurrentTestExpect( \
       [](bool lhs, bool rhs) { return lhs == rhs; },             \
       static_cast<bool>(expr),                                   \
@@ -470,32 +516,31 @@ inline void SetTestSuitesToRun(std::span<std::string_view> test_suites) {
       #expr " is " #value,                                       \
       __LINE__)
 
-#define _PW_ASSERT_BOOL(expr, value)     \
-  do {                                   \
-    if (!_PW_EXPECT_BOOL(expr, value)) { \
-      return;                            \
-    }                                    \
-  } while (0)
+#define _PW_TEST_OP(lhs, rhs, op)                                \
+  ::pw::unit_test::internal::Framework::Get().CurrentTestExpect( \
+      [](const auto& _pw_lhs, const auto& _pw_rhs) {             \
+        return _pw_lhs op _pw_rhs;                               \
+      },                                                         \
+      (lhs),                                                     \
+      (rhs),                                                     \
+      #op,                                                       \
+      #lhs " " #op " " #rhs,                                     \
+      __LINE__)
 
-#define _PW_TEST_STREQ(expect_or_assert, lhs, rhs)   \
-  expect_or_assert(                                  \
-      lhs,                                           \
-      rhs,                                           \
-      [](const auto& _pw_lhs, const auto& _pw_rhs) { \
-        return std::strcmp(_pw_lhs, _pw_rhs) == 0;   \
-      },                                             \
-      "equals")
-
-#define _PW_TEST_STRNE(expect_or_assert, lhs, rhs)   \
-  expect_or_assert(                                  \
-      lhs,                                           \
-      rhs,                                           \
-      [](const auto& _pw_lhs, const auto& _pw_rhs) { \
-        return std::strcmp(_pw_lhs, _pw_rhs) != 0;   \
-      },                                             \
-      "does not equal")
+#define _PW_TEST_C_STR(lhs, rhs, op)                             \
+  ::pw::unit_test::internal::Framework::Get().CurrentTestExpect( \
+      [](const auto& _pw_lhs, const auto& _pw_rhs) {             \
+        return std::strcmp(_pw_lhs.c_str, _pw_rhs.c_str) op 0;   \
+      },                                                         \
+      ::pw::unit_test::internal::CStringArg{lhs},                \
+      ::pw::unit_test::internal::CStringArg{rhs},                \
+      #op,                                                       \
+      #lhs " " #op " " #rhs,                                     \
+      __LINE__)
 
 // Alias Test as ::testing::Test for Googletest compatibility.
 namespace testing {
-using Test = ::pw::unit_test::Test;
+
+using Test = ::pw::unit_test::internal::Test;
+
 }  // namespace testing

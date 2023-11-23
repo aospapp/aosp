@@ -11,6 +11,7 @@ TST_MIN_KVER="3.7"
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="tc"
+TST_NEEDS_DRIVERS="sch_netem"
 TST_OPTS="R:"
 TST_USAGE=tcp_fastopen_usage
 TST_PARSE_ARGS=tcp_fastopen_parse_args
@@ -36,17 +37,6 @@ cleanup()
 	tc qdisc del dev $(tst_iface) root netem delay 100 >/dev/null
 }
 
-compare()
-{
-	tfo_cmp=$(( 100 - ($time_tfo_on * 100) / $time_tfo_off ))
-
-	if [ "$tfo_cmp" -lt 3 ]; then
-		tst_res TFAIL "$1 perf result is '$tfo_cmp' percent"
-	else
-		tst_res TPASS "$1 perf result is '$tfo_cmp' percent"
-	fi
-}
-
 setup()
 {
 	if tst_kvcmp -lt "3.16" && [ "$TST_IPV6" ]; then
@@ -66,7 +56,7 @@ test1()
 	tst_netload -H $(tst_ipaddr rhost) -f -t 3 -R $srv_replies
 	time_tfo_on=$(cat tst_netload.res)
 
-	compare
+	tst_netload_compare $time_tfo_off $time_tfo_on 3
 }
 
 test2()
@@ -78,7 +68,7 @@ test2()
 	tst_netload -H $(tst_ipaddr rhost) -F -t 3 -R $srv_replies
 	time_tfo_on=$(cat tst_netload.res)
 
-	compare
+	tst_netload_compare $time_tfo_off $time_tfo_on 3
 }
 
 tst_run

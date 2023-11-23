@@ -10,35 +10,32 @@ package {
     default_applicable_licenses: ["external_crosvm_license"],
 }
 
-rust_defaults {
-    name: "fuse_test_defaults",
+rust_test {
+    name: "fuse_test_src_lib",
     defaults: ["crosvm_defaults"],
+    host_supported: true,
     crate_name: "fuse",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2018",
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2021",
     rustlibs: [
         "libbase_rust",
         "libbitflags",
+        "libcrossbeam_utils",
         "libdata_model",
         "liblibc",
         "libthiserror",
     ],
-    proc_macros: ["libenumn"],
-}
-
-rust_test_host {
-    name: "fuse_host_test_src_lib",
-    defaults: ["fuse_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "fuse_device_test_src_lib",
-    defaults: ["fuse_test_defaults"],
+    proc_macros: [
+        "libenumn",
+        "libremain",
+    ],
 }
 
 rust_library {
@@ -47,14 +44,20 @@ rust_library {
     stem: "libfuse",
     host_supported: true,
     crate_name: "fuse",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libbase_rust",
         "libbitflags",
+        "libcrossbeam_utils",
         "libdata_model",
         "liblibc",
         "libthiserror",
     ],
-    proc_macros: ["libenumn"],
+    proc_macros: [
+        "libenumn",
+        "libremain",
+    ],
 }

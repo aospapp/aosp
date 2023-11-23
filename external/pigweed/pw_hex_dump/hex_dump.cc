@@ -44,6 +44,26 @@ char PrintableChar(std::byte b) {
   return std::to_integer<char>(b);
 }
 
+void AddGroupingByte(size_t byte_index,
+                     FormattedHexDumper::Flags& flags,
+                     StringBuilder& builder) {
+  // Never add grouping when it is disabled.
+  if (flags.group_every == 0) {
+    return;
+  }
+  // If this byte isn't at the end of a group, don't add a space.
+  if ((byte_index + 1) % flags.group_every != 0) {
+    return;
+  }
+  // If this byte is the last byte in a line, don't add a grouping byte
+  // (prevents trailing spaces).
+  if (byte_index + 1 == flags.bytes_per_line) {
+    return;
+  }
+
+  builder << ' ';
+}
+
 }  // namespace
 
 Status DumpAddr(std::span<char> dest, uintptr_t addr) {
@@ -90,27 +110,11 @@ Status FormattedHexDumper::PrintFormatHeader() {
     // bytes_per_line.
     if (flags.group_every != 0 &&
         i % static_cast<uint8_t>(flags.group_every) == 0) {
-      uint8_t c = static_cast<uint8_t>(i);
-      if (c >> 4 == 0) {
-        builder << ' ';
-      } else {
-        builder << std::byte(c >> 4);
-      }
-      builder << std::byte(c & 0xF);
+      builder << std::byte(i);
     } else {
       builder.append(2, ' ');
     }
-    if (flags.group_every != 0 && (i + 1) % flags.group_every == 0) {
-      builder << ' ';
-    }
-  }
-
-  // Removes extraneous space from end when bytes_per_line is divisible by
-  // group_every. kSectionSeparator includes a space, so it's unnecessary.
-  // Ommitting the space from the section separator actually makes for more
-  // workarounds and code duplication, so this is better.
-  if (flags.group_every != 0 && flags.bytes_per_line % flags.group_every == 0) {
-    builder.pop_back();
+    AddGroupingByte(i, flags, builder);
   }
 
   if (flags.show_ascii) {
@@ -168,14 +172,8 @@ Status FormattedHexDumper::DumpLine() {
   for (size_t i = 0; i < bytes_in_line; ++i) {
     // Early loop termination for when bytes_remaining <
     // bytes_per_line.
-    uint8_t c = std::to_integer<uint8_t>(source_data_[i]);
-    // TODO(amontanez): Maybe StringBuilder can be augmented to support full-
-    // width bytes? (`04` instead of `4`, for example)
-    builder << std::byte(c >> 4);
-    builder << std::byte(c & 0xF);
-    if (flags.group_every != 0 && (i + 1) % flags.group_every == 0) {
-      builder << ' ';
-    }
+    builder << source_data_[i];
+    AddGroupingByte(i, flags, builder);
   }
   // Add padding spaces to ensure lines are aligned.
   if (flags.show_ascii) {
@@ -183,18 +181,8 @@ Status FormattedHexDumper::DumpLine() {
          i < static_cast<size_t>(flags.bytes_per_line);
          ++i) {
       builder.append(2, ' ');
-      if (flags.group_every != 0 && (i + 1) % flags.group_every == 0) {
-        builder << ' ';
-      }
+      AddGroupingByte(i, flags, builder);
     }
-  }
-
-  // Removes extraneous space from end when bytes_per_line is divisible by
-  // group_every. kSectionSeparator includes a space, so it's unnecessary.
-  // Ommitting the space from the section separator actually makes for more
-  // workarounds and code duplication, so this is better.
-  if (flags.group_every != 0 && flags.bytes_per_line % flags.group_every == 0) {
-    builder.pop_back();
   }
 
   // Interpret bytes as characters.

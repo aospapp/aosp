@@ -22,18 +22,29 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <ProgressBar
-        android:id="@+id/sud_progress_bar"
-        android:visibility="gone"
-        style="@style/SudFourColorIndeterminateProgressBar"
+    <com.google.android.setupdesign.view.FillContentLayout
+        android:orientation="vertical"
+        android:paddingTop="0dp"
+        android:paddingBottom="0dp"
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
 
-    <com.google.android.setupdesign.view.IllustrationVideoView
-        android:id="@+id/sud_progress_illustration"
-        android:visibility="gone"
-        style="@style/SudContentIllustration"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        <ProgressBar
+            android:id="@+id/sud_progress_bar"
+            android:visibility="gone"
+            style="@style/SudFourColorIndeterminateProgressBar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.google.android.setupdesign.view.IllustrationVideoView
+            android:id="@+id/sud_progress_illustration"
+            android:visibility="gone"
+            style="@style/SudContentIllustration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </com.google.android.setupdesign.view.FillContentLayout>
 
 </LinearLayout>

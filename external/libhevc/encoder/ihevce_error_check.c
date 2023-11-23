@@ -1170,45 +1170,33 @@ WORD32 ihevce_hle_validate_static_params(ihevce_static_cfg_params_t *ps_static_c
                                   .ai4_frame_qp[br_ctr];
             WORD32 tgt_bitrate = ps_static_cfg_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id]
                                      .ai4_tgt_bitrate[br_ctr];
+            WORD32 i4_max_bit_rate =
+                g_as_level_data[codec_level_index]
+                    .i4_max_bit_rate[ps_static_cfg_prms->s_out_strm_prms.i4_codec_tier];
             WORD32 peak_bitrate;
 
-            if(frame_qp > 51 || frame_qp <= 0)
-            {
-                error_code = IHEVCE_UNSUPPORTED_FRAME_QP;
-                ps_sys_api->ihevce_printf(pv_cb_handle, "IHEVCE ERROR: i4_frame_qp out of range\n");
-                return IHEVCE_SETUNSUPPORTEDINPUT(error_code);
-            }
-            if((frame_qp < ps_static_cfg_prms->s_config_prms.i4_min_frame_qp) ||
-               ((frame_qp + ps_static_cfg_prms->s_coding_tools_prms.i4_max_temporal_layers + 1) >
-                ps_static_cfg_prms->s_config_prms.i4_max_frame_qp))
+            if(frame_qp > MAX_HEVC_QP || frame_qp < MIN_HEVC_QP)
             {
                 error_code = IHEVCE_UNSUPPORTED_FRAME_QP;
                 ps_sys_api->ihevce_printf(pv_cb_handle, "IHEVCE ERROR: i4_frame_qp out of range\n");
                 return IHEVCE_SETUNSUPPORTEDINPUT(error_code);
             }
 
-            if(tgt_bitrate >
-                   g_as_level_data[codec_level_index]
-                           .i4_max_bit_rate[ps_static_cfg_prms->s_out_strm_prms.i4_codec_tier] *
-                       CBP_VCL_FACTOR ||
-               tgt_bitrate < 4000)
+            if(tgt_bitrate > i4_max_bit_rate * CBP_VCL_FACTOR || tgt_bitrate < MIN_BITRATE)
             {
                 error_code = IHEVCE_BITRATE_NOT_SUPPORTED;
                 ps_sys_api->ihevce_printf(
                     pv_cb_handle,
-                    "IHEVCE ERROR: i4_tgt_bitrate out of range for resoltuion number %d bitrate "
-                    "number %d\n",
-                    i4_resolution_id,
-                    br_ctr);
+                    "IHEVCE ERROR: i4_tgt_bitrate %d out of range for resolution %dX%d "
+                    "bitrate should be within [%d .. %d]\n",
+                    tgt_bitrate,
+                    width, height,
+                    MIN_BITRATE, i4_max_bit_rate * CBP_VCL_FACTOR);
                 return (IHEVCE_SETUNSUPPORTEDINPUT(error_code));
             }
 
             peak_bitrate = tgt_bitrate << 1;
-            peak_bitrate =
-                MIN(peak_bitrate,
-                    g_as_level_data[codec_level_index]
-                            .i4_max_bit_rate[ps_static_cfg_prms->s_out_strm_prms.i4_codec_tier] *
-                        1000);
+            peak_bitrate = MIN(peak_bitrate, i4_max_bit_rate * 1000);
             ps_static_cfg_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id]
                 .ai4_peak_bitrate[br_ctr] = peak_bitrate;
             ps_static_cfg_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id]

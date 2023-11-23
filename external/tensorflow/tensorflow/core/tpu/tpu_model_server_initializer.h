@@ -21,12 +21,8 @@ limitations under the License.
 #include "tensorflow/core/tpu/tpu_ops_c_api.h"
 #include "tensorflow/stream_executor/tpu/tpu_executor_c_api.h"
 
-
 namespace tensorflow {
 namespace tpu {
-
-Status InitializeTpuModelServer(void* library_handle);
-
 }  // namespace tpu
 }  // namespace tensorflow
 

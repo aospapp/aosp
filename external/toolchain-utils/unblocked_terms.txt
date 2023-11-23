@@ -1,5 +1,0 @@
-# Code uses this in many cases to refer to git branches.
-master
-
-# A few paths in AOSP contain this term.
-native

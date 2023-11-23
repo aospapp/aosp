@@ -5,10 +5,27 @@
       "name": "keystore2_test"
     },
     {
-      "name": "libsqlite3-sys_device_test_src_lib"
+      "name": "legacykeystore_test"
     },
     {
-      "name": "vpnprofilestore_test"
+      "name": "libsqlite3-sys_test_src_lib"
+    },
+    {
+      "name": "libsqlite3_bindgen_test"
+    }
+  ],
+  "presubmit-rust": [
+    {
+      "name": "keystore2_test"
+    },
+    {
+      "name": "legacykeystore_test"
+    },
+    {
+      "name": "libsqlite3-sys_test_src_lib"
+    },
+    {
+      "name": "libsqlite3_bindgen_test"
     }
   ]
 }

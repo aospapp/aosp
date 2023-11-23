@@ -45,7 +45,7 @@
 
 #include <sys/mman.h>
 
-#if defined(ANDROID) && !defined(__LP64__)
+#if defined(__BIONIC__) && !defined(__LP64__)
 #include <errno.h> /* for EINVAL */
 
 static inline void *drm_mmap(void *addr, size_t length, int prot, int flags,

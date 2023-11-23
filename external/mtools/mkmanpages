@@ -95,7 +95,6 @@ echo floppyd_installtest
 echo mattrib
 echo mbadblocks
 echo mcd
-echo mclasserase
 echo mcopy
 echo mdel
 echo mdeltree

@@ -49,9 +49,6 @@ class TpuTracer : public ProfilerInterface {
 
   Status Stop() override;
 
-  // Unsupported.
-  Status CollectData(RunMetadata* run_metadata) override;
-
   Status CollectData(XSpace* space) override;
 
  private:
@@ -90,11 +87,6 @@ Status TpuTracer::Stop() {
   return Status::OK();
 }
 
-Status TpuTracer::CollectData(RunMetadata* run_metadata) {
-  // Unsupported
-  return Status::OK();
-}
-
 Status TpuTracer::CollectData(XSpace* space) {
   StatusHelper status;
   // Get size of buffer required for TPU driver to serialize XSpace into.
@@ -129,6 +121,10 @@ std::unique_ptr<ProfilerInterface> CreateTpuTracer(
     const ProfileOptions& options) {
   if (options.device_type() != ProfileOptions::TPU &&
       options.device_type() != ProfileOptions::UNSPECIFIED) {
+    return nullptr;
+  }
+  // Don't attempt to create a TpuTracer if the TPU C API isn't initialized.
+  if (tpu::OpsApiFn()->TpuProfiler_CreateFn == nullptr) {
     return nullptr;
   }
   return absl::make_unique<TpuTracer>();

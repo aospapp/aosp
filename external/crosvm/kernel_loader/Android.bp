@@ -10,33 +10,29 @@ package {
     default_applicable_licenses: ["external_crosvm_license"],
 }
 
-rust_defaults {
-    name: "kernel_loader_test_defaults",
+rust_test {
+    name: "kernel_loader_test_src_lib",
     defaults: ["crosvm_defaults"],
+    host_supported: true,
     crate_name: "kernel_loader",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "libbase_rust",
-        "liblibc",
-        "libtempfile",
-        "libvm_memory",
-    ],
-}
-
-rust_test_host {
-    name: "kernel_loader_host_test_src_lib",
-    defaults: ["kernel_loader_test_defaults"],
     test_options: {
         unit_test: true,
     },
-}
-
-rust_test {
-    name: "kernel_loader_device_test_src_lib",
-    defaults: ["kernel_loader_test_defaults"],
+    edition: "2021",
+    rustlibs: [
+        "libbase_rust",
+        "libdata_model",
+        "liblibc",
+        "libtempfile",
+        "libthiserror",
+        "libvm_memory",
+    ],
+    proc_macros: ["libremain"],
 }
 
 rust_library {
@@ -44,12 +40,16 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "kernel_loader",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libbase_rust",
+        "libdata_model",
         "liblibc",
-        "libtempfile",
+        "libthiserror",
         "libvm_memory",
     ],
+    proc_macros: ["libremain"],
 }

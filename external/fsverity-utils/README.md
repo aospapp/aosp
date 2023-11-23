@@ -24,26 +24,31 @@ See `libfsverity.h` for the API of this library.
 
 ## Building and installing
 
-fsverity-utils uses the OpenSSL library, so you first must install the
-needed development files.  For example, on Debian-based systems, run:
+To build fsverity-utils, first install the needed build dependencies.  For
+example, on Debian-based systems, run:
 
 ```bash
     sudo apt-get install libssl-dev
+    sudo apt-get install pandoc  # optional
 ```
 
-OpenSSL must be version 1.0.0 or later.
+OpenSSL must be version 1.0.0 or later.  This is the only runtime dependency.
 
 Then, to build and install fsverity-utils:
 
 ```bash
     make
     sudo make install
+    sudo make install-man  # optional
 ```
 
 By default, the following targets are built and installed: the program
 `fsverity`, the static library `libfsverity.a`, and the shared library
 `libfsverity.so`.  You can also run `make check` to build and run the
 tests, or `make help` to display all available build targets.
+
+`make install-man` installs the `fsverity.1` manual page.  This step requires
+that `pandoc` be installed.
 
 By default, `fsverity` is statically linked to `libfsverity`.  You can
 use `make USE_SHARED_LIB=1` to use dynamic linking instead.
@@ -62,6 +67,9 @@ There is minimal support for building Windows executables using MinGW.
 A Windows build of OpenSSL/libcrypto needs to be available.
 
 ## Examples
+
+Full usage information for `fsverity` can be found in the manual page
+(`man fsverity`).  Here, we just show some typical examples.
 
 ### Basic use
 
@@ -94,11 +102,44 @@ against a trusted value.
 
 ### Using builtin signatures
 
-With `CONFIG_FS_VERITY_BUILTIN_SIGNATURES=y`, the filesystem supports
-automatically verifying a signed file digest that has been included in
-the verity metadata.  The signature is verified against the set of
-X.509 certificates that have been loaded into the ".fs-verity" kernel
-keyring.  Here's an example:
+First, note that fs-verity is essentially just a way of hashing a
+file; it doesn't mandate a specific way of handling signatures.
+There are several possible ways that signatures could be handled:
+
+* Do it entirely in userspace
+* Use IMA appraisal (work-in-progress)
+* Use fs-verity built-in signatures
+
+Any such solution needs two parts: (a) a policy that determines which
+files are required to have fs-verity enabled and have a valid
+signature, and (b) enforcement of the policy.  Each part could happen
+either in a trusted userspace program(s) or in the kernel.
+
+fs-verity built-in signatures (which are supported when the kernel was
+built with `CONFIG_FS_VERITY_BUILTIN_SIGNATURES=y`) are a hybrid
+solution where the policy of which files are required to be signed is
+determined and enforced by a trusted userspace program, but the actual
+signature verification happens in the kernel.  Specifically, with
+built-in signatures, the filesystem supports storing a signed file
+digest in each file's verity metadata.  Before allowing access to the
+file, the filesystem will automatically verify the signature against
+the set of X.509 certificates in the ".fs-verity" kernel keyring.  If
+set, the sysctl `fs.verity.require_signatures=1` will make the kernel
+enforce that every verity file has a valid built-in signature.
+
+fs-verity built-in signatures are primarily intended as a
+proof-of-concept; they reuse the kernel code that verifies the
+signatures of loadable kernel modules.  This solution still requires a
+trusted userspace program to enforce that particular files have
+fs-verity enabled.  Also, this solution uses PKCS#7 signatures, which
+are complex and prone to security bugs.
+
+Thus, if possible one of the other solutions should be used instead.
+For example, the trusted userspace program could verify signatures
+itself, using a simple signature format using a modern algorithm such
+as Ed25519.
+
+That being said, here are some examples of using built-in signatures:
 
 ```bash
     # Generate a new certificate and private key:
@@ -128,15 +169,6 @@ keyring.  Here's an example:
     # encoded, in case the integrated signing cannot be used:
     fsverity digest file --compact --for-builtin-sig | tr -d '\n' | xxd -p -r | openssl smime -sign -in /dev/stdin ...
 ```
-
-By default, it's not required that verity files have a signature.
-This can be changed with `sysctl fs.verity.require_signatures=1`.
-When set, it's guaranteed that the contents of every verity file has
-been signed by one of the certificates in the keyring.
-
-Note: applications generally still need to check whether the file
-they're accessing really is a verity file, since an attacker could
-replace a verity file with a regular one.
 
 ### With IMA
 

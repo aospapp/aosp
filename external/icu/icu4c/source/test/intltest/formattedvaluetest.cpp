@@ -16,7 +16,7 @@
 
 class FormattedValueTest : public IntlTest {
 public:
-    void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par=0);
+    void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par=0) override;
 private:
     void testBasic();
     void testSetters();
@@ -241,8 +241,8 @@ void IntlTestWithFieldPosition::checkMixedFormattedValue(
     assertFalse(baseMessage + u"A after loop again: " + CFPosToUnicodeString(cfpos), afterLoopResult);
 
     // Check nextPosition constrained over each category one at a time
-    for (int32_t category=0; category<=UFIELD_CATEGORY_COUNT+1; category++) {
-        if (category == UFIELD_CATEGORY_COUNT+1) {
+    for (int32_t category=0; category<UFIELD_CATEGORY_COUNT+1; category++) {
+        if (category == UFIELD_CATEGORY_COUNT) {
             category = UFIELD_CATEGORY_LIST_SPAN;
         }
         cfpos.reset();

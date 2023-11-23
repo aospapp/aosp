@@ -71,7 +71,12 @@ cc_defaults {
 
     // GWP-ASan is used by bionic libc, and should have no libc/libc++
     // dependencies.
-    system_shared_libs: [],
+    target: {
+        bionic: {
+            system_shared_libs: [],
+            header_libs: ["libc_headers"],
+        },
+    },
     stl: "none",
 }
 
@@ -95,6 +100,7 @@ cc_library_headers {
         "com.android.art.debug",
         "com.android.media",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
 }
 
@@ -104,7 +110,6 @@ cc_library_static {
     defaults: ["gwp_asan_no_libs_defaults"],
     header_libs: [
         "gwp_asan_headers",
-        "libc_headers", // Required for pthread.h in mutex.h.
     ],
     srcs: [
         "gwp_asan/common.cpp",
@@ -139,7 +144,6 @@ cc_library {
     defaults: ["gwp_asan_defaults"],
     header_libs: [
         "gwp_asan_headers",
-        "libc_headers", // Required for assert.h
     ],
     srcs: [
         "gwp_asan/common.cpp",
@@ -222,9 +226,5 @@ cc_test {
         // Ensure that the helper functions in test/backtrace.cpp don't get
         // tail-call optimised, as this breaks the unwind chain.
         "-fno-optimize-sibling-calls",
-
-        // The experimental pass manager seems to kill __attribute__((optnone)),
-        // and so we disable it (as we rely on optnone for tests/backtrace.cpp).
-        "-fno-experimental-new-pass-manager",
     ],
 }

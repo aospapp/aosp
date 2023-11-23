@@ -5,11 +5,11 @@ abidw
 
 abidw reads a shared library in `ELF`_ format and emits an XML
 representation of its ABI to standard output.  The emitted
-representation includes all the globally defined functions and
-variables, along with a complete representation of their types.  It
-also includes a representation of the globally defined ELF symbols of
-the file.  The input shared library must contain associated debug
-information in `DWARF`_ format.
+representation format, named ``ABIXML``, includes all the globally
+defined functions and variables, along with a complete representation
+of their types.  It also includes a representation of the globally
+defined ELF symbols of the file.  The input shared library must
+contain associated debug information in `DWARF`_ format.
 
 When given the ``--linux-tree`` option, this program can also handle a
 Linux kernel tree.  That is, a directory tree that contains both the
@@ -38,6 +38,10 @@ Options
   * `--version | -v`
 
     Display the version of the program and exit.
+
+  * `--abixml-version`
+
+    Display the version of the ABIXML format emitted by this program and exit.
 
   * ``--debug-info-dir | -d`` <*dir-path*>
 
@@ -167,13 +171,6 @@ Options
     representation build by Libabigail to represent the ABI and will
     not end up in the abi XML file.
 
-  * ``--merge-translation-units``
-
-    With this option translation units for the same language (and
-    address size) will be merged together as if the functions,
-    variables and types were all defined together.  Note that this
-    also drops the compilation paths used.
-
   * ``--no-linux-kernel-mode``
 
     Without this option, if abipkgiff detects that the binaries it is
@@ -247,6 +244,34 @@ Options
     diagnostic and exits with a non-zero code.
 
     This is a debugging and sanity check option.
+
+    *  ``--debug-abidiff``
+
+    Same as ``--abidiff`` but in debug mode.  In this mode, error
+    messages are emitted for types which fail type canonicalization.
+
+    This is an optional debugging and sanity check option.  To enable
+    it the libabigail package needs to be configured with
+    the --enable-debug-self-comparison option.
+
+    *  ``--debug-type-canonicalization | --debug-tc``
+
+    Debug the type canonicalization process.  This is done by using
+    structural and canonical equality when canonicalizing every single
+    type.  Structural and canonical equality should yield the same
+    result.  If they don't yield the same result for a given type,
+    then it means that the canonicalization of that type went wrong.
+    In that case, an error message is emitted and the execution of the
+    program is aborted.
+
+    This option is available only if the package was configured with
+    the --enable-debug-type-canonicalization option.
+
+
+  * ``--ctf``
+
+    Extract ABI information from CTF debug information, if present in
+    the given object.
 
   *  ``--annotate``
 

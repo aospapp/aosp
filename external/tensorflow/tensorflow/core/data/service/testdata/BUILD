@@ -1,10 +1,9 @@
-# Description:
 # Data service test data.
 
 load("//tensorflow:tensorflow.bzl", "filegroup")
 
 package(
-    licenses = ["notice"],  # Apache 2.0
+    licenses = ["notice"],
 )
 
 filegroup(

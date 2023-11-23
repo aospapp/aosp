@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.MoreFiles;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.turbine.binder.Binder;
 import com.google.turbine.binder.Binder.BindingResult;
 import com.google.turbine.binder.Binder.Statistics;
@@ -62,6 +63,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -70,7 +72,7 @@ import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 
 /** Main entry point for the turbine CLI. */
-public class Main {
+public final class Main {
 
   private static final int BUFFER_SIZE = 65536;
 
@@ -126,10 +128,12 @@ public class Main {
     }
   }
 
-  public static void compile(String[] args) throws IOException {
-    compile(TurbineOptionsParser.parse(Arrays.asList(args)));
+  @CanIgnoreReturnValue
+  public static Result compile(String[] args) throws IOException {
+    return compile(TurbineOptionsParser.parse(Arrays.asList(args)));
   }
 
+  @CanIgnoreReturnValue
   public static Result compile(TurbineOptions options) throws IOException {
     usage(options);
 
@@ -190,14 +194,16 @@ public class Main {
         || options.output().isPresent()
         || options.outputManifest().isPresent()) {
       // TODO(cushon): parallelize
-      Lowered lowered = Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv());
+      Lowered lowered =
+          Lower.lowerAll(
+              options.languageVersion(), bound.units(), bound.modules(), bound.classPathEnv());
 
       if (options.outputDeps().isPresent()) {
         DepsProto.Dependencies deps =
             Dependencies.collectDeps(options.targetLabel(), bootclasspath, bound, lowered);
-        try (OutputStream os =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(options.outputDeps().get())))) {
+        Path path = Paths.get(options.outputDeps().get());
+        Files.createDirectories(path.getParent());
+        try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(path))) {
           deps.writeTo(os);
         }
       }
@@ -255,10 +261,12 @@ public class Main {
         units,
         ClassPathBinder.bindClasspath(toPaths(classpath)),
         Processing.initializeProcessors(
+            /* sourceVersion= */ options.languageVersion().sourceVersion(),
             /* javacopts= */ options.javacOpts(),
-            /* processorPath= */ options.processorPath(),
             /* processorNames= */ options.processors(),
-            /* builtinProcessors= */ options.builtinProcessors()),
+            Processing.processorLoader(
+                /* processorPath= */ options.processorPath(),
+                /* builtinProcessors= */ options.builtinProcessors())),
         bootclasspath,
         /* moduleVersion=*/ Optional.empty());
   }
@@ -277,18 +285,18 @@ public class Main {
 
   private static ClassPath bootclasspath(TurbineOptions options) throws IOException {
     // if both --release and --bootclasspath are specified, --release wins
-    if (options.release().isPresent() && options.system().isPresent()) {
+    OptionalInt release = options.languageVersion().release();
+    if (release.isPresent() && options.system().isPresent()) {
       throw new UsageException("expected at most one of --release and --system");
     }
 
-    if (options.release().isPresent()) {
-      String release = options.release().get();
-      if (release.equals(JAVA_SPECIFICATION_VERSION.value())) {
+    if (release.isPresent()) {
+      if (release.getAsInt() == Integer.parseInt(JAVA_SPECIFICATION_VERSION.value())) {
         // if --release matches the host JDK, use its jimage instead of ct.sym
         return JimageClassBinder.bindDefault();
       }
       // ... otherwise, search ct.sym for a matching release
-      ClassPath bootclasspath = CtSymClassBinder.bind(release);
+      ClassPath bootclasspath = CtSymClassBinder.bind(release.getAsInt());
       if (bootclasspath == null) {
         throw new UsageException("not a supported release: " + release);
       }
@@ -332,6 +340,14 @@ public class Main {
       return;
     }
     Path path = Paths.get(options.gensrcOutput().get());
+    if (Files.isDirectory(path)) {
+      for (SourceFile source : generatedSources.values()) {
+        Path to = path.resolve(source.path());
+        Files.createDirectories(to.getParent());
+        Files.writeString(to, source.source());
+      }
+      return;
+    }
     try (OutputStream os = Files.newOutputStream(path);
         BufferedOutputStream bos = new BufferedOutputStream(os, BUFFER_SIZE);
         JarOutputStream jos = new JarOutputStream(bos)) {
@@ -349,6 +365,14 @@ public class Main {
       return;
     }
     Path path = Paths.get(options.resourceOutput().get());
+    if (Files.isDirectory(path)) {
+      for (Map.Entry<String, byte[]> resource : generatedResources.entrySet()) {
+        Path to = path.resolve(resource.getKey());
+        Files.createDirectories(to.getParent());
+        Files.write(to, resource.getValue());
+      }
+      return;
+    }
     try (OutputStream os = Files.newOutputStream(path);
         BufferedOutputStream bos = new BufferedOutputStream(os, BUFFER_SIZE);
         JarOutputStream jos = new JarOutputStream(bos)) {
@@ -465,4 +489,6 @@ public class Main {
     }
     return result.build();
   }
+
+  private Main() {}
 }

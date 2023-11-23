@@ -57,7 +57,6 @@ VULKAN_MODULE					= getModuleByName("dEQP-VK")
 
 MASTER_EGL_COMMON_FILTERS		= [include("egl-master.txt"),
 								   exclude("egl-test-issues.txt"),
-								   exclude("egl-internal-api-tests.txt"),
 								   exclude("egl-manual-robustness.txt"),
 								   exclude("egl-driver-issues.txt"),
 								   exclude("egl-temp-excluded.txt")]
@@ -69,7 +68,22 @@ MASTER_EGL_PKG					= Package(module = EGL_MODULE, configurations = [
 					  surfacetype	= "window",
 					  required		= True,
 					  filters		= MASTER_EGL_COMMON_FILTERS,
-				      runtime		= "23m"),
+					  runtime		= "23m",
+					  runByDefault	= False),
+		Configuration(name			= "master-2020-03-01",
+					  glconfig		= "rgba8888d24s8ms0",
+					  rotation		= "unspecified",
+					  surfacetype	= "window",
+					  required		= True,
+					  filters		= [include("egl-master-2020-03-01.txt")],
+					  runtime		= "23m"),
+		Configuration(name			= "master-2022-03-01",
+					  glconfig		= "rgba8888d24s8ms0",
+					  rotation		= "unspecified",
+					  surfacetype	= "window",
+					  required		= True,
+					  filters		= MASTER_EGL_COMMON_FILTERS + [exclude("egl-master-2020-03-01.txt")],
+					  runtime		= "5m"),
 		# Risky subset
 		Configuration(name			= "master-risky",
 					  glconfig		= "rgba8888d24s8ms0",
@@ -77,7 +91,7 @@ MASTER_EGL_PKG					= Package(module = EGL_MODULE, configurations = [
 					  surfacetype	= "window",
 					  required		= True,
 					  filters		= [include("egl-temp-excluded.txt")],
-				      runtime		= "2m"),
+					  runtime		= "2m"),
 	])
 
 MASTER_GLES2_COMMON_FILTERS		= [
@@ -108,7 +122,14 @@ MASTER_GLES2_PKG				= Package(module = GLES2_MODULE, configurations = [
 					  rotation		= "unspecified",
 					  surfacetype	= "window",
 					  required		= True,
-					  filters		= MASTER_GLES2_COMMON_FILTERS + [exclude("gles2-master-2020-03-01.txt")],
+					  filters		= [include("gles2-master-2021-03-01.txt")],
+					  runtime		= "10m"),
+		Configuration(name			= "master-2022-03-01",
+					  glconfig		= "rgba8888d24s8ms0",
+					  rotation		= "unspecified",
+					  surfacetype	= "window",
+					  required		= True,
+					  filters		= MASTER_GLES2_COMMON_FILTERS + [exclude("gles2-master-2020-03-01.txt"), exclude("gles2-master-2021-03-01.txt")],
 					  runtime		= "10m"),
 	])
 
@@ -119,6 +140,7 @@ MASTER_GLES3_COMMON_FILTERS		= [
 		exclude("gles3-test-issues.txt"),
 		exclude("gles3-spec-issues.txt"),
 		exclude("gles3-temp-excluded.txt"),
+		exclude("gles3-waivers.txt"),
 	]
 MASTER_GLES3_PKG				= Package(module = GLES3_MODULE, configurations = [
 		# Master
@@ -142,7 +164,14 @@ MASTER_GLES3_PKG				= Package(module = GLES3_MODULE, configurations = [
 					  rotation		= "unspecified",
 					  surfacetype	= "window",
 					  required		= True,
-					  filters		= MASTER_GLES3_COMMON_FILTERS + [exclude("gles3-master-2020-03-01.txt")],
+					  filters		= [include("gles3-master-2021-03-01.txt")],
+					  runtime		= "10m"),
+		Configuration(name			= "master-2022-03-01",
+					  glconfig		= "rgba8888d24s8ms0",
+					  rotation		= "unspecified",
+					  surfacetype	= "window",
+					  required		= True,
+					  filters		= MASTER_GLES3_COMMON_FILTERS + [exclude("gles3-master-2020-03-01.txt"), exclude("gles3-master-2021-03-01.txt")],
 					  runtime		= "10m"),
 		# Rotations
 		Configuration(name			= "rotate-portrait",
@@ -201,6 +230,7 @@ MASTER_GLES31_COMMON_FILTERS	= [
 		exclude("gles31-test-issues.txt"),
 		exclude("gles31-spec-issues.txt"),
 		exclude("gles31-temp-excluded.txt"),
+		exclude("gles31-waivers.txt"),
 	]
 MASTER_GLES31_PKG				= Package(module = GLES31_MODULE, configurations = [
 		# Master
@@ -224,7 +254,14 @@ MASTER_GLES31_PKG				= Package(module = GLES31_MODULE, configurations = [
 					  rotation		= "unspecified",
 					  surfacetype	= "window",
 					  required		= True,
-					  filters		= MASTER_GLES31_COMMON_FILTERS + [exclude("gles31-master-2020-03-01.txt")],
+					  filters		= [include("gles31-master-2021-03-01.txt")],
+					  runtime		= "10m"),
+		Configuration(name			= "master-2022-03-01",
+					  glconfig		= "rgba8888d24s8ms0",
+					  rotation		= "unspecified",
+					  surfacetype	= "window",
+					  required		= True,
+					  filters		= MASTER_GLES31_COMMON_FILTERS + [exclude("gles31-master-2020-03-01.txt"), exclude("gles31-master-2021-03-01.txt")],
 					  runtime		= "10m"),
 
 		# Rotations
@@ -279,23 +316,32 @@ MASTER_VULKAN_FILTERS			= [
 		exclude("vk-temp-excluded.txt"),
 	]
 MASTER_VULKAN_PKG				= Package(module = VULKAN_MODULE, configurations = [
-		Configuration(name			= "master",
-					  filters		= MASTER_VULKAN_FILTERS,
-					  runtime		= "2h39m",
-					  runByDefault	= False),
-		Configuration(name			= "master-2019-03-01",
-					  filters		= [include("vk-master-2019-03-01.txt")],
-					  runtime		= "2h29m"),
-		Configuration(name			= "master-2020-03-01",
-					  filters		= [include("vk-master-2020-03-01.txt")],
-					  runtime		= "2h29m"),
-		Configuration(name			= "master-2021-03-01",
-					  filters		= MASTER_VULKAN_FILTERS + [exclude("vk-master-2019-03-01.txt"), exclude("vk-master-2020-03-01.txt")],
-					  runtime		= "10m"),
-		Configuration(name			= "incremental-deqp",
-					  filters		= [include("vk-incremental-deqp.txt")],
-					  runtime		= "5m",
-					  runByDefault	= False),
+		Configuration(name					= "master",
+					  filters				= MASTER_VULKAN_FILTERS,
+					  runtime				= "2h39m",
+					  runByDefault			= False,
+					  splitToMultipleFiles	= True),
+		Configuration(name					= "master-2019-03-01",
+					  filters				= [include("vk-master-2019-03-01.txt")],
+					  runtime				= "2h29m",
+					  splitToMultipleFiles	= True),
+		Configuration(name					= "master-2020-03-01",
+					  filters				= [include("vk-master-2020-03-01.txt")],
+					  runtime				= "2h29m",
+					  splitToMultipleFiles	= True),
+		Configuration(name					= "master-2021-03-01",
+					  filters				= [include("vk-master-2021-03-01.txt")],
+					  runtime				= "2h29m",
+					  splitToMultipleFiles	= True),
+		Configuration(name					= "master-2022-03-01",
+					  filters				= MASTER_VULKAN_FILTERS + [exclude("vk-master-2019-03-01.txt"), exclude("vk-master-2020-03-01.txt"), exclude("vk-master-2021-03-01.txt")],
+					  runtime				= "10m",
+					  splitToMultipleFiles	= True),
+		Configuration(name					= "incremental-deqp",
+					  filters				= [include("vk-incremental-deqp.txt")],
+					  runtime				= "5m",
+					  runByDefault			= False,
+					  splitToMultipleFiles	= True),
 	])
 
 MUSTPASS_LISTS				= [

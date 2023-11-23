@@ -42,8 +42,6 @@ cc_library_shared {
     unique_host_soname: true,
     apex_available: [
         "com.android.i18n",
-        // b/133140750 Clean this up. This is due to the dependency to from libmedia
-        "//apex_available:platform",
     ],
 
     // The implementation of libandroidicu depends on libicuuc and and libicui18n,

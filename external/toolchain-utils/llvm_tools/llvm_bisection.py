@@ -20,6 +20,7 @@ import chroot
 import get_llvm_hash
 import git_llvm_rev
 import modify_a_tryjob
+import update_chromeos_llvm_hash
 import update_tryjob_status
 
 
@@ -51,18 +52,16 @@ def GetCommandLineArgs():
       'the first bad version (default: %(default)s)')
 
   # Add argument for the good LLVM revision for bisection.
-  parser.add_argument(
-      '--start_rev',
-      required=True,
-      type=int,
-      help='The good revision for the bisection.')
+  parser.add_argument('--start_rev',
+                      required=True,
+                      type=int,
+                      help='The good revision for the bisection.')
 
   # Add argument for the bad LLVM revision for bisection.
-  parser.add_argument(
-      '--end_rev',
-      required=True,
-      type=int,
-      help='The bad revision for the bisection.')
+  parser.add_argument('--end_rev',
+                      required=True,
+                      type=int,
+                      help='The bad revision for the bisection.')
 
   # Add argument for the absolute path to the file that contains information on
   # the previous tested svn version.
@@ -88,42 +87,38 @@ def GetCommandLineArgs():
       'of updating the packages')
 
   # Add argument for custom options for the tryjob.
-  parser.add_argument(
-      '--options',
-      required=False,
-      nargs='+',
-      help='options to use for the tryjob testing')
+  parser.add_argument('--options',
+                      required=False,
+                      nargs='+',
+                      help='options to use for the tryjob testing')
 
   # Add argument for the builder to use for the tryjob.
-  parser.add_argument(
-      '--builder', required=True, help='builder to use for the tryjob testing')
+  parser.add_argument('--builder',
+                      required=True,
+                      help='builder to use for the tryjob testing')
 
   # Add argument for the description of the tryjob.
-  parser.add_argument(
-      '--description',
-      required=False,
-      nargs='+',
-      help='the description of the tryjob')
+  parser.add_argument('--description',
+                      required=False,
+                      nargs='+',
+                      help='the description of the tryjob')
 
   # Add argument for a specific chroot path.
-  parser.add_argument(
-      '--chroot_path',
-      default=cros_root,
-      help='the path to the chroot (default: %(default)s)')
+  parser.add_argument('--chroot_path',
+                      default=cros_root,
+                      help='the path to the chroot (default: %(default)s)')
 
   # Add argument for whether to display command contents to `stdout`.
-  parser.add_argument(
-      '--verbose',
-      action='store_true',
-      help='display contents of a command to the terminal '
-      '(default: %(default)s)')
+  parser.add_argument('--verbose',
+                      action='store_true',
+                      help='display contents of a command to the terminal '
+                      '(default: %(default)s)')
 
   # Add argument for whether to display command contents to `stdout`.
-  parser.add_argument(
-      '--nocleanup',
-      action='store_false',
-      dest='cleanup',
-      help='Abandon CLs created for bisectoin')
+  parser.add_argument('--nocleanup',
+                      action='store_false',
+                      dest='cleanup',
+                      help='Abandon CLs created for bisectoin')
 
   args_output = parser.parse_args()
 
@@ -174,8 +169,7 @@ def GetRemainingRange(start, end, tryjobs):
 
   all_bad_revisions = [end]
   all_bad_revisions.extend(
-      cur_tryjob['rev']
-      for cur_tryjob in tryjobs
+      cur_tryjob['rev'] for cur_tryjob in tryjobs
       if cur_tryjob['status'] == update_tryjob_status.TryjobStatus.BAD.value)
 
   # The minimum value for the 'bad' field in the tryjobs is the new end
@@ -184,8 +178,7 @@ def GetRemainingRange(start, end, tryjobs):
 
   all_good_revisions = [start]
   all_good_revisions.extend(
-      cur_tryjob['rev']
-      for cur_tryjob in tryjobs
+      cur_tryjob['rev'] for cur_tryjob in tryjobs
       if cur_tryjob['status'] == update_tryjob_status.TryjobStatus.GOOD.value)
 
   # The maximum value for the 'good' field in the tryjobs is the new start
@@ -205,8 +198,8 @@ def GetRemainingRange(start, end, tryjobs):
   pending_revisions = {
       tryjob['rev']
       for tryjob in tryjobs
-      if tryjob['status'] == update_tryjob_status.TryjobStatus.PENDING.value and
-      good_rev < tryjob['rev'] < bad_rev
+      if tryjob['status'] == update_tryjob_status.TryjobStatus.PENDING.value
+      and good_rev < tryjob['rev'] < bad_rev
   }
 
   # Find all revisions that are to be skipped within 'good_rev' and 'bad_rev'.
@@ -217,8 +210,8 @@ def GetRemainingRange(start, end, tryjobs):
   skip_revisions = {
       tryjob['rev']
       for tryjob in tryjobs
-      if tryjob['status'] == update_tryjob_status.TryjobStatus.SKIP.value and
-      good_rev < tryjob['rev'] < bad_rev
+      if tryjob['status'] == update_tryjob_status.TryjobStatus.SKIP.value
+      and good_rev < tryjob['rev'] < bad_rev
   }
 
   return good_rev, bad_rev, pending_revisions, skip_revisions
@@ -295,66 +288,62 @@ def main(args_output):
   """
 
   chroot.VerifyOutsideChroot()
-  update_packages = [
-      'sys-devel/llvm', 'sys-libs/compiler-rt', 'sys-libs/libcxx',
-      'sys-libs/libcxxabi', 'sys-libs/llvm-libunwind'
-  ]
   patch_metadata_file = 'PATCHES.json'
   start = args_output.start_rev
   end = args_output.end_rev
 
   bisect_state = LoadStatusFile(args_output.last_tested, start, end)
   if start != bisect_state['start'] or end != bisect_state['end']:
-    raise ValueError(f'The start {start} or the end {end} version provided is '
-                     f'different than "start" {bisect_state["start"]} or "end" '
-                     f'{bisect_state["end"]} in the .JSON file')
+    raise ValueError(
+        f'The start {start} or the end {end} version provided is '
+        f'different than "start" {bisect_state["start"]} or "end" '
+        f'{bisect_state["end"]} in the .JSON file')
 
-  # Pending and skipped revisions are between 'start_revision' and
-  # 'end_revision'.
-  start_revision, end_revision, pending_revisions, skip_revisions = \
-      GetRemainingRange(start, end, bisect_state['jobs'])
+  # Pending and skipped revisions are between 'start_rev' and 'end_rev'.
+  start_rev, end_rev, pending_revs, skip_revs = GetRemainingRange(
+      start, end, bisect_state['jobs'])
 
-  revisions, git_hashes = GetCommitsBetween(start_revision, end_revision,
+  revisions, git_hashes = GetCommitsBetween(start_rev, end_rev,
                                             args_output.parallel,
-                                            args_output.src_path,
-                                            pending_revisions, skip_revisions)
+                                            args_output.src_path, pending_revs,
+                                            skip_revs)
 
-  # No more revisions between 'start_revision' and 'end_revision', so
+  # No more revisions between 'start_rev' and 'end_rev', so
   # bisection is complete.
   #
-  # This is determined by finding all valid revisions between 'start_revision'
-  # and 'end_revision' and that are NOT in the 'pending' and 'skipped' set.
+  # This is determined by finding all valid revisions between 'start_rev'
+  # and 'end_rev' and that are NOT in the 'pending' and 'skipped' set.
   if not revisions:
-    if pending_revisions:
+    if pending_revs:
       # Some tryjobs are not finished which may change the actual bad
       # commit/revision when those tryjobs are finished.
-      no_revisions_message = (f'No revisions between start {start_revision} '
-                              f'and end {end_revision} to create tryjobs\n')
+      no_revisions_message = (f'No revisions between start {start_rev} '
+                              f'and end {end_rev} to create tryjobs\n')
 
-      if pending_revisions:
-        no_revisions_message += (
-            'The following tryjobs are pending:\n' +
-            '\n'.join(str(rev) for rev in pending_revisions) + '\n')
+      if pending_revs:
+        no_revisions_message += ('The following tryjobs are pending:\n' +
+                                 '\n'.join(str(rev)
+                                           for rev in pending_revs) + '\n')
 
-      if skip_revisions:
+      if skip_revs:
         no_revisions_message += ('The following tryjobs were skipped:\n' +
-                                 '\n'.join(str(rev) for rev in skip_revisions) +
-                                 '\n')
+                                 '\n'.join(str(rev)
+                                           for rev in skip_revs) + '\n')
 
       raise ValueError(no_revisions_message)
 
     print(f'Finished bisecting for {args_output.last_tested}')
     if args_output.src_path:
       bad_llvm_hash = get_llvm_hash.GetGitHashFrom(args_output.src_path,
-                                                   end_revision)
+                                                   end_rev)
     else:
-      bad_llvm_hash = get_llvm_hash.LLVMHash().GetLLVMHash(end_revision)
-    print(f'The bad revision is {end_revision} and its commit hash is '
+      bad_llvm_hash = get_llvm_hash.LLVMHash().GetLLVMHash(end_rev)
+    print(f'The bad revision is {end_rev} and its commit hash is '
           f'{bad_llvm_hash}')
-    if skip_revisions:
-      skip_revisions_message = ('\nThe following revisions were skipped:\n' +
-                                '\n'.join(str(rev) for rev in skip_revisions))
-      print(skip_revisions_message)
+    if skip_revs:
+      skip_revs_message = ('\nThe following revisions were skipped:\n' +
+                           '\n'.join(str(rev) for rev in skip_revs))
+      print(skip_revs_message)
 
     if args_output.cleanup:
       # Abandon all the CLs created for bisection
@@ -378,9 +367,9 @@ def main(args_output):
       raise ValueError(f'Revision {rev} exists already in "jobs"')
 
   Bisect(revisions, git_hashes, bisect_state, args_output.last_tested,
-         update_packages, args_output.chroot_path, patch_metadata_file,
-         args_output.extra_change_lists, args_output.options,
-         args_output.builder, args_output.verbose)
+         update_chromeos_llvm_hash.DEFAULT_PACKAGES, args_output.chroot_path,
+         patch_metadata_file, args_output.extra_change_lists,
+         args_output.options, args_output.builder, args_output.verbose)
 
 
 if __name__ == '__main__':

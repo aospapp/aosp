@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, Renesas Electronics Corporation. All rights reserved.
+ * Copyright (c) 2015-2021, Renesas Electronics Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,11 +11,11 @@
 #define MMC_CH0		(0U)	/* SDHI2/MMC0 */
 #define MMC_CH1		(1U)	/* SDHI3/MMC1 */
 
-#if (RCAR_LSI == RCAR_E3)  || (RCAR_LSI == RZ_G2M)
-#define USE_MMC_CH	(MMC_CH1)	/* R-Car E3 or RZ/G2M */
-#else /* RCAR_LSI == RCAR_E3 || RCAR_LSI == RZ_G2M */
+#if (RCAR_LSI == RCAR_E3)  || (RCAR_LSI == RZ_G2M) || (RCAR_LSI == RZ_G2H) || (RCAR_LSI == RZ_G2N)
+#define USE_MMC_CH	(MMC_CH1)	/* R-Car E3 or RZ/G2{H,M,N} */
+#else /* RCAR_LSI == RCAR_E3 || RCAR_LSI == RZ_G2{H,M,N} */
 #define USE_MMC_CH	(MMC_CH0)	/* R-Car H3/M3/M3N */
-#endif /* RCAR_LSI == RCAR_E3 || RCAR_LSI == RZ_G2M */
+#endif /* RCAR_LSI == RCAR_E3 || RCAR_LSI == RZ_G2{H,M,N} */
 
 #define BIT0	(0x00000001U)
 #define BIT1	(0x00000002U)
@@ -49,19 +49,6 @@
 #define BIT29	(0x20000000U)
 #define BIT30	(0x40000000U)
 #define BIT31	(0x80000000U)
-
-/* Clock Pulse Generator (CPG) registers */
-#define CPG_BASE	(0xE6150000U)
-/* Module stop status register 3 */
-#define CPG_MSTPSR3	(CPG_BASE + 0x0048U)
-/* System module stop control register 3 */
-#define CPG_SMSTPCR3	(CPG_BASE + 0x013CU)
-/* SDHI2 clock frequency control register */
-#define CPG_SD2CKCR	(CPG_BASE + 0x0268U)
-/* SDHI3 clock frequency control register */
-#define CPG_SD3CKCR	(CPG_BASE + 0x026CU)
-/* CPG Write Protect Register */
-#define CPG_CPGWPR	(CPG_BASE + 0x0900U)
 
 #if USE_MMC_CH == MMC_CH0
 #define CPG_SDxCKCR		(CPG_SD2CKCR)	/* SDHI2/MMC0 */

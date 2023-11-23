@@ -13,13 +13,20 @@ alias(
 )
 
 genrule(
-  name = "gen_fail",
-  outs = ["fail.sh"],
-  cmd = "echo 'exit 1' > $@",
-  executable = 1,
+    name = "gen_fail",
+    outs = ["fail.sh"],
+    cmd = "echo 'exit 1' > $@",
+    executable = 1,
 )
 
 sh_binary(
-  name = "fail",
-  srcs =[":fail.sh"],
+    name = "fail",
+    srcs = [":fail.sh"],
+)
+
+java_binary(
+    name = "bundletool",
+    main_class = "com.android.tools.build.bundletool.BundleToolMain",
+    visibility = ["//visibility:public"],
+    runtime_deps = ["@rules_android_maven//:com_android_tools_build_bundletool"],
 )

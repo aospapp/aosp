@@ -1253,34 +1253,6 @@ TEST_F(AnnotatorTest, AnnotatesWithBracketStripping) {
               }));
 }
 
-TEST_F(AnnotatorTest, AnnotatesWithBracketStrippingOptimized) {
-  std::unique_ptr<Annotator> classifier = Annotator::FromPath(
-      GetTestModelPath(), unilib_.get(), calendarlib_.get());
-  ASSERT_TRUE(classifier);
-
-  AnnotationOptions options;
-  options.enable_optimization = true;
-
-  EXPECT_THAT(classifier->Annotate("call me at (0845) 100 1000 today", options),
-              ElementsAreArray({
-                  IsAnnotatedSpan(11, 26, "phone"),
-              }));
-
-  // Unpaired bracket stripping.
-  EXPECT_THAT(classifier->Annotate("call me at (07038201818 today", options),
-              ElementsAreArray({
-                  IsAnnotatedSpan(12, 23, "phone"),
-              }));
-  EXPECT_THAT(classifier->Annotate("call me at 07038201818) today", options),
-              ElementsAreArray({
-                  IsAnnotatedSpan(11, 22, "phone"),
-              }));
-  EXPECT_THAT(classifier->Annotate("call me at )07038201818( today", options),
-              ElementsAreArray({
-                  IsAnnotatedSpan(12, 23, "phone"),
-              }));
-}
-
 TEST_F(AnnotatorTest, AnnotatesOverlappingNumbers) {
   std::unique_ptr<Annotator> classifier = Annotator::FromPath(
       GetTestModelPath(), unilib_.get(), calendarlib_.get());

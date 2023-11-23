@@ -41,6 +41,8 @@ rust_library {
     name: "liburl",
     host_supported: true,
     crate_name: "url",
+    cargo_env_compat: true,
+    cargo_pkg_version: "2.2.2",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -57,38 +59,10 @@ rust_library {
 }
 
 rust_defaults {
-    name: "url_defaults",
+    name: "url_test_defaults",
     crate_name: "url",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "libbencher",
-        "libform_urlencoded",
-        "libidna",
-        "libmatches",
-        "libpercent_encoding",
-        "libserde_json",
-    ],
-}
-
-rust_test_host {
-    name: "url_host_test_src_lib",
-    defaults: ["url_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "url_device_test_src_lib",
-    defaults: ["url_defaults"],
-}
-
-rust_defaults {
-    name: "url_defaults_url",
-    crate_name: "url",
+    cargo_env_compat: true,
+    cargo_pkg_version: "2.2.2",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -103,9 +77,10 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "url_host_test_tests_data",
-    defaults: ["url_defaults_url"],
+rust_test {
+    name: "url_test_tests_data",
+    defaults: ["url_test_defaults"],
+    host_supported: true,
     srcs: ["tests/data.rs"],
     test_options: {
         unit_test: true,
@@ -113,37 +88,11 @@ rust_test_host {
 }
 
 rust_test {
-    name: "url_device_test_tests_data",
-    defaults: ["url_defaults_url"],
-    srcs: ["tests/data.rs"],
-}
-
-rust_test_host {
-    name: "url_host_test_tests_unit",
-    defaults: ["url_defaults_url"],
+    name: "url_test_tests_unit",
+    defaults: ["url_test_defaults"],
+    host_supported: true,
     srcs: ["tests/unit.rs"],
     test_options: {
         unit_test: true,
     },
 }
-
-rust_test {
-    name: "url_device_test_tests_unit",
-    defaults: ["url_defaults_url"],
-    srcs: ["tests/unit.rs"],
-}
-
-// dependent_library ["feature_list"]
-//   bencher-0.1.5
-//   form_urlencoded-1.0.1
-//   idna-0.2.3
-//   itoa-0.4.7
-//   matches-0.1.8
-//   percent-encoding-2.1.0
-//   ryu-1.0.5
-//   serde-1.0.125 "std"
-//   serde_json-1.0.64 "default,std"
-//   tinyvec-1.2.0 "alloc,default,tinyvec_macros"
-//   tinyvec_macros-0.1.0
-//   unicode-bidi-0.3.5 "default"
-//   unicode-normalization-0.1.17 "default,std"

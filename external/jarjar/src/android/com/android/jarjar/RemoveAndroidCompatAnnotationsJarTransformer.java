@@ -51,7 +51,7 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
         private boolean isClassRemapped;
 
         AnnotationRemover(ClassVisitor cv) {
-            super(Opcodes.ASM6, cv);
+            super(Opcodes.ASM7, cv);
         }
 
         @Override
@@ -74,7 +74,7 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
                 Object value) {
             FieldVisitor superVisitor =
                     super.visitField(access, name, descriptor, signature, value);
-            return new FieldVisitor(Opcodes.ASM6, superVisitor) {
+            return new FieldVisitor(Opcodes.ASM7, superVisitor) {
                 @Override
                 public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
                     return visitAnnotationCommon(descriptor,
@@ -89,7 +89,7 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
                 String signature, String[] exceptions) {
             MethodVisitor superVisitor =
                     super.visitMethod(access, name, descriptor, signature, exceptions);
-            return new MethodVisitor(Opcodes.ASM6, superVisitor) {
+            return new MethodVisitor(Opcodes.ASM7, superVisitor) {
                 @Override
                 public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
                     return visitAnnotationCommon(descriptor,

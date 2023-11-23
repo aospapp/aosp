@@ -32,7 +32,7 @@ from cros_utils import buildbot_utils
 CROSTC_ROOT = '/usr/local/google/crostc'
 ROLE_ACCOUNT = 'mobiletc-prebuild'
 TOOLCHAIN_DIR = os.path.dirname(os.path.realpath(__file__))
-MAIL_PROGRAM = '~/var/bin/mail-sheriff'
+MAIL_PROGRAM = '~/var/bin/mail-detective'
 VALIDATION_RESULT_DIR = os.path.join(CROSTC_ROOT, 'validation_result')
 START_DATE = datetime.date(2016, 1, 1)
 TEST_PER_DAY = 4
@@ -137,24 +137,23 @@ def Main(argv):
   # Common initializations
   command_executer.InitCommandExecuter()
   parser = argparse.ArgumentParser()
-  parser.add_argument(
-      '--chromeos_root',
-      dest='chromeos_root',
-      help='The chromeos root from which to run tests.')
-  parser.add_argument(
-      '--weekday',
-      default='',
-      dest='weekday',
-      help='The day of the week for which to run tests.')
-  parser.add_argument(
-      '--board', default='', dest='board', help='The board to test.')
-  parser.add_argument(
-      '--patch',
-      dest='patches',
-      default='',
-      help='The patches to use for the testing, '
-      "seprate the patch numbers with ',' "
-      'for more than one patches.')
+  parser.add_argument('--chromeos_root',
+                      dest='chromeos_root',
+                      help='The chromeos root from which to run tests.')
+  parser.add_argument('--weekday',
+                      default='',
+                      dest='weekday',
+                      help='The day of the week for which to run tests.')
+  parser.add_argument('--board',
+                      default='',
+                      dest='board',
+                      help='The board to test.')
+  parser.add_argument('--patch',
+                      dest='patches',
+                      default='',
+                      help='The patches to use for the testing, '
+                      "seprate the patch numbers with ',' "
+                      'for more than one patches.')
   parser.add_argument(
       '--compiler',
       dest='compiler',

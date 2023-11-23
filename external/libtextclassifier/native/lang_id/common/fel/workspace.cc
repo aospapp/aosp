@@ -18,6 +18,7 @@
 
 #include <atomic>
 #include <string>
+#include <vector>
 
 namespace libtextclassifier3 {
 namespace mobile {

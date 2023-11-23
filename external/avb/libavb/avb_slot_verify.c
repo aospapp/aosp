@@ -468,6 +468,7 @@ out:
     loaded_partition->data_size = image_size;
     loaded_partition->data = image_buf;
     loaded_partition->preloaded = image_preloaded;
+    loaded_partition->verify_result = ret;
     image_buf = NULL;
   }
 
@@ -1706,7 +1707,7 @@ const char* avb_slot_verify_result_to_string(AvbSlotVerifyResult result) {
   return ret;
 }
 
-void avb_slot_verify_data_calculate_vbmeta_digest(AvbSlotVerifyData* data,
+void avb_slot_verify_data_calculate_vbmeta_digest(const AvbSlotVerifyData* data,
                                                   AvbDigestType digest_type,
                                                   uint8_t* out_digest) {
   bool ret = false;

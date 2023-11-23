@@ -120,7 +120,7 @@ append_string:
 
 		n = lws_b64_decode_string_len(
 			(const char *)args->jws->map_b64.buf[m],
-			args->jws->map_b64.len[m],
+			(int)args->jws->map_b64.len[m],
 			(char *)args->temp, *args->temp_len);
 		if (n < 0) {
 			lwsl_err("%s: b64 decode failed: in len %d, m %d\n", __func__, (int)args->jws->map_b64.len[m], m);
@@ -129,7 +129,7 @@ append_string:
 
 		args->temp += n;
 		*args->temp_len -= n;
-		args->jws->map.len[m] = n;
+		args->jws->map.len[m] = (unsigned int)n;
 	}
 
 	return 0;
@@ -150,7 +150,7 @@ lws_jws_json_parse(struct lws_jws *jws, const uint8_t *buf, int len,
 	lejp_construct(&jctx, lws_jws_json_cb, &args, jws_json,
 		       LWS_ARRAY_SIZE(jws_json));
 
-	m = (int)(signed char)lejp_parse(&jctx, (uint8_t *)buf, len);
+	m = lejp_parse(&jctx, (uint8_t *)buf, len);
 	lejp_destruct(&jctx);
 	if (m < 0) {
 		lwsl_notice("%s: parse returned %d\n", __func__, m);
@@ -200,10 +200,10 @@ lws_jws_dup_element(struct lws_jws_map *map, int idx, char *temp, int *temp_len,
 
 	memcpy(temp, in, in_len);
 
-	map->len[idx] = in_len;
+	map->len[idx] = (uint32_t)in_len;
 	map->buf[idx] = temp;
 
-	*temp_len -= actual_alloc;
+	*temp_len -= (int)actual_alloc;
 
 	return 0;
 }
@@ -218,11 +218,11 @@ lws_jws_encode_b64_element(struct lws_jws_map *map, int idx,
 	if (*temp_len < lws_base64_size((int)in_len))
 		return -1;
 
-	n = lws_jws_base64_enc(in, in_len, temp, *temp_len);
+	n = lws_jws_base64_enc(in, in_len, temp, (size_t)*temp_len);
 	if (n < 0)
 		return -1;
 
-	map->len[idx] = n;
+	map->len[idx] = (unsigned int)n;
 	map->buf[idx] = temp;
 
 	*temp_len -= n;
@@ -241,7 +241,7 @@ lws_jws_randomize_element(struct lws_context *context, struct lws_jws_map *map,
 	if ((size_t)*temp_len < actual_alloc)
 		return -1;
 
-	map->len[idx] = random_len;
+	map->len[idx] = (uint32_t)random_len;
 	map->buf[idx] = temp;
 
 	if (lws_get_random(context, temp, random_len) != random_len) {
@@ -249,7 +249,7 @@ lws_jws_randomize_element(struct lws_context *context, struct lws_jws_map *map,
 		return -1;
 	}
 
-	*temp_len -= actual_alloc;
+	*temp_len -= (int)actual_alloc;
 
 	return 0;
 }
@@ -264,9 +264,9 @@ lws_jws_alloc_element(struct lws_jws_map *map, int idx, char *temp,
 	if ((size_t)*temp_len < actual_alloc)
 		return -1;
 
-	map->len[idx] = len;
+	map->len[idx] = (uint32_t)len;
 	map->buf[idx] = temp;
-	*temp_len -= actual_alloc;
+	*temp_len -= (int)actual_alloc;
 
 	return 0;
 }
@@ -276,7 +276,7 @@ lws_jws_base64_enc(const char *in, size_t in_len, char *out, size_t out_max)
 {
 	int n;
 
-	n = lws_b64_encode_string_url(in, in_len, out, out_max - 1);
+	n = lws_b64_encode_string_url(in, (int)in_len, out, (int)out_max - 1);
 	if (n < 0) {
 		lwsl_notice("%s: in len %d too large for %d out buf\n",
 				__func__, (int)in_len, (int)out_max);
@@ -339,7 +339,7 @@ lws_jws_compact_decode(const char *in, int len, struct lws_jws_map *map,
 		return -1;
 
 	while (m < blocks) {
-		n = lws_b64_decode_string_len(map_b64->buf[m], map_b64->len[m],
+		n = lws_b64_decode_string_len(map_b64->buf[m], (int)map_b64->len[m],
 					      out, *out_len);
 		if (n < 0) {
 			lwsl_err("%s: b64 decode failed\n", __func__);
@@ -350,7 +350,7 @@ lws_jws_compact_decode(const char *in, int len, struct lws_jws_map *map,
 			map->buf[m] = out;
 		else
 			map->buf[m] = NULL;
-		map->len[m++] = n;
+		map->len[m++] = (unsigned int)n;
 		out += n;
 		*out_len -= n;
 
@@ -368,7 +368,7 @@ lws_jws_compact_decode_map(struct lws_jws_map *map_b64, struct lws_jws_map *map,
 	int n, m = 0;
 
 	for (n = 0; n < LWS_JWS_MAX_COMPACT_BLOCKS; n++) {
-		n = lws_b64_decode_string_len(map_b64->buf[m], map_b64->len[m],
+		n = lws_b64_decode_string_len(map_b64->buf[m], (int)map_b64->len[m],
 					      out, *out_len);
 		if (n < 0) {
 			lwsl_err("%s: b64 decode failed\n", __func__);
@@ -376,7 +376,7 @@ lws_jws_compact_decode_map(struct lws_jws_map *map_b64, struct lws_jws_map *map,
 		}
 		/* replace the map entry with the decoded content */
 		map->buf[m] = out;
-		map->len[m++] = n;
+		map->len[m++] = (unsigned int)n;
 		out += n;
 		*out_len -= n;
 
@@ -391,7 +391,7 @@ int
 lws_jws_encode_section(const char *in, size_t in_len, int first, char **p,
 		       char *end)
 {
-	int n, len = (end - *p) - 1;
+	int n, len = lws_ptr_diff(end, (*p)) - 1;
 	char *p_entry = *p;
 
 	if (len < 3)
@@ -400,13 +400,13 @@ lws_jws_encode_section(const char *in, size_t in_len, int first, char **p,
 	if (!first)
 		*(*p)++ = '.';
 
-	n = lws_jws_base64_enc(in, in_len, *p, len - 1);
+	n = lws_jws_base64_enc(in, in_len, *p, (unsigned int)len - 1);
 	if (n < 0)
 		return -1;
 
 	*p += n;
 
-	return (*p) - p_entry;
+	return lws_ptr_diff((*p), p_entry);
 }
 
 int
@@ -422,7 +422,7 @@ lws_jws_compact_encode(struct lws_jws_map *map_b64, /* b64-encoded */
 			map_b64->len[n] = 0;
 			continue;
 		}
-		m = lws_jws_base64_enc(map->buf[n], map->len[n], buf, *len);
+		m = lws_jws_base64_enc(map->buf[n], map->len[n], buf, (size_t)*len);
 		if (m < 0)
 			return -1;
 		buf += m;
@@ -461,7 +461,7 @@ lws_jws_sig_confirm(struct lws_jws_map *map_b64, struct lws_jws_map *map,
 	if (!map_b64->buf[LJWS_SIG] && !map->buf[LJWS_UHDR])
 		b = 2;
 
-	if (lws_jws_parse_jose(&jose, map->buf[LJWS_JOSE], map->len[LJWS_JOSE],
+	if (lws_jws_parse_jose(&jose, map->buf[LJWS_JOSE], (int)map->len[LJWS_JOSE],
 			       temp, &temp_len) < 0 || !jose.alg) {
 		lwsl_notice("%s: parse failed\n", __func__);
 		return -1;
@@ -542,7 +542,7 @@ lws_jws_sig_confirm(struct lws_jws_map *map_b64, struct lws_jws_map *map,
 
 		/* SHA256/384/512 HMAC */
 
-		h_len = lws_genhmac_size(jose.alg->hmac_type);
+		h_len = (int)lws_genhmac_size(jose.alg->hmac_type);
 
 		/* 6) compute HMAC over payload */
 
@@ -571,7 +571,7 @@ lws_jws_sig_confirm(struct lws_jws_map *map_b64, struct lws_jws_map *map,
 
 		/* 7) Compare the computed and decoded hashes */
 
-		if (lws_timingsafe_bcmp(digest, map->buf[2], h_len)) {
+		if (lws_timingsafe_bcmp(digest, map->buf[2], (uint32_t)h_len)) {
 			lwsl_notice("digest mismatch\n");
 
 			return -1;
@@ -629,7 +629,7 @@ lws_jws_sig_confirm(struct lws_jws_map *map_b64, struct lws_jws_map *map,
 			return -1;
 		}
 
-		h_len = lws_genhash_size(jose.alg->hash_type);
+		h_len = (int)lws_genhash_size(jose.alg->hash_type);
 
 		if (lws_genecdsa_create(&ecdsactx, context, NULL)) {
 			lwsl_notice("%s: lws_genrsa_public_decrypt_create\n",
@@ -696,10 +696,10 @@ lws_jws_sig_confirm_compact_b64(const char *in, size_t len,
 	struct lws_jws_map map_b64;
 	int n;
 
-	if (lws_jws_b64_compact_map(in, len, &map_b64) < 0)
+	if (lws_jws_b64_compact_map(in, (int)len, &map_b64) < 0)
 		return -1;
 
-	n = lws_jws_compact_decode(in, len, map, &map_b64, temp, temp_len);
+	n = lws_jws_compact_decode(in, (int)len, map, &map_b64, temp, temp_len);
 	if (n > 3 || n < 0)
 		return -1;
 
@@ -727,7 +727,8 @@ lws_jws_sig_confirm_json(const char *in, size_t len,
 			 struct lws_context *context,
 			 char *temp, int *temp_len)
 {
-	if (lws_jws_json_parse(jws, (const uint8_t *)in, len, temp, temp_len)) {
+	if (lws_jws_json_parse(jws, (const uint8_t *)in,
+			       (int)len, temp, temp_len)) {
 		lwsl_err("%s: lws_jws_json_parse failed\n", __func__);
 
 		return -1;
@@ -782,13 +783,13 @@ lws_jws_sign_from_b64(struct lws_jose *jose, struct lws_jws *jws,
 			return -1;
 		}
 
-		n = jws->jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len;
-		buf = lws_malloc(lws_base64_size(n), "jws sign");
+		n = (int)jws->jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len;
+		buf = lws_malloc((unsigned int)lws_base64_size(n), "jws sign");
 		if (!buf)
 			return -1;
 
 		n = lws_genrsa_hash_sign(&rsactx, digest, jose->alg->hash_type,
-					 buf, n);
+					 buf, (unsigned int)n);
 		lws_genrsa_destroy(&rsactx);
 		if (n < 0) {
 			lwsl_err("%s: lws_genrsa_hash_sign failed\n", __func__);
@@ -797,7 +798,7 @@ lws_jws_sign_from_b64(struct lws_jose *jose, struct lws_jws *jws,
 			return -1;
 		}
 
-		n = lws_jws_base64_enc((char *)buf, n, b64_sig, sig_len);
+		n = lws_jws_base64_enc((char *)buf, (unsigned int)n, b64_sig, sig_len);
 		lws_free(buf);
 		if (n < 0) {
 			lwsl_err("%s: lws_jws_base64_enc failed\n", __func__);
@@ -846,14 +847,14 @@ lws_jws_sign_from_b64(struct lws_jose *jose, struct lws_jws *jws,
 			return -1;
 		}
 		m = lws_gencrypto_bits_to_bytes(jose->alg->keybits_fixed) * 2;
-		buf = lws_malloc(m, "jws sign");
+		buf = lws_malloc((unsigned int)m, "jws sign");
 		if (!buf)
 			return -1;
 
 		n = lws_genecdsa_hash_sign_jws(&ecdsactx, digest,
 					       jose->alg->hash_type,
 					       jose->alg->keybits_fixed,
-					       (uint8_t *)buf, m);
+					       (uint8_t *)buf, (unsigned int)m);
 		lws_genec_destroy(&ecdsactx);
 		if (n < 0) {
 			lws_free(buf);
@@ -862,7 +863,7 @@ lws_jws_sign_from_b64(struct lws_jose *jose, struct lws_jws *jws,
 			return -1;
 		}
 
-		n = lws_jws_base64_enc((char *)buf, m, b64_sig, sig_len);
+		n = lws_jws_base64_enc((char *)buf, (unsigned int)m, b64_sig, sig_len);
 		lws_free(buf);
 
 		return n;
@@ -895,29 +896,29 @@ lws_jws_write_flattened_json(struct lws_jws *jws, char *flattened, size_t len)
 	if (len < 1)
 		return 1;
 
-	n += lws_snprintf(flattened + n, len - n , "{\"payload\": \"");
+	n += (unsigned int)lws_snprintf(flattened + n, len - n , "{\"payload\": \"");
 	lws_strnncpy(flattened + n, jws->map_b64.buf[LJWS_PYLD],
 			jws->map_b64.len[LJWS_PYLD], len - n);
-	n += strlen(flattened + n);
+	n = n + strlen(flattened + n);
 
-	n += lws_snprintf(flattened + n, len - n , "\",\n \"protected\": \"");
+	n += (unsigned int)lws_snprintf(flattened + n, len - n , "\",\n \"protected\": \"");
 	lws_strnncpy(flattened + n, jws->map_b64.buf[LJWS_JOSE],
 			jws->map_b64.len[LJWS_JOSE], len - n);
-	n += strlen(flattened + n);
+	n = n + strlen(flattened + n);
 
 	if (jws->map_b64.buf[LJWS_UHDR]) {
-		n += lws_snprintf(flattened + n, len - n , "\",\n \"header\": ");
+		n += (unsigned int)lws_snprintf(flattened + n, len - n , "\",\n \"header\": ");
 		lws_strnncpy(flattened + n, jws->map_b64.buf[LJWS_UHDR],
 				jws->map_b64.len[LJWS_UHDR], len - n);
-		n += strlen(flattened + n);
+		n = n + strlen(flattened + n);
 	}
 
-	n += lws_snprintf(flattened + n, len - n , "\",\n \"signature\": \"");
+	n += (unsigned int)lws_snprintf(flattened + n, len - n , "\",\n \"signature\": \"");
 	lws_strnncpy(flattened + n, jws->map_b64.buf[LJWS_SIG],
 			jws->map_b64.len[LJWS_SIG], len - n);
-	n += strlen(flattened + n);
+	n = n + strlen(flattened + n);
 
-	n += lws_snprintf(flattened + n, len - n , "\"}\n");
+	n += (unsigned int)lws_snprintf(flattened + n, len - n , "\"}\n");
 
 	return (n >= len - 1);
 }
@@ -933,12 +934,372 @@ lws_jws_write_compact(struct lws_jws *jws, char *compact, size_t len)
 	lws_strnncpy(compact + n, jws->map_b64.buf[LJWS_JOSE],
 		     jws->map_b64.len[LJWS_JOSE], len - n);
 	n += strlen(compact + n);
+	if (n >= len - 1)
+		return 1;
+	compact[n++] = '.';
 	lws_strnncpy(compact + n, jws->map_b64.buf[LJWS_PYLD],
 		     jws->map_b64.len[LJWS_PYLD], len - n);
 	n += strlen(compact + n);
+	if (n >= len - 1)
+		return 1;
+	compact[n++] = '.';
 	lws_strnncpy(compact + n, jws->map_b64.buf[LJWS_SIG],
 		     jws->map_b64.len[LJWS_SIG], len - n);
 	n += strlen(compact + n);
 
 	return n >= len - 1;
+}
+
+int
+lws_jwt_signed_validate(struct lws_context *ctx, struct lws_jwk *jwk,
+			const char *alg_list, const char *com, size_t len,
+			char *temp, int tl, char *out, size_t *out_len)
+{
+	struct lws_tokenize ts;
+	struct lws_jose jose;
+	int otl = tl, r = 1;
+	struct lws_jws jws;
+	size_t n;
+
+	memset(&jws, 0, sizeof(jws));
+	lws_jose_init(&jose);
+
+	/*
+	 * Decode the b64.b64[.b64] compact serialization
+	 * blocks
+	 */
+
+	n = (size_t)lws_jws_compact_decode(com, (int)len, &jws.map, &jws.map_b64,
+				   temp, &tl);
+	if (n != 3) {
+		lwsl_err("%s: concat_map failed: %d\n", __func__, (int)n);
+		goto bail;
+	}
+
+	temp += otl - tl;
+	otl = tl;
+
+	/*
+	 * Parse the JOSE header
+	 */
+
+	if (lws_jws_parse_jose(&jose, jws.map.buf[LJWS_JOSE],
+			       (int)jws.map.len[LJWS_JOSE], temp, &tl) < 0) {
+		lwsl_err("%s: JOSE parse failed\n", __func__);
+		goto bail;
+	}
+
+	/*
+	 * Insist to see an alg in there that we list as acceptable
+	 */
+
+	lws_tokenize_init(&ts, alg_list, LWS_TOKENIZE_F_COMMA_SEP_LIST |
+					 LWS_TOKENIZE_F_RFC7230_DELIMS);
+	n = strlen(jose.alg->alg);
+
+	do {
+		ts.e = (int8_t)lws_tokenize(&ts);
+		if (ts.e == LWS_TOKZE_TOKEN && ts.token_len == n &&
+		    !strncmp(jose.alg->alg, ts.token, ts.token_len))
+			break;
+	} while (ts.e != LWS_TOKZE_ENDED);
+
+	if (ts.e != LWS_TOKZE_TOKEN) {
+		lwsl_err("%s: JOSE using alg %s (accepted: %s)\n", __func__,
+			 jose.alg->alg, alg_list);
+		goto bail;
+	}
+
+	/* we liked the alg... now how about the crypto? */
+
+	if (lws_jws_sig_confirm(&jws.map_b64, &jws.map, jwk, ctx) < 0) {
+		lwsl_notice("%s: confirm JWT sig failed\n",
+			    __func__);
+		goto bail;
+	}
+
+	/* yeah, it's validated... see about copying it out */
+
+	if (*out_len < jws.map.len[LJWS_PYLD] + 1) {
+		/* we don't have enough room */
+		r = 2;
+		goto bail;
+	}
+
+	memcpy(out, jws.map.buf[LJWS_PYLD], jws.map.len[LJWS_PYLD]);
+	*out_len = jws.map.len[LJWS_PYLD];
+	out[jws.map.len[LJWS_PYLD]] = '\0';
+
+	r = 0;
+
+bail:
+	lws_jws_destroy(&jws);
+	lws_jose_destroy(&jose);
+
+	return r;
+}
+
+static int lws_jwt_vsign_via_info(struct lws_context *ctx, struct lws_jwk *jwk,
+    const struct lws_jwt_sign_info *info, const char *format, va_list ap)
+{
+	size_t actual_hdr_len;
+	struct lws_jose jose;
+	struct lws_jws jws;
+	va_list ap_cpy;
+	int n, r = 1;
+	int otl, tlr;
+	char *p, *q;
+
+	lws_jws_init(&jws, jwk, ctx);
+	lws_jose_init(&jose);
+
+	otl = tlr = info->tl;
+	p = info->temp;
+
+	/*
+	 * We either just use the provided info->jose_hdr, or build a
+	 * minimal header from info->alg
+	 */
+	actual_hdr_len = info->jose_hdr ? info->jose_hdr_len :
+					  10 + strlen(info->alg);
+
+	if (actual_hdr_len > INT_MAX) {
+	  goto bail;
+	}
+
+	if (lws_jws_alloc_element(&jws.map, LJWS_JOSE, info->temp, &tlr,
+				  actual_hdr_len, 0)) {
+		lwsl_err("%s: temp space too small\n", __func__);
+		goto bail;
+	}
+
+	if (!info->jose_hdr) {
+
+		/* get algorithm from 'alg' string and write minimal JOSE header */
+		if (lws_gencrypto_jws_alg_to_definition(info->alg, &jose.alg)) {
+			lwsl_err("%s: unknown alg %s\n", __func__, info->alg);
+
+			goto bail;
+		}
+		jws.map.len[LJWS_JOSE] = (uint32_t)lws_snprintf(
+				(char *)jws.map.buf[LJWS_JOSE], (size_t)otl,
+						"{\"alg\":\"%s\"}", info->alg);
+	} else {
+
+		/*
+		 * Get algorithm by parsing the given JOSE header and copy it,
+		 * if it's ok
+		 */
+		if (lws_jws_parse_jose(&jose, info->jose_hdr,
+				       (int)actual_hdr_len, info->temp, &tlr)) {
+			lwsl_err("%s: invalid jose header\n", __func__);
+			goto bail;
+		}
+		tlr = otl;
+		memcpy((char *)jws.map.buf[LJWS_JOSE], info->jose_hdr,
+								actual_hdr_len);
+		jws.map.len[LJWS_JOSE] = (uint32_t)actual_hdr_len;
+		tlr -= (int)actual_hdr_len;
+	}
+
+	p += otl - tlr;
+	otl = tlr;
+
+	va_copy(ap_cpy, ap);
+	n = vsnprintf(NULL, 0, format, ap_cpy);
+	va_end(ap_cpy);
+	if (n + 2 >= tlr)
+		goto bail;
+
+	q = lws_malloc((unsigned int)n + 2, __func__);
+	if (!q)
+		goto bail;
+
+	vsnprintf(q, (unsigned int)n + 2, format, ap);
+
+	/* add the plaintext from stdin to the map and a b64 version */
+
+	jws.map.buf[LJWS_PYLD] = q;
+	jws.map.len[LJWS_PYLD] = (uint32_t)n;
+
+	if (lws_jws_encode_b64_element(&jws.map_b64, LJWS_PYLD, p, &tlr,
+				       jws.map.buf[LJWS_PYLD],
+				       jws.map.len[LJWS_PYLD]))
+		goto bail1;
+
+	p += otl - tlr;
+	otl = tlr;
+
+	/* add the b64 JOSE header to the b64 map */
+
+	if (lws_jws_encode_b64_element(&jws.map_b64, LJWS_JOSE, p, &tlr,
+				       jws.map.buf[LJWS_JOSE],
+				       jws.map.len[LJWS_JOSE]))
+		goto bail1;
+
+	p += otl - tlr;
+	otl = tlr;
+
+	/* prepare the space for the b64 signature in the map */
+
+	if (lws_jws_alloc_element(&jws.map_b64, LJWS_SIG, p, &tlr,
+				  (size_t)lws_base64_size(LWS_JWE_LIMIT_KEY_ELEMENT_BYTES),
+				  0))
+		goto bail1;
+
+	/* sign the plaintext */
+
+	n = lws_jws_sign_from_b64(&jose, &jws,
+				  (char *)jws.map_b64.buf[LJWS_SIG],
+				  jws.map_b64.len[LJWS_SIG]);
+	if (n < 0)
+		goto bail1;
+
+	/* set the actual b64 signature size */
+	jws.map_b64.len[LJWS_SIG] = (uint32_t)n;
+
+	/* create the compact JWS representation */
+	if (lws_jws_write_compact(&jws, info->out, *info->out_len))
+		goto bail1;
+
+	*info->out_len = strlen(info->out);
+
+	r = 0;
+
+bail1:
+	lws_free(q);
+
+bail:
+	jws.map.buf[LJWS_PYLD] = NULL;
+	jws.map.len[LJWS_PYLD] = 0;
+	lws_jws_destroy(&jws);
+	lws_jose_destroy(&jose);
+
+	return r;
+}
+
+int
+lws_jwt_sign_via_info(struct lws_context *ctx, struct lws_jwk *jwk,
+		     const struct lws_jwt_sign_info *info, const char *format,
+		     ...)
+{
+	int ret;
+	va_list ap;
+
+	va_start(ap, format);
+	ret = lws_jwt_vsign_via_info(ctx, jwk, info, format, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+int
+lws_jwt_sign_compact(struct lws_context *ctx, struct lws_jwk *jwk,
+		     const char *alg, char *out, size_t *out_len, char *temp,
+		     int tl, const char *format, ...)
+{
+	struct lws_jwt_sign_info info = {
+		.alg		= alg,
+		.jose_hdr	= NULL,
+		.out		= out,
+		.out_len	= out_len,
+		.temp		= temp,
+		.tl		= tl
+	};
+	int r = 1;
+	va_list ap;
+
+	va_start(ap, format);
+
+	r = lws_jwt_vsign_via_info(ctx, jwk, &info, format, ap);
+
+	va_end(ap);
+	return r;
+}
+
+int
+lws_jwt_token_sanity(const char *in, size_t in_len,
+		     const char *iss, const char *aud,
+		     const char *csrf_in,
+		     char *sub, size_t sub_len, unsigned long *expiry_unix_time)
+{
+	unsigned long now = lws_now_secs(), exp;
+	const char *cp;
+	size_t len;
+
+	/*
+	 * It has our issuer?
+	 */
+
+	if (lws_json_simple_strcmp(in, in_len, "\"iss\":", iss)) {
+		lwsl_notice("%s: iss mismatch\n", __func__);
+		return 1;
+	}
+
+	/*
+	 * ... it is indended for us to consume? (this is set
+	 * to the public base url for this sai instance)
+	 */
+	if (lws_json_simple_strcmp(in, in_len, "\"aud\":", aud)) {
+		lwsl_notice("%s: aud mismatch\n", __func__);
+		return 1;
+	}
+
+	/*
+	 * ...it's not too early for it?
+	 */
+	cp = lws_json_simple_find(in, in_len, "\"nbf\":", &len);
+	if (!cp || (unsigned long)atol(cp) > now) {
+		lwsl_notice("%s: nbf fail\n", __func__);
+		return 1;
+	}
+
+	/*
+	 * ... and not too late for it?
+	 */
+	cp = lws_json_simple_find(in, in_len, "\"exp\":", &len);
+	exp = (unsigned long)atol(cp);
+	if (!cp || (unsigned long)atol(cp) < now) {
+		lwsl_notice("%s: exp fail %lu vs %lu\n", __func__,
+				cp ? (unsigned long)atol(cp) : 0, now);
+		return 1;
+	}
+
+	/*
+	 * Caller cares about subject?  Then we must have it, and it can't be
+	 * empty.
+	 */
+
+	if (sub) {
+		cp = lws_json_simple_find(in, in_len, "\"sub\":", &len);
+		if (!cp || !len) {
+			lwsl_notice("%s: missing subject\n", __func__);
+			return 1;
+		}
+		lws_strnncpy(sub, cp, len, sub_len);
+	}
+
+	/*
+	 * If caller has been told a Cross Site Request Forgery (CSRF) nonce,
+	 * require this JWT to express the same CSRF... this makes generated
+	 * links for dangerous privileged auth'd actions expire with the JWT
+	 * that was accessing the site when the links were generated.  And it
+	 * leaves an attacker not knowing what links to synthesize unless he
+	 * can read the token or pages generated with it.
+	 *
+	 * Using this is very good for security, but it implies you must refresh
+	 * generated pages still when the auth token is expiring (and the user
+	 * must log in again).
+	 */
+
+	if (csrf_in &&
+	    lws_json_simple_strcmp(in, in_len, "\"csrf\":", csrf_in)) {
+		lwsl_notice("%s: csrf mismatch\n", __func__);
+		return 1;
+	}
+
+	if (expiry_unix_time)
+		*expiry_unix_time = exp;
+
+	return 0;
 }

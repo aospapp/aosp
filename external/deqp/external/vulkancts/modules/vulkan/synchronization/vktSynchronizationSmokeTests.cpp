@@ -174,7 +174,7 @@ Move<VkDevice> createTestDevice (Context& context, SemaphoreTestConfig& config, 
 	*outQueueFamilyIndex					= queueInfo.queueFamilyIndex;
 
 	return createCustomDevice(validationEnabled, vkp, instance, vki, physicalDevice, &deviceInfo);
-};
+}
 
 struct BufferParameters
 {
@@ -605,7 +605,9 @@ struct TestContext
 		, queueFamilyIndex	(queueFamilyIndex_)
 		, binaryCollection	(binaryCollection_)
 		, allocator			(allocator_)
+		, vertices			(0)
 		, numVertices		(0)
+		, renderSize		(0)
 		, waitEvent			(false)
 	{
 		createFences(vkd, device, false, DE_LENGTH_OF_ARRAY(fences), fences);

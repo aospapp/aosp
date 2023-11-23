@@ -83,6 +83,8 @@ public final class InstallApkTask extends Task {
             "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
             "      package=\"" + packageName(action) + "\">\n" +
             "    <uses-permission android:name=\"android.permission.INTERNET\" />\n" +
+            "    <uses-sdk android:minSdkVersion=\"" + run.sdkVersion + "\"\n" +
+            "          android:targetSdkVersion=\"" + run.sdkVersion + "\" />\n" +
             "    <application" +
                     ((run.debugging) ? " android:debuggable=\"true\"" : "") + ">\n" +
             "        <activity android:name=\"" + ACTIVITY_CLASS + "\">\n" +
@@ -114,10 +116,11 @@ public final class InstallApkTask extends Task {
      * According to android.content.pm.PackageParser, package name
      * "must have at least one '.' separator" Since the qualified name
      * may not contain a dot, we prefix containing one to ensure we
-     * are compliant.
+     * are compliant.  Also transform any hyphens to underscores as they
+     * are illegal in package names.
      */
     public static String packageName(Action action) {
-        return "vogar.test." + action.getName();
+        return "vogar.test." + action.getName().replaceAll("-", "_");
     }
 
     private void signApk(File apkUnsigned) {

@@ -97,8 +97,8 @@ public:
 	bool						matchesFilter					(const glu::VariableDeclaration& variable) const;
 	bool						matchesFilter					(const glu::InterfaceBlock& block) const;
 
-	deUint32					getShaderTypeBits				(void) const { return m_shaderTypeBits;	};
-	deUint32					getStorageBits					(void) const { return m_storageBits;	};
+	deUint32					getShaderTypeBits				(void) const { return m_shaderTypeBits;	}
+	deUint32					getStorageBits					(void) const { return m_storageBits;	}
 private:
 	deUint32					m_shaderTypeBits;
 	deUint32					m_storageBits;
@@ -174,7 +174,7 @@ bool												shaderContainsIOBlocks						(const ProgramInterfaceDefinition::S
 glu::ShaderType										getProgramTransformFeedbackStage			(const ProgramInterfaceDefinition::Program* program);
 std::vector<std::string>							getProgramInterfaceResourceList				(const ProgramInterfaceDefinition::Program* program, ProgramInterface interface);
 std::vector<std::string>							getProgramInterfaceBlockMemberResourceList	(const glu::InterfaceBlock& interfaceBlock);
-const char*											getDummyZeroUniformName						();
+const char*											getUnusedZeroUniformName					();
 glu::ProgramSources									generateProgramInterfaceProgramSources		(const ProgramInterfaceDefinition::Program* program);
 bool												findProgramVariablePathByPathName			(std::vector<ProgramInterfaceDefinition::VariablePathComponent>& typePath, const ProgramInterfaceDefinition::Program* program, const std::string& pathName, const ProgramInterfaceDefinition::VariableSearchFilter& filter);
 void												generateVariableTypeResourceNames			(std::vector<std::string>& resources, const std::string& name, const glu::VarType& type, deUint32 resourceNameGenerationFlags);

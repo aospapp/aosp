@@ -21,6 +21,7 @@
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/transform/normalizer.h"
+#include "icing/util/character-iterator.h"
 #include "unicode/unorm2.h"
 #include "unicode/utrans.h"
 
@@ -56,6 +57,17 @@ class IcuNormalizer : public Normalizer {
   // result in the non-Latin characters not properly being normalized
   std::string NormalizeTerm(std::string_view term) const override;
 
+  // Returns a CharacterIterator pointing to one past the end of the segment of
+  // term that (once normalized) matches with normalized_term.
+  //
+  // Ex. FindNormalizedMatchEndPosition("YELLOW", "yell") will return
+  // CharacterIterator(u8:4, u16:4, u32:4).
+  //
+  // Ex. FindNormalizedMatchEndPosition("YELLOW", "red") will return
+  // CharacterIterator(u8:0, u16:0, u32:0).
+  CharacterIterator FindNormalizedMatchEndPosition(
+      std::string_view term, std::string_view normalized_term) const override;
+
  private:
   // A handler class that helps manage the lifecycle of UTransliterator. It's
   // used in IcuNormalizer to transform terms into the formats we need.
@@ -74,6 +86,12 @@ class IcuNormalizer : public Normalizer {
 
     // Transforms the text based on our rules described at top of this file
     std::string Transform(std::string_view term) const;
+
+    // Returns a CharacterIterator pointing to one past the end of the segment
+    // of a non-latin term that (once normalized) matches with normalized_term.
+    CharacterIterator FindNormalizedNonLatinMatchEndPosition(
+        std::string_view term, CharacterIterator char_itr,
+        std::string_view normalized_term) const;
 
    private:
     explicit TermTransformer(UTransliterator* u_transliterator);

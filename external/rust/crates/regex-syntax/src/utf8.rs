@@ -203,7 +203,7 @@ impl<'a> IntoIterator for &'a Utf8Sequence {
 }
 
 impl fmt::Debug for Utf8Sequence {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::Utf8Sequence::*;
         match *self {
             One(ref r) => write!(f, "{:?}", r),
@@ -237,7 +237,7 @@ impl Utf8Range {
 }
 
 impl fmt::Debug for Utf8Range {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.start == self.end {
             write!(f, "[{:X}]", self.start)
         } else {
@@ -331,7 +331,7 @@ struct ScalarRange {
 }
 
 impl fmt::Debug for ScalarRange {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ScalarRange({:X}, {:X})", self.start, self.end)
     }
 }
@@ -457,7 +457,7 @@ fn max_scalar_value(nbytes: usize) -> u32 {
 mod tests {
     use std::char;
 
-    use utf8::{Utf8Range, Utf8Sequences};
+    use crate::utf8::{Utf8Range, Utf8Sequences};
 
     fn rutf8(s: u8, e: u8) -> Utf8Range {
         Utf8Range::new(s, e)
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn bmp() {
-        use utf8::Utf8Sequence::*;
+        use crate::utf8::Utf8Sequence::*;
 
         let seqs = Utf8Sequences::new('\u{0}', '\u{FFFF}').collect::<Vec<_>>();
         assert_eq!(
@@ -538,7 +538,7 @@ mod tests {
 
     #[test]
     fn reverse() {
-        use utf8::Utf8Sequence::*;
+        use crate::utf8::Utf8Sequence::*;
 
         let mut s = One(rutf8(0xA, 0xB));
         s.reverse();

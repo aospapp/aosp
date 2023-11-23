@@ -20,11 +20,11 @@
 
 namespace android {
 
-HWC2::Error BackendClient::ValidateDisplay(DrmHwcTwo::HwcDisplay *display,
+HWC2::Error BackendClient::ValidateDisplay(HwcDisplay *display,
                                            uint32_t *num_types,
                                            uint32_t * /*num_requests*/) {
-  for (auto & [ layer_handle, layer ] : display->layers()) {
-    layer.set_validated_type(HWC2::Composition::Client);
+  for (auto &[layer_handle, layer] : display->layers()) {
+    layer.SetValidatedType(HWC2::Composition::Client);
     ++*num_types;
   }
   return HWC2::Error::HasChanges;

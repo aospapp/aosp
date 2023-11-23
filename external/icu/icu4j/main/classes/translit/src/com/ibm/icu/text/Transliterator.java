@@ -129,7 +129,7 @@ import com.ibm.icu.util.UResourceBundle;
  * Pairs of transliterators may be inverses of one another. For example, if transliterator <b>A</b> transliterates
  * characters by incrementing their Unicode value (so "abc" -&gt; "def"), and transliterator <b>B</b> decrements character
  * values, then <b>A</b> is an inverse of <b>B</b> and vice versa. If we compose <b>A</b> with <b>B</b> in a compound
- * transliterator, the result is the indentity transliterator, that is, a transliterator that does not change its input
+ * transliterator, the result is the identity transliterator, that is, a transliterator that does not change its input
  * text.
  *
  * The <code>Transliterator</code> method <code>getInverse()</code> returns a transliterator's inverse, if one exists,
@@ -362,7 +362,7 @@ import com.ibm.icu.util.UResourceBundle;
  *
  * <p>It is also possible to match the beginning or the end of the text using a <code>UnicodeSet</code>.
  * This is done by including a virtual anchor character '<code>$</code>' at the end of the
- * set pattern. Although this is usually the match chafacter for the end anchor, the set will
+ * set pattern. Although this is usually the match character for the end anchor, the set will
  * match either the beginning or the end of the text, depending on its placement. For
  * example:
  *
@@ -1038,7 +1038,7 @@ public abstract class Transliterator implements StringTransform  {
      * @param text the text to be transliterated
      * @param index the position indices
      * @param incremental if TRUE, then assume more characters may be inserted
-     * at index.limit, and postpone processing to accomodate future incoming
+     * at index.limit, and postpone processing to accommodate future incoming
      * characters
      * @param rollback if TRUE and if incremental is TRUE, then perform special
      * incremental processing, as described above, and undo partial
@@ -1355,7 +1355,7 @@ public abstract class Transliterator implements StringTransform  {
      * @param text the text to be transliterated
      * @param index the position indices
      * @param incremental if TRUE, then assume more characters may be inserted
-     * at index.limit, and postpone processing to accomodate future incoming
+     * at index.limit, and postpone processing to accommodate future incoming
      * characters
      * @stable ICU 2.0
      */
@@ -1857,7 +1857,7 @@ public abstract class Transliterator implements StringTransform  {
     /**
      * Returns the set of all characters that may be generated as
      * replacement text by this transliterator, filtered by BOTH the input filter, and the current getFilter().
-     * <p>SHOULD BE OVERRIDEN BY SUBCLASSES.
+     * <p>SHOULD BE OVERRIDDEN BY SUBCLASSES.
      * It is probably an error for any transliterator to NOT override this, but we can't force them to
      * for backwards compatibility.
      * <p>Other methods vector through this.
@@ -2208,7 +2208,7 @@ public abstract class Transliterator implements StringTransform  {
                 registry.put(ID, resString, true);
             } else {
                 // Unknown type
-                throw new RuntimeException("Unknow type: " + type);
+                throw new RuntimeException("Unknown type: " + type);
             }
         }
 

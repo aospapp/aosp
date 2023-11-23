@@ -101,12 +101,14 @@ class ExperimentFactory(object):
 
   def AppendBenchmarkSet(self, benchmarks, benchmark_list, test_args,
                          iterations, rm_chroot_tmp, perf_args, suite,
-                         show_all_results, retries, run_local, cwp_dso, weight):
+                         show_all_results, retries, run_local, cwp_dso,
+                         weight):
     """Add all the tests in a set to the benchmarks list."""
     for test_name in benchmark_list:
-      telemetry_benchmark = Benchmark(
-          test_name, test_name, test_args, iterations, rm_chroot_tmp, perf_args,
-          suite, show_all_results, retries, run_local, cwp_dso, weight)
+      telemetry_benchmark = Benchmark(test_name, test_name, test_args,
+                                      iterations, rm_chroot_tmp, perf_args,
+                                      suite, show_all_results, retries,
+                                      run_local, cwp_dso, weight)
       benchmarks.append(telemetry_benchmark)
 
   def GetExperiment(self, experiment_file, working_directory, log_dir):
@@ -119,9 +121,10 @@ class ExperimentFactory(object):
     if log_level not in ('quiet', 'average', 'verbose'):
       log_level = 'verbose'
 
-    skylab = global_settings.GetField('skylab')
-    # Check whether skylab tool is installed correctly for skylab mode.
-    if skylab and not self.CheckSkylabTool(chromeos_root, log_level):
+    crosfleet = global_settings.GetField('crosfleet')
+    no_lock = bool(global_settings.GetField('no_lock'))
+    # Check whether crosfleet tool is installed correctly for crosfleet mode.
+    if crosfleet and not self.CheckCrosfleetTool(chromeos_root, log_level):
       sys.exit(0)
 
     remote = global_settings.GetField('remote')
@@ -256,33 +259,33 @@ class ExperimentFactory(object):
 
       if suite == 'telemetry_Crosperf':
         if test_name == 'all_perfv2':
-          self.AppendBenchmarkSet(benchmarks, telemetry_perfv2_tests, test_args,
-                                  iterations, rm_chroot_tmp, perf_args, suite,
-                                  show_all_results, retries, run_local, cwp_dso,
-                                  weight)
+          self.AppendBenchmarkSet(benchmarks, telemetry_perfv2_tests,
+                                  test_args, iterations, rm_chroot_tmp,
+                                  perf_args, suite, show_all_results, retries,
+                                  run_local, cwp_dso, weight)
         elif test_name == 'all_pagecyclers':
           self.AppendBenchmarkSet(benchmarks, telemetry_pagecycler_tests,
                                   test_args, iterations, rm_chroot_tmp,
                                   perf_args, suite, show_all_results, retries,
                                   run_local, cwp_dso, weight)
         elif test_name == 'all_crosbolt_perf':
-          self.AppendBenchmarkSet(
-              benchmarks, telemetry_crosbolt_perf_tests, test_args, iterations,
-              rm_chroot_tmp, perf_args, 'telemetry_Crosperf', show_all_results,
-              retries, run_local, cwp_dso, weight)
-          self.AppendBenchmarkSet(
-              benchmarks,
-              crosbolt_perf_tests,
-              '',
-              iterations,
-              rm_chroot_tmp,
-              perf_args,
-              '',
-              show_all_results,
-              retries,
-              run_local=False,
-              cwp_dso=cwp_dso,
-              weight=weight)
+          self.AppendBenchmarkSet(benchmarks, telemetry_crosbolt_perf_tests,
+                                  test_args, iterations, rm_chroot_tmp,
+                                  perf_args, 'telemetry_Crosperf',
+                                  show_all_results, retries, run_local,
+                                  cwp_dso, weight)
+          self.AppendBenchmarkSet(benchmarks,
+                                  crosbolt_perf_tests,
+                                  '',
+                                  iterations,
+                                  rm_chroot_tmp,
+                                  perf_args,
+                                  '',
+                                  show_all_results,
+                                  retries,
+                                  run_local=False,
+                                  cwp_dso=cwp_dso,
+                                  weight=weight)
         elif test_name == 'all_toolchain_perf':
           self.AppendBenchmarkSet(benchmarks, telemetry_toolchain_perf_tests,
                                   test_args, iterations, rm_chroot_tmp,
@@ -321,10 +324,11 @@ class ExperimentFactory(object):
           #         cwp_dso=cwp_dso,
           #         weight=weight))
         elif test_name == 'all_toolchain_perf_old':
-          self.AppendBenchmarkSet(
-              benchmarks, telemetry_toolchain_old_perf_tests, test_args,
-              iterations, rm_chroot_tmp, perf_args, suite, show_all_results,
-              retries, run_local, cwp_dso, weight)
+          self.AppendBenchmarkSet(benchmarks,
+                                  telemetry_toolchain_old_perf_tests,
+                                  test_args, iterations, rm_chroot_tmp,
+                                  perf_args, suite, show_all_results, retries,
+                                  run_local, cwp_dso, weight)
         else:
           benchmark = Benchmark(benchmark_name, test_name, test_args,
                                 iterations, rm_chroot_tmp, perf_args, suite,
@@ -333,34 +337,32 @@ class ExperimentFactory(object):
           benchmarks.append(benchmark)
       else:
         if test_name == 'all_graphics_perf':
-          self.AppendBenchmarkSet(
-              benchmarks,
-              graphics_perf_tests,
-              '',
-              iterations,
-              rm_chroot_tmp,
-              perf_args,
-              '',
-              show_all_results,
-              retries,
-              run_local=False,
-              cwp_dso=cwp_dso,
-              weight=weight)
+          self.AppendBenchmarkSet(benchmarks,
+                                  graphics_perf_tests,
+                                  '',
+                                  iterations,
+                                  rm_chroot_tmp,
+                                  perf_args,
+                                  '',
+                                  show_all_results,
+                                  retries,
+                                  run_local=False,
+                                  cwp_dso=cwp_dso,
+                                  weight=weight)
         else:
           # Add the single benchmark.
-          benchmark = Benchmark(
-              benchmark_name,
-              test_name,
-              test_args,
-              iterations,
-              rm_chroot_tmp,
-              perf_args,
-              suite,
-              show_all_results,
-              retries,
-              run_local=False,
-              cwp_dso=cwp_dso,
-              weight=weight)
+          benchmark = Benchmark(benchmark_name,
+                                test_name,
+                                test_args,
+                                iterations,
+                                rm_chroot_tmp,
+                                perf_args,
+                                suite,
+                                show_all_results,
+                                retries,
+                                run_local=False,
+                                cwp_dso=cwp_dso,
+                                weight=weight)
           benchmarks.append(benchmark)
 
     if not benchmarks:
@@ -389,8 +391,9 @@ class ExperimentFactory(object):
       my_remote = new_remote
 
       if image:
-        if skylab:
-          raise RuntimeError('In skylab mode, local image should not be used.')
+        if crosfleet:
+          raise RuntimeError(
+              'In crosfleet mode, local image should not be used.')
         if build:
           raise RuntimeError('Image path and build are provided at the same '
                              'time, please use only one of them.')
@@ -406,8 +409,8 @@ class ExperimentFactory(object):
 
       # TODO(yunlian): We should consolidate code in machine_manager.py
       # to derermine whether we are running from within google or not
-      if ('corp.google.com' in socket.gethostname() and not my_remote and
-          not skylab):
+      if ('corp.google.com' in socket.gethostname() and not my_remote
+          and not crosfleet):
         my_remote = self.GetDefaultRemotes(board)
       if global_settings.GetField('same_machine') and len(my_remote) > 1:
         raise RuntimeError('Only one remote is allowed when same_machine '
@@ -418,12 +421,12 @@ class ExperimentFactory(object):
         # pylint: disable=too-many-function-args
         label = MockLabel(label_name, build, image, autotest_path, debug_path,
                           chromeos_root, board, my_remote, image_args,
-                          cache_dir, cache_only, log_level, compiler, skylab,
-                          chrome_src)
+                          cache_dir, cache_only, log_level, compiler,
+                          crosfleet, chrome_src)
       else:
         label = Label(label_name, build, image, autotest_path, debug_path,
                       chromeos_root, board, my_remote, image_args, cache_dir,
-                      cache_only, log_level, compiler, skylab, chrome_src)
+                      cache_only, log_level, compiler, crosfleet, chrome_src)
       labels.append(label)
 
     if not labels:
@@ -432,21 +435,36 @@ class ExperimentFactory(object):
     email = global_settings.GetField('email')
     all_remote += list(set(my_remote))
     all_remote = list(set(all_remote))
-    if skylab:
+    if crosfleet:
       for remote in all_remote:
-        self.CheckRemotesInSkylab(remote)
-    experiment = Experiment(experiment_name, all_remote, working_directory,
-                            chromeos_root, cache_conditions, labels, benchmarks,
-                            experiment_file.Canonicalize(), email,
-                            acquire_timeout, log_dir, log_level, share_cache,
-                            results_dir, compress_results, locks_dir, cwp_dso,
-                            ignore_min_max, skylab, dut_config)
+        self.CheckRemotesInCrosfleet(remote)
+    experiment = Experiment(experiment_name,
+                            all_remote,
+                            working_directory,
+                            chromeos_root,
+                            cache_conditions,
+                            labels,
+                            benchmarks,
+                            experiment_file.Canonicalize(),
+                            email,
+                            acquire_timeout,
+                            log_dir,
+                            log_level,
+                            share_cache,
+                            results_dir,
+                            compress_results,
+                            locks_dir,
+                            cwp_dso,
+                            ignore_min_max,
+                            crosfleet,
+                            dut_config,
+                            no_lock=no_lock)
 
     return experiment
 
   def GetDefaultRemotes(self, board):
-    default_remotes_file = os.path.join(
-        os.path.dirname(__file__), 'default_remotes')
+    default_remotes_file = os.path.join(os.path.dirname(__file__),
+                                        'default_remotes')
     try:
       with open(default_remotes_file) as f:
         for line in f:
@@ -464,26 +482,27 @@ class ExperimentFactory(object):
     else:
       raise RuntimeError('There is no remote for {0}'.format(board))
 
-  def CheckRemotesInSkylab(self, remote):
+  def CheckRemotesInCrosfleet(self, remote):
     # TODO: (AI:zhizhouy) need to check whether a remote is a local or lab
     # machine. If not lab machine, raise an error.
     pass
 
-  def CheckSkylabTool(self, chromeos_root, log_level):
-    SKYLAB_PATH = '/usr/local/bin/skylab'
-    if os.path.exists(SKYLAB_PATH):
+  def CheckCrosfleetTool(self, chromeos_root, log_level):
+    CROSFLEET_PATH = 'crosfleet'
+    if os.path.exists(CROSFLEET_PATH):
       return True
     l = logger.GetLogger()
-    l.LogOutput('Skylab tool not installed, trying to install it.')
+    l.LogOutput('Crosfleet tool not installed, trying to install it.')
     ce = command_executer.GetCommandExecuter(l, log_level=log_level)
-    setup_lab_tools = os.path.join(chromeos_root, 'chromeos-admin', 'lab-tools',
-                                   'setup_lab_tools')
+    setup_lab_tools = os.path.join(chromeos_root, 'chromeos-admin',
+                                   'lab-tools', 'setup_lab_tools')
     cmd = '%s' % setup_lab_tools
     status = ce.RunCommand(cmd)
     if status != 0:
-      raise RuntimeError('Skylab tool not installed correctly, please try to '
-                         'manually install it from %s' % setup_lab_tools)
-    l.LogOutput('Skylab is installed at %s, please login before first use. '
-                'Login by running "skylab login" and follow instructions.' %
-                SKYLAB_PATH)
+      raise RuntimeError(
+          'Crosfleet tool not installed correctly, please try to '
+          'manually install it from %s' % setup_lab_tools)
+    l.LogOutput('Crosfleet is installed at %s, please login before first use. '
+                'Login by running "crosfleet login" and follow instructions.' %
+                CROSFLEET_PATH)
     return False

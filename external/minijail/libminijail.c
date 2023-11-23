@@ -36,8 +36,8 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "libminijail.h"
 #include "libminijail-private.h"
+#include "libminijail.h"
 
 #include "signal_handler.h"
 #include "syscall_filter.h"
@@ -47,19 +47,19 @@
 
 /* Until these are reliably available in linux/prctl.h. */
 #ifndef PR_ALT_SYSCALL
-# define PR_ALT_SYSCALL 0x43724f53
+#define PR_ALT_SYSCALL 0x43724f53
 #endif
 
 /* New cgroup namespace might not be in linux-headers yet. */
 #ifndef CLONE_NEWCGROUP
-# define CLONE_NEWCGROUP 0x02000000
+#define CLONE_NEWCGROUP 0x02000000
 #endif
 
 #define MAX_CGROUPS 10 /* 10 different controllers supported by Linux. */
 
 #define MAX_RLIMITS 32 /* Currently there are 15 supported by Linux. */
 
-#define MAX_PRESERVED_FDS 32U
+#define MAX_PRESERVED_FDS 128U
 
 /* Keyctl commands. */
 #define KEYCTL_JOIN_SESSION_KEYRING 1
@@ -189,10 +189,16 @@ struct minijail {
 	struct hook *hooks_tail;
 	struct preserved_fd preserved_fds[MAX_PRESERVED_FDS];
 	size_t preserved_fd_count;
+	char *seccomp_policy_path;
 };
 
 static void run_hooks_or_die(const struct minijail *j,
 			     minijail_hook_event_t event);
+
+static bool seccomp_is_logging_allowed(const struct minijail *j)
+{
+	return seccomp_default_ret_log() || j->flags.seccomp_filter_logging;
+}
 
 static void free_mounts_list(struct minijail *j)
 {
@@ -368,7 +374,8 @@ void API minijail_set_supplementary_gids(struct minijail *j, size_t size,
 	j->flags.set_suppl_gids = 1;
 }
 
-void API minijail_keep_supplementary_gids(struct minijail *j) {
+void API minijail_keep_supplementary_gids(struct minijail *j)
+{
 	j->flags.keep_suppl_gids = 1;
 }
 
@@ -419,7 +426,7 @@ void API minijail_set_seccomp_filter_tsync(struct minijail *j)
 		    "before minijail_parse_seccomp_filters()");
 	}
 
-	if (j->flags.seccomp_filter_logging && !seccomp_ret_log_available()) {
+	if (seccomp_is_logging_allowed(j) && !seccomp_ret_log_available()) {
 		/*
 		 * If SECCOMP_RET_LOG is not available, we don't want to use
 		 * SECCOMP_RET_TRAP to both kill the entire process and report
@@ -455,8 +462,8 @@ void API minijail_log_seccomp_filter_failures(struct minijail *j)
 		 * SECCOMP_RET_TRAP to both kill the entire process and report
 		 * failing syscalls, since it will be brittle. Just bail.
 		 */
-		die("SECCOMP_RET_LOG not available, cannot use thread sync with "
-		    "logging at the same time");
+		die("SECCOMP_RET_LOG not available, cannot use thread sync "
+		    "with logging at the same time");
 	}
 
 	if (debug_logging_allowed()) {
@@ -723,7 +730,7 @@ char API *minijail_get_original_path(struct minijail *j,
 		 */
 		if (!strncmp(b->dest, path_inside_chroot, strlen(b->dest))) {
 			const char *relative_path =
-				path_inside_chroot + strlen(b->dest);
+			    path_inside_chroot + strlen(b->dest);
 			return path_join(b->src, relative_path);
 		}
 		b = b->next;
@@ -799,7 +806,8 @@ int API minijail_forward_signals(struct minijail *j)
 	return 0;
 }
 
-int API minijail_create_session(struct minijail *j) {
+int API minijail_create_session(struct minijail *j)
+{
 	j->flags.setsid = 1;
 	return 0;
 }
@@ -977,6 +985,10 @@ static void clear_seccomp_options(struct minijail *j)
 	j->filter_len = 0;
 	j->filter_prog = NULL;
 	j->flags.no_new_privs = 0;
+	if (j->seccomp_policy_path) {
+		free(j->seccomp_policy_path);
+	}
+	j->seccomp_policy_path = NULL;
 }
 
 static int seccomp_should_use_filters(struct minijail *j)
@@ -1086,7 +1098,7 @@ static int parse_seccomp_filters(struct minijail *j, const char *filename,
 	 * Allow logging?
 	 */
 	filteropts.allow_logging =
-	    debug_logging_allowed() && j->flags.seccomp_filter_logging;
+	    debug_logging_allowed() && seccomp_is_logging_allowed(j);
 
 	/* What to do on a blocked system call? */
 	if (filteropts.allow_logging) {
@@ -1129,7 +1141,7 @@ void API minijail_parse_seccomp_filters(struct minijail *j, const char *path)
 	if (!seccomp_should_use_filters(j))
 		return;
 
-	FILE *file = fopen(path, "re");
+	attribute_cleanup_fp FILE *file = fopen(path, "re");
 	if (!file) {
 		pdie("failed to open seccomp filter file '%s'", path);
 	}
@@ -1138,13 +1150,16 @@ void API minijail_parse_seccomp_filters(struct minijail *j, const char *path)
 		die("failed to compile seccomp filter BPF program in '%s'",
 		    path);
 	}
-	fclose(file);
+	if (j->seccomp_policy_path) {
+		free(j->seccomp_policy_path);
+	}
+	j->seccomp_policy_path = strdup(path);
 }
 
 void API minijail_parse_seccomp_filters_from_fd(struct minijail *j, int fd)
 {
 	char *fd_path, *path;
-	FILE *file;
+	attribute_cleanup_fp FILE *file = NULL;
 
 	if (!seccomp_should_use_filters(j))
 		return;
@@ -1165,8 +1180,10 @@ void API minijail_parse_seccomp_filters_from_fd(struct minijail *j, int fd)
 		die("failed to compile seccomp filter BPF program from fd %d",
 		    fd);
 	}
-	free(path);
-	fclose(file);
+	if (j->seccomp_policy_path) {
+		free(j->seccomp_policy_path);
+	}
+	j->seccomp_policy_path = path;
 }
 
 void API minijail_set_seccomp_filters(struct minijail *j,
@@ -1175,7 +1192,7 @@ void API minijail_set_seccomp_filters(struct minijail *j,
 	if (!seccomp_should_use_filters(j))
 		return;
 
-	if (j->flags.seccomp_filter_logging) {
+	if (seccomp_is_logging_allowed(j)) {
 		die("minijail_log_seccomp_filter_failures() is incompatible "
 		    "with minijail_set_seccomp_filters()");
 	}
@@ -1276,6 +1293,8 @@ static void minijail_marshal_helper(struct marshal_state *state,
 	}
 	for (i = 0; i < j->cgroup_count; ++i)
 		marshal_append_string(state, j->cgroups[i]);
+	if (j->seccomp_policy_path)
+		marshal_append_string(state, j->seccomp_policy_path);
 }
 
 size_t API minijail_size(const struct minijail *j)
@@ -1319,7 +1338,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 	j->hooks_head = NULL;
 	j->hooks_tail = NULL;
 
-	if (j->user) {		/* stale pointer */
+	if (j->user) { /* stale pointer */
 		char *user = consumestr(&serialized, &length);
 		if (!user)
 			goto clear_pointers;
@@ -1328,7 +1347,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 			goto clear_pointers;
 	}
 
-	if (j->suppl_gid_list) {	/* stale pointer */
+	if (j->suppl_gid_list) { /* stale pointer */
 		if (j->suppl_gid_count > NGROUPS_MAX) {
 			goto bad_gid_list;
 		}
@@ -1345,7 +1364,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 		memcpy(j->suppl_gid_list, gid_list_bytes, gid_list_size);
 	}
 
-	if (j->chrootdir) {	/* stale pointer */
+	if (j->chrootdir) { /* stale pointer */
 		char *chrootdir = consumestr(&serialized, &length);
 		if (!chrootdir)
 			goto bad_chrootdir;
@@ -1354,7 +1373,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 			goto bad_chrootdir;
 	}
 
-	if (j->hostname) {	/* stale pointer */
+	if (j->hostname) { /* stale pointer */
 		char *hostname = consumestr(&serialized, &length);
 		if (!hostname)
 			goto bad_hostname;
@@ -1363,7 +1382,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 			goto bad_hostname;
 	}
 
-	if (j->alt_syscall_table) {	/* stale pointer */
+	if (j->alt_syscall_table) { /* stale pointer */
 		char *alt_syscall_table = consumestr(&serialized, &length);
 		if (!alt_syscall_table)
 			goto bad_syscall_table;
@@ -1412,8 +1431,8 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 		type = consumestr(&serialized, &length);
 		if (!type)
 			goto bad_mounts;
-		has_data = consumebytes(sizeof(*has_data), &serialized,
-					&length);
+		has_data =
+		    consumebytes(sizeof(*has_data), &serialized, &length);
 		if (!has_data)
 			goto bad_mounts;
 		if (*has_data) {
@@ -1440,7 +1459,22 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 		++j->cgroup_count;
 	}
 
+	if (j->seccomp_policy_path) { /* stale pointer */
+		char *seccomp_policy_path = consumestr(&serialized, &length);
+		if (!seccomp_policy_path)
+			goto bad_cgroups;
+		j->seccomp_policy_path = strdup(seccomp_policy_path);
+		if (!j->seccomp_policy_path)
+			goto bad_cgroups;
+	}
+
 	return 0;
+
+	/*
+	 * If more is added after j->seccomp_policy_path, then this is needed:
+	 * if (j->seccomp_policy_path)
+	 * 	free(j->seccomp_policy_path);
+	 */
 
 bad_cgroups:
 	free_mounts_list(j);
@@ -1457,12 +1491,12 @@ bad_filters:
 	if (j->alt_syscall_table)
 		free(j->alt_syscall_table);
 bad_syscall_table:
-	if (j->chrootdir)
-		free(j->chrootdir);
-bad_chrootdir:
 	if (j->hostname)
 		free(j->hostname);
 bad_hostname:
+	if (j->chrootdir)
+		free(j->chrootdir);
+bad_chrootdir:
 	if (j->suppl_gid_list)
 		free(j->suppl_gid_list);
 bad_gid_list:
@@ -1475,6 +1509,7 @@ clear_pointers:
 	j->hostname = NULL;
 	j->alt_syscall_table = NULL;
 	j->cgroup_count = 0;
+	j->seccomp_policy_path = NULL;
 out:
 	return ret;
 }
@@ -1485,39 +1520,56 @@ struct dev_spec {
 	dev_t major, minor;
 };
 
+// clang-format off
 static const struct dev_spec device_nodes[] = {
-	{
-		"null",
-		S_IFCHR | 0666, 1, 3,
-	},
-	{
-		"zero",
-		S_IFCHR | 0666, 1, 5,
-	},
-	{
-		"full",
-		S_IFCHR | 0666, 1, 7,
-	},
-	{
-		"urandom",
-		S_IFCHR | 0444, 1, 9,
-	},
-	{
-		"tty",
-		S_IFCHR | 0666, 5, 0,
-	},
+    {
+"null",
+	S_IFCHR | 0666, 1, 3,
+    },
+    {
+	"zero",
+	S_IFCHR | 0666, 1, 5,
+    },
+    {
+	"full",
+	S_IFCHR | 0666, 1, 7,
+    },
+    {
+	"urandom",
+	S_IFCHR | 0444, 1, 9,
+    },
+    {
+	"tty",
+	S_IFCHR | 0666, 5, 0,
+    },
 };
+// clang-format on
 
 struct dev_sym_spec {
 	const char *source, *dest;
 };
 
 static const struct dev_sym_spec device_symlinks[] = {
-	{ "ptmx", "pts/ptmx", },
-	{ "fd", "/proc/self/fd", },
-	{ "stdin", "fd/0", },
-	{ "stdout", "fd/1", },
-	{ "stderr", "fd/2", },
+    {
+	"ptmx",
+	"pts/ptmx",
+    },
+    {
+	"fd",
+	"/proc/self/fd",
+    },
+    {
+	"stdin",
+	"fd/0",
+    },
+    {
+	"stdout",
+	"fd/1",
+    },
+    {
+	"stderr",
+	"fd/2",
+    },
 };
 
 /*
@@ -1538,7 +1590,7 @@ static void mount_dev_cleanup(char *dev_path)
 static int mount_dev(char **dev_path_ret)
 {
 	int ret;
-	int dev_fd;
+	attribute_cleanup_fd int dev_fd = -1;
 	size_t i;
 	mode_t mask;
 	char *dev_path;
@@ -1552,8 +1604,8 @@ static int mount_dev(char **dev_path_ret)
 		pdie("could not create temp path for /dev");
 
 	/* Set up the empty /dev mount point first. */
-	ret = mount("minijail-devfs", dev_path, "tmpfs",
-	            MS_NOEXEC | MS_NOSUID, "size=5M,mode=755");
+	ret = mount("minijail-devfs", dev_path, "tmpfs", MS_NOEXEC | MS_NOSUID,
+		    "size=5M,mode=755");
 	if (ret) {
 		rmdir(dev_path);
 		return ret;
@@ -1563,7 +1615,7 @@ static int mount_dev(char **dev_path_ret)
 	mask = umask(0);
 
 	/* Get a handle to the temp dev path for *at funcs below. */
-	dev_fd = open(dev_path, O_DIRECTORY|O_PATH|O_CLOEXEC);
+	dev_fd = open(dev_path, O_DIRECTORY | O_PATH | O_CLOEXEC);
 	if (dev_fd < 0) {
 		ret = 1;
 		goto done;
@@ -1573,7 +1625,7 @@ static int mount_dev(char **dev_path_ret)
 	for (i = 0; i < ARRAY_SIZE(device_nodes); ++i) {
 		const struct dev_spec *ds = &device_nodes[i];
 		ret = mknodat(dev_fd, ds->name, ds->mode,
-		              makedev(ds->major, ds->minor));
+			      makedev(ds->major, ds->minor));
 		if (ret)
 			goto done;
 	}
@@ -1592,8 +1644,7 @@ static int mount_dev(char **dev_path_ret)
 		goto done;
 
 	/* Restore old mask. */
- done:
-	close(dev_fd);
+done:
 	umask(mask);
 
 	if (ret)
@@ -1616,14 +1667,14 @@ static int mount_dev_finalize(const struct minijail *j, char *dev_path)
 	if (umount2("/dev", MNT_DETACH))
 		goto done;
 
-	if (asprintf(&dest, "%s/dev", j->chrootdir ? : "") < 0)
+	if (asprintf(&dest, "%s/dev", j->chrootdir ?: "") < 0)
 		goto done;
 
 	if (mount(dev_path, dest, NULL, MS_MOVE, NULL))
 		goto done;
 
 	ret = 0;
- done:
+done:
 	free(dest);
 	mount_dev_cleanup(dev_path);
 
@@ -1752,7 +1803,8 @@ static int enter_chroot(const struct minijail *j)
 
 static int enter_pivot_root(const struct minijail *j)
 {
-	int oldroot, newroot;
+	attribute_cleanup_fd int oldroot = -1;
+	attribute_cleanup_fd int newroot = -1;
 
 	run_hooks_or_die(j, MINIJAIL_HOOK_EVENT_PRE_CHROOT);
 
@@ -1801,10 +1853,6 @@ static int enter_pivot_root(const struct minijail *j)
 		pdie("umount(/)");
 	/* Change back to the new root. */
 	if (fchdir(newroot))
-		return -errno;
-	if (close(oldroot))
-		return -errno;
-	if (close(newroot))
 		return -errno;
 	if (chroot("/"))
 		return -errno;
@@ -1924,7 +1972,10 @@ static void write_ugid_maps_or_die(const struct minijail *j)
 		int ret = write_proc_file(j->initpid, "deny", "setgroups");
 		if (ret != 0) {
 			if (ret == -ENOENT) {
-				/* See http://man7.org/linux/man-pages/man7/user_namespaces.7.html. */
+				/*
+				 * See
+				 * http://man7.org/linux/man-pages/man7/user_namespaces.7.html.
+				 */
 				warn("could not disable setgroups(2)");
 			} else
 				kill_child_and_die(
@@ -1974,7 +2025,8 @@ static void wait_for_parent_setup(int *pipe_fds)
 static void drop_ugid(const struct minijail *j)
 {
 	if (j->flags.inherit_suppl_gids + j->flags.keep_suppl_gids +
-	    j->flags.set_suppl_gids > 1) {
+		j->flags.set_suppl_gids >
+	    1) {
 		die("can only do one of inherit, keep, or set supplementary "
 		    "groups");
 	}
@@ -2139,7 +2191,7 @@ static void set_seccomp_filter(const struct minijail *j)
 	}
 
 	if (j->flags.seccomp_filter) {
-		if (j->flags.seccomp_filter_logging) {
+		if (seccomp_is_logging_allowed(j)) {
 			warn("logging seccomp filter failures");
 			if (!seccomp_ret_log_available()) {
 				/*
@@ -2189,8 +2241,7 @@ static void set_seccomp_filter(const struct minijail *j)
 
 static pid_t forward_pid = -1;
 
-static void forward_signal(int sig,
-			   siginfo_t *siginfo attribute_unused,
+static void forward_signal(int sig, siginfo_t *siginfo attribute_unused,
 			   void *void_context attribute_unused)
 {
 	if (forward_pid != -1) {
@@ -2316,12 +2367,12 @@ void API minijail_enter(const struct minijail *j)
 				if (mount(NULL, temp->mount_name, NULL,
 					  MS_REC | temp->remount_mode, NULL))
 					pdie("mount(NULL, %s, NULL, "
-					     "MS_REC | temp->remount_mode, NULL) "
-					     "failed", temp->mount_name);
+					     "MS_REC | temp->remount_mode, "
+					     "NULL) failed",
+					     temp->mount_name);
 				temp = temp->next;
 			}
 		}
-
 	}
 
 	if (j->flags.ipc && unshare(CLONE_NEWIPC)) {
@@ -2332,7 +2383,8 @@ void API minijail_enter(const struct minijail *j)
 		if (unshare(CLONE_NEWUTS))
 			pdie("unshare(CLONE_NEWUTS) failed");
 
-		if (j->hostname && sethostname(j->hostname, strlen(j->hostname)))
+		if (j->hostname &&
+		    sethostname(j->hostname, strlen(j->hostname)))
 			pdie("sethostname(%s) failed", j->hostname);
 	}
 
@@ -2473,22 +2525,19 @@ int API minijail_from_fd(int fd, struct minijail *j)
 {
 	size_t sz = 0;
 	size_t bytes = read(fd, &sz, sizeof(sz));
-	char *buf;
+	attribute_cleanup_str char *buf = NULL;
 	int r;
 	if (sizeof(sz) != bytes)
 		return -EINVAL;
-	if (sz > USHRT_MAX)	/* arbitrary sanity check */
+	if (sz > USHRT_MAX) /* arbitrary check */
 		return -E2BIG;
 	buf = malloc(sz);
 	if (!buf)
 		return -ENOMEM;
 	bytes = read(fd, buf, sz);
-	if (bytes != sz) {
-		free(buf);
+	if (bytes != sz)
 		return -EINVAL;
-	}
 	r = minijail_unmarshal(j, buf, sz);
-	free(buf);
 	return r;
 }
 
@@ -2498,24 +2547,20 @@ int API minijail_to_fd(struct minijail *j, int fd)
 	if (!sz)
 		return -EINVAL;
 
-	char *buf = malloc(sz);
+	attribute_cleanup_str char *buf = malloc(sz);
 	if (!buf)
 		return -ENOMEM;
 
 	int err = minijail_marshal(j, buf, sz);
 	if (err)
-		goto error;
+		return err;
 
 	/* Sends [size][minijail]. */
 	err = write_exactly(fd, &sz, sizeof(sz));
 	if (err)
-		goto error;
+		return err;
 
-	err = write_exactly(fd, buf, sz);
-
-error:
-	free(buf);
-	return err;
+	return write_exactly(fd, buf, sz);
 }
 
 int API minijail_copy_jail(const struct minijail *from, struct minijail *out)
@@ -2524,18 +2569,15 @@ int API minijail_copy_jail(const struct minijail *from, struct minijail *out)
 	if (!sz)
 		return -EINVAL;
 
-	char *buf = malloc(sz);
+	attribute_cleanup_str char *buf = malloc(sz);
 	if (!buf)
 		return -ENOMEM;
 
 	int err = minijail_marshal(from, buf, sz);
 	if (err)
-		goto error;
+		return err;
 
-	err = minijail_unmarshal(out, buf, sz);
-error:
-	free(buf);
-	return err;
+	return minijail_unmarshal(out, buf, sz);
 }
 
 static int setup_preload(const struct minijail *j attribute_unused,
@@ -2548,7 +2590,7 @@ static int setup_preload(const struct minijail *j attribute_unused,
 	const char *preload_path = j->preload_path ?: PRELOADPATH;
 	char *newenv = NULL;
 	int ret = 0;
-	const char *oldenv = getenv(kLdPreloadEnvVar);
+	const char *oldenv = minijail_getenv(*child_env, kLdPreloadEnvVar);
 
 	if (!oldenv)
 		oldenv = "";
@@ -2563,6 +2605,19 @@ static int setup_preload(const struct minijail *j attribute_unused,
 	free(newenv);
 	return ret;
 #endif
+}
+
+/*
+ * This is for logging purposes and does not change the enforced seccomp
+ * filter.
+ */
+static int setup_seccomp_policy_path(const struct minijail *j,
+				     char ***child_env)
+{
+	return minijail_setenv(child_env, kSeccompPolicyPathEnvVar,
+			       j->seccomp_policy_path ? j->seccomp_policy_path
+						      : "NO-LABEL",
+			       1 /* overwrite */);
 }
 
 static int setup_pipe(char ***child_env, int fds[2])
@@ -2623,11 +2678,11 @@ static int fd_is_open(int fd)
 static_assert(FD_SETSIZE >= MAX_PRESERVED_FDS * 2 - 1,
 	      "If true, ensure_no_fd_conflict will always find an unused fd.");
 
-/* If p->parent_fd will be used by a child_fd, move it to an unused fd. */
-static int ensure_no_fd_conflict(const fd_set* child_fds,
-				 struct preserved_fd* p)
+/* If parent_fd will be used by a child fd, move it to an unused fd. */
+static int ensure_no_fd_conflict(const fd_set *child_fds, int child_fd,
+				 int *parent_fd)
 {
-	if (!FD_ISSET(p->parent_fd, child_fds)){
+	if (!FD_ISSET(*parent_fd, child_fds)) {
 		return 0;
 	}
 
@@ -2635,8 +2690,8 @@ static int ensure_no_fd_conflict(const fd_set* child_fds,
 	 * If no other parent_fd matches the child_fd then use it instead of a
 	 * temporary.
 	 */
-	int fd = p->child_fd;
-	if (fd_is_open(fd)) {
+	int fd = child_fd;
+	if (fd == -1 || fd_is_open(fd)) {
 		fd = FD_SETSIZE - 1;
 		while (FD_ISSET(fd, child_fds) || fd_is_open(fd)) {
 			--fd;
@@ -2646,61 +2701,45 @@ static int ensure_no_fd_conflict(const fd_set* child_fds,
 		}
 	}
 
-	int ret = dup2(p->parent_fd, fd);
+	int ret = dup2(*parent_fd, fd);
 	/*
 	 * warn() opens a file descriptor so it needs to happen after dup2 to
 	 * avoid unintended side effects. This can be avoided by reordering the
 	 * mapping requests so that the source fds with overlap are mapped
 	 * first (unless there are cycles).
 	 */
-	warn("mapped fd overlap: moving %d to %d", p->parent_fd, fd);
+	warn("mapped fd overlap: moving %d to %d", *parent_fd, fd);
 	if (ret == -1) {
 		return -1;
 	}
 
-	p->parent_fd = fd;
+	*parent_fd = fd;
 	return 0;
 }
 
-static int redirect_fds(struct minijail *j)
+/*
+ * Populate child_fds_out with the set of file descriptors that will be replaced
+ * by redirect_fds().
+ *
+ * NOTE: This creates temporaries for parent file descriptors that would
+ * otherwise be overwritten during redirect_fds().
+ */
+static int get_child_fds(struct minijail *j, fd_set *child_fds_out)
 {
-	fd_set child_fds;
-	FD_ZERO(&child_fds);
-
 	/* Relocate parent_fds that would be replaced by a child_fd. */
 	for (size_t i = 0; i < j->preserved_fd_count; i++) {
 		int child_fd = j->preserved_fds[i].child_fd;
-		if (FD_ISSET(child_fd, &child_fds)) {
+		if (FD_ISSET(child_fd, child_fds_out)) {
 			die("fd %d is mapped more than once", child_fd);
 		}
 
-		if (ensure_no_fd_conflict(&child_fds,
-					  &j->preserved_fds[i]) == -1) {
+		int *parent_fd = &j->preserved_fds[i].parent_fd;
+		if (ensure_no_fd_conflict(child_fds_out, child_fd, parent_fd) ==
+		    -1) {
 			return -1;
 		}
 
-		FD_SET(child_fd, &child_fds);
-	}
-
-	for (size_t i = 0; i < j->preserved_fd_count; i++) {
-		if (j->preserved_fds[i].parent_fd ==
-		    j->preserved_fds[i].child_fd) {
-			continue;
-		}
-		if (dup2(j->preserved_fds[i].parent_fd,
-			 j->preserved_fds[i].child_fd) == -1) {
-			return -1;
-		}
-	}
-	/*
-	 * After all fds have been duped, we are now free to close all parent
-	 * fds that are *not* child fds.
-	 */
-	for (size_t i = 0; i < j->preserved_fd_count; i++) {
-		int parent_fd = j->preserved_fds[i].parent_fd;
-		if (!FD_ISSET(parent_fd, &child_fds)) {
-			close(parent_fd);
-		}
+		FD_SET(child_fd, child_fds_out);
 	}
 	return 0;
 }
@@ -2717,6 +2756,80 @@ struct minijail_run_state {
 	int child_sync_pipe_fds[2];
 	char **child_env;
 };
+
+/*
+ * Move pipe_fds if they conflict with a child_fd.
+ */
+static int avoid_pipe_conflicts(struct minijail_run_state *state,
+				fd_set *child_fds_out)
+{
+	int *pipe_fds[] = {
+	    state->pipe_fds,   state->child_sync_pipe_fds, state->stdin_fds,
+	    state->stdout_fds, state->stderr_fds,
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(pipe_fds); ++i) {
+		if (pipe_fds[i][0] != -1 &&
+		    ensure_no_fd_conflict(child_fds_out, -1, &pipe_fds[i][0]) ==
+			-1) {
+			return -1;
+		}
+		if (pipe_fds[i][1] != -1 &&
+		    ensure_no_fd_conflict(child_fds_out, -1, &pipe_fds[i][1]) ==
+			-1) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * Redirect j->preserved_fds from the parent_fd to the child_fd.
+ *
+ * NOTE: This will clear FD_CLOEXEC since otherwise the child_fd would not be
+ * inherited after the exec call.
+ */
+static int redirect_fds(struct minijail *j, fd_set *child_fds)
+{
+	for (size_t i = 0; i < j->preserved_fd_count; i++) {
+		if (j->preserved_fds[i].parent_fd ==
+		    j->preserved_fds[i].child_fd) {
+			// Clear CLOEXEC if it is set so the FD will be
+			// inherited by the child.
+			int flags =
+			    fcntl(j->preserved_fds[i].child_fd, F_GETFD);
+			if (flags == -1 || (flags & FD_CLOEXEC) == 0) {
+				continue;
+			}
+
+			// Currently FD_CLOEXEC is cleared without being
+			// restored. It may make sense to track when this
+			// happens and restore FD_CLOEXEC in the child process.
+			flags &= ~FD_CLOEXEC;
+			if (fcntl(j->preserved_fds[i].child_fd, F_SETFD,
+				  flags) == -1) {
+				pwarn("failed to clear CLOEXEC for %d",
+				      j->preserved_fds[i].parent_fd);
+			}
+			continue;
+		}
+		if (dup2(j->preserved_fds[i].parent_fd,
+			 j->preserved_fds[i].child_fd) == -1) {
+			return -1;
+		}
+	}
+
+	/*
+	 * After all fds have been duped, we are now free to close all parent
+	 * fds that are *not* child fds.
+	 */
+	for (size_t i = 0; i < j->preserved_fd_count; i++) {
+		int parent_fd = j->preserved_fds[i].parent_fd;
+		if (!FD_ISSET(parent_fd, child_fds)) {
+			close(parent_fd);
+		}
+	}
+	return 0;
+}
 
 static void minijail_free_run_state(struct minijail_run_state *state)
 {
@@ -2776,13 +2889,21 @@ static void setup_child_std_fds(struct minijail *j,
 		if (setsid() < 0) {
 			pdie("setsid() failed");
 		}
+
+		if (isatty(STDIN_FILENO)) {
+			if (ioctl(STDIN_FILENO, TIOCSCTTY, 0) != 0) {
+				pwarn("failed to set controlling terminal");
+			}
+		}
 	}
 }
 
 /*
  * Structure that specifies how to start a minijail.
  *
- * filename - The program to exec in the child. Required if |exec_in_child| = 1.
+ * filename - The program to exec in the child. Should be NULL if elf_fd is set.
+ * elf_fd - A fd to be used with fexecve. Should be -1 if filename is set.
+ *   NOTE: either filename or elf_fd is required if |exec_in_child| = 1.
  * argv - Arguments for the child program. Required if |exec_in_child| = 1.
  * envp - Environment for the child program. Available if |exec_in_child| = 1.
  * use_preload - If true use LD_PRELOAD.
@@ -2795,6 +2916,7 @@ static void setup_child_std_fds(struct minijail *j,
  */
 struct minijail_run_config {
 	const char *filename;
+	int elf_fd;
 	char *const *argv;
 	char *const *envp;
 	int use_preload;
@@ -2814,8 +2936,23 @@ int API minijail_run(struct minijail *j, const char *filename,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = NULL,
+	    .use_preload = true,
+	    .exec_in_child = true,
+	};
+	return minijail_run_config_internal(j, &config);
+}
+
+int API minijail_run_env(struct minijail *j, const char *filename,
+			 char *const argv[], char *const envp[])
+{
+	struct minijail_run_config config = {
+	    .filename = filename,
+	    .elf_fd = -1,
+	    .argv = argv,
+	    .envp = envp,
 	    .use_preload = true,
 	    .exec_in_child = true,
 	};
@@ -2827,6 +2964,7 @@ int API minijail_run_pid(struct minijail *j, const char *filename,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = NULL,
 	    .use_preload = true,
@@ -2841,6 +2979,7 @@ int API minijail_run_pipe(struct minijail *j, const char *filename,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = NULL,
 	    .use_preload = true,
@@ -2856,6 +2995,7 @@ int API minijail_run_pid_pipes(struct minijail *j, const char *filename,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = NULL,
 	    .use_preload = true,
@@ -2875,6 +3015,27 @@ int API minijail_run_env_pid_pipes(struct minijail *j, const char *filename,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
+	    .argv = argv,
+	    .envp = envp,
+	    .use_preload = true,
+	    .exec_in_child = true,
+	    .pstdin_fd = pstdin_fd,
+	    .pstdout_fd = pstdout_fd,
+	    .pstderr_fd = pstderr_fd,
+	    .pchild_pid = pchild_pid,
+	};
+	return minijail_run_config_internal(j, &config);
+}
+
+int API minijail_run_fd_env_pid_pipes(struct minijail *j, int elf_fd,
+				      char *const argv[], char *const envp[],
+				      pid_t *pchild_pid, int *pstdin_fd,
+				      int *pstdout_fd, int *pstderr_fd)
+{
+	struct minijail_run_config config = {
+	    .filename = NULL,
+	    .elf_fd = elf_fd,
 	    .argv = argv,
 	    .envp = envp,
 	    .use_preload = true,
@@ -2892,6 +3053,7 @@ int API minijail_run_no_preload(struct minijail *j, const char *filename,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = NULL,
 	    .use_preload = false,
@@ -2902,14 +3064,13 @@ int API minijail_run_no_preload(struct minijail *j, const char *filename,
 
 int API minijail_run_pid_pipes_no_preload(struct minijail *j,
 					  const char *filename,
-					  char *const argv[],
-					  pid_t *pchild_pid,
-					  int *pstdin_fd,
-					  int *pstdout_fd,
+					  char *const argv[], pid_t *pchild_pid,
+					  int *pstdin_fd, int *pstdout_fd,
 					  int *pstderr_fd)
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = NULL,
 	    .use_preload = false,
@@ -2931,6 +3092,7 @@ int API minijail_run_env_pid_pipes_no_preload(struct minijail *j,
 {
 	struct minijail_run_config config = {
 	    .filename = filename,
+	    .elf_fd = -1,
 	    .argv = argv,
 	    .envp = envp,
 	    .use_preload = false,
@@ -2945,7 +3107,9 @@ int API minijail_run_env_pid_pipes_no_preload(struct minijail *j,
 
 pid_t API minijail_fork(struct minijail *j)
 {
-	struct minijail_run_config config = {};
+	struct minijail_run_config config = {
+	    .elf_fd = -1,
+	};
 	return minijail_run_config_internal(j, &config);
 }
 
@@ -2964,6 +3128,25 @@ static int minijail_run_internal(struct minijail *j,
 	int do_init = j->flags.do_init && !j->flags.run_as_init;
 	int use_preload = config->use_preload;
 
+	if (config->filename != NULL && config->elf_fd != -1) {
+		die("filename and elf_fd cannot be set at the same time");
+	}
+
+	/*
+	 * Only copy the environment if we need to modify it. If this is done
+	 * unconditionally, it triggers odd behavior in the ARC container.
+	 */
+	if (use_preload || j->seccomp_policy_path) {
+		state_out->child_env =
+		    minijail_copy_env(config->envp ? config->envp : environ);
+		if (!state_out->child_env)
+			return ENOMEM;
+	}
+
+	if (j->seccomp_policy_path &&
+	    setup_seccomp_policy_path(j, &state_out->child_env))
+		return -EFAULT;
+
 	if (use_preload) {
 		if (j->hooks_head != NULL)
 			die("Minijail hooks are not supported with LD_PRELOAD");
@@ -2974,10 +3157,6 @@ static int minijail_run_internal(struct minijail *j,
 		 * Before we fork(2) and execve(2) the child process, we need
 		 * to open a pipe(2) to send the minijail configuration over.
 		 */
-		state_out->child_env =
-		    minijail_copy_env(config->envp ? config->envp : environ);
-		if (!state_out->child_env)
-			return ENOMEM;
 		if (setup_preload(j, &state_out->child_env) ||
 		    setup_pipe(&state_out->child_env, state_out->pipe_fds))
 			return -EFAULT;
@@ -3070,8 +3249,9 @@ static int minijail_run_internal(struct minijail *j,
 
 		if (child_pid < 0) {
 			if (errno == EPERM)
-				pdie("clone(CLONE_NEWPID | ...) failed with EPERM; "
-				     "is this process missing CAP_SYS_ADMIN?");
+				pdie("clone(CLONE_NEWPID | ...) failed with "
+				     "EPERM; is this process missing "
+				     "CAP_SYS_ADMIN?");
 			pdie("clone(CLONE_NEWPID | ...) failed");
 		}
 	} else {
@@ -3137,13 +3317,15 @@ static int minijail_run_internal(struct minijail *j,
 			/* Accept any pending SIGPIPE. */
 			while (true) {
 				const struct timespec zero_time = {0, 0};
-				const int sig = sigtimedwait(&to_block, NULL, &zero_time);
+				const int sig =
+				    sigtimedwait(&to_block, NULL, &zero_time);
 				if (sig < 0) {
 					if (errno != EINTR)
 						break;
 				} else {
 					if (sig != SIGPIPE)
-						die("unexpected signal %d", sig);
+						die("unexpected signal %d",
+						    sig);
 				}
 			}
 
@@ -3186,7 +3368,7 @@ static int minijail_run_internal(struct minijail *j,
 	}
 
 	if (j->flags.close_open_fds) {
-		const size_t kMaxInheritableFdsSize = 10 + MAX_PRESERVED_FDS;
+		const size_t kMaxInheritableFdsSize = 11 + MAX_PRESERVED_FDS;
 		int inheritable_fds[kMaxInheritableFdsSize];
 		size_t size = 0;
 
@@ -3223,11 +3405,29 @@ static int minijail_run_internal(struct minijail *j,
 			inheritable_fds[size++] = j->preserved_fds[i].parent_fd;
 		}
 
+		if (config->elf_fd > -1) {
+			inheritable_fds[size++] = config->elf_fd;
+		}
+
 		if (close_open_fds(inheritable_fds, size) < 0)
 			die("failed to close open file descriptors");
 	}
 
-	if (redirect_fds(j))
+	/* The set of fds will be replaced. */
+	fd_set child_fds;
+	FD_ZERO(&child_fds);
+	if (get_child_fds(j, &child_fds))
+		die("failed to set up fd redirections");
+
+	if (avoid_pipe_conflicts(state_out, &child_fds))
+		die("failed to redirect conflicting pipes");
+
+	/* The elf_fd needs to be mutable so use a stack copy from now on. */
+	int elf_fd = config->elf_fd;
+	if (elf_fd != -1 && ensure_no_fd_conflict(&child_fds, -1, &elf_fd))
+		die("failed to redirect elf_fd");
+
+	if (redirect_fds(j, &child_fds))
 		die("failed to set up fd redirections");
 
 	if (sync_child)
@@ -3282,7 +3482,7 @@ static int minijail_run_internal(struct minijail *j,
 			 * Best effort. Don't bother checking the return value.
 			 */
 			prctl(PR_SET_NAME, "minijail-init");
-			init(child_pid);	/* Never returns. */
+			init(child_pid); /* Never returns. */
 		}
 		state_out->child_pid = child_pid;
 	}
@@ -3317,10 +3517,16 @@ static int minijail_run_internal(struct minijail *j,
 	 */
 	if (!child_env)
 		child_env = config->envp ? config->envp : environ;
-	execve(config->filename, config->argv, child_env);
+	if (elf_fd > -1) {
+		fexecve(elf_fd, config->argv, child_env);
+		pwarn("fexecve(%d) failed", config->elf_fd);
+	} else {
+		execve(config->filename, config->argv, child_env);
+		pwarn("execve(%s) failed", config->filename);
+	}
 
-	ret = (errno == ENOENT ? MINIJAIL_ERR_NO_COMMAND : MINIJAIL_ERR_NO_ACCESS);
-	pwarn("execve(%s) failed", config->filename);
+	ret = (errno == ENOENT ? MINIJAIL_ERR_NO_COMMAND
+			       : MINIJAIL_ERR_NO_ACCESS);
 	_exit(ret);
 }
 
@@ -3385,32 +3591,38 @@ static int minijail_wait_internal(struct minijail *j, int expected_signal)
 
 	if (!WIFEXITED(st)) {
 		int error_status = st;
-		if (WIFSIGNALED(st)) {
-			int signum = WTERMSIG(st);
+		if (!WIFSIGNALED(st)) {
+			return error_status;
+		}
+
+		int signum = WTERMSIG(st);
+		/*
+		 * We return MINIJAIL_ERR_JAIL if the process received
+		 * SIGSYS, which happens when a syscall is blocked by
+		 * seccomp filters.
+		 * If not, we do what bash(1) does:
+		 * $? = 128 + signum
+		 */
+		if (signum == SIGSYS) {
+			warn("child process %d had a policy violation (%s)",
+			     j->initpid,
+			     j->seccomp_policy_path ? j->seccomp_policy_path
+						    : "NO-LABEL");
+			error_status = MINIJAIL_ERR_JAIL;
+		} else {
 			if (signum != expected_signal) {
 				warn("child process %d received signal %d",
 				     j->initpid, signum);
 			}
-			/*
-			 * We return MINIJAIL_ERR_JAIL if the process received
-			 * SIGSYS, which happens when a syscall is blocked by
-			 * seccomp filters.
-			 * If not, we do what bash(1) does:
-			 * $? = 128 + signum
-			 */
-			if (signum == SIGSYS) {
-				error_status = MINIJAIL_ERR_JAIL;
-			} else {
-				error_status = MINIJAIL_ERR_SIG_BASE + signum;
-			}
+			error_status = MINIJAIL_ERR_SIG_BASE + signum;
 		}
 		return error_status;
 	}
 
 	int exit_status = WEXITSTATUS(st);
 	if (exit_status != 0)
-		info("child process %d exited with status %d",
-		     j->initpid, exit_status);
+		info("child process %d exited with status %d", j->initpid,
+		     exit_status);
 
 	return exit_status;
 }
@@ -3467,6 +3679,8 @@ void API minijail_destroy(struct minijail *j)
 		free(j->alt_syscall_table);
 	for (i = 0; i < j->cgroup_count; ++i)
 		free(j->cgroups[i]);
+	if (j->seccomp_policy_path)
+		free(j->seccomp_policy_path);
 	free(j);
 }
 

@@ -59,8 +59,8 @@ static void verify_setrlimit(void)
 	pid = SAFE_FORK();
 	if (!pid) {
 		struct rlimit rlim = {
-			.rlim_cur = 2,
-			.rlim_max = 3,
+			.rlim_cur = 1,
+			.rlim_max = 2,
 		};
 
 		TEST(setrlimit(RLIMIT_CPU, &rlim));
@@ -70,7 +70,7 @@ static void verify_setrlimit(void)
 			exit(1);
 		}
 
-		alarm(10);
+		alarm(20);
 
 		while (1);
 	}
@@ -106,7 +106,7 @@ static void verify_setrlimit(void)
 		}
 	}
 
-	tst_res(TBROK, "Child %s", tst_strstatus(status));
+	tst_res(TFAIL, "Child %s", tst_strstatus(status));
 }
 
 static struct tst_test test = {

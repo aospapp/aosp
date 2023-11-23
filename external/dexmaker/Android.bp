@@ -127,6 +127,7 @@ cc_library_shared {
         "dexmaker_agent_defaults",
     ],
     srcs: ["dexmaker-mockito-inline/src/main/jni/**/*.cc"],
+    min_sdk_version: "29",
 }
 
 // Build agent for Dexmaker's extended MockMaker
@@ -136,6 +137,7 @@ cc_library_shared {
         "dexmaker_agent_defaults",
     ],
     srcs: ["dexmaker-mockito-inline-extended/src/main/jni/**/*.cc"],
+    min_sdk_version: "29",
 }
 
 // Build agent for Dexmaker's inline tests

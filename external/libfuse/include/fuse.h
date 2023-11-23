@@ -48,9 +48,12 @@ enum fuse_readdir_flags {
 	 * FUSE_FILL_DIR_FLAGS for the filler function.  The filesystem may also
 	 * just ignore this flag completely.
 	 */
-	FUSE_READDIR_PLUS = (1 << 0),
+	FUSE_READDIR_PLUS = (1 << 0)
 };
 
+/**
+ * Readdir flags, passed to fuse_fill_dir_t callback.
+ */
 enum fuse_fill_dir_flags {
 	/**
 	 * "Plus" mode: all file attributes are valid
@@ -61,7 +64,7 @@ enum fuse_fill_dir_flags {
 	 * It is okay to set FUSE_FILL_DIR_PLUS if FUSE_READDIR_PLUS is not set
 	 * and vice versa.
 	 */
-	FUSE_FILL_DIR_PLUS = (1 << 1),
+	FUSE_FILL_DIR_PLUS = (1 << 1)
 };
 
 /** Function to add an entry in a readdir() operation
@@ -74,7 +77,7 @@ enum fuse_fill_dir_flags {
  * 
  * @param buf the buffer passed to the readdir() operation
  * @param name the file name of the directory entry
- * @param stat file attributes, can be NULL
+ * @param stbuf file attributes, can be NULL
  * @param off offset of the next entry or zero
  * @param flags fill flags
  * @return 1 if buffer is full, zero otherwise
@@ -121,7 +124,7 @@ struct fuse_config {
 	/**
 	 * The timeout in seconds for which a negative lookup will be
 	 * cached. This means, that if file did not exist (lookup
-	 * retuned ENOENT), the lookup will only be redone after the
+	 * returned ENOENT), the lookup will only be redone after the
 	 * timeout, and the file/directory will be assumed to not
 	 * exist until then. A value of zero means that negative
 	 * lookups are not cached.
@@ -255,8 +258,8 @@ struct fuse_config {
 	/**
 	 * If this option is given the file-system handlers for the
 	 * following operations will not receive path information:
-	 * read, write, flush, release, fsync, readdir, releasedir,
-	 * fsyncdir, lock, ioctl and poll.
+	 * read, write, flush, release, fallocate, fsync, readdir,
+	 * releasedir, fsyncdir, lock, ioctl and poll.
 	 *
 	 * For the truncate, getattr, chmod, chown and utimens
 	 * operations the path will be provided only if the struct
@@ -361,14 +364,14 @@ struct fuse_operations {
 
 	/** Change the permission bits of a file
 	 *
-	 * `fi` will always be NULL if the file is not currenlty open, but
+	 * `fi` will always be NULL if the file is not currently open, but
 	 * may also be NULL if the file is open.
 	 */
 	int (*chmod) (const char *, mode_t, struct fuse_file_info *fi);
 
 	/** Change the owner and group of a file
 	 *
-	 * `fi` will always be NULL if the file is not currenlty open, but
+	 * `fi` will always be NULL if the file is not currently open, but
 	 * may also be NULL if the file is open.
 	 *
 	 * Unless FUSE_CAP_HANDLE_KILLPRIV is disabled, this method is
@@ -378,7 +381,7 @@ struct fuse_operations {
 
 	/** Change the size of a file
 	 *
-	 * `fi` will always be NULL if the file is not currenlty open, but
+	 * `fi` will always be NULL if the file is not currently open, but
 	 * may also be NULL if the file is open.
 	 *
 	 * Unless FUSE_CAP_HANDLE_KILLPRIV is disabled, this method is
@@ -407,8 +410,8 @@ struct fuse_operations {
 	 *  - When writeback caching is disabled, the filesystem is
 	 *    expected to properly handle the O_APPEND flag and ensure
 	 *    that each write is appending to the end of the file.
-	 * 
-         *  - When writeback caching is enabled, the kernel will
+	 *
+	 *  - When writeback caching is enabled, the kernel will
 	 *    handle O_APPEND. However, unless all changes to the file
 	 *    come through the kernel this will not work reliably. The
 	 *    filesystem should thus either ignore the O_APPEND flag
@@ -648,7 +651,7 @@ struct fuse_operations {
 	 * This supersedes the old utime() interface.  New applications
 	 * should use this.
 	 *
-	 * `fi` will always be NULL if the file is not currenlty open, but
+	 * `fi` will always be NULL if the file is not currently open, but
 	 * may also be NULL if the file is open.
 	 *
 	 * See the utimensat(2) man page for details.
@@ -664,6 +667,10 @@ struct fuse_operations {
 	 */
 	int (*bmap) (const char *, size_t blocksize, uint64_t *idx);
 
+#if FUSE_USE_VERSION < 35
+	int (*ioctl) (const char *, int cmd, void *arg,
+		      struct fuse_file_info *, unsigned int flags, void *data);
+#else
 	/**
 	 * Ioctl
 	 *
@@ -682,6 +689,7 @@ struct fuse_operations {
 	 */
 	int (*ioctl) (const char *, unsigned int cmd, void *arg,
 		      struct fuse_file_info *, unsigned int flags, void *data);
+#endif
 
 	/**
 	 * Poll for IO readiness events
@@ -767,9 +775,10 @@ struct fuse_operations {
 	 * additional cost of transferring data through the FUSE kernel module
 	 * to user space (glibc) and then back into the FUSE filesystem again.
 	 *
-	 * In case this method is not implemented, glibc falls back to reading
-	 * data from the source and writing to the destination. Effectively
-	 * doing an inefficient copy of the data.
+	 * In case this method is not implemented, applications are expected to
+	 * fall back to a regular file copy.   (Some glibc versions did this
+	 * emulation automatically, but the emulation has been removed from all
+	 * glibc release branches.)
 	 */
 	ssize_t (*copy_file_range) (const char *path_in,
 				    struct fuse_file_info *fi_in,
@@ -850,7 +859,7 @@ struct fuse_context {
  *   4: Mounting failed
  *   5: Failed to daemonize (detach from session)
  *   6: Failed to set up signal handlers
- *   7: An error occured during the life of the file system
+ *   7: An error occurred during the life of the file system
  *
  * @param argc the argument counter passed to the main() function
  * @param argv the argument vector passed to the main() function
@@ -978,6 +987,10 @@ int fuse_loop(struct fuse *f);
  */
 void fuse_exit(struct fuse *f);
 
+#if FUSE_USE_VERSION < 32
+int fuse_loop_mt_31(struct fuse *f, int clone_fd);
+#define fuse_loop_mt(f, clone_fd) fuse_loop_mt_31(f, clone_fd)
+#else
 /**
  * FUSE event loop with multiple threads
  *
@@ -1009,10 +1022,6 @@ void fuse_exit(struct fuse *f);
  *
  * See also: fuse_loop()
  */
-#if FUSE_USE_VERSION < 32
-int fuse_loop_mt_31(struct fuse *f, int clone_fd);
-#define fuse_loop_mt(f, clone_fd) fuse_loop_mt_31(f, clone_fd)
-#else
 int fuse_loop_mt(struct fuse *f, struct fuse_loop_config *config);
 #endif
 
@@ -1189,9 +1198,15 @@ int fuse_fs_removexattr(struct fuse_fs *fs, const char *path,
 			const char *name);
 int fuse_fs_bmap(struct fuse_fs *fs, const char *path, size_t blocksize,
 		 uint64_t *idx);
+#if FUSE_USE_VERSION < 35
+int fuse_fs_ioctl(struct fuse_fs *fs, const char *path, int cmd,
+		  void *arg, struct fuse_file_info *fi, unsigned int flags,
+		  void *data);
+#else
 int fuse_fs_ioctl(struct fuse_fs *fs, const char *path, unsigned int cmd,
 		  void *arg, struct fuse_file_info *fi, unsigned int flags,
 		  void *data);
+#endif
 int fuse_fs_poll(struct fuse_fs *fs, const char *path,
 		 struct fuse_file_info *fi, struct fuse_pollhandle *ph,
 		 unsigned *reventsp);

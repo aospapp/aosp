@@ -24,6 +24,7 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -60,8 +61,8 @@ import com.google.android.setupcompat.partnerconfig.ResourceEntry;
 import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.util.BuildCompatUtils;
 import com.google.android.setupdesign.lottieloadinglayout.R;
-import com.google.android.setupdesign.view.IllustrationVideoView;
 import com.google.android.setupdesign.util.LayoutStyler;
+import com.google.android.setupdesign.view.IllustrationVideoView;
 import java.io.InputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -391,9 +392,11 @@ public class GlifLoadingLayout extends GlifLayout {
 
   private void updateHeaderHeight() {
     View headerView = findManagedViewById(R.id.sud_header_scroll_view);
+    Configuration currentConfig = getResources().getConfiguration();
     if (headerView != null
         && PartnerConfigHelper.get(getContext())
-            .isPartnerConfigAvailable(PartnerConfig.CONFIG_LOADING_LAYOUT_HEADER_HEIGHT)) {
+            .isPartnerConfigAvailable(PartnerConfig.CONFIG_LOADING_LAYOUT_HEADER_HEIGHT)
+        && currentConfig.orientation != Configuration.ORIENTATION_LANDSCAPE) {
       float configHeaderHeight =
           PartnerConfigHelper.get(getContext())
               .getDimension(getContext(), PartnerConfig.CONFIG_LOADING_LAYOUT_HEADER_HEIGHT);
@@ -853,10 +856,17 @@ public class GlifLoadingLayout extends GlifLayout {
       this.runnable = runnable;
       this.lottieAnimationView = glifLoadingLayout.findLottieAnimationView();
 
+      boolean shouldAnimationBeFinished =
+          PartnerConfigHelper.get(glifLoadingLayout.getContext())
+              .getBoolean(
+                  glifLoadingLayout.getContext(),
+                  PartnerConfig.CONFIG_LOADING_LAYOUT_WAIT_FOR_ANIMATION_FINISHED,
+                  true);
       // TODO: add test case for verify the case which isAnimating returns true.
       if (glifLoadingLayout.isLottieLayoutVisible()
           && lottieAnimationView.isAnimating()
-          && !isZeroAnimatorDurationScale()) {
+          && !isZeroAnimatorDurationScale()
+          && shouldAnimationBeFinished) {
         Log.i(TAG, "Register animation finish.");
         lottieAnimationView.addAnimatorListener(animatorListener);
         lottieAnimationView.setRepeatCount(0);

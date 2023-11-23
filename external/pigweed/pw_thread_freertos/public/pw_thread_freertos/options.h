@@ -48,22 +48,31 @@ class Options : public thread::Options {
 
   // Sets the name for the FreeRTOS task, note that this will be truncated
   // based on configMAX_TASK_NAME_LEN.
-  constexpr Options set_name(const char* name) {
+  // This is deep copied by FreeRTOS into the task's task control block (TCB).
+  constexpr Options& set_name(const char* name) {
     name_ = name;
     return *this;
   }
 
-  // Sets the priority for the FreeRTOS task, see FreeRTOS xTaskCreate for more
-  // detail.
-  constexpr Options set_priority(UBaseType_t priority) {
+  // Sets the priority for the FreeRTOS task. This must be a value between
+  // 0 to PW_THREAD_FREERTOS_CONFIG_MAXIMUM_PRIORITY. Higher priority
+  // values have a higher priority.
+  //
+  // Note that the idle task priority, tskIDLE_PRIORITY, is fixed to 0.
+  // See the FreeRTOS documentation on the idle task for more details.
+  //
+  // Precondition: This must be <= PW_THREAD_FREERTOS_CONFIG_MAXIMUM_PRIORITY.
+  constexpr Options& set_priority(UBaseType_t priority) {
+    PW_DASSERT(priority <= config::kMaximumPriority);
     priority_ = priority;
     return *this;
   }
 
 #if PW_THREAD_FREERTOS_CONFIG_DYNAMIC_ALLOCATION_ENABLED
-  // Set the stack size for dynamic thread allocations, see FreeRTOS xTaskCreate
-  // for more detail.
-  constexpr Options set_stack_size(size_t size_words) {
+  // Set the stack size of dynamic thread allocations.
+  //
+  // Precondition: size_words must be >= configMINIMAL_STACK_SIZE
+  constexpr Options& set_stack_size(size_t size_words) {
     PW_DASSERT(size_words >= config::kMinimumStackSizeWords);
     stack_size_words_ = size_words;
     return *this;
@@ -72,7 +81,7 @@ class Options : public thread::Options {
 
   // Set the pre-allocated context (all memory needed to run a thread), see the
   // pw::thread::freertos::StaticContext for more detail.
-  constexpr Options set_static_context(StaticContext& context) {
+  constexpr Options& set_static_context(StaticContext& context) {
     context_ = &context;
     return *this;
   }

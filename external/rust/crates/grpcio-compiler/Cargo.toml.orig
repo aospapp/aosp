@@ -1,6 +1,6 @@
 [package]
 name = "grpcio-compiler"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2018"
 authors = ["The TiKV Project Developers"]
 license = "Apache-2.0"
@@ -27,3 +27,7 @@ tempfile = { version = "3.0", optional = true }
 [[bin]]
 name = "grpc_rust_plugin"
 required-features = ["protobuf-codec"]
+
+[[bin]]
+name = "grpc_rust_prost"
+required-features = ["prost-codec"]

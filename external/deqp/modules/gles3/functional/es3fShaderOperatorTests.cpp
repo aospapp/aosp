@@ -156,44 +156,44 @@ inline Vector<T, Size> smoothStepScalarScalarVec (T s0, T s1, const Vector<T, Si
 	return res;
 }
 
-inline float	addOne (float v)	{ return v + 1.0f; };
-inline float	subOne (float v)	{ return v - 1.0f; };
-inline int		addOne (int v)		{ return v + 1; };
-inline int		subOne (int v)		{ return v - 1; };
-inline deUint32	addOne (deUint32 v)	{ return v + 1; };
-inline deUint32	subOne (deUint32 v)	{ return v - 1; };
+inline float	addOne (float v)	{ return v + 1.0f; }
+inline float	subOne (float v)	{ return v - 1.0f; }
+inline int		addOne (int v)		{ return v + 1; }
+inline int		subOne (int v)		{ return v - 1; }
+inline deUint32	addOne (deUint32 v)	{ return v + 1; }
+inline deUint32	subOne (deUint32 v)	{ return v - 1; }
 
-template<int Size> inline Vector<float, Size>		addOne (const Vector<float, Size>& v)		{ return v + 1.0f; };
-template<int Size> inline Vector<float, Size>		subOne (const Vector<float, Size>& v)		{ return v - 1.0f; };
-template<int Size> inline Vector<int, Size>			addOne (const Vector<int, Size>& v)			{ return v + 1; };
-template<int Size> inline Vector<int, Size>			subOne (const Vector<int, Size>& v)			{ return v - 1; };
-template<int Size> inline Vector<deUint32, Size>	addOne (const Vector<deUint32, Size>& v)	{ return v + 1U; };
-template<int Size> inline Vector<deUint32, Size>	subOne (const Vector<deUint32, Size>& v)	{ return (v.asInt() - 1).asUint(); };
+template<int Size> inline Vector<float, Size>		addOne (const Vector<float, Size>& v)		{ return v + 1.0f; }
+template<int Size> inline Vector<float, Size>		subOne (const Vector<float, Size>& v)		{ return v - 1.0f; }
+template<int Size> inline Vector<int, Size>			addOne (const Vector<int, Size>& v)			{ return v + 1; }
+template<int Size> inline Vector<int, Size>			subOne (const Vector<int, Size>& v)			{ return v - 1; }
+template<int Size> inline Vector<deUint32, Size>	addOne (const Vector<deUint32, Size>& v)	{ return v + 1U; }
+template<int Size> inline Vector<deUint32, Size>	subOne (const Vector<deUint32, Size>& v)	{ return (v.asInt() - 1).asUint(); }
 
-template<typename T> inline T selection	(bool cond, T a, T b)	{ return cond ? a : b; };
+template<typename T> inline T selection	(bool cond, T a, T b)	{ return cond ? a : b; }
 
 // Vec-scalar and scalar-vec binary operators.
 
 // \note This one is done separately due to how the overloaded minus operator is implemented for vector-scalar operands.
-template<int Size>				inline Vector<deUint32, Size>	subVecScalar			(const Vector<deUint32, Size>& v, deUint32 s)	{ return (v.asInt() - (int)s).asUint(); };
+template<int Size>				inline Vector<deUint32, Size>	subVecScalar			(const Vector<deUint32, Size>& v, deUint32 s)	{ return (v.asInt() - (int)s).asUint(); }
 
-template<typename T, int Size>	inline Vector<T, Size>			addVecScalar			(const Vector<T, Size>& v, T s)					{ return v + s; };
-template<typename T, int Size>	inline Vector<T, Size>			subVecScalar			(const Vector<T, Size>& v, T s)					{ return v - s; };
-template<typename T, int Size>	inline Vector<T, Size>			mulVecScalar			(const Vector<T, Size>& v, T s)					{ return v * s; };
-template<typename T, int Size>	inline Vector<T, Size>			divVecScalar			(const Vector<T, Size>& v, T s)					{ return v / s; };
-template<typename T, int Size>	inline Vector<T, Size>			modVecScalar			(const Vector<T, Size>& v, T s)					{ return mod(v, Vector<T, Size>(s)); };
-template<typename T, int Size>	inline Vector<T, Size>			bitwiseAndVecScalar		(const Vector<T, Size>& v, T s)					{ return bitwiseAnd(v, Vector<T, Size>(s)); };
-template<typename T, int Size>	inline Vector<T, Size>			bitwiseOrVecScalar		(const Vector<T, Size>& v, T s)					{ return bitwiseOr(v, Vector<T, Size>(s)); };
-template<typename T, int Size>	inline Vector<T, Size>			bitwiseXorVecScalar		(const Vector<T, Size>& v, T s)					{ return bitwiseXor(v, Vector<T, Size>(s)); };
+template<typename T, int Size>	inline Vector<T, Size>			addVecScalar			(const Vector<T, Size>& v, T s)					{ return v + s; }
+template<typename T, int Size>	inline Vector<T, Size>			subVecScalar			(const Vector<T, Size>& v, T s)					{ return v - s; }
+template<typename T, int Size>	inline Vector<T, Size>			mulVecScalar			(const Vector<T, Size>& v, T s)					{ return v * s; }
+template<typename T, int Size>	inline Vector<T, Size>			divVecScalar			(const Vector<T, Size>& v, T s)					{ return v / s; }
+template<typename T, int Size>	inline Vector<T, Size>			modVecScalar			(const Vector<T, Size>& v, T s)					{ return mod(v, Vector<T, Size>(s)); }
+template<typename T, int Size>	inline Vector<T, Size>			bitwiseAndVecScalar		(const Vector<T, Size>& v, T s)					{ return bitwiseAnd(v, Vector<T, Size>(s)); }
+template<typename T, int Size>	inline Vector<T, Size>			bitwiseOrVecScalar		(const Vector<T, Size>& v, T s)					{ return bitwiseOr(v, Vector<T, Size>(s)); }
+template<typename T, int Size>	inline Vector<T, Size>			bitwiseXorVecScalar		(const Vector<T, Size>& v, T s)					{ return bitwiseXor(v, Vector<T, Size>(s)); }
 
-template<typename T, int Size> inline Vector<T, Size>			addScalarVec			(T s, const Vector<T, Size>& v)					{ return s + v; };
-template<typename T, int Size> inline Vector<T, Size>			subScalarVec			(T s, const Vector<T, Size>& v)					{ return s - v; };
-template<typename T, int Size> inline Vector<T, Size>			mulScalarVec			(T s, const Vector<T, Size>& v)					{ return s * v; };
-template<typename T, int Size> inline Vector<T, Size>			divScalarVec			(T s, const Vector<T, Size>& v)					{ return s / v; };
-template<typename T, int Size> inline Vector<T, Size>			modScalarVec			(T s, const Vector<T, Size>& v)					{ return mod(Vector<T, Size>(s), v); };
-template<typename T, int Size> inline Vector<T, Size>			bitwiseAndScalarVec		(T s, const Vector<T, Size>& v)					{ return bitwiseAnd(Vector<T, Size>(s), v); };
-template<typename T, int Size> inline Vector<T, Size>			bitwiseOrScalarVec		(T s, const Vector<T, Size>& v)					{ return bitwiseOr(Vector<T, Size>(s), v); };
-template<typename T, int Size> inline Vector<T, Size>			bitwiseXorScalarVec		(T s, const Vector<T, Size>& v)					{ return bitwiseXor(Vector<T, Size>(s), v); };
+template<typename T, int Size> inline Vector<T, Size>			addScalarVec			(T s, const Vector<T, Size>& v)					{ return s + v; }
+template<typename T, int Size> inline Vector<T, Size>			subScalarVec			(T s, const Vector<T, Size>& v)					{ return s - v; }
+template<typename T, int Size> inline Vector<T, Size>			mulScalarVec			(T s, const Vector<T, Size>& v)					{ return s * v; }
+template<typename T, int Size> inline Vector<T, Size>			divScalarVec			(T s, const Vector<T, Size>& v)					{ return s / v; }
+template<typename T, int Size> inline Vector<T, Size>			modScalarVec			(T s, const Vector<T, Size>& v)					{ return mod(Vector<T, Size>(s), v); }
+template<typename T, int Size> inline Vector<T, Size>			bitwiseAndScalarVec		(T s, const Vector<T, Size>& v)					{ return bitwiseAnd(Vector<T, Size>(s), v); }
+template<typename T, int Size> inline Vector<T, Size>			bitwiseOrScalarVec		(T s, const Vector<T, Size>& v)					{ return bitwiseOr(Vector<T, Size>(s), v); }
+template<typename T, int Size> inline Vector<T, Size>			bitwiseXorScalarVec		(T s, const Vector<T, Size>& v)					{ return bitwiseXor(Vector<T, Size>(s), v); }
 
 // Reference functions for specific sequence operations for the sequence operator tests.
 
@@ -230,6 +230,16 @@ static string stringJoin (const vector<string>& elems, const string& delim)
 	for (int i = 0; i < (int)elems.size(); i++)
 		result += (i > 0 ? delim : "") + elems[i];
 	return result;
+}
+
+static void stringReplace (string& str, const string& from, const string& to)
+{
+    size_t	start_pos	= 0;
+    while ((start_pos = str.find(from, start_pos)) != std::string::npos)
+	{
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
 }
 
 static string twoValuedVec4 (const string& first, const string& second, const BVec4& firstMask)
@@ -318,7 +328,7 @@ static inline bool isBoolType (ValueType type)
 	return (type & (VALUE_BOOL | VALUE_BOOL_VEC | VALUE_BOOL_GENTYPE)) != 0;
 }
 
-static inline float getGLSLUintMaxAsFloat (const glw::Functions& gl, ShaderType shaderType, Precision uintPrecision)
+static inline int getGLSLUintBits (const glw::Functions& gl, ShaderType shaderType, Precision uintPrecision)
 {
 	deUint32 intPrecisionGL;
 	deUint32 shaderTypeGL;
@@ -350,8 +360,18 @@ static inline float getGLSLUintMaxAsFloat (const glw::Functions& gl, ShaderType 
 
 	TCU_CHECK(de::inBounds(range[0], 8, 32));
 
-	const int numBitsInType = range[0] + 1;
-	return (float)((1ull << numBitsInType) - 1);
+	const int	numBitsInType			= range[0] + 1;
+	return numBitsInType;
+}
+
+static inline float getGLSLUintMaxAsFloat (const glw::Functions& gl, ShaderType shaderType, Precision uintPrecision)
+{
+	const int	numBitsInType			= getGLSLUintBits(gl, shaderType, uintPrecision);
+	const float	maxAsFloat				= static_cast<float>((1ull << numBitsInType) - 1);
+	const float	maxRepresentableAsFloat = floorf(nextafterf(maxAsFloat, 0));
+
+	// Not accurate for integers wider than 24 bits.
+	return numBitsInType > 24 ? maxRepresentableAsFloat : maxAsFloat;
 }
 
 // Float scalar that can be either constant or a symbol that can be evaluated later.
@@ -397,6 +417,36 @@ public:
 					return 0.0f;
 			}
 		}
+	}
+
+	deUint32 getValueMask (const glw::Functions& gl, ShaderType shaderType) const
+	{
+		if (m_isConstant)
+			return 0;
+
+		int bits = 0;
+		switch (m_value.symbol)
+		{
+			case SYMBOL_LOWP_UINT_MAX_RECIPROCAL:
+			case SYMBOL_LOWP_UINT_MAX:
+				bits = getGLSLUintBits(gl, shaderType, PRECISION_LOWP);
+				break;
+
+			case SYMBOL_MEDIUMP_UINT_MAX_RECIPROCAL:
+			case SYMBOL_MEDIUMP_UINT_MAX:
+				bits = getGLSLUintBits(gl, shaderType, PRECISION_MEDIUMP);
+				break;
+
+			case SYMBOL_ONE_MINUS_UINT32MAX_DIV_LOWP_UINT_MAX:
+			case SYMBOL_ONE_MINUS_UINT32MAX_DIV_MEDIUMP_UINT_MAX:
+				return 0;
+
+			default:
+				DE_ASSERT(false);
+				return 0;
+		}
+
+		return bits == 32 ? 0 : (1u << bits) - 1;
 	}
 
 private:
@@ -745,22 +795,45 @@ void ShaderOperatorCase::setupShaderData (void)
 	frag << "void main()\n";
 	frag << "{\n";
 
+	bool	isResFloatVec	= de::inRange<int>(m_spec.output, TYPE_FLOAT, TYPE_FLOAT_VEC4);
+	bool	isResBoolVec	= de::inRange<int>(m_spec.output, TYPE_BOOL, TYPE_BOOL_VEC4);
+	bool	hasReference	= !isResFloatVec && !isResBoolVec && (m_spec.precision == PRECISION_LOWP || m_spec.precision == PRECISION_MEDIUMP);
+	string	refShaderOp		= m_shaderOp;
+
 	// Expression inputs.
 	string prefix = m_isVertexCase ? "a_" : "v_";
 	for (int i = 0; i < m_spec.numInputs; i++)
 	{
-		DataType		inType		= m_spec.inputs[i].type;
-		int				inSize		= getDataTypeScalarSize(inType);
-		bool			isInt		= de::inRange<int>(inType, TYPE_INT, TYPE_INT_VEC4);
-		bool			isUint		= de::inRange<int>(inType, TYPE_UINT, TYPE_UINT_VEC4);
-		bool			isBool		= de::inRange<int>(inType, TYPE_BOOL, TYPE_BOOL_VEC4);
-		const char*		typeName	= getDataTypeName(inType);
-		const char*		swizzle		= s_inSwizzles[i][inSize-1];
+		DataType		inType			= m_spec.inputs[i].type;
+		int				inSize			= getDataTypeScalarSize(inType);
+		bool			isBool			= de::inRange<int>(inType, TYPE_BOOL, TYPE_BOOL_VEC4);
+		bool			isInt			= de::inRange<int>(inType, TYPE_INT, TYPE_INT_VEC4);
+		bool			isUint			= de::inRange<int>(inType, TYPE_UINT, TYPE_UINT_VEC4);
+		const char*		typeName		= getDataTypeName(inType);
+		const char*		swizzle			= s_inSwizzles[i][inSize-1];
+		bool			hasReferenceIn	= hasReference && !isBool;
 
+		// For int/uint types, generate:
+		//
+		//     highp type highp_inN = ...;
+		//     precision type inN = highp_inN;
+		//
+		// inN_high will be used later for reference checking.
+		//
+		// For other types, generate:
+		//
+		//     precision type inN = ...;
+		//
 		op << "\t";
-		if (precision && !isBool) op << precision << " ";
+		if (precision && !isBool)
+		{
+			if (hasReferenceIn)	op << "highp ";
+			else				op << precision << " ";
+		}
 
-		op << typeName << " in" << i << " = ";
+		op << typeName << " ";
+		if (hasReferenceIn)	op << "highp_";
+		op << "in" << i << " = ";
 
 		if (isBool)
 		{
@@ -781,6 +854,14 @@ void ShaderOperatorCase::setupShaderData (void)
 			op << ")";
 
 		op << ";\n";
+
+		if (hasReferenceIn)
+		{
+			op << "\t" << precision << " " << typeName << " in" << i << " = highp_in" << i << ";\n";
+
+			string inputName = "in" + string(1, static_cast<char>('0' + i));
+			stringReplace(refShaderOp, inputName, "highp_" + inputName);
+		}
 	}
 
 	// Result variable.
@@ -790,27 +871,112 @@ void ShaderOperatorCase::setupShaderData (void)
 
 		op << "\t";
 		if (precision && !isBoolOut) op << precision << " ";
-		op << outTypeName << " res = " << outTypeName << "(0.0);\n\n";
+		op << outTypeName << " res = " << outTypeName << "(0.0);\n";
+
+		if (hasReference)
+		{
+			op << "\thighp " << outTypeName << " ref = " << outTypeName << "(0.0);\n";
+		}
+
+		op << "\n";
 	}
 
 	// Expression.
-	op << "\t" << m_shaderOp << "\n\n";
+	op << "\t" << m_shaderOp << "\n";
+	if (hasReference)
+	{
+		stringReplace(refShaderOp, "res", "ref");
+		op << "\t" << refShaderOp << "\n";
+	}
+	op << "\n";
+
+	// Implementations may use more bits than advertised.  Assume an implementation advertising 16
+	// bits for mediump, but actually using 24 bits for a particular operation.  We have:
+	//
+	//     highp ref = expr;
+	//     mediump res = expr;
+	//
+	// We expect res&0xFFFF to be correct, because that ensures that _at least_ 16 bits were
+	// provided.  However, we also need to make sure that if there is anything in the upper 16 bits
+	// of res, that those bits match with ref.  In short, we expect to see the following bits
+	// (assume the advertised number of bits is N, and the actual calculation is done in M bits):
+	//
+	//     ref = a31 ... aM aM-1 ... aN aN-1 ... a0
+	//     res =   0 ...  0 bM-1 ... bN bN-1 ... b0
+	//
+	// The test verifies that bN-1 ... b0 is correct based on the shader output.  We additionally
+	// want to make sure that:
+	//
+	//  - bM-1 ... bN is identical to aM-1 ... aN
+	//  - bits above bM-1 are zero.
+	//
+	// This is done as follows:
+	//
+	//     diff = res ^ ref  --> should produce a31 ... aM 0 ... 0
+	//     diff == 0: accept res
+	//     diff != 0:
+	//         lsb = log2((~diff + 1u) & diff)  --> log2(0 .. 0 1 0 ...0)
+	//                                              == findLSB(diff)
+	//
+	//         outOfRangeMask = 0xFFFFFFFF << lsb  --> 1 ... 1 0 ... 0
+	//
+	//         (res & outOfRangeMask) == 0: accept res
+	//
+	// Note that (diff & ~outOfRangeMask) == 0 necessarily holds, because outOfRangeMask has 1s
+	// starting from the first bit that differs between res and ref, which means that res and ref
+	// are identical in those bits.
+	int		outScalarSize	= getDataTypeScalarSize(m_spec.output);
+	string floatType = "";
+	if (!isResFloatVec)
+	{
+		if (outScalarSize == 1)
+			floatType = "float";
+		else
+			floatType = "vec" + string(1, static_cast<char>('0' + outScalarSize));
+	}
+
+	if (hasReference)
+	{
+		bool	isInt	= de::inRange<int>(m_spec.output, TYPE_INT, TYPE_INT_VEC4);
+		const char* outTypeName = getDataTypeName(m_spec.output);
+		const char* outBasicTypeName = getDataTypeName(isInt ? TYPE_INT : TYPE_UINT);
+		deUint32	resultMask	= m_spec.resultScale.getValueMask(m_renderCtx.getFunctions(), shaderType);
+
+		op << "\thighp " << outTypeName << " diff = res ^ ref;\n";
+		op << "\tdiff = (~diff + " << outTypeName << "(1)) & diff;\n";
+		op << "\thighp " << outTypeName << " lsb = " << outTypeName << "(32);\n";
+		op << "\thighp " << outTypeName << " outOfRangeMask = " << outTypeName << "(0);\n";
+		if (outScalarSize == 1)
+		{
+			op << "\tif (diff != " << outTypeName << "(0))\n\t{\n";
+			op << "\t\tlsb = " << outTypeName << "(log2(" << floatType << "(diff)));\n";
+			op << "\t\toutOfRangeMask = " << outTypeName << "(0xFFFFFFFF) << lsb;\n";
+			op << "\t}\n";
+		}
+		else
+		{
+			op << "\tbvec" << outScalarSize << " isDiffZero = equal(diff, " << outTypeName << "(0));\n";
+			op << "\thighp " << outTypeName << " lsbUnsantized = " << outTypeName << "(log2(vec" << outScalarSize << "((~diff + " << outTypeName << "(1)) & diff)));\n";
+			for (int channel = 0; channel < outScalarSize; ++channel)
+			{
+				op << "\tif (!isDiffZero[" << channel << "])\n\t{\n";
+				op << "\t\tlsb[" << channel << "] = lsbUnsantized[" << channel << "];\n";
+				op << "\t\toutOfRangeMask[" << channel << "] = " << outBasicTypeName << "(0xFFFFFFFF) << lsb[" << channel << "];\n";
+				op << "\t}\n";
+			}
+		}
+		op << "\thighp " << outTypeName << " outOfRangeRes = res & outOfRangeMask;\n";
+		op << "\tif (outOfRangeRes != " << outTypeName << "(0)) res = " << outTypeName << "(0);\n";
+
+		if (resultMask != 0)
+			op << "\tres &= " << outTypeName << "(" << resultMask << ");\n";
+
+		op << "\n";
+	}
 
 	// Convert to color.
-	bool	isResFloatVec	= de::inRange<int>(m_spec.output, TYPE_FLOAT, TYPE_FLOAT_VEC4);
-	int		outScalarSize	= getDataTypeScalarSize(m_spec.output);
-
 	op << "\thighp vec4 color = vec4(0.0, 0.0, 0.0, 1.0);\n";
-	op << "\tcolor." << s_outSwizzles[outScalarSize-1] << " = ";
-
-	if (!isResFloatVec && outScalarSize == 1)
-		op << "float(res)";
-	else if (!isResFloatVec)
-		op << "vec" << outScalarSize << "(res)";
-	else
-		op << "res";
-
-	op << ";\n";
+	op << "\tcolor." << s_outSwizzles[outScalarSize-1] << " = " << floatType << "(res);\n";
 
 	// Scale & bias.
 	float	resultScale		= m_spec.resultScale.getValue(m_renderCtx.getFunctions(), shaderType);
@@ -1345,8 +1511,8 @@ DECLARE_BOOL_CWISE_COMPARE_FUNCS(notEqual)
 	void eval_##GLSL_NAME##_bvec3	(ShaderEvalContext& c) { c.color.xyz()	= FUNC_NAME(greaterThan(c.in[0].swizzle(2, 0, 1), Vec3(0.0f))).asFloat(); }	\
 	void eval_##GLSL_NAME##_bvec4	(ShaderEvalContext& c) { c.color.xyzw()	= FUNC_NAME(greaterThan(c.in[0].swizzle(1, 2, 3, 0), Vec4(0.0f))).asFloat(); }
 
-DECLARE_UNARY_SCALAR_BVEC_FUNCS(any, boolAny);
-DECLARE_UNARY_SCALAR_BVEC_FUNCS(all, boolAll);
+DECLARE_UNARY_SCALAR_BVEC_FUNCS(any, boolAny)
+DECLARE_UNARY_SCALAR_BVEC_FUNCS(all, boolAll)
 
 void ShaderOperatorTests::init (void)
 {
@@ -1896,12 +2062,23 @@ void ShaderOperatorTests::init (void)
 											: TYPE_LAST;
 
 				ShaderEvalFunc evalFunc = DE_NULL;
-				if      (inScalarSize == 1)	evalFunc = funcInfo.evalFuncScalar;
-				else if (inScalarSize == 2)	evalFunc = funcInfo.evalFuncVec2;
-				else if (inScalarSize == 3)	evalFunc = funcInfo.evalFuncVec3;
-				else if (inScalarSize == 4)	evalFunc = funcInfo.evalFuncVec4;
-				else DE_ASSERT(false);
-
+				switch (inScalarSize)
+				{
+				case 1:
+					evalFunc = funcInfo.evalFuncScalar;
+					break;
+				case 2:
+					evalFunc = funcInfo.evalFuncVec2;
+					break;
+				case 3:
+					evalFunc = funcInfo.evalFuncVec3;
+					break;
+				case 4:
+					evalFunc = funcInfo.evalFuncVec4;
+					break;
+				default:
+					DE_ASSERT(false);
+				}
 				// Skip if no valid eval func.
 				// \todo [petri] Better check for V3 only etc. cases?
 				if (evalFunc == DE_NULL)
@@ -1928,7 +2105,7 @@ void ShaderOperatorTests::init (void)
 							string name = precisionPrefix;
 
 							// Generate shader op.
-							string shaderOp = string("res = ");
+							string shaderOp = "res = ";
 
 							// Setup shader data info.
 							shaderSpec.numInputs		= 0;
@@ -2173,7 +2350,7 @@ void ShaderOperatorTests::init (void)
 					shaderSpec.inputs[inputNdx] = ShaderValue(type, rangeMin, rangeMax);
 				}
 
-				string expression = string("") + "res = (" + s_sequenceCases[caseNdx].expressionStr + ");";
+				string expression = string("res = (") + s_sequenceCases[caseNdx].expressionStr + ");";
 
 				TestCaseGroup* group = s_sequenceCases[caseNdx].containsSideEffects ? sequenceSideEffGroup : sequenceNoSideEffGroup;
 				group->addChild(new ShaderOperatorCase(m_context, name.c_str(), "", isVertexCase, s_sequenceCases[caseNdx].evalFunc, expression.c_str(), shaderSpec));

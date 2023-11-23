@@ -72,72 +72,61 @@ INSTALL_INFO	= @INSTALL_INFO@
 .SUFFIXES: .o .c
 .SUFFIXES: .o .c
 
-MAN1 = floppyd.1 floppyd_installtest.1 mattrib.1 mbadblocks.1 mcat.1 mcd.1 \
-mclasserase.1 mcopy.1 mdel.1 mdeltree.1 mdir.1 mdu.1 mformat.1  minfo.1 \
-mkmanifest.1 mlabel.1 mmd.1 mmount.1 mmove.1 mpartition.1 \
-mrd.1 mren.1 mshortname.1 mshowfat.1 mtoolstest.1 mtools.1 mtype.1 mzip.1
-MAN1EXT	= 1
+MAN1 = floppyd.1 floppyd_installtest.1 mattrib.1 mbadblocks.1 mcat.1	\
+mcd.1 mcopy.1 mdel.1 mdeltree.1 mdir.1 mdu.1 mformat.1	\
+minfo.1 mkmanifest.1 mlabel.1 mmd.1 mmount.1 mmove.1 mpartition.1	\
+mrd.1 mren.1 mshortname.1 mshowfat.1 mtoolstest.1 mtools.1 mtype.1	\
+mzip.1
+
+MAN1EXT = 1
 MAN1DIR	= $(DESTDIR)$(mandir)/man${MAN1EXT}
 MAN5	= mtools.5
 MAN5EXT	= 5
 MAN5DIR	= $(DESTDIR)$(mandir)/man${MAN5EXT}
 
-# all files in this directory included in the distribution
-DIST = \
-COPYING Changelog INSTALL Makefile Makefile.in README Release.notes \
-buffer.c buffer.h charsetConv.c codepage.h codepages.c config.c \
-config.guess config.h.in config.log config.sub configure configure.in \
-copyfile.c devices.c devices.h dirCache.c dirCache.h directory.c direntry.c \
-expand.c fat.c \
-fat_free.c file.c file.h file_name.h file_name.c files filter.c floppyd.1 \
-floppyd.c floppyd_io.c floppyd_io.h force_io.c fs.h fsP.h \
-getopt.h hash.c htable.h init.c llong.c mainloop.c match.c mattrib.1 \
-mattrib.c mbadblocks.1 mbadblocks.c mcat.1 mcat.c mcd.1 mcd.c mclasserase.c \
-mcopy.1 \
-mcopy.c mdel.1 mdel.c mdeltree.1 mdir.1 mdir.c mdu.c mdu.1 mformat.1 \
-mformat.c minfo.c \
-misc.c tty.c scsi.c missFuncs.c mk_direntry.c mkmanifest.1 mkmanifest.c \
-mlabel.1 mlabel.c mmd.1 mmd.c mmount.1 mmount.c mmove.1 mmove.c \
-mpartition.1 mpartition.c mrd.1 \
-mren.1 msdos.h mshortname.1 mshowfat.1 mtoolstest.1 mtools.1 mtools.5 mtools.c \
-mtools.conf mtools.h mtype.1 nameclash.h patchlevel.c \
-plain_io.c plain_io.h precmd.c privileges.c scripts signal.c stream.c stream.h \
-streamcache.c streamcache.h subdir.c strtonum.c sysincludes.h unixdir.c todo \
-vfat.c vfat.h xdf_io.c xdf_io.h
+# objects for building mtools
+OBJS_MTOOLS = buffer.o charsetConv.o codepages.o config.o copyfile.o	\
+device.o devices.o dirCache.o directory.o direntry.o dos2unix.o		\
+expand.o fat.o fat_free.o file.o file_name.o force_io.o hash.o init.o	\
+lba.o llong.o lockdev.o match.o mainloop.o mattrib.o mbadblocks.o	\
+mcat.o mcd.o mcopy.o mdel.o mdir.o mdoctorfat.o mdu.o	\
+mformat.o minfo.o misc.o missFuncs.o mk_direntry.o mlabel.o mmd.o	\
+mmount.o mmove.o mpartition.o mshortname.o mshowfat.o mzip.o mtools.o	\
+offset.o old_dos.o open_image.o patchlevel.o partition.o plain_io.o	\
+precmd.o privileges.o remap.o scsi_io.o scsi.o signal.o stream.o	\
+streamcache.o swap.o unix2dos.o unixdir.o tty.o vfat.o		\
+strtonum.o @FLOPPYD_IO_OBJ@ @XDF_IO_OBJ@
 
-OBJS1 = buffer.o charsetConv.o codepages.o config.o copyfile.o \
-devices.o dirCache.o directory.o direntry.o expand.o fat.o fat_free.o file.o  \
-file_name.o filter.o floppyd_io.o force_io.o hash.o init.o llong.o lockdev.o \
-match.o mainloop.o mattrib.o mbadblocks.o mcat.o mcd.o mclasserase.o mcopy.o \
-mdel.o mdir.o mdoctorfat.o mdu.o \
-mformat.o minfo.o misc.o missFuncs.o mk_direntry.o mlabel.o mmd.o mmount.o \
-mmove.o mpartition.o mshortname.o mshowfat.o mzip.o mtools.o old_dos.o \
-patchlevel.o plain_io.o precmd.o privileges.o scsi.o signal.o stream.o \
-streamcache.o subdir.o unixdir.o tty.o vfat.o xdf_io.o strtonum.o
+# objects for building mkmanifest
+OBJS_MKMANIFEST = missFuncs.o mkmanifest.o misc.o patchlevel.o
 
-OBJS2 = missFuncs.o mkmanifest.o misc.o patchlevel.o
+# objects for building floppyd
+OBJS_FLOPPYD = floppyd.o llong.o lockdev.o
 
-OBJS3 = floppyd.o llong.o lockdev.o
+# objects for building floppyd_installtest
+OBJS_FLOPPYD_INSTALLTEST = floppyd_installtest.o misc.o expand.o	\
+privileges.o strtonum.o
 
-OBJS4 = floppyd_installtest.o misc.o expand.o privileges.o strtonum.o
+SRCS = buffer.c codepages.c config.c copyfile.c device.c devices.c	\
+dirCache.c directory.c direntry.c dos2unix.c expand.c fat.c		\
+fat_free.c file.c file_name.c file_read.c force_io.c hash.c init.c	\
+lba.c lockdev.c match.c mainloop.c mattrib.c mbadblocks.c mcat.c	\
+mcd.c mcopy.c mdel.c mdir.c mdu.c mdoctorfat.c		\
+mformat.c minfo.c misc.c missFuncs.c mk_direntry.c mlabel.c mmd.c	\
+mmount.c mmove.c mpartition.c mshortname.c mshowfat.c mzip.c mtools.c	\
+offset.c old_dos.c open_image.c partition.c plain_io.c precmd.c		\
+privileges.c remap.c scsi_io.c scsi.c signal.c stream.c streamcache.c	\
+swap.c unix2dos.s unixdir.c tty.c vfat.c mkmanifest.c			\
+@FLOPPYD_IO_SRC@ @XDF_IO_SRC@
 
-SRCS = buffer.c codepages.c config.c copyfile.c devices.c \
-dirCache.c directory.c direntry.c expand.c fat.c fat_free.c file.c file_name.c \
-file_read.c filter.c floppyd_io.c force_io.c hash.c init.c lockdev.c match.c \
-mainloop.c mattrib.c mbadblocks.c mcat.c mcd.c mclasserase.c mcopy.c mdel.c \
-mdir.c mdu.c mdoctorfat.c mformat.c minfo.c misc.c \
-missFuncs.c mk_direntry.c mlabel.c mmd.c mmount.c mmove.c mpartition.c \
-mshortname.c mshowfat.c mzip.c mtools.c old_dos.c plain_io.c precmd.c \
-privileges.c \
-scsi.c signal.c stream.c streamcache.c subdir.c unixdir.c tty.o vfat.c \
-xdf_io.c mkmanifest.c
-
+SRCS-@USE_FLOPPYD@ += floppyd_io.c
+SRCS-@USE_XDF@ += xdf_io.c
 
 SCRIPTS = mcheck mxtar uz tgz mcomp amuFormat.sh
 
-LINKS=mattrib mcat mcd mclasserase mcopy mdel mdeltree mdir mdu mformat minfo \
-mlabel mmd mmount mmove mpartition mrd mren mtype mtoolstest mshortname \
-mshowfat mbadblocks mzip
+LINKS=mattrib mcat mcd mcopy mdel mdeltree mdir mdu	\
+mformat minfo mlabel mmd mmount mmove mpartition mrd mren mtype	\
+mtoolstest mshortname mshowfat mbadblocks mzip
 
 X_CFLAGS = @X_CFLAGS@
 X_LIBS = @X_LIBS@
@@ -147,7 +136,7 @@ CFLAGS = $(CPPFLAGS) $(DEFS) $(MYCFLAGS) -fno-strict-aliasing -I. @extraincluded
 CXXFLAGS  = $(CPPFLAGS) $(DEFS) $(MYCXXFLAGS) -I. @extraincludedir@ -I@srcdir@ $(USERCFLAGS)
 LINK      = $(CC) $(LDFLAGS) $(USERLDFLAGS) @extralibdir@
 ALLLIBS   = $(USERLDLIBS) $(MACHDEPLIBS) $(SHLIB) $(LIBS)
-X_LDFLAGS = $(X_EXTRA_LIBS) $(X_LIBS) -lXau -lX11 $(LIBS)
+X_LDFLAGS = $(X_EXTRA_LIBS) $(X_LIBS) @FLOPPYD_LIBS@ $(LIBS)
 X_CCFLAGS = $(X_CFLAGS) $(CFLAGS)
 
 all:    mtools $(LINKS) mkmanifest @FLOPPYD@ mtools.1 mtools.5
@@ -158,19 +147,19 @@ all:    mtools $(LINKS) mkmanifest @FLOPPYD@ mtools.1 mtools.5
 #%.o: %.cpp
 #	$(CXX) $(CXXFLAGS) -c $<
 
-mtools: $(OBJS1)
-	$(LINK) $(OBJS1) -o $@ $(ALLLIBS)
+mtools: $(OBJS_MTOOLS)
+	$(LINK) $(OBJS_MTOOLS) -o $@ $(ALLLIBS)
 
-mkmanifest: $(OBJS2)
-	$(LINK) $(OBJS2) -o $@ $(ALLLIBS)
+mkmanifest: $(OBJS_MKMANIFEST)
+	$(LINK) $(OBJS_MKMANIFEST) -o $@ $(ALLLIBS)
 
 floppyd.o: floppyd.c
 	$(CC) $(X_CCFLAGS) -c $?
 
-floppyd: $(OBJS3)
-	$(LINK) $(OBJS3) -o $@ $(X_LDFLAGS)
-floppyd_installtest: $(OBJS4)
-	$(LINK) $(OBJS4) -o $@ $(ALLLIBS)
+floppyd: $(OBJS_FLOPPYD)
+	$(LINK) $(OBJS_FLOPPYD) -o $@ $(X_LDFLAGS)
+floppyd_installtest: $(OBJS_FLOPPYD_INSTALLTEST)
+	$(LINK) $(OBJS_FLOPPYD_INSTALLTEST) -o $@ $(ALLLIBS)
 
 
 $(LINKS): mtools

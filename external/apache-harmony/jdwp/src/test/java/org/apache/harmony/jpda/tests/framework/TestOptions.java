@@ -82,7 +82,7 @@ import java.util.HashMap;
 public class TestOptions {
 
     /** Default timeout value for various operations. */
-    public static final int DEFAULT_TIMEOUT = 1 * 60 * 1000; // 1 minute
+    public static final int DEFAULT_TIMEOUT = 2 * 60 * 1000; // 2 minutes
 
     /** Default time interval for waiting for various events. */
     public static final int DEFAULT_WAITING_TIME = DEFAULT_TIMEOUT;

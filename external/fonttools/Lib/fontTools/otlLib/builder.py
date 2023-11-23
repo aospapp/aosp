@@ -1,4 +1,5 @@
 from collections import namedtuple, OrderedDict
+import os
 from fontTools.misc.fixedTools import fixedToFloat
 from fontTools import ttLib
 from fontTools.ttLib.tables import otTables as ot
@@ -10,6 +11,11 @@ from fontTools.ttLib.tables.otBase import (
 )
 from fontTools.ttLib.tables import otBase
 from fontTools.feaLib.ast import STATNameStatement
+from fontTools.otlLib.optimize.gpos import (
+    GPOS_COMPACT_MODE_DEFAULT,
+    GPOS_COMPACT_MODE_ENV_KEY,
+    compact_lookup,
+)
 from fontTools.otlLib.error import OpenTypeLibError
 from functools import reduce
 import logging
@@ -22,7 +28,7 @@ log = logging.getLogger(__name__)
 def buildCoverage(glyphs, glyphMap):
     """Builds a coverage table.
 
-    Coverage tables (as defined in the `OpenType spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#coverage-table>`_)
+    Coverage tables (as defined in the `OpenType spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#coverage-table>`__)
     are used in all OpenType Layout lookups apart from the Extension type, and
     define the glyphs involved in a layout subtable. This allows shaping engines
     to compare the glyph stream with the coverage table and quickly determine
@@ -50,7 +56,7 @@ def buildCoverage(glyphs, glyphMap):
     if not glyphs:
         return None
     self = ot.Coverage()
-    self.glyphs = sorted(glyphs, key=glyphMap.__getitem__)
+    self.glyphs = sorted(set(glyphs), key=glyphMap.__getitem__)
     return self
 
 
@@ -64,7 +70,7 @@ LOOKUP_FLAG_USE_MARK_FILTERING_SET = 0x0010
 def buildLookup(subtables, flags=0, markFilterSet=None):
     """Turns a collection of rules into a lookup.
 
-    A Lookup (as defined in the `OpenType Spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#lookupTbl>`_)
+    A Lookup (as defined in the `OpenType Spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#lookupTbl>`__)
     wraps the individual rules in a layout operation (substitution or
     positioning) in a data structure expressing their overall lookup type -
     for example, single substitution, mark-to-base attachment, and so on -
@@ -386,7 +392,21 @@ class ChainContextualBuilder(LookupBuilder):
             if not ruleset.hasAnyGlyphClasses:
                 candidates[1] = [self.buildFormat1Subtable(ruleset, chaining)]
 
+            for i in [1, 2, 3]:
+                if candidates[i]:
+                    try:
+                        self.getCompiledSize_(candidates[i])
+                    except Exception as e:
+                        log.warning(
+                            "Contextual format %i at %s overflowed (%s)"
+                            % (i, str(self.location), e)
+                        )
+                        candidates[i] = None
+
             candidates = [x for x in candidates if x is not None]
+            if not candidates:
+                raise OpenTypeLibError("All candidates overflowed", self.location)
+
             winner = min(candidates, key=self.getCompiledSize_)
             subtables.extend(winner)
 
@@ -943,12 +963,22 @@ class MarkBasePosBuilder(LookupBuilder):
             positioning lookup.
         """
         markClasses = self.buildMarkClasses_(self.marks)
-        marks = {
-            mark: (markClasses[mc], anchor) for mark, (mc, anchor) in self.marks.items()
-        }
+        marks = {}
+        for mark, (mc, anchor) in self.marks.items():
+            if mc not in markClasses:
+                raise ValueError(
+                    "Mark class %s not found for mark glyph %s" % (mc, mark)
+                )
+            marks[mark] = (markClasses[mc], anchor)
         bases = {}
         for glyph, anchors in self.bases.items():
-            bases[glyph] = {markClasses[mc]: anchor for (mc, anchor) in anchors.items()}
+            bases[glyph] = {}
+            for mc, anchor in anchors.items():
+                if mc not in markClasses:
+                    raise ValueError(
+                        "Mark class %s not found for base glyph %s" % (mc, mark)
+                    )
+                bases[glyph][markClasses[mc]] = anchor
         subtables = buildMarkBasePos(marks, bases, self.glyphMap)
         return self.buildLookup_(subtables)
 
@@ -1373,7 +1403,17 @@ class PairPosBuilder(LookupBuilder):
             subtables.extend(buildPairPosGlyphs(self.glyphPairs, self.glyphMap))
         for key in sorted(builders.keys()):
             subtables.extend(builders[key].subtables())
-        return self.buildLookup_(subtables)
+        lookup = self.buildLookup_(subtables)
+
+        # Compact the lookup
+        # This is a good moment to do it because the compaction should create
+        # smaller subtables, which may prevent overflows from happening.
+        mode = os.environ.get(GPOS_COMPACT_MODE_ENV_KEY, GPOS_COMPACT_MODE_DEFAULT)
+        if mode and mode != "0":
+            log.info("Compacting GPOS...")
+            compact_lookup(self.font, mode, lookup)
+
+        return lookup
 
 
 class SinglePosBuilder(LookupBuilder):
@@ -2091,8 +2131,16 @@ def buildPairPosClassesSubtable(pairs, glyphMap, valueFormat1=None, valueFormat2
         for c2 in classes2:
             rec2 = ot.Class2Record()
             val1, val2 = pairs.get((c1, c2), (None, None))
-            rec2.Value1 = ValueRecord(src=val1, valueFormat=valueFormat1) if valueFormat1 else None
-            rec2.Value2 = ValueRecord(src=val2, valueFormat=valueFormat2) if valueFormat2 else None
+            rec2.Value1 = (
+                ValueRecord(src=val1, valueFormat=valueFormat1)
+                if valueFormat1
+                else None
+            )
+            rec2.Value2 = (
+                ValueRecord(src=val2, valueFormat=valueFormat2)
+                if valueFormat2
+                else None
+            )
             rec1.Class2Record.append(rec2)
     self.Class1Count = len(self.Class1Record)
     self.Class2Count = len(classes2)
@@ -2191,8 +2239,16 @@ def buildPairPosGlyphsSubtable(pairs, glyphMap, valueFormat1=None, valueFormat2=
         for glyph2, val1, val2 in sorted(p[glyph], key=lambda x: glyphMap[x[0]]):
             pvr = ot.PairValueRecord()
             pvr.SecondGlyph = glyph2
-            pvr.Value1 = ValueRecord(src=val1, valueFormat=valueFormat1) if valueFormat1 else None
-            pvr.Value2 = ValueRecord(src=val2, valueFormat=valueFormat2) if valueFormat2 else None
+            pvr.Value1 = (
+                ValueRecord(src=val1, valueFormat=valueFormat1)
+                if valueFormat1
+                else None
+            )
+            pvr.Value2 = (
+                ValueRecord(src=val2, valueFormat=valueFormat2)
+                if valueFormat2
+                else None
+            )
             ps.PairValueRecord.append(pvr)
         ps.PairValueCount = len(ps.PairValueRecord)
     self.PairSetCount = len(self.PairSet)
@@ -2313,8 +2369,13 @@ def buildSinglePosSubtable(values, glyphMap):
     """
     self = ot.SinglePos()
     self.Coverage = buildCoverage(values.keys(), glyphMap)
-    valueFormat = self.ValueFormat = reduce(int.__or__, [v.getFormat() for v in values.values()], 0)
-    valueRecords = [ValueRecord(src=values[g], valueFormat=valueFormat) for g in self.Coverage.glyphs]
+    valueFormat = self.ValueFormat = reduce(
+        int.__or__, [v.getFormat() for v in values.values()], 0
+    )
+    valueRecords = [
+        ValueRecord(src=values[g], valueFormat=valueFormat)
+        for g in self.Coverage.glyphs
+    ]
     if all(v == valueRecords[0] for v in valueRecords):
         self.Format = 1
         if self.ValueFormat != 0:
@@ -2617,7 +2678,9 @@ AXIS_VALUE_NEGATIVE_INFINITY = fixedToFloat(-0x80000000, 16)
 AXIS_VALUE_POSITIVE_INFINITY = fixedToFloat(0x7FFFFFFF, 16)
 
 
-def buildStatTable(ttFont, axes, locations=None, elidedFallbackName=2):
+def buildStatTable(
+    ttFont, axes, locations=None, elidedFallbackName=2, windowsNames=True, macNames=True
+):
     """Add a 'STAT' table to 'ttFont'.
 
     'axes' is a list of dictionaries describing axes and their
@@ -2702,17 +2765,23 @@ def buildStatTable(ttFont, axes, locations=None, elidedFallbackName=2):
     ttFont["STAT"] = ttLib.newTable("STAT")
     statTable = ttFont["STAT"].table = ot.STAT()
     nameTable = ttFont["name"]
-    statTable.ElidedFallbackNameID = _addName(nameTable, elidedFallbackName)
+    statTable.ElidedFallbackNameID = _addName(
+        nameTable, elidedFallbackName, windows=windowsNames, mac=macNames
+    )
 
     # 'locations' contains data for AxisValue Format 4
-    axisRecords, axisValues = _buildAxisRecords(axes, nameTable)
+    axisRecords, axisValues = _buildAxisRecords(
+        axes, nameTable, windowsNames=windowsNames, macNames=macNames
+    )
     if not locations:
         statTable.Version = 0x00010001
     else:
         # We'll be adding Format 4 AxisValue records, which
         # requires a higher table version
         statTable.Version = 0x00010002
-        multiAxisValues = _buildAxisValuesFormat4(locations, axes, nameTable)
+        multiAxisValues = _buildAxisValuesFormat4(
+            locations, axes, nameTable, windowsNames=windowsNames, macNames=macNames
+        )
         axisValues = multiAxisValues + axisValues
 
     # Store AxisRecords
@@ -2731,13 +2800,15 @@ def buildStatTable(ttFont, axes, locations=None, elidedFallbackName=2):
         statTable.AxisValueCount = len(axisValues)
 
 
-def _buildAxisRecords(axes, nameTable):
+def _buildAxisRecords(axes, nameTable, windowsNames=True, macNames=True):
     axisRecords = []
     axisValues = []
     for axisRecordIndex, axisDict in enumerate(axes):
         axis = ot.AxisRecord()
         axis.AxisTag = axisDict["tag"]
-        axis.AxisNameID = _addName(nameTable, axisDict["name"], 256)
+        axis.AxisNameID = _addName(
+            nameTable, axisDict["name"], 256, windows=windowsNames, mac=macNames
+        )
         axis.AxisOrdering = axisDict.get("ordering", axisRecordIndex)
         axisRecords.append(axis)
 
@@ -2745,7 +2816,9 @@ def _buildAxisRecords(axes, nameTable):
             axisValRec = ot.AxisValue()
             axisValRec.AxisIndex = axisRecordIndex
             axisValRec.Flags = axisVal.get("flags", 0)
-            axisValRec.ValueNameID = _addName(nameTable, axisVal["name"])
+            axisValRec.ValueNameID = _addName(
+                nameTable, axisVal["name"], windows=windowsNames, mac=macNames
+            )
 
             if "value" in axisVal:
                 axisValRec.Value = axisVal["value"]
@@ -2770,7 +2843,9 @@ def _buildAxisRecords(axes, nameTable):
     return axisRecords, axisValues
 
 
-def _buildAxisValuesFormat4(locations, axes, nameTable):
+def _buildAxisValuesFormat4(
+    locations, axes, nameTable, windowsNames=True, macNames=True
+):
     axisTagToIndex = {}
     for axisRecordIndex, axisDict in enumerate(axes):
         axisTagToIndex[axisDict["tag"]] = axisRecordIndex
@@ -2779,7 +2854,9 @@ def _buildAxisValuesFormat4(locations, axes, nameTable):
     for axisLocationDict in locations:
         axisValRec = ot.AxisValue()
         axisValRec.Format = 4
-        axisValRec.ValueNameID = _addName(nameTable, axisLocationDict["name"])
+        axisValRec.ValueNameID = _addName(
+            nameTable, axisLocationDict["name"], windows=windowsNames, mac=macNames
+        )
         axisValRec.Flags = axisLocationDict.get("flags", 0)
         axisValueRecords = []
         for tag, value in axisLocationDict["location"].items():
@@ -2794,7 +2871,7 @@ def _buildAxisValuesFormat4(locations, axes, nameTable):
     return axisValues
 
 
-def _addName(nameTable, value, minNameID=0):
+def _addName(nameTable, value, minNameID=0, windows=True, mac=True):
     if isinstance(value, int):
         # Already a nameID
         return value
@@ -2818,4 +2895,6 @@ def _addName(nameTable, value, minNameID=0):
         return nameID
     else:
         raise TypeError("value must be int, str, dict or list")
-    return nameTable.addMultilingualName(names, minNameID=minNameID)
+    return nameTable.addMultilingualName(
+        names, windows=windows, mac=mac, minNameID=minNameID
+    )

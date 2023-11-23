@@ -413,18 +413,11 @@ _realize_c_struct_or_union(builder_c_t *builder, int sindex)
 }
 
 static PyObject *
-realize_c_type_or_func(builder_c_t *builder,
-                        _cffi_opcode_t opcodes[], int index)
+realize_c_type_or_func_now(builder_c_t *builder, _cffi_opcode_t op,
+                           _cffi_opcode_t opcodes[], int index)
 {
     PyObject *x, *y, *z;
-    _cffi_opcode_t op = opcodes[index];
     Py_ssize_t length = -1;
-
-    if ((((uintptr_t)op) & 1) == 0) {
-        x = (PyObject *)op;
-        Py_INCREF(x);
-        return x;
-    }
 
     switch (_CFFI_GETOP(op)) {
 
@@ -643,6 +636,36 @@ realize_c_type_or_func(builder_c_t *builder,
         return NULL;
     }
 
+    return x;
+}
+
+static int _realize_recursion_level;
+
+static PyObject *
+realize_c_type_or_func(builder_c_t *builder,
+                        _cffi_opcode_t opcodes[], int index)
+{
+    PyObject *x;
+     _cffi_opcode_t op = opcodes[index];
+
+    if ((((uintptr_t)op) & 1) == 0) {
+        x = (PyObject *)op;
+        Py_INCREF(x);
+        return x;
+    }
+
+    if (_realize_recursion_level >= 1000) {
+        PyErr_Format(PyExc_RuntimeError,
+            "type-building recursion too deep or infinite.  "
+            "This is known to occur e.g. in ``struct s { void(*callable)"
+            "(struct s); }''.  Please report if you get this error and "
+            "really need support for your case.");
+        return NULL;
+    }
+    _realize_recursion_level++;
+    x = realize_c_type_or_func_now(builder, op, opcodes, index);
+    _realize_recursion_level--;
+
     if (x != NULL && opcodes == builder->ctx.types && opcodes[index] != x) {
         assert((((uintptr_t)x) & 1) == 0);
         assert((((uintptr_t)opcodes[index]) & 1) == 1);
@@ -650,7 +673,7 @@ realize_c_type_or_func(builder_c_t *builder,
         opcodes[index] = x;
     }
     return x;
-};
+}
 
 static CTypeDescrObject *
 realize_c_func_return_type(builder_c_t *builder,

@@ -31,6 +31,7 @@ cc_library_headers {
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
     ],
+    sdk_version: "current",
 }
 
 cc_defaults {

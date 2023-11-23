@@ -7,8 +7,19 @@
         errorLine1="    } catch (ClassNotFoundException"
         errorLine2="             ^">
         <location
-            file="external/dagger2/java/dagger/hilt/android/internal/testing/TestApplicationComponentManager.java"
-            line="85"
+            file="external/dagger2/java/dagger/hilt/android/internal/testing/EarlySingletonComponentCreator.java"
+            line="33"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Multi-catch with these reflection exceptions requires API level 19 (current min is 14) because they get compiled to the common but new super type `ReflectiveOperationException`. As a workaround either create individual catch statements, or catch `Exception`."
+        errorLine1="    } catch (ClassNotFoundException"
+        errorLine2="             ^">
+        <location
+            file="external/dagger2/java/dagger/hilt/android/internal/testing/TestComponentDataSupplier.java"
+            line="35"
             column="14"/>
     </issue>
 

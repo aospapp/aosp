@@ -10,13 +10,14 @@ PLAT_COMMON_BASE	:= plat/marvell/armada/a8k/common
 MARVELL_DRV_BASE	:= drivers/marvell
 MARVELL_COMMON_BASE	:= plat/marvell/armada/common
 
-MARVELL_SVC_TEST		:= 0
+MARVELL_SVC_TEST	:= 0
 $(eval $(call add_define,MARVELL_SVC_TEST))
 
 ERRATA_A72_859971	:= 1
 
 # Enable MSS support for a8k family
 MSS_SUPPORT		:= 1
+$(eval $(call add_define,MSS_SUPPORT))
 
 # Disable EL3 cache for power management
 BL31_CACHE_DISABLE	:= 0
@@ -79,16 +80,19 @@ MARVELL_GIC_SOURCES	:=	drivers/arm/gic/common/gic_common.c	\
 				drivers/arm/gic/v2/gicv2_helpers.c	\
 				plat/common/plat_gicv2.c
 
-PLAT_INCLUDES		:=	-I$(BOARD_DIR)				\
+PLAT_INCLUDES		+=	-I$(BOARD_DIR)				\
 				-I$(BOARD_DIR)/board			\
+				-I$(CURDIR)/drivers/marvell		\
 				-I$(PLAT_COMMON_BASE)/include		\
 				-I$(PLAT_INCLUDE_BASE)/common
 
 PLAT_BL_COMMON_SOURCES	:=	$(PLAT_COMMON_BASE)/aarch64/a8k_common.c \
 				drivers/ti/uart/aarch64/16550_console.S
 
+ifndef BLE_PORTING_SOURCES
 BLE_PORTING_SOURCES	:=	$(BOARD_DIR)/board/dram_port.c \
 				$(BOARD_DIR)/board/marvell_plat_config.c
+endif
 
 MARVELL_MOCHI_DRV	+=	$(MARVELL_DRV_BASE)/mochi/cp110_setup.c
 
@@ -112,11 +116,20 @@ MARVELL_DRV		:= 	$(MARVELL_DRV_BASE)/io_win.c	\
 				$(MARVELL_DRV_BASE)/amb_adec.c	\
 				$(MARVELL_DRV_BASE)/ccu.c	\
 				$(MARVELL_DRV_BASE)/cache_llc.c	\
-				$(MARVELL_DRV_BASE)/comphy/phy-comphy-cp110.c \
-				$(MARVELL_DRV_BASE)/mc_trustzone/mc_trustzone.c \
-				$(MARVELL_DRV_BASE)/mg_conf_cm3/mg_conf_cm3.c
+				$(MARVELL_DRV_BASE)/comphy/phy-comphy-cp110.c	\
+				$(MARVELL_DRV_BASE)/mc_trustzone/mc_trustzone.c	\
+				$(MARVELL_DRV_BASE)/secure_dfx_access/armada_thermal.c	\
+				$(MARVELL_DRV_BASE)/secure_dfx_access/misc_dfx.c	\
+				$(MARVELL_DRV_BASE)/ddr_phy_access.c	\
+				drivers/rambus/trng_ip_76.c
 
+ifeq (${MSS_SUPPORT}, 1)
+MARVELL_DRV		+=	$(MARVELL_DRV_BASE)/mg_conf_cm3/mg_conf_cm3.c
+endif
+
+ifndef BL31_PORTING_SOURCES
 BL31_PORTING_SOURCES	:=	$(BOARD_DIR)/board/marvell_plat_config.c
+endif
 
 ifeq ($(SYSTEM_POWER_SUPPORT),1)
 BL31_PORTING_SOURCES	+=	$(BOARD_DIR)/board/system_power.c
@@ -138,6 +151,8 @@ BL31_SOURCES		+=	lib/cpus/aarch64/cortex_a72.S		       \
 # Add trace functionality for PM
 BL31_SOURCES		+=	$(PLAT_COMMON_BASE)/plat_pm_trace.c
 
+
+ifeq (${MSS_SUPPORT}, 1)
 # Force builds with BL2 image on a80x0 platforms
 ifndef SCP_BL2
  $(error "Error: SCP_BL2 image is mandatory for a8k family")
@@ -145,6 +160,7 @@ endif
 
 # MSS (SCP) build
 include $(PLAT_COMMON_BASE)/mss/mss_a8k.mk
+endif
 
 # BLE (ROM context execution code, AKA binary extension)
 BLE_PATH	?=  $(PLAT_COMMON_BASE)/ble

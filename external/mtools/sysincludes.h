@@ -20,7 +20,6 @@
 #ifndef SYSINCLUDES_H
 #define SYSINCLUDES_H
 
-#define _LARGEFILE64_SOURCE
 #define _GNU_SOURCE
 
 #include "config.h"
@@ -53,10 +52,10 @@
 #endif
 
 
-/* On AIX, we have to prefer strings.h, as string.h lacks a prototype 
- * for strcasecmp. On most other architectures, it's string.h which seems
- * to be more complete */
-#if (defined OS_aix && defined HAVE_STRINGS_H)
+/* On AIX, we have to prefer strings.h, as string.h lacks a prototype
+ * for strcasecmp. On Solaris, string.h lacks a prototype for strncasecmp_l.
+ * On most other architectures, it's string.h which seems to be more complete */
+#if ((defined OS_aix || defined OS_solaris) && defined HAVE_STRINGS_H)
 # undef HAVE_STRING_H
 #endif
 
@@ -135,9 +134,9 @@ typedef void *caddr_t;
 /*                                                                     */
 /***********************************************************************/
 
-#define _LARGEFILE64_SOURCE
-#define _GNU_SOURCE
-
+#ifdef HAVE_ASSERT_H
+# include <assert.h>
+#endif
 
 #ifdef HAVE_FEATURES_H
 # include <features.h>
@@ -148,6 +147,26 @@ typedef void *caddr_t;
 
 #ifdef HAVE_STDINT_H
 # include <stdint.h>
+#endif
+
+#ifdef HAVE_STDARG_H
+# include <stdarg.h>
+#endif
+
+#if HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# if ! HAVE__BOOL
+#  ifdef __cplusplus
+typedef bool _Bool;
+#   else
+typedef unsigned char _Bool;
+#  endif
+# endif
+# define bool _Bool
+# define false 0
+# define true 1
+# define __bool_true_false_are_defined 1
 #endif
 
 #ifdef HAVE_INTTYPES_H
@@ -464,7 +483,7 @@ char *strerror(int errno);
 #endif
 
 #ifndef HAVE_ATEXIT
-int atexit(void (*function)(void)); 
+int atexit(void (*function)(void));
 
 #ifndef HAVE_ON_EXIT
 void myexit(int code) NORETURN;
@@ -519,7 +538,7 @@ void _stripexe(char *filename);
 #ifndef __STDC__
 # ifndef signed
 #  define signed /**/
-# endif 
+# endif
 #endif /* !__STDC__ */
 
 

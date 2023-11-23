@@ -47,7 +47,7 @@ static unsigned int flag_mask; /* mask of currently set flags */
 static unsigned int cur_devs; /* current number of defined devices */
 static int cur_dev; /* device being filled in. If negative, none */
 static int trusted=0; /* is the currently parsed device entry trusted? */
-static unsigned int nr_dev; /* number of devices that the current table can 
+static unsigned int nr_dev; /* number of devices that the current table can
 			       hold */
 struct device *devices; /* the device table */
 static int token_nr; /* number of tokens in line */
@@ -77,7 +77,8 @@ typedef struct switches_l {
 	T_STRING,
 	T_UINT,
 	T_UINT8,
-	T_UINT16
+	T_UINT16,
+	T_UQSTRING
     } type;
 } switches_t;
 
@@ -175,7 +176,8 @@ static switches_t dswitches[]= {
     { "HIDDEN", OFFS(hidden), T_UINT },
     { "PRECMD", OFFS(precmd), T_STRING },
     { "BLOCKSIZE", OFFS(blocksize), T_UINT },
-    { "CODEPAGE", OFFS(codepage), T_UINT }
+    { "CODEPAGE", OFFS(codepage), T_UINT },
+    { "DATA_MAP", OFFS(data_map), T_UQSTRING }
 };
 
 #if (defined  HAVE_TOUPPER_L || defined HAVE_STRNCASECMP_L)
@@ -201,12 +203,12 @@ static int canon_drv(int drive) {
 #endif
 
 #ifdef HAVE_STRNCASECMP_L
-static int cmp_tok(const char *a, const char *b, int len) {
+static int cmp_tok(const char *a, const char *b, size_t len) {
     init_canon();
     return strncasecmp_l(a, b, len, C);
 }
 #else
-static int cmp_tok(const char *a, const char *b, int len) {
+static int cmp_tok(const char *a, const char *b, size_t len) {
     return strncasecmp(a, b, len);
 }
 #endif
@@ -251,6 +253,8 @@ static void syntax(const char *msg, int thisLine)
     exit(1);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
 static void get_env_conf(void)
 {
     char *s;
@@ -274,6 +278,7 @@ static void get_env_conf(void)
 		* ((uint16_t *)global_switches[i].address) = strtou16(s,0,0);
 		break;
 	    case T_STRING:
+	    case T_UQSTRING:
 		* ((char **)global_switches[i].address) = s;
 		break;
 	    }
@@ -286,6 +291,7 @@ static void get_env_conf(void)
 	}
     }
 }
+#pragma GCC diagnostic pop
 
 static int mtools_getline(void)
 {
@@ -299,7 +305,7 @@ static int mtools_getline(void)
 	syntax("line too long", 1);
     return 0;
 }
-		
+
 static void skip_junk(int expect)
 {
     lastTokenLinenumber = linenumber;
@@ -361,9 +367,19 @@ static char *get_string(void)
     end = strchr(str, '\"');
     if(!end)
 	syntax("unterminated string constant", 1);
-    *end = '\0';
+    str = strndup(str, ptrdiff(end, str));
     pos = end+1;
     return str;
+}
+
+static char *get_unquoted_string(void)
+{
+    if(*pos == '"')
+	return get_string();
+    else {
+	char *str=get_next_token();
+	return strndup(str, token_length);
+    }
 }
 
 static unsigned long get_unumber(unsigned long max)
@@ -426,7 +442,7 @@ static void grow(void)
 	}
     }
 }
-	
+
 
 static void init_drive(void)
 {
@@ -452,7 +468,7 @@ static void prepend(void)
 static void append(void)
 {
     grow();
-    cur_dev = cur_devs;
+    cur_dev = (int) cur_devs;
     cur_devs++;
     init_drive();
 }
@@ -479,8 +495,6 @@ static void finish_drive_clause(void)
     }
     devices[cur_dev].file_nr = file_nr;
     devices[cur_dev].cfg_filename = filename;
-    if(! (flag_mask & PRIV_FLAG) && IS_SCSI(&devices[cur_dev]))
-	devices[cur_dev].misc_flags |= PRIV_FLAG;
     if(!trusted && (devices[cur_dev].misc_flags & PRIV_FLAG)) {
 	fprintf(stderr,
 		"Warning: privileged flag ignored for drive %c: defined in file %s\n",
@@ -491,6 +505,8 @@ static void finish_drive_clause(void)
     cur_dev = -1;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
 static int set_var(struct switches_l *switches, int nr,
 		   caddr_t base_address)
 {
@@ -498,6 +514,11 @@ static int set_var(struct switches_l *switches, int nr,
     for(i=0; i < nr; i++) {
 	if(match_token(switches[i].name)) {
 	    expect_char('=');
+	    /* All pointers cast back to pointers with alignment
+	     * constraints were such pointers with alignment
+	     * constraints initially, thus they do indeed fit the
+	     * constraint */
+
 	    if(switches[i].type == T_UINT)
 		* ((unsigned int *)((long)switches[i].address+base_address)) =
 		    (unsigned int) get_unumber(UINT_MAX);
@@ -512,12 +533,16 @@ static int set_var(struct switches_l *switches, int nr,
 		    get_number();
 	    else if (switches[i].type == T_STRING)
 		* ((char**)((long)switches[i].address+base_address))=
-		    strdup(get_string());
+		    get_string();
+	    else if (switches[i].type == T_UQSTRING)
+		* ((char**)((long)switches[i].address+base_address))=
+		    get_unquoted_string();
 	    return 0;
 	}
     }
     return 1;
 }
+#pragma GCC diagnostic pop
 
 static int set_openflags(struct device *dev)
 {
@@ -594,7 +619,7 @@ void set_cmd_line_image(char *img) {
     devices[cur_dev].name = strdup(img);
     devices[cur_dev].offset = 0;
   } else {
-    devices[cur_dev].name = strndup(img, ofsp - img);
+    devices[cur_dev].name = strndup(img, ptrdiff(ofsp, img));
     devices[cur_dev].offset = str_to_offset(ofsp+2);
   }
 
@@ -630,7 +655,7 @@ void check_number_parse_errno(char c, const char *oarg, char *endptr) {
 }
 
 static uint16_t tou16(int in, const char *comment) {
-    if(in > UINT16_MAX) {
+    if(in > (int) UINT16_MAX) {
 	fprintf(stderr, "Number of %s %d too big\n", comment, in);
 	exit(1);
     }
@@ -639,7 +664,6 @@ static uint16_t tou16(int in, const char *comment) {
 	exit(1);
     }
     return (uint16_t) in;
-       
 }
 
 static void parse_old_device_line(char drive)
@@ -648,23 +672,22 @@ static void parse_old_device_line(char drive)
     int items;
     long offset;
 
-    int heads, sectors;
-    
+    int heads, sectors, tracks;
+
     /* finish any old drive */
     finish_drive_clause();
 
     /* purge out data of old configuration files */
     purge(drive, file_nr);
-	
+
     /* reserve slot */
     append();
     items = sscanf(token,"%c %s %i %i %i %i %li",
 		   &devices[cur_dev].drive,name,&devices[cur_dev].fat_bits,
-		   &devices[cur_dev].tracks,&heads,
-		   &sectors, &offset);
+		   &tracks,&heads,&sectors, &offset);
     devices[cur_dev].heads = tou16(heads, "heads");
     devices[cur_dev].sectors = tou16(sectors, "sectors");
-    
+    devices[cur_dev].tracks = (unsigned int) tracks;
     devices[cur_dev].offset = (off_t) offset;
     switch(items){
 	case 2:
@@ -690,7 +713,7 @@ static void parse_old_device_line(char drive)
 	devices[cur_dev].sectors = 0;
 	devices[cur_dev].heads = 0;
     }
-	
+
     devices[cur_dev].drive = ch_canon_drv(devices[cur_dev].drive);
     maintain_default_drive(devices[cur_dev].drive);
     if (!(devices[cur_dev].name = strdup(name))) {
@@ -722,7 +745,7 @@ static int parse_one(int privilege)
 	    syntax("drive letter expected", 0);
 
 	if(action==1 || action==4)
-	    /* replace existing drive */			
+	    /* replace existing drive */
 	    purge(token[0], file_nr);
 	if(action==4)
 	    return 1;
@@ -799,7 +822,7 @@ void read_config(void)
     char *envConfFile;
     static char conf_file[MAXPATHLEN+sizeof(CFG_FILE1)];
 
-	
+
     /* copy compiled-in devices */
     file_nr = 0;
     cur_devs = nr_const_devices;

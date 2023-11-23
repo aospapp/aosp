@@ -141,7 +141,7 @@ struct fat32_t {
 	unsigned char infoSector[2];	/* 48 changeable global info */
 	unsigned char backupBoot[2];	/* 50 back up boot sector */
 	unsigned char reserved[6];	/* 52 ? */
-	unsigned char reserved2[6];	/* 52 ? */
+	unsigned char reserved2[6];	/* 58 ? */
 	struct label_blk_t labelBlock;
 }; /* ends at 58 */
 
@@ -202,17 +202,18 @@ union bootsector {
 #define OFFSET(x) (((char *) (boot->x)) - ((char *)(boot->jump)))
 
 /* max FAT12/FAT16 sizes, according to
-   
+
  https://staff.washington.edu/dittrich/misc/fatgen103.pdf
  https://download.microsoft.com/download/1/6/1/161ba512-40e2-4cc9-843a-923143f3456c/fatgen103.doc
 
- interestingly enough, another Microsoft document 
+ interestingly enough, another Microsoft document
  [http://support.microsoft.com/default.aspx?scid=kb%3ben-us%3b67321]
  gives different values, but the first seems to be more sure about
  itself, so we believe that one ;-)
 */
 #define FAT12 0x0ff5 /* max. number + 1 of clusters described by a 12 bit FAT */
 #define FAT16 0xfff5 /* max number + 1 of clusters for a 16 bit FAT */
+#define FAT32 0xffffff5 /* max number + 1 of clusters for a 32 bit FAT */
 
 #define ATTR_ARCHIVE 0x20
 #define ATTR_DIR 0x10
@@ -248,8 +249,6 @@ union bootsector {
 	((n) * FAT_SIZE(bits, sec_siz, clusters) + \
 	 (clusters) * (cluster_size))
 
-#define TOTAL_DISK_SIZE(bits, sec_siz, clusters, n, cluster_size) \
-	(DISK_SIZE(bits, sec_siz, clusters, n, cluster_size) + 2)
 /* approx. total disk size: assume 1 boot sector and one directory sector */
 
 extern const char *mversion;

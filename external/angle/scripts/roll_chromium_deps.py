@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2019 The ANGLE project authors. All Rights Reserved.
 #
 # Use of this source code is governed by a BSD-style license
@@ -8,7 +8,7 @@
 # be found in the AUTHORS file in the root of the source tree.
 
 # This is a modified copy of the script in
-# https://webrtc.googlesource.com/src/+/master/tools_webrtc/autoroller/roll_deps.py
+# https://webrtc.googlesource.com/src/+/main/tools_webrtc/autoroller/roll_deps.py
 # customized for ANGLE.
 """Script to automatically roll Chromium dependencies in the ANGLE DEPS file."""
 
@@ -21,7 +21,7 @@ import platform
 import re
 import subprocess
 import sys
-import urllib2
+import urllib.request
 
 
 def FindSrcDirPath():
@@ -38,6 +38,7 @@ ANGLE_CHROMIUM_DEPS = [
     'buildtools/mac',
     'buildtools/third_party/libc++/trunk',
     'buildtools/third_party/libc++abi/trunk',
+    'buildtools/third_party/libunwind/trunk',
     'buildtools/win',
     'testing',
     'third_party/abseil-cpp',
@@ -84,8 +85,10 @@ ANGLE_CHROMIUM_DEPS = [
     'tools/protoc_wrapper',
     'tools/python',
     'tools/skia_goldctl/linux',
-    'tools/skia_goldctl/mac',
+    'tools/skia_goldctl/mac_amd64',
+    'tools/skia_goldctl/mac_arm64',
     'tools/skia_goldctl/win',
+    'tools/valgrind',
 ]
 
 ANGLE_URL = 'https://chromium.googlesource.com/angle/angle'
@@ -234,7 +237,7 @@ def _ReadGitilesContent(url):
     # https://code.google.com/p/gitiles/issues/detail?id=7 is fixed.
     logging.debug('Reading gitiles URL %s' % url)
     base64_content = ReadUrlContent(url + '?format=TEXT')
-    return base64.b64decode(base64_content[0])
+    return base64.b64decode(base64_content[0]).decode('utf-8')
 
 
 def ReadRemoteCrFile(path_below_src, revision):
@@ -254,7 +257,7 @@ def ReadRemoteClangFile(path_below_src, revision):
 
 def ReadUrlContent(url):
     """Connect to a remote host and read the contents. Returns a list of lines."""
-    conn = urllib2.urlopen(url)
+    conn = urllib.request.urlopen(url)
     try:
         return conn.readlines()
     except IOError as e:
@@ -277,7 +280,7 @@ def GetMatchingDepsEntries(depsentry_dict, dir_path):
     A list of DepsEntry objects.
   """
     result = []
-    for path, depsentry in depsentry_dict.iteritems():
+    for path, depsentry in depsentry_dict.items():
         if path == dir_path:
             result.append(depsentry)
         else:
@@ -292,7 +295,7 @@ def BuildDepsentryDict(deps_dict):
     result = {}
 
     def AddDepsEntries(deps_subdict):
-        for path, dep in deps_subdict.iteritems():
+        for path, dep in deps_subdict.items():
             if path in result:
                 continue
             if not isinstance(dep, dict):
@@ -358,7 +361,7 @@ def CalculateChangedDeps(angle_deps, new_cr_deps):
     result = []
     angle_entries = BuildDepsentryDict(angle_deps)
     new_cr_entries = BuildDepsentryDict(new_cr_deps)
-    for path, angle_deps_entry in angle_entries.iteritems():
+    for path, angle_deps_entry in angle_entries.items():
         if path not in ANGLE_CHROMIUM_DEPS:
             continue
 
@@ -500,7 +503,7 @@ def UpdateDepsFile(deps_filename, rev_update, changed_deps, new_cr_content, auto
     """Update the DEPS file with the new revision."""
 
     with open(deps_filename, 'rb') as deps_file:
-        deps_content = deps_file.read()
+        deps_content = deps_file.read().decode('utf-8')
         # Autoroll takes care of updating 'chromium_revision', thus we don't need to.
         if not autoroll:
             # Update the chromium_revision variable.
@@ -526,7 +529,7 @@ def UpdateDepsFile(deps_filename, rev_update, changed_deps, new_cr_content, auto
         deps_content = deps_re.sub(replacement, deps_content)
 
         with open(deps_filename, 'wb') as deps_file:
-            deps_file.write(deps_content)
+            deps_file.write(deps_content.encode('utf-8'))
 
     # Update each individual DEPS entry.
     for dep in changed_deps:
@@ -560,14 +563,14 @@ def _IsTreeClean():
     return False
 
 
-def _EnsureUpdatedMasterBranch(dry_run):
+def _EnsureUpdatedMainBranch(dry_run):
     current_branch = _RunCommand(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])[0].splitlines()[0]
-    if current_branch != 'master':
-        logging.error('Please checkout the master branch and re-run this script.')
+    if current_branch != 'main':
+        logging.error('Please checkout the main branch and re-run this script.')
         if not dry_run:
             sys.exit(-1)
 
-    logging.info('Updating master branch...')
+    logging.info('Updating main branch...')
     _RunCommand(['git', 'pull'])
 
 
@@ -580,7 +583,7 @@ def _CreateRollBranch(dry_run):
 def _RemovePreviousRollBranch(dry_run):
     active_branch, branches = _GetBranches()
     if active_branch == ROLL_BRANCH_NAME:
-        active_branch = 'master'
+        active_branch = 'main'
     if ROLL_BRANCH_NAME in branches:
         logging.info('Removing previous roll branch (%s)', ROLL_BRANCH_NAME)
         if not dry_run:
@@ -679,7 +682,7 @@ def main():
         '--ignore-unclean-workdir',
         action='store_true',
         default=False,
-        help=('Ignore if the current branch is not master or if there '
+        help=('Ignore if the current branch is not main or if there '
               'are uncommitted changes (default: %(default)s).'))
     grp = p.add_mutually_exclusive_group()
     grp.add_argument(
@@ -725,7 +728,7 @@ def main():
         _RemovePreviousRollBranch(opts.dry_run)
 
     if not opts.ignore_unclean_workdir:
-        _EnsureUpdatedMasterBranch(opts.dry_run)
+        _EnsureUpdatedMainBranch(opts.dry_run)
 
     deps_filename = os.path.join(CHECKOUT_SRC_DIR, 'DEPS')
     angle_deps = ParseLocalDepsFile(deps_filename)

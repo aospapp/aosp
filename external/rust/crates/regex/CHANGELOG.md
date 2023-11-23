@@ -1,3 +1,67 @@
+1.5.4 (2021-05-06)
+==================
+This release fixes another compilation failure when building regex. This time,
+the fix is for when the `pattern` feature is enabled, which only works on
+nightly Rust. CI has been updated to test this case.
+
+* [BUG #772](https://github.com/rust-lang/regex/pull/772):
+  Fix build when `pattern` feature is enabled.
+
+
+1.5.3 (2021-05-01)
+==================
+This releases fixes a bug when building regex with only the `unicode-perl`
+feature. It turns out that while CI was building this configuration, it wasn't
+actually failing the overall build on a failed compilation.
+
+* [BUG #769](https://github.com/rust-lang/regex/issues/769):
+  Fix build in `regex-syntax` when only the `unicode-perl` feature is enabled.
+
+
+1.5.2 (2021-05-01)
+==================
+This release fixes a performance bug when Unicode word boundaries are used.
+Namely, for certain regexes on certain inputs, it's possible for the lazy DFA
+to stop searching (causing a fallback to a slower engine) when it doesn't
+actually need to.
+
+[PR #768](https://github.com/rust-lang/regex/pull/768) fixes the bug, which was
+originally reported in
+[ripgrep#1860](https://github.com/BurntSushi/ripgrep/issues/1860).
+
+
+1.5.1 (2021-04-30)
+==================
+This is a patch release that fixes a compilation error when the `perf-literal`
+feature is not enabled.
+
+
+1.5.0 (2021-04-30)
+==================
+This release primarily updates to Rust 2018 (finally) and bumps the MSRV to
+Rust 1.41 (from Rust 1.28). Rust 1.41 was chosen because it's still reasonably
+old, and is what's in Debian stable at the time of writing.
+
+This release also drops this crate's own bespoke substring search algorithms
+in favor of a new
+[`memmem` implementation provided by the `memchr` crate](https://docs.rs/memchr/2.4.0/memchr/memmem/index.html).
+This will change the performance profile of some regexes, sometimes getting a
+little worse, and hopefully more frequently, getting a lot better. Please
+report any serious performance regressions if you find them.
+
+
+1.4.6 (2021-04-22)
+==================
+This is a small patch release that fixes the compiler's size check on how much
+heap memory a regex uses. Previously, the compiler did not account for the
+heap usage of Unicode character classes. Now it does. It's possible that this
+may make some regexes fail to compile that previously did compile. If that
+happens, please file an issue.
+
+* [BUG OSS-fuzz#33579](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=33579):
+  Some regexes can use more heap memory than one would expect.
+
+
 1.4.5 (2021-03-14)
 ==================
 This is a small patch release that fixes a regression in the size of a `Regex`

@@ -59,7 +59,7 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
 
   ~IcuLanguageSegmenterIterator() {
     ubrk_close(break_iterator_);
-    utext_close(&u_text_);
+    utext_close(u_text_);
   }
 
   // Advances to the next term. Returns false if it has reached the end.
@@ -83,9 +83,6 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
       return false;
     }
 
-    if (!IsValidSegment()) {
-      return Advance();
-    }
     return true;
   }
 
@@ -226,8 +223,7 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
       return absl_ports::AbortedError(
           "Could not retrieve valid utf8 character!");
     }
-    if (term_end_index_exclusive_ > offset_iterator_.utf8_index() ||
-        !IsValidSegment()) {
+    if (term_end_index_exclusive_ > offset_iterator_.utf8_index()) {
       return ResetToTermEndingBeforeUtf32(term_start_iterator.utf32_index());
     }
     return term_start_iterator.utf32_index();
@@ -253,7 +249,7 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
       : break_iterator_(nullptr),
         text_(text),
         locale_(locale),
-        u_text_(UTEXT_INITIALIZER),
+        u_text_(nullptr),
         offset_iterator_(text),
         term_start_index_(0),
         term_end_index_exclusive_(0) {}
@@ -261,10 +257,13 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
   // Returns true on success
   bool Initialize() {
     UErrorCode status = U_ZERO_ERROR;
-    utext_openUTF8(&u_text_, text_.data(), text_.length(), &status);
+    u_text_ = utext_openUTF8(nullptr, text_.data(), text_.length(), &status);
+    if (u_text_ == nullptr) {
+      return false;
+    }
     break_iterator_ = ubrk_open(UBRK_WORD, locale_.data(), /*text=*/nullptr,
                                 /*textLength=*/0, &status);
-    ubrk_setUText(break_iterator_, &u_text_, &status);
+    ubrk_setUText(break_iterator_, u_text_, &status);
     return !U_FAILURE(status);
   }
 
@@ -291,23 +290,6 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
     term_start_index_ = 0;
   }
 
-  bool IsValidSegment() const {
-    // Rule 1: all ASCII terms will be returned.
-    // We know it's a ASCII term by checking the first char.
-    if (i18n_utils::IsAscii(text_[term_start_index_])) {
-      return true;
-    }
-
-    UChar32 uchar32 = i18n_utils::GetUChar32At(text_.data(), text_.length(),
-                                               term_start_index_);
-    // Rule 2: for non-ASCII terms, only the alphabetic terms are returned.
-    // We know it's an alphabetic term by checking the first unicode character.
-    if (u_isUAlphabetic(uchar32)) {
-      return true;
-    }
-    return false;
-  }
-
   // The underlying class that does the segmentation, ubrk_close() must be
   // called after using.
   UBreakIterator* break_iterator_;
@@ -321,8 +303,8 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
   std::string_view locale_;
 
   // A thin wrapper around the input UTF8 text, needed by break_iterator_.
-  // utext_close() must be called after using.
-  UText u_text_;
+  // Allocated by calling utext_openUtf8() and freed by calling utext_close().
+  UText* u_text_;
 
   // Offset iterator. This iterator is not guaranteed to point to any particular
   // character, but is guaranteed to point to a valid UTF character sequence.

@@ -28,12 +28,11 @@
 
 static void IGEMMBenchmark(benchmark::State& state,
   xnn_f16_igemm_minmax_ukernel_function f16_igemm,
-  uint32_t mr, uint32_t nr, uint32_t kr, uint32_t sr)
+  uint32_t mr, uint32_t nr, uint32_t kr, uint32_t sr,
+  xnn_init_f16_scaleminmax_params_fn init_params,
+  benchmark::utils::IsaCheckFunction isa_check = nullptr)
 {
-  if (!cpuinfo_initialize()) {
-    state.SkipWithError("cpuinfo initialization failed");
-  }
-  if (!benchmark::utils::CheckNEONFP16ARITH(state)) {
+  if (isa_check && !isa_check(state)) {
     return;
   }
 
@@ -66,7 +65,7 @@ static void IGEMMBenchmark(benchmark::State& state,
 
   const size_t mc_stride = benchmark::utils::RoundUp<size_t>(output_size, mr);
   const size_t nc_stride = benchmark::utils::RoundUp<size_t>(group_output_channels, nr);
-  const size_t kc_stride = benchmark::utils::RoundUp<size_t>(group_input_channels, kr);
+  const size_t kc_stride = benchmark::utils::RoundUp<size_t>(group_input_channels, kr * sr);
 
   std::vector<uint16_t> a(input_height * input_width * input_pixel_stride);
   std::generate(a.begin(), a.end(), std::ref(f16rng));
@@ -84,11 +83,11 @@ static void IGEMMBenchmark(benchmark::State& state,
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(),
       sizeof(uint16_t) * (w_elements + c_elements) + sizeof(void*) * i_elements);
 
-  std::vector<uint16_t, AlignedAllocator<uint16_t, 32>> w(w_elements * num_buffers);
+  std::vector<uint16_t, AlignedAllocator<uint16_t, 64>> w(w_elements * num_buffers);
   std::fill(w.begin(), w.end(), 0);
   xnn_pack_f16_conv_goki_w(
     1 /* groups */, group_output_channels, kernel_size, group_input_channels,
-    nr, kr, sr, k.data(), b.data(), w.data(), nullptr);
+    nr, kr, sr, k.data(), b.data(), w.data(), 0 /* extra bytes */, nullptr);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(w.cbegin(), w.cbegin() + w_elements, w.begin() + n * w_elements);
   }
@@ -124,10 +123,8 @@ static void IGEMMBenchmark(benchmark::State& state,
 
   // Prepare minmax parameters.
   xnn_f16_scaleminmax_params params;
-  params = xnn_init_f16_scaleminmax_params(
-    UINT16_C(0x3C00),  /* 1.0 */
-    UINT16_C(0x7C00),  /* inf */
-    UINT16_C(0xFC00)); /* -inf */
+  init_params(&params,
+    UINT16_C(0x3C00) /* 1.0 */, UINT16_C(0x7C00) /* inf */, UINT16_C(0xFC00) /* -inf */);
 
   size_t buffer_index = 0;
   for (auto _ : state) {
@@ -165,47 +162,96 @@ static void IGEMMBenchmark(benchmark::State& state,
 
 #if XNN_ARCH_ARM64
   static void f16_igemm_1x8__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_1x8__neonfp16arith_ld64, 1, 8, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_1x8__neonfp16arith_ld64, 1, 8, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_4x8__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_4x8__neonfp16arith_ld64, 4, 8, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_4x8__neonfp16arith_ld64, 4, 8, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_6x8__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_6x8__neonfp16arith_ld64, 6, 8, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_6x8__neonfp16arith_ld64, 6, 8, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_8x8__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_8x8__neonfp16arith_ld64, 8, 8, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_8x8__neonfp16arith_ld64, 8, 8, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_1x16__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_1x16__neonfp16arith_ld64, 1, 16, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_1x16__neonfp16arith_ld64, 1, 16, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_4x16__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_4x16__neonfp16arith_ld64, 4, 16, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_4x16__neonfp16arith_ld64, 4, 16, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_6x16__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_6x16__neonfp16arith_ld64, 6, 16, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_6x16__neonfp16arith_ld64, 6, 16, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
-
   static void f16_igemm_8x16__neonfp16arith_ld64(benchmark::State& state, const char* net) {
-    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_8x16__neonfp16arith_ld64, 8, 16, 1, 1);
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_8x16__neonfp16arith_ld64, 8, 16, 1, 1,
+      xnn_init_f16_scaleminmax_neon_params, benchmark::utils::CheckNEONFP16ARITH);
   }
 
   BENCHMARK_CONV(f16_igemm_1x8__neonfp16arith_ld64)
   BENCHMARK_CONV(f16_igemm_4x8__neonfp16arith_ld64)
   BENCHMARK_CONV(f16_igemm_6x8__neonfp16arith_ld64)
   BENCHMARK_CONV(f16_igemm_8x8__neonfp16arith_ld64)
-
   BENCHMARK_CONV(f16_igemm_1x16__neonfp16arith_ld64)
   BENCHMARK_CONV(f16_igemm_4x16__neonfp16arith_ld64)
   BENCHMARK_CONV(f16_igemm_6x16__neonfp16arith_ld64)
   BENCHMARK_CONV(f16_igemm_8x16__neonfp16arith_ld64)
-#endif  /* XNN_ARCH_ARM64 */
+#endif  // XNN_ARCH_ARM64
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  static void f16_igemm_1x8__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_1x8__avx2_broadcast, 1, 8, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_4x8__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_4x8__avx2_broadcast, 4, 8, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_5x8__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_5x8__avx2_broadcast, 5, 8, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_6x8__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_6x8__avx2_broadcast, 6, 8, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_7x8__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_7x8__avx2_broadcast, 7, 8, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_1x16__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_1x16__avx2_broadcast, 1, 16, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_3x16__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_3x16__avx2_broadcast, 3, 16, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_4x16__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_4x16__avx2_broadcast, 4, 16, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+  static void f16_igemm_5x16__avx2_broadcast(benchmark::State& state, const char* net) {
+    IGEMMBenchmark(state, xnn_f16_igemm_minmax_ukernel_5x16__avx2_broadcast, 5, 16, 1, 1,
+      xnn_init_f16_scaleminmax_avx_params, benchmark::utils::CheckAVX2);
+  }
+
+  BENCHMARK_CONV(f16_igemm_1x8__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_4x8__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_5x8__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_6x8__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_7x8__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_1x16__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_3x16__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_4x16__avx2_broadcast)
+  BENCHMARK_CONV(f16_igemm_5x16__avx2_broadcast)
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

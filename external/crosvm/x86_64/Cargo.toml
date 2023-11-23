@@ -2,15 +2,16 @@
 name = "x86_64"
 version = "0.1.0"
 authors = ["The Chromium OS Authors"]
-edition = "2018"
+edition = "2021"
 
 [features]
 gdb = ["gdbstub_arch", "arch/gdb"]
+direct = []
 
 [dependencies]
 arch = { path = "../arch" }
-assertions = { path = "../assertions" }
-data_model = { path = "../data_model" }
+assertions = { path = "../common/assertions" }
+data_model = { path = "../common/data_model" }
 devices = { path = "../devices" }
 gdbstub_arch = { version = "0.1.0", optional = true }
 hypervisor = { path = "../hypervisor" }
@@ -20,7 +21,8 @@ libc = "*"
 minijail = { path = "../../minijail/rust/minijail" } # ignored by ebuild
 remain = "*"
 resources = { path = "../resources" }
-sync = { path = "../sync" }
+sync = { path = "../common/sync" }
+thiserror = "*"
 base = { path = "../base" }
 acpi_tables = {path = "../acpi_tables" }
 vm_control = { path = "../vm_control" }

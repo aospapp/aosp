@@ -95,15 +95,17 @@ absl::Status WinogradFromNode(const GpuInfo& gpu_info,
   const BHWC shape_0{input_shape.b, 36, tiles_x * tiles_y, input_shape.c};
   const BHWC shape_1{input_shape.b, 36, tiles_x * tiles_y, output_shape.c};
   TensorDescriptor td_0;
-  td_0.storage_type = SelectBestStorageType(
+  RETURN_IF_ERROR(SelectBestStorageType(
       gpu_info, shape_0, op_def.src_tensors[0].storage_type,
-      op_def.src_tensors[0].data_type, op_def.src_tensors[0].layout);
+      op_def.src_tensors[0].data_type, op_def.src_tensors[0].layout,
+      &td_0.storage_type));
   td_0.data_type = op_def.src_tensors[0].data_type;
   td_0.layout = op_def.src_tensors[0].layout;
   TensorDescriptor td_1;
-  td_1.storage_type = SelectBestStorageType(
+  RETURN_IF_ERROR(SelectBestStorageType(
       gpu_info, shape_1, op_def.src_tensors[0].storage_type,
-      op_def.src_tensors[0].data_type, op_def.src_tensors[0].layout);
+      op_def.src_tensors[0].data_type, op_def.src_tensors[0].layout,
+      &td_1.storage_type));
   td_1.data_type = op_def.src_tensors[0].data_type;
   td_1.layout = op_def.src_tensors[0].layout;
   gpu_subgraph->new_tensors = {{shape_0, td_0}, {shape_1, td_1}};
@@ -210,9 +212,10 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
       TensorDescriptor transposed_desc = {op_def.src_tensors[1].data_type,
                                           op_def.src_tensors[1].storage_type,
                                           Layout::BHWC};
-      transposed_desc.storage_type = SelectBestStorageType(
+      RETURN_IF_ERROR(SelectBestStorageType(
           gpu_info, weights_shape, transposed_desc.storage_type,
-          transposed_desc.data_type, transposed_desc.layout);
+          transposed_desc.data_type, transposed_desc.layout,
+          &transposed_desc.storage_type));
       TensorDescriptor weights_desc = {op_def.src_tensors[1].data_type,
                                        TensorStorageType::BUFFER, Layout::BHWC};
       gpu_subgraph->operations.clear();
@@ -262,11 +265,58 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
     }
     case OperationType::CONCAT: {
       auto attr = absl::any_cast<ConcatAttributes>(node.operation.attributes);
-      std::vector<int> channels(inputs.size());
-      for (int i = 0; i < inputs.size(); ++i) {
-        channels[i] = inputs[i]->tensor.shape.c;
+      const int max_inputs = gpu_info.GetMaxImageArguments() - 8;
+      if (inputs.size() >= max_inputs) {
+        int groups = DivideRoundUp(inputs.size(), max_inputs);
+        gpu_subgraph->operations.clear();
+        gpu_subgraph->operations.resize(groups);
+        BHWC concatenated_shape = inputs[0]->tensor.shape;
+        concatenated_shape.set(attr.axis, 0);
+        for (int g = 0; g < groups; ++g) {
+          std::vector<int> channels;
+          auto& concat_op = gpu_subgraph->operations[g];
+          OperationDef new_def;
+          new_def.precision = op_def.precision;
+          if (g != 0) {
+            // concatenated tensor from previos concats
+            new_def.src_tensors.push_back(op_def.dst_tensors[0]);
+            concat_op.input_ids = {-g};
+            channels.push_back(concatenated_shape.c);
+          }
+          for (int i = 0; i < max_inputs; ++i) {
+            int src_index = g * max_inputs + i;
+            if (src_index >= op_def.src_tensors.size()) {
+              break;
+            }
+            new_def.src_tensors.push_back(op_def.src_tensors[src_index]);
+            concat_op.input_ids.push_back(inputs[src_index]->id);
+            channels.push_back(inputs[src_index]->tensor.shape.c);
+            int current_size = concatenated_shape.get(attr.axis);
+            concatenated_shape.set(
+                attr.axis,
+                current_size + inputs[src_index]->tensor.shape.get(attr.axis));
+          }
+          new_def.dst_tensors.push_back(op_def.dst_tensors[0]);
+          if (g == groups - 1) {
+            // last concat
+            concat_op.output_ids = {static_cast<int>(outputs[0]->id)};
+          } else {
+            // intermediate concat, create new tensor for it
+            concat_op.output_ids = {-(g + 1)};
+            gpu_subgraph->new_tensors.push_back(
+                {concatenated_shape, op_def.dst_tensors[0]});
+          }
+          RETURN_IF_ERROR(SelectConcat(attr, channels, new_def, gpu_info,
+                                       &concat_op.operation));
+        }
+        return absl::OkStatus();
+      } else {
+        std::vector<int> channels(inputs.size());
+        for (int i = 0; i < inputs.size(); ++i) {
+          channels[i] = inputs[i]->tensor.shape.c;
+        }
+        return SelectConcat(attr, channels, op_def, gpu_info, gpu_op);
       }
-      return SelectConcat(attr, channels, op_def, gpu_info, gpu_op);
     }
     case OperationType::CONVOLUTION_2D: {
       auto attr =
@@ -274,7 +324,8 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
       auto input_shape = inputs[0]->tensor.shape;
       auto output_shape = outputs[0]->tensor.shape;
       if (inputs.size() == 1) {
-        if (WinogradFromNode(gpu_info, inputs, outputs, op_def, hints,
+        if (!hints.Check(ModelHints::kNoWinogradOptimizations) &&
+            WinogradFromNode(gpu_info, inputs, outputs, op_def, hints,
                              input_shape, output_shape, attr, gpu_subgraph)
                 .ok()) {
           return absl::OkStatus();
@@ -356,9 +407,9 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
         const int kernel_x = weights_shape.w;
         const int kernel_y = weights_shape.h;
         if (weights_desc.layout ==
-                WeightsLayout::k2DX4I4YIsHWIAndXIsOOGroupO4 ||
+                WeightsLayout::k2DX4I4YIsSpatialIAndXIsOOGroupO4 ||
             weights_desc.layout ==
-                WeightsLayout::k2DX4O4YIsHWIAndXIsOOGroupI4) {
+                WeightsLayout::k2DX4O4YIsSpatialIAndXIsOOGroupI4) {
           // weights are 4x textures 2d
           conv_op.input_ids = {static_cast<int>(inputs[0]->id), -1, -2, -3, -4};
           int texture_width = dst_depth;
@@ -409,11 +460,28 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
       }
       return absl::OkStatus();
     }
+    case OperationType::DEPTH_TO_SPACE: {
+      auto attr =
+          absl::any_cast<SpaceToDepthAttributes>(node.operation.attributes);
+      SelectDepthToSpace(attr, op_def, gpu_op);
+      return absl::OkStatus();
+    }
     case OperationType::FULLY_CONNECTED: {
       auto attr =
           absl::any_cast<FullyConnectedAttributes>(node.operation.attributes);
       *gpu_op = SelectFullyConnected(attr, gpu_info, op_def,
                                      inputs[0]->tensor.shape.b);
+      return absl::OkStatus();
+    }
+    case OperationType::FULLY_CONNECTED_INT8: {
+      auto attr = absl::any_cast<FullyConnectedInt8Attributes>(
+          node.operation.attributes);
+      *gpu_op = SelectFullyConnected(attr, gpu_info, op_def);
+      return absl::OkStatus();
+    }
+    case OperationType::GATHER: {
+      auto attr = absl::any_cast<GatherAttributes>(node.operation.attributes);
+      RETURN_IF_ERROR(SelectGather(attr, op_def, gpu_op));
       return absl::OkStatus();
     }
     case OperationType::LSTM: {
@@ -466,6 +534,10 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
       *gpu_op = SelectReLU(attr, op_def);
       return absl::OkStatus();
     }
+    case OperationType::RESAMPLER: {
+      *gpu_op = SelectResampler(op_def);
+      return absl::OkStatus();
+    }
     case OperationType::RESHAPE: {
       const int src_channels = inputs[0]->tensor.shape.c;
       auto attr = absl::any_cast<ReshapeAttributes>(node.operation.attributes);
@@ -493,7 +565,11 @@ absl::Status GPUOperationFromNode(const GpuInfo& gpu_info,
     }
     case OperationType::SPLIT: {
       auto attr = absl::any_cast<SplitAttributes>(node.operation.attributes);
-      RETURN_IF_ERROR(SelectSplit(attr, op_def, gpu_op));
+      SelectSplit(attr, op_def, gpu_op);
+      return absl::OkStatus();
+    }
+    case OperationType::TILE: {
+      *gpu_op = SelectTile(op_def, inputs[0]->tensor.shape);
       return absl::OkStatus();
     }
     case OperationType::TRANSPOSE: {

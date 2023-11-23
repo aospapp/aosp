@@ -21,35 +21,102 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
-#include "cros_gralloc_handle.h"
+#include <cerrno>
+#include <cstring>
+
 #include "utils/log.h"
-
-#define DRM_FORMAT_YVU420_ANDROID fourcc_code('9', '9', '9', '7')
-
 namespace android {
 
 LEGACY_BUFFER_INFO_GETTER(BufferInfoMinigbm);
 
+constexpr int CROS_GRALLOC_DRM_GET_FORMAT = 1;
+constexpr int CROS_GRALLOC_DRM_GET_DIMENSIONS = 2;
+constexpr int CROS_GRALLOC_DRM_GET_BUFFER_INFO = 4;
+constexpr int CROS_GRALLOC_DRM_GET_USAGE = 5;
+
+struct cros_gralloc0_buffer_info {
+  uint32_t drm_fourcc;
+  int num_fds;
+  int fds[4];
+  uint64_t modifier;
+  int offset[4];
+  int stride[4];
+};
+
 int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  auto *gr_handle = (cros_gralloc_handle *)handle;
-  if (!gr_handle)
+  if (handle == nullptr) {
     return -EINVAL;
+  }
 
-  bo->width = gr_handle->width;
-  bo->height = gr_handle->height;
-  bo->hal_format = gr_handle->droid_format;
+  uint32_t width{};
+  uint32_t height{};
+  if (gralloc_->perform(gralloc_, CROS_GRALLOC_DRM_GET_DIMENSIONS, handle,
+                        &width, &height) != 0) {
+    ALOGE(
+        "CROS_GRALLOC_DRM_GET_DIMENSIONS operation has failed. "
+        "Please ensure you are using the latest minigbm.");
+    return -EINVAL;
+  }
 
-  bo->format = gr_handle->format;
-  if (bo->format == DRM_FORMAT_YVU420_ANDROID)
-    bo->format = DRM_FORMAT_YVU420;
+  int32_t droid_format{};
+  if (gralloc_->perform(gralloc_, CROS_GRALLOC_DRM_GET_FORMAT, handle,
+                        &droid_format) != 0) {
+    ALOGE(
+        "CROS_GRALLOC_DRM_GET_FORMAT operation has failed. "
+        "Please ensure you are using the latest minigbm.");
+    return -EINVAL;
+  }
 
-  bo->usage = gr_handle->usage;
+  uint32_t usage{};
+  if (gralloc_->perform(gralloc_, CROS_GRALLOC_DRM_GET_USAGE, handle, &usage) !=
+      0) {
+    ALOGE(
+        "CROS_GRALLOC_DRM_GET_USAGE operation has failed. "
+        "Please ensure you are using the latest minigbm.");
+    return -EINVAL;
+  }
 
-  for (int i = 0; i < gr_handle->num_planes; i++) {
-    bo->modifiers[i] = gr_handle->format_modifier;
-    bo->prime_fds[i] = gr_handle->fds[i];
-    bo->pitches[i] = gr_handle->strides[i];
-    bo->offsets[i] = gr_handle->offsets[i];
+  struct cros_gralloc0_buffer_info info {};
+  if (gralloc_->perform(gralloc_, CROS_GRALLOC_DRM_GET_BUFFER_INFO, handle,
+                        &info) != 0) {
+    ALOGE(
+        "CROS_GRALLOC_DRM_GET_BUFFER_INFO operation has failed. "
+        "Please ensure you are using the latest minigbm.");
+    return -EINVAL;
+  }
+
+  bo->width = width;
+  bo->height = height;
+
+  bo->hal_format = droid_format;
+
+  bo->format = info.drm_fourcc;
+  bo->usage = usage;
+
+  for (int i = 0; i < info.num_fds; i++) {
+    bo->modifiers[i] = info.modifier;
+    bo->prime_fds[i] = info.fds[i];
+    bo->pitches[i] = info.stride[i];
+    bo->offsets[i] = info.offset[i];
+  }
+
+  return 0;
+}
+
+constexpr char cros_gralloc_module_name[] = "CrOS Gralloc";
+
+int BufferInfoMinigbm::ValidateGralloc() {
+  if (strcmp(gralloc_->common.name, cros_gralloc_module_name) != 0) {
+    ALOGE("Gralloc name isn't valid: Expected: \"%s\", Actual: \"%s\"",
+          cros_gralloc_module_name, gralloc_->common.name);
+    return -EINVAL;
+  }
+
+  if (gralloc_->perform == nullptr) {
+    ALOGE(
+        "CrOS gralloc has no perform call implemented. Please upgrade your "
+        "minigbm.");
+    return -EINVAL;
   }
 
   return 0;

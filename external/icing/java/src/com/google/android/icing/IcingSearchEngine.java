@@ -43,6 +43,8 @@ import com.google.android.icing.proto.SearchSpecProto;
 import com.google.android.icing.proto.SetSchemaResultProto;
 import com.google.android.icing.proto.StatusProto;
 import com.google.android.icing.proto.StorageInfoResultProto;
+import com.google.android.icing.proto.SuggestionResponse;
+import com.google.android.icing.proto.SuggestionSpecProto;
 import com.google.android.icing.proto.UsageReport;
 import com.google.protobuf.ExtensionRegistryLite;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -370,6 +372,26 @@ public class IcingSearchEngine implements Closeable {
   }
 
   @NonNull
+  public SuggestionResponse searchSuggestions(@NonNull SuggestionSpecProto suggestionSpec) {
+    byte[] suggestionResponseBytes = nativeSearchSuggestions(this, suggestionSpec.toByteArray());
+    if (suggestionResponseBytes == null) {
+      Log.e(TAG, "Received null suggestionResponseBytes from native.");
+      return SuggestionResponse.newBuilder()
+          .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.INTERNAL))
+          .build();
+    }
+
+    try {
+      return SuggestionResponse.parseFrom(suggestionResponseBytes, EXTENSION_REGISTRY_LITE);
+    } catch (InvalidProtocolBufferException e) {
+      Log.e(TAG, "Error parsing suggestionResponseBytes.", e);
+      return SuggestionResponse.newBuilder()
+          .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.INTERNAL))
+          .build();
+    }
+  }
+
+  @NonNull
   public DeleteByNamespaceResultProto deleteByNamespace(@NonNull String namespace) {
     throwIfClosed();
 
@@ -604,4 +626,7 @@ public class IcingSearchEngine implements Closeable {
   private static native byte[] nativeGetStorageInfo(IcingSearchEngine instance);
 
   private static native byte[] nativeReset(IcingSearchEngine instance);
+
+  private static native byte[] nativeSearchSuggestions(
+      IcingSearchEngine instance, byte[] suggestionSpecBytes);
 }

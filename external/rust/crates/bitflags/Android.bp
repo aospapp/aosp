@@ -37,29 +37,57 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "bitflags_defaults",
-    crate_name: "bitflags",
+rust_test {
+    name: "bitflags_test_src_lib",
     // has rustc warnings
+    host_supported: true,
+    crate_name: "bitflags",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.3.2",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2015",
-    features: ["default"],
-    cfgs: ["bitflags_const_fn"],
-}
-
-rust_test_host {
-    name: "bitflags_host_test_src_lib",
-    defaults: ["bitflags_defaults"],
     test_options: {
         unit_test: true,
     },
+    edition: "2018",
+    features: ["default"],
+    rustlibs: [
+        "libserde",
+        "libserde_json",
+        "libwalkdir",
+    ],
+    proc_macros: [
+        "librustversion",
+        "libserde_derive",
+    ],
 }
 
 rust_test {
-    name: "bitflags_device_test_src_lib",
-    defaults: ["bitflags_defaults"],
+    name: "bitflags_test_tests_basic",
+    // has rustc warnings
+    host_supported: true,
+    crate_name: "bitflags",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.3.2",
+    srcs: ["tests/basic.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2018",
+    features: ["default"],
+    rustlibs: [
+        "libbitflags",
+        "libserde",
+        "libserde_json",
+        "libwalkdir",
+    ],
+    proc_macros: [
+        "librustversion",
+        "libserde_derive",
+    ],
 }
 
 rust_library {
@@ -67,12 +95,17 @@ rust_library {
     // has rustc warnings
     host_supported: true,
     crate_name: "bitflags",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.3.2",
     srcs: ["src/lib.rs"],
-    edition: "2015",
+    edition: "2018",
     features: ["default"],
-    cfgs: ["bitflags_const_fn"],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.virt",
     ],
+    vendor_available: true,
+    min_sdk_version: "29",
 }

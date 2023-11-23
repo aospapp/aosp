@@ -17,30 +17,28 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #define LOG_TAG "hwc-drm-utils"
 
-#include <log/log.h>
-#include <ui/Gralloc.h>
-#include <ui/GraphicBufferMapper.h>
+#include <utils/log.h>
+
+#include <cerrno>
 
 #include "bufferinfo/BufferInfoGetter.h"
 #include "drm/DrmFbImporter.h"
 #include "drmhwcomposer.h"
 
-#define UNUSED(x) (void)(x)
-
 namespace android {
 
-int DrmHwcLayer::ImportBuffer(DrmDevice *drmDevice) {
+int DrmHwcLayer::ImportBuffer(DrmDevice *drm_device) {
   buffer_info = hwc_drm_bo_t{};
 
   int ret = BufferInfoGetter::GetInstance()->ConvertBoInfo(sf_handle,
                                                            &buffer_info);
-  if (ret) {
+  if (ret != 0) {
     ALOGE("Failed to convert buffer info %d", ret);
     return ret;
   }
 
-  FbIdHandle = drmDevice->GetDrmFbImporter().GetOrCreateFbId(&buffer_info);
-  if (!FbIdHandle) {
+  fb_id_handle = drm_device->GetDrmFbImporter().GetOrCreateFbId(&buffer_info);
+  if (!fb_id_handle) {
     ALOGE("Failed to import buffer");
     return -EINVAL;
   }
@@ -48,23 +46,4 @@ int DrmHwcLayer::ImportBuffer(DrmDevice *drmDevice) {
   return 0;
 }
 
-void DrmHwcLayer::SetTransform(int32_t sf_transform) {
-  transform = 0;
-  // 270* and 180* cannot be combined with flips. More specifically, they
-  // already contain both horizontal and vertical flips, so those fields are
-  // redundant in this case. 90* rotation can be combined with either horizontal
-  // flip or vertical flip, so treat it differently
-  if (sf_transform == HWC_TRANSFORM_ROT_270) {
-    transform = DrmHwcTransform::kRotate270;
-  } else if (sf_transform == HWC_TRANSFORM_ROT_180) {
-    transform = DrmHwcTransform::kRotate180;
-  } else {
-    if (sf_transform & HWC_TRANSFORM_FLIP_H)
-      transform |= DrmHwcTransform::kFlipH;
-    if (sf_transform & HWC_TRANSFORM_FLIP_V)
-      transform |= DrmHwcTransform::kFlipV;
-    if (sf_transform & HWC_TRANSFORM_ROT_90)
-      transform |= DrmHwcTransform::kRotate90;
-  }
-}
 }  // namespace android

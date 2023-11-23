@@ -13,15 +13,24 @@
 // the License.
 #pragma once
 
-#include <atomic>
-
 #include "tx_api.h"
 
 namespace pw::sync::backend {
 
+// This currently does not support SMP as there's no actual lock to spin on
+// internally, see the pw_sync_threadx docs for more details.
+#ifdef TX_SMP_CORE_ID
+#error "This backend does not support SMP versions of ThreadX yet!"
+#endif  // defined(TX_SMP_CORE_ID)
 struct NativeInterruptSpinLock {
-  std::atomic<bool> locked;  // Used to detect recursion.
+  enum class State {
+    kUnlocked = 0,  // This must be 0 to ensure it is bss eligible.
+    kLockedFromInterrupt = 1,
+    kLockedFromThread = 2,
+  };
+  State state;  // Used to detect recursion and interrupt context escapes.
   UINT saved_interrupt_mask;
+  UINT saved_preemption_threshold;
 };
 using NativeInterruptSpinLockHandle = NativeInterruptSpinLock&;
 

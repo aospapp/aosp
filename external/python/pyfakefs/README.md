@@ -1,4 +1,4 @@
-# pyfakefs [![PyPI version](https://badge.fury.io/py/pyfakefs.svg)](https://badge.fury.io/py/pyfakefs) [![Python version](https://img.shields.io/pypi/pyversions/pyfakefs.svg)](https://img.shields.io/pypi/pyversions/pyfakefs.svg)
+# pyfakefs [![PyPI version](https://badge.fury.io/py/pyfakefs.svg)](https://badge.fury.io/py/pyfakefs) [![Python version](https://img.shields.io/pypi/pyversions/pyfakefs.svg)](https://img.shields.io/pypi/pyversions/pyfakefs.svg) ![Testsuite](https://github.com/jmcgeheeiv/pyfakefs/workflows/Testsuite/badge.svg)
 
 pyfakefs implements a fake file system that mocks the Python file system modules.
 Using pyfakefs, your tests operate on a fake file system in memory without
@@ -14,7 +14,7 @@ This file provides general usage instructions for pyfakefs.  There is more:
 * The documentation at [GitHub Pages:](http://jmcgeheeiv.github.io/pyfakefs)
   * The [Release documentation](http://jmcgeheeiv.github.io/pyfakefs/release)
     contains usage documentation for pyfakefs and a description of the 
-    most relevent classes, methods and functions for the last version 
+    most relevant classes, methods and functions for the last version 
     released on PyPi
   * The [Development documentation](http://jmcgeheeiv.github.io/pyfakefs/master)
     contains the same documentation for the current master branch
@@ -43,10 +43,10 @@ using convenience functions.
 
 
 ## Compatibility
-pyfakefs works with CPython 3.5 and above, on Linux, Windows and OSX 
+pyfakefs works with CPython 3.6 and above, on Linux, Windows and OSX 
 (MacOS), and with PyPy3.
 
-pyfakefs works with [PyTest](http://doc.pytest.org) version 2.8.6 or above.
+pyfakefs works with [pytest](http://doc.pytest.org) version 3.0.0 or above.
 
 pyfakefs will not work with Python libraries that use C libraries to access the
 file system.  This is because pyfakefs cannot patch the underlying C libraries'
@@ -59,13 +59,9 @@ For example, pyfakefs will not work with [`lxml`](http://lxml.de/).  In this cas
 
 ### Continuous integration
 
-pyfakefs is currently automatically tested:
-* [![Build Status](https://travis-ci.org/jmcgeheeiv/pyfakefs.svg)](https://travis-ci.org/jmcgeheeiv/pyfakefs)
-  on Linux, with Python 3.5 to 3.8, using [Travis](https://travis-ci.org/jmcgeheeiv/pyfakefs)
-* [![Build Status](https://travis-ci.org/jmcgeheeiv/pyfakefs.svg)](https://travis-ci.org/jmcgeheeiv/pyfakefs)
-  on MacOS, with Python 3.6 to 3.8, using [Travis](https://travis-ci.org/jmcgeheeiv/pyfakefs)
-* [![Build status](https://ci.appveyor.com/api/projects/status/4o8j21ufuo056873/branch/master?svg=true)](https://ci.appveyor.com/project/jmcgeheeiv/pyfakefs/branch/master)
-  on Windows, with Python 3.5 to 3.8 using [Appveyor](https://ci.appveyor.com/project/jmcgeheeiv/pyfakefs)
+pyfakefs is currently automatically tested on Linux, MacOS and Windows, with
+Python 3.6 to 3.10, and with PyPy3 on Linux, using
+[GitHub Actions](https://github.com/jmcgeheeiv/pyfakefs/actions).
 
 ### Running pyfakefs unit tests
 
@@ -90,7 +86,7 @@ $ tox
 
 #### In a Docker container
 
-The `Dockerfile` at the top of the repository will run the tests on the latest
+The `Dockerfile` at the repository root will run the tests on the latest
 Ubuntu version.  Build the container:
 ```bash
 cd pyfakefs/
@@ -103,8 +99,8 @@ docker run -t pyfakefs
 
 ### Contributing to pyfakefs
 
-We always welcome contributions to the library. Check out the [Contributing 
-Guide](https://github.com/jmcgeheeiv/pyfakefs/blob/master/CONTRIBUTING.md)
+We always welcome contributions to the library. Check out the
+[Contributing Guide](https://github.com/jmcgeheeiv/pyfakefs/blob/master/CONTRIBUTING.md)
 for more information.
 
 ## History

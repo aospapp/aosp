@@ -20,6 +20,7 @@
 #include <set>
 
 #include "src/trace_processor/types/trace_processor_context.h"
+#include "src/trace_processor/util/status_macros.h"
 
 namespace perfetto {
 namespace trace_processor {
@@ -31,23 +32,32 @@ uint32_t GetConstraintColumnIndex(AncestorGenerator::Ancestor type,
       return context->storage->slice_table().GetColumnCount();
     case AncestorGenerator::Ancestor::kStackProfileCallsite:
       return context->storage->stack_profile_callsite_table().GetColumnCount();
+    case AncestorGenerator::Ancestor::kSliceByStack:
+      return context->storage->slice_table().GetColumnCount();
   }
   return 0;
 }
 
 template <typename T>
-base::Optional<RowMap> BuildAncestorsRowMap(const T& table,
-                                            typename T::Id starting_id) {
-  auto start_row = table.id().IndexOf(starting_id);
+Table ExtendTableWithStartId(const T& table, int64_t constraint_value) {
+  // Add a new column that includes the constraint.
+  std::unique_ptr<NullableVector<int64_t>> child_ids(
+      new NullableVector<int64_t>());
+  for (uint32_t i = 0; i < table.row_count(); ++i)
+    child_ids->Append(constraint_value);
+  return table.ExtendWithColumn(
+      "start_id", std::move(child_ids),
+      TypedColumn<uint32_t>::default_flags() | TypedColumn<uint32_t>::kHidden);
+}
 
+template <typename T>
+base::Status BuildAncestorsRowMap(const T& table,
+                                  typename T::Id starting_id,
+                                  RowMap& rowmap_return) {
+  auto start_row = table.id().IndexOf(starting_id);
   if (!start_row) {
-    // TODO(lalitm): Ideally this should result in an error, or be filtered out
-    // during ValidateConstraints so we can just dereference |start_row|
-    // directly. However ValidateConstraints doesn't know the value we're
-    // filtering for so can't ensure it exists. For now we return a nullptr
-    // which will cause the query to surface an error with the message "SQL
-    // error: constraint failed".
-    return base::nullopt;
+    return base::ErrStatus("no row with id %" PRIu32 "",
+                           static_cast<uint32_t>(starting_id.value));
   }
 
   std::vector<uint32_t> parent_rows;
@@ -58,27 +68,25 @@ base::Optional<RowMap> BuildAncestorsRowMap(const T& table,
     // Update the loop variable by looking up the next parent_id.
     maybe_parent_id = table.parent_id()[parent_row];
   }
-  return RowMap(std::move(parent_rows));
+  rowmap_return = RowMap{parent_rows};
+  return base::OkStatus();
 }
 
+// Constraint_value is used to construct the hidden column "start_id"
+// needed by SQL.
+// Starting_id refers to the id that is used to generate the ancestors.
 template <typename T>
-std::unique_ptr<Table> BuildAncestorsTable(const T& table,
-                                           typename T::Id starting_id) {
+base::Status BuildAncestorsTable(int64_t constraint_value,
+                                 const T& table,
+                                 typename T::Id starting_id,
+                                 std::unique_ptr<Table>& table_return) {
   // Build up all the parents row ids.
-  auto ancestors = BuildAncestorsRowMap(table, starting_id);
-  if (!ancestors) {
-    return nullptr;
-  }
-  // Add a new column that includes the constraint.
-  std::unique_ptr<NullableVector<uint32_t>> child_ids(
-      new NullableVector<uint32_t>());
-  for (uint32_t i = 0; i < ancestors->size(); ++i)
-    child_ids->Append(starting_id.value);
-  return std::unique_ptr<Table>(
-      new Table(table.Apply(std::move(*ancestors))
-                    .ExtendWithColumn("start_id", std::move(child_ids),
-                                      TypedColumn<uint32_t>::default_flags() |
-                                          TypedColumn<uint32_t>::kHidden)));
+  RowMap ancestors;
+  RETURN_IF_ERROR(BuildAncestorsRowMap(table, starting_id, ancestors));
+
+  table_return.reset(new Table(ExtendTableWithStartId(
+      table.Apply(std::move(ancestors)), constraint_value)));
+  return base::OkStatus();
 }
 }  // namespace
 
@@ -86,7 +94,7 @@ AncestorGenerator::AncestorGenerator(Ancestor type,
                                      TraceProcessorContext* context)
     : type_(type), context_(context) {}
 
-util::Status AncestorGenerator::ValidateConstraints(
+base::Status AncestorGenerator::ValidateConstraints(
     const QueryConstraints& qc) {
   const auto& cs = qc.constraints();
 
@@ -95,30 +103,69 @@ util::Status AncestorGenerator::ValidateConstraints(
     return c.column == column && c.op == SQLITE_INDEX_CONSTRAINT_EQ;
   };
   bool has_id_cs = std::find_if(cs.begin(), cs.end(), id_fn) != cs.end();
-  return has_id_cs ? util::OkStatus()
-                   : util::ErrStatus("Failed to find required constraints");
+  return has_id_cs ? base::OkStatus()
+                   : base::ErrStatus("Failed to find required constraints");
 }
 
-std::unique_ptr<Table> AncestorGenerator::ComputeTable(
+base::Status AncestorGenerator::ComputeTable(
     const std::vector<Constraint>& cs,
-    const std::vector<Order>&) {
+    const std::vector<Order>&,
+    const BitVector&,
+    std::unique_ptr<Table>& table_return) {
   uint32_t column = GetConstraintColumnIndex(type_, context_);
-  auto it = std::find_if(cs.begin(), cs.end(), [column](const Constraint& c) {
-    return c.col_idx == column && c.op == FilterOp::kEq;
-  });
-  PERFETTO_DCHECK(it != cs.end());
-
-  auto start_id = static_cast<uint32_t>(it->value.AsLong());
-  switch (type_) {
-    case Ancestor::kSlice:
-      return BuildAncestorsTable(context_->storage->slice_table(),
-                                 SliceId(start_id));
-    case Ancestor::kStackProfileCallsite:
-      return BuildAncestorsTable(
-          context_->storage->stack_profile_callsite_table(),
-          CallsiteId(start_id));
+  auto constraint_it =
+      std::find_if(cs.begin(), cs.end(), [column](const Constraint& c) {
+        return c.col_idx == column && c.op == FilterOp::kEq;
+      });
+  PERFETTO_DCHECK(constraint_it != cs.end());
+  if (constraint_it == cs.end() ||
+      constraint_it->value.type != SqlValue::Type::kLong) {
+    return base::ErrStatus("invalid start_id");
   }
-  return nullptr;
+  auto start_id = constraint_it->value.AsLong();
+
+  switch (type_) {
+    case Ancestor::kSlice: {
+      RETURN_IF_ERROR(BuildAncestorsTable(
+          /* constraint_id = */ start_id, context_->storage->slice_table(),
+          /* starting_id = */ SliceId(static_cast<uint32_t>(start_id)),
+          table_return));
+      return base::OkStatus();
+    }
+
+    case Ancestor::kStackProfileCallsite: {
+      RETURN_IF_ERROR(BuildAncestorsTable(
+          /* constraint_id = */ start_id,
+          context_->storage->stack_profile_callsite_table(),
+          /* starting_id = */ CallsiteId(static_cast<uint32_t>(start_id)),
+          table_return));
+      return base::OkStatus();
+    }
+
+    case Ancestor::kSliceByStack: {
+      // Find the all slice ids that have the stack id and find all the
+      // ancestors of the slice ids.
+      const auto& slice_table = context_->storage->slice_table();
+
+      auto result = RowMap();
+      auto slice_ids =
+          slice_table.FilterToRowMap({slice_table.stack_id().eq(start_id)});
+
+      for (auto id_it = slice_ids.IterateRows(); id_it; id_it.Next()) {
+        auto slice_id = slice_table.id()[id_it.index()];
+
+        auto ancestors = GetAncestorSlices(slice_table, slice_id);
+        for (auto row_it = ancestors->IterateRows(); row_it; row_it.Next()) {
+          result.Insert(row_it.index());
+        }
+      }
+
+      table_return.reset(new Table(ExtendTableWithStartId(
+          slice_table.Apply(std::move(result)), start_id)));
+      return base::OkStatus();
+    }
+  }
+  return base::ErrStatus("unknown AncestorGenerator type");
 }
 
 Table::Schema AncestorGenerator::CreateSchema() {
@@ -129,6 +176,9 @@ Table::Schema AncestorGenerator::CreateSchema() {
       break;
     case Ancestor::kStackProfileCallsite:
       final_schema = tables::StackProfileCallsiteTable::Schema();
+      break;
+    case Ancestor::kSliceByStack:
+      final_schema = tables::SliceTable::Schema();
       break;
   }
   final_schema.columns.push_back(Table::Schema::Column{
@@ -143,6 +193,8 @@ std::string AncestorGenerator::TableName() {
       return "ancestor_slice";
     case Ancestor::kStackProfileCallsite:
       return "experimental_ancestor_stack_profile_callsite";
+    case Ancestor::kSliceByStack:
+      return "ancestor_slice_by_stack";
   }
   return "ancestor_unknown";
 }
@@ -155,7 +207,11 @@ uint32_t AncestorGenerator::EstimateRowCount() {
 base::Optional<RowMap> AncestorGenerator::GetAncestorSlices(
     const tables::SliceTable& slices,
     SliceId slice_id) {
-  return BuildAncestorsRowMap(slices, slice_id);
+  RowMap ret;
+  auto status = BuildAncestorsRowMap(slices, slice_id, ret);
+  if (!status.ok())
+    return base::nullopt;
+  return std::move(ret);  // -Wreturn-std-move-in-c++11
 }
 
 }  // namespace trace_processor

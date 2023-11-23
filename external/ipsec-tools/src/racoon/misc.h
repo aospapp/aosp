@@ -42,7 +42,7 @@
 #define LOCATION        debug_location(__FILE__, __LINE__, NULL)
 #endif
 
-extern int racoon_hexdump __P((void *, size_t));
+extern int racoon_hexdump __P((const void *, size_t));
 extern char *bit2str __P((int, int));
 extern void *get_newbuf __P((void *, size_t));
 extern const char *debug_location __P((const char *, int, const char *));

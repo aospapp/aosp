@@ -175,6 +175,30 @@ void WriteDepthStencilToDepth24(const uint8_t *srcPtr, uint8_t *dstPtr)
     *dst     = gl::floatToNormalized<24, uint32_t>(static_cast<float>(src->depth));
 }
 
+#if TARGET_OS_SIMULATOR
+void CopyTextureData(const MTLSize &regionSize,
+                     size_t srcRowPitch,
+                     size_t src2DImageSize,
+                     const uint8_t *psrc,
+                     size_t destRowPitch,
+                     size_t dest2DImageSize,
+                     uint8_t *pdst)
+{
+    {
+        size_t rowCopySize = std::min(srcRowPitch, destRowPitch);
+        for (NSUInteger d = 0; d < regionSize.depth; ++d)
+        {
+            for (NSUInteger r = 0; r < regionSize.height; ++r)
+            {
+                const uint8_t *pCopySrc = psrc + d * src2DImageSize + r * srcRowPitch;
+                uint8_t *pCopyDst       = pdst + d * dest2DImageSize + r * destRowPitch;
+                memcpy(pCopyDst, pCopySrc, rowCopySize);
+            }
+        }
+    }
+}
+#endif  // TARGET_OS_SIMULATOR
+
 void ConvertDepthStencilData(const MTLSize &regionSize,
                              const angle::Format &srcAngleFormat,
                              size_t srcRowPitch,
@@ -266,6 +290,66 @@ angle::Result CopyDepthStencilTextureContentsToStagingBuffer(
 
     return angle::Result::Continue;
 }
+
+#if TARGET_OS_SIMULATOR
+angle::Result CopyTextureContentsToStagingBuffer(ContextMtl *contextMtl,
+                                                 const angle::Format &textureAngleFormat,
+                                                 const MTLSize &regionSize,
+                                                 const uint8_t *data,
+                                                 size_t bytesPerRow,
+                                                 size_t bytesPer2DImage,
+                                                 size_t *bufferRowPitchOut,
+                                                 size_t *buffer2DImageSizeOut,
+                                                 mtl::BufferRef *bufferOut)
+{
+    size_t stagingBufferRowPitch    = regionSize.width * textureAngleFormat.pixelBytes;
+    size_t stagingBuffer2DImageSize = stagingBufferRowPitch * regionSize.height;
+    size_t stagingBufferSize        = stagingBuffer2DImageSize * regionSize.depth;
+    mtl::BufferRef stagingBuffer;
+    ANGLE_TRY(mtl::Buffer::MakeBuffer(contextMtl, stagingBufferSize, nullptr, &stagingBuffer));
+
+    uint8_t *pdst = stagingBuffer->map(contextMtl);
+    CopyTextureData(regionSize, bytesPerRow, bytesPer2DImage, data, stagingBufferRowPitch,
+                    stagingBuffer2DImageSize, pdst);
+
+    stagingBuffer->unmap(contextMtl);
+
+    *bufferOut            = stagingBuffer;
+    *bufferRowPitchOut    = stagingBufferRowPitch;
+    *buffer2DImageSizeOut = stagingBuffer2DImageSize;
+
+    return angle::Result::Continue;
+}
+
+angle::Result CopyCompressedTextureContentsToStagingBuffer(ContextMtl *contextMtl,
+                                                           const angle::Format &textureAngleFormat,
+                                                           const MTLSize &regionSizeInBlocks,
+                                                           const uint8_t *data,
+                                                           size_t bytesPerBlockRow,
+                                                           size_t bytesPer2DImage,
+                                                           size_t *bufferRowPitchOut,
+                                                           size_t *buffer2DImageSizeOut,
+                                                           mtl::BufferRef *bufferOut)
+{
+    size_t stagingBufferRowPitch    = bytesPerBlockRow;
+    size_t stagingBuffer2DImageSize = bytesPer2DImage;
+    size_t stagingBufferSize        = stagingBuffer2DImageSize * regionSizeInBlocks.depth;
+    mtl::BufferRef stagingBuffer;
+    ANGLE_TRY(mtl::Buffer::MakeBuffer(contextMtl, stagingBufferSize, nullptr, &stagingBuffer));
+
+    uint8_t *pdst = stagingBuffer->map(contextMtl);
+    CopyTextureData(regionSizeInBlocks, bytesPerBlockRow, bytesPer2DImage, data,
+                    stagingBufferRowPitch, stagingBuffer2DImageSize, pdst);
+
+    stagingBuffer->unmap(contextMtl);
+
+    *bufferOut            = stagingBuffer;
+    *bufferRowPitchOut    = stagingBufferRowPitch;
+    *buffer2DImageSizeOut = stagingBuffer2DImageSize;
+
+    return angle::Result::Continue;
+}
+#endif
 
 angle::Result UploadDepthStencilTextureContentsWithStagingBuffer(
     ContextMtl *contextMtl,
@@ -379,6 +463,60 @@ angle::Result UploadPackedDepthStencilTextureContentsWithStagingBuffer(
     return angle::Result::Continue;
 }
 
+#if TARGET_OS_SIMULATOR
+angle::Result UploadTextureContentsWithStagingBuffer(ContextMtl *contextMtl,
+                                                     const angle::Format &textureAngleFormat,
+                                                     MTLRegion region,
+                                                     const mtl::MipmapNativeLevel &mipmapLevel,
+                                                     uint32_t slice,
+                                                     const uint8_t *data,
+                                                     size_t bytesPerRow,
+                                                     size_t bytesPer2DImage,
+                                                     const mtl::TextureRef &texture)
+{
+    ASSERT(texture && texture->valid());
+
+    angle::FormatID stagingBufferFormatID   = textureAngleFormat.id;
+    const angle::Format &angleStagingFormat = angle::Format::Get(stagingBufferFormatID);
+
+    size_t stagingBufferRowPitch;
+    size_t stagingBuffer2DImageSize;
+    mtl::BufferRef stagingBuffer;
+
+    // Block-compressed formats need a bit of massaging for copy.
+    if (textureAngleFormat.isBlock)
+    {
+        GLenum internalFormat         = textureAngleFormat.glInternalFormat;
+        const gl::InternalFormat &fmt = gl::GetSizedInternalFormatInfo(internalFormat);
+        MTLRegion newRegion           = region;
+        bytesPerRow =
+            (region.size.width + fmt.compressedBlockWidth - 1) / fmt.compressedBlockWidth * 16;
+        bytesPer2DImage = (region.size.height + fmt.compressedBlockHeight - 1) /
+                          fmt.compressedBlockHeight * bytesPerRow;
+        newRegion.size.width =
+            (region.size.width + fmt.compressedBlockWidth - 1) / fmt.compressedBlockWidth;
+        newRegion.size.height =
+            (region.size.height + fmt.compressedBlockHeight - 1) / fmt.compressedBlockHeight;
+        ANGLE_TRY(CopyCompressedTextureContentsToStagingBuffer(
+            contextMtl, angleStagingFormat, newRegion.size, data, bytesPerRow, bytesPer2DImage,
+            &stagingBufferRowPitch, &stagingBuffer2DImageSize, &stagingBuffer));
+    }
+    // Copy to staging buffer before uploading to texture.
+    else
+    {
+        ANGLE_TRY(CopyTextureContentsToStagingBuffer(
+            contextMtl, angleStagingFormat, region.size, data, bytesPerRow, bytesPer2DImage,
+            &stagingBufferRowPitch, &stagingBuffer2DImageSize, &stagingBuffer));
+    }
+    mtl::BlitCommandEncoder *encoder = contextMtl->getBlitCommandEncoder();
+
+    encoder->copyBufferToTexture(stagingBuffer, 0, stagingBufferRowPitch, stagingBuffer2DImageSize,
+                                 region.size, texture, slice, mipmapLevel, region.origin, 0);
+
+    return angle::Result::Continue;
+}
+#endif  // TARGET_OS_SIMULATOR
+
 angle::Result UploadTextureContents(const gl::Context *context,
                                     const angle::Format &textureAngleFormat,
                                     const MTLRegion &region,
@@ -392,6 +530,15 @@ angle::Result UploadTextureContents(const gl::Context *context,
     ASSERT(texture && texture->valid());
     ContextMtl *contextMtl = mtl::GetImpl(context);
 
+#if TARGET_OS_SIMULATOR
+    if (!textureAngleFormat.depthBits && !textureAngleFormat.stencilBits)
+    {
+        ANGLE_TRY(UploadTextureContentsWithStagingBuffer(contextMtl, textureAngleFormat, region,
+                                                         mipmapLevel, slice, data, bytesPerRow,
+                                                         bytesPer2DImage, texture));
+        return angle::Result::Continue;
+    }
+#else
     if (texture->isCPUAccessible())
     {
         // If texture is CPU accessible, just call replaceRegion() directly.
@@ -400,6 +547,7 @@ angle::Result UploadTextureContents(const gl::Context *context,
 
         return angle::Result::Continue;
     }
+#endif  // TARGET_OS_SIMULATOR
 
     ASSERT(textureAngleFormat.depthBits || textureAngleFormat.stencilBits);
 
@@ -529,7 +677,6 @@ void TextureMtl::releaseTexture(bool releaseImages, bool releaseTextureObjectsOn
     {
         mMetalSamplerState = nil;
         mFormat            = mtl::Format();
-        mIsPow2            = false;
     }
 }
 
@@ -566,7 +713,6 @@ angle::Result TextureMtl::createNativeTexture(const gl::Context *context,
     mCurrentBaseLevel = mState.getEffectiveBaseLevel();
     mCurrentMaxLevel  = mState.getEffectiveMaxLevel();
 
-    mIsPow2          = gl::isPow2(size.width) && gl::isPow2(size.height) && gl::isPow2(size.depth);
     mSlices          = 1;
     int numCubeFaces = 1;
     switch (type)
@@ -647,12 +793,10 @@ angle::Result TextureMtl::ensureSamplerStateCreated(const gl::Context *context)
     }
 
     ContextMtl *contextMtl = mtl::GetImpl(context);
-    DisplayMtl *displayMtl = contextMtl->getDisplay();
 
     mtl::SamplerDesc samplerDesc(mState.getSamplerState());
 
-    if (mFormat.actualAngleFormat().depthBits &&
-        !displayMtl->getFeatures().hasDepthTextureFiltering.enabled)
+    if (mFormat.actualAngleFormat().depthBits && !mFormat.getCaps().filterable)
     {
         // On devices not supporting filtering for depth textures, we need to convert to nearest
         // here.
@@ -671,8 +815,8 @@ angle::Result TextureMtl::ensureSamplerStateCreated(const gl::Context *context)
         samplerDesc.sAddressMode = MTLSamplerAddressModeClampToEdge;
         samplerDesc.tAddressMode = MTLSamplerAddressModeClampToEdge;
     }
-    mMetalSamplerState =
-        displayMtl->getStateCache().getSamplerState(displayMtl->getMetalDevice(), samplerDesc);
+    mMetalSamplerState = contextMtl->getDisplay()->getStateCache().getSamplerState(
+        contextMtl->getMetalDevice(), samplerDesc);
 
     return angle::Result::Continue;
 }
@@ -1064,7 +1208,8 @@ angle::Result TextureMtl::setStorageExternalMemory(const gl::Context *context,
                                                    gl::MemoryObject *memoryObject,
                                                    GLuint64 offset,
                                                    GLbitfield createFlags,
-                                                   GLbitfield usageFlags)
+                                                   GLbitfield usageFlags,
+                                                   const void *imageCreateInfoPNext)
 {
     UNIMPLEMENTED();
 
@@ -1105,8 +1250,6 @@ angle::Result TextureMtl::setEGLImageTarget(const gl::Context *context,
 
     mSlices = mNativeTexture->cubeFacesOrArrayLength();
 
-    gl::Extents size = mNativeTexture->sizeAt0();
-    mIsPow2          = gl::isPow2(size.width) && gl::isPow2(size.height) && gl::isPow2(size.depth);
     ANGLE_TRY(ensureSamplerStateCreated(context));
 
     // Tell context to rebind textures
@@ -1138,11 +1281,11 @@ angle::Result TextureMtl::generateMipmap(const gl::Context *context)
     //
     bool sRGB = mFormat.actualInternalFormat().colorEncoding == GL_SRGB;
 
-    bool avoidCSPath =
+    bool avoidGPUPath =
         contextMtl->getDisplay()->getFeatures().forceNonCSBaseMipmapGeneration.enabled &&
         mNativeTexture->widthAt0() < 5;
 
-    if (!avoidCSPath && caps.writable && mState.getType() == gl::TextureType::_3D)
+    if (!avoidGPUPath && caps.writable && mState.getType() == gl::TextureType::_3D)
     {
         // http://anglebug.com/4921.
         // Use compute for 3D mipmap generation.
@@ -1150,7 +1293,7 @@ angle::Result TextureMtl::generateMipmap(const gl::Context *context)
         ANGLE_TRY(contextMtl->getDisplay()->getUtils().generateMipmapCS(contextMtl, mNativeTexture,
                                                                         sRGB, &mNativeLevelViews));
     }
-    else if (caps.filterable && caps.colorRenderable)
+    else if (!avoidGPUPath && caps.filterable && caps.colorRenderable)
     {
         mtl::BlitCommandEncoder *blitEncoder = contextMtl->getBlitCommandEncoder();
         blitEncoder->generateMipmapsForTexture(mNativeTexture);
@@ -1242,11 +1385,9 @@ angle::Result TextureMtl::bindTexImage(const gl::Context *context, egl::Surface 
 {
     releaseTexture(true);
 
-    auto pBuffer     = GetImplAs<OffscreenSurfaceMtl>(surface);
-    mNativeTexture   = pBuffer->getColorTexture();
-    mFormat          = pBuffer->getColorFormat();
-    gl::Extents size = mNativeTexture->sizeAt0();
-    mIsPow2          = gl::isPow2(size.width) && gl::isPow2(size.height) && gl::isPow2(size.depth);
+    auto pBuffer   = GetImplAs<OffscreenSurfaceMtl>(surface);
+    mNativeTexture = pBuffer->getColorTexture();
+    mFormat        = pBuffer->getColorFormat();
     ANGLE_TRY(ensureSamplerStateCreated(context));
 
     // Tell context to rebind textures
@@ -1994,10 +2135,12 @@ angle::Result TextureMtl::copySubImageWithDraw(const gl::Context *context,
 
     blitParams.enabledBuffers.set(0);
 
-    blitParams.src          = colorReadRT->getTexture();
-    blitParams.srcLevel     = colorReadRT->getLevelIndex();
-    blitParams.srcLayer     = colorReadRT->getLayerIndex();
-    blitParams.srcRect      = clippedSourceArea;
+    blitParams.src      = colorReadRT->getTexture();
+    blitParams.srcLevel = colorReadRT->getLevelIndex();
+    blitParams.srcLayer = colorReadRT->getLayerIndex();
+
+    blitParams.srcNormalizedCoords = mtl::NormalizedCoords(
+        clippedSourceArea, colorReadRT->getTexture()->size(blitParams.srcLevel));
     blitParams.srcYFlipped  = source->flipY();
     blitParams.dstLuminance = internalFormat.isLUMA();
 
@@ -2143,7 +2286,8 @@ angle::Result TextureMtl::copySubTextureWithDraw(const gl::Context *context,
     blitParams.src      = sourceTexture;
     blitParams.srcLevel = sourceNativeLevel;
     blitParams.srcLayer = 0;
-    blitParams.srcRect = gl::Rectangle(sourceBox.x, sourceBox.y, sourceBox.width, sourceBox.height);
+    blitParams.srcNormalizedCoords =
+        mtl::NormalizedCoords(sourceBox.toRect(), sourceTexture->size(sourceNativeLevel));
     blitParams.srcYFlipped            = false;
     blitParams.dstLuminance           = internalFormat.isLUMA();
     blitParams.unpackFlipY            = unpackFlipY;

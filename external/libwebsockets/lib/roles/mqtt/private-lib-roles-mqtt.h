@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -24,8 +24,6 @@
 
 #ifndef _PRIVATE_LIB_ROLES_MQTT
 #define _PRIVATE_LIB_ROLES_MQTT 1
-
-#include <libwebsockets/lws-mqtt.h>
 
 extern struct lws_role_ops role_ops_mqtt;
 
@@ -115,7 +113,7 @@ lws_mqtt_vbi_r(lws_mqtt_vbi *vbi, const uint8_t **in, size_t *len);
 lws_mqtt_stateful_primitive_return_t
 lws_mqtt_mb_parse(lws_mqtt_vbi *vbi, const uint8_t **in, size_t *len);
 
-typedef struct lws_mqtt_str_st {
+struct lws_mqtt_str_st {
 	uint8_t		*buf;
 	uint16_t	len;
 
@@ -124,14 +122,14 @@ typedef struct lws_mqtt_str_st {
 	uint16_t	pos;
 	char		len_valid;
 	char		needs_freeing;
-} lws_mqtt_str_t;
+};
 
 static inline int
-lws_mqtt_str_first(lws_mqtt_str_t *s) { return !s->buf && !s->pos; }
+lws_mqtt_str_first(struct lws_mqtt_str_st *s) { return !s->buf && !s->pos; }
 
 
 lws_mqtt_stateful_primitive_return_t
-lws_mqtt_str_parse(lws_mqtt_str_t *bd, const uint8_t **in, size_t *len);
+lws_mqtt_str_parse(struct lws_mqtt_str_st *bd, const uint8_t **in, size_t *len);
 
 typedef enum {
 	LMQCPP_IDLE,
@@ -157,6 +155,15 @@ typedef enum {
 	LMQCPP_PUBACK_PACKET = LMQCP_PUBACK << 4,
 	LMQCPP_PUBACK_VH_PKT_ID,
 	LMQCPP_PUBACK_PROPERTIES_LEN_VBI,
+
+	LMQCPP_PUBREC_PACKET = LMQCP_PUBREC << 4,
+	LMQCPP_PUBREC_VH_PKT_ID,
+
+	LMQCPP_PUBREL_PACKET = LMQCP_PUBREL << 4,
+	LMQCPP_PUBREL_VH_PKT_ID,
+
+	LMQCPP_PUBCOMP_PACKET = LMQCP_PUBCOMP << 4,
+	LMQCPP_PUBCOMP_VH_PKT_ID,
 
 	LMQCPP_SUBACK_PACKET = LMQCP_STOC_SUBACK << 4,
 	LMQCPP_SUBACK_VH_PKT_ID,
@@ -251,7 +258,7 @@ typedef enum {
 } lwsgs_mqtt_states_t;
 
 typedef struct lws_mqtt_parser_st {
-	/* lws_mqtt_str_t s_content_type; */
+	/* struct lws_mqtt_str_st s_content_type; */
 	lws_mqtt_packet_parse_state_t state;
 	lws_mqtt_vbi vbit;
 
@@ -289,10 +296,31 @@ typedef struct lws_mqtt_parser_st {
 
 } lws_mqtt_parser_t;
 
+typedef enum {
+	LMVTR_VALID				=  0,
+	LMVTR_VALID_WILDCARD			=  1,
+	LMVTR_VALID_SHADOW			=  2,
+
+	LMVTR_FAILED_OVERSIZE			= -1,
+	LMVTR_FAILED_WILDCARD_FORMAT		= -2,
+	LMVTR_FAILED_SHADOW_FORMAT		= -3,
+} lws_mqtt_validate_topic_return_t;
+
+typedef enum {
+	LMMTR_TOPIC_NOMATCH			= 0,
+	LMMTR_TOPIC_MATCH			= 1,
+
+	LMMTR_TOPIC_MATCH_ERROR			= -1
+} lws_mqtt_match_topic_return_t;
+
 typedef struct lws_mqtt_subs {
 	struct lws_mqtt_subs	*next;
 
 	uint8_t			ref_count; /* number of children referencing */
+
+	/* Flags */
+	uint8_t			wildcard:1;
+	uint8_t			shadow:1;
 
 	/* subscription name + NUL overallocated here */
 	char			topic[];
@@ -308,27 +336,32 @@ typedef struct lws_mqtts {
 typedef struct lws_mqttc {
 	lws_mqtt_parser_t	par;
 	lwsgs_mqtt_states_t	estate;
-	lws_mqtt_str_t		*id;
-	lws_mqtt_str_t		*username;
-	lws_mqtt_str_t		*password;
+	struct lws_mqtt_str_st	*id;
+	struct lws_mqtt_str_st	*username;
+	struct lws_mqtt_str_st	*password;
 	struct {
-		lws_mqtt_str_t	*topic;
-		lws_mqtt_str_t	*message;
+		struct lws_mqtt_str_st	*topic;
+		struct lws_mqtt_str_st	*message;
 		lws_mqtt_qos_levels_t qos;
 		uint8_t		retain;
 	} will;
 	uint16_t		keep_alive_secs;
-	uint8_t			conn_flags;
+	uint16_t			conn_flags;
+	uint8_t			aws_iot;
 } lws_mqttc_t;
 
 struct _lws_mqtt_related {
 	lws_mqttc_t		client;
+	lws_sorted_usec_list_t	sul_qos_puback_pubrec_wait; /* QoS1 puback or QoS2 pubrec wait TO */
 	lws_sorted_usec_list_t	sul_qos1_puback_wait; /* QoS1 puback wait TO */
+	lws_sorted_usec_list_t	sul_unsuback_wait; /* QoS1 unsuback wait TO */
+	lws_sorted_usec_list_t	sul_qos2_pubrec_wait; /* QoS2 pubrec wait TO */
 	struct lws		*wsi; /**< so sul can use lws_container_of */
 	lws_mqtt_subs_t		*subs_head; /**< Linked-list of heap-allocated subscription objects */
 	void			*rx_cpkt_param;
 	uint16_t		pkt_id;
 	uint16_t		ack_pkt_id;
+	uint16_t		peer_ack_pkt_id;
 	uint16_t		sub_size;
 
 #if defined(LWS_WITH_CLIENT)
@@ -338,10 +371,17 @@ struct _lws_mqtt_related {
 	uint8_t			inside_payload:1;
 	uint8_t			inside_subscribe:1;
 	uint8_t			inside_unsubscribe:1;
+	uint8_t			inside_birth:1;
+	uint8_t			inside_resume_session:1;
 	uint8_t 		send_puback:1;
+	uint8_t 		send_pubrel:1;
+	uint8_t 		send_pubrec:1;
+	uint8_t 		send_pubcomp:1;
 	uint8_t			unacked_publish:1;
+	uint8_t			unacked_pubrel:1;
 
 	uint8_t			done_subscribe:1;
+	uint8_t			done_birth:1;
 };
 
 /*
@@ -382,6 +422,9 @@ lws_create_client_mqtt_object(const struct lws_client_connect_info *i,
 
 struct lws *
 lws_mqtt_client_send_connect(struct lws *wsi);
+
+struct lws *
+lws_mqtt_client_send_disconnect(struct lws *wsi);
 
 int
 lws_mqtt_fill_fixed_header(uint8_t *p, lws_mqtt_control_packet_t ctrl_pkt_type,

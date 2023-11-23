@@ -21,6 +21,7 @@ listxattr: 1
 fremovexattr: 1
 removexattr: 1
 fstatat64: 1
+fstatfs: 1
 fstatfs64: 1
 fsync: 1
 ftruncate64: 1
@@ -28,11 +29,16 @@ getdents64: 1
 getegid32: 1
 geteuid32: 1
 getrandom: 1
+# Use constants for verity ioctls since minijail doesn't understand them yet.
+# 0x40806685 = FS_IOC_ENABLE_VERITY
+# 0xc0046686 = FS_IOC_MEASURE_VERITY
 ioctl: arg1 == FS_IOC_FSGETXATTR || \
        arg1 == FS_IOC_FSSETXATTR || \
        arg1 == FS_IOC_GETFLAGS || \
        arg1 == FS_IOC_SETFLAGS || \
-       arg1 == FS_IOC_GET_ENCRYPTION_POLICY_EX
+       arg1 == FS_IOC_GET_ENCRYPTION_POLICY_EX || \
+       arg1 == 0x40806685 || \
+       arg1 == 0xc0046686
 linkat: 1
 _llseek: 1
 mkdir: 1
@@ -42,7 +48,6 @@ open: return ENOENT
 openat: 1
 preadv: 1
 pwritev: 1
-readlinkat: 1
 renameat2: 1
 setresgid32: 1
 setresuid32: 1
@@ -55,3 +60,4 @@ utimensat_time64: 1
 prctl: arg0 == PR_SET_NAME || arg0 == PR_SET_SECUREBITS || arg0 == PR_GET_SECUREBITS
 capget: 1
 capset: 1
+unshare: 1

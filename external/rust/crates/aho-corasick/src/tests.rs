@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io;
 use std::usize;
 
-use {AhoCorasickBuilder, Match, MatchKind};
+use crate::{AhoCorasickBuilder, Match, MatchKind};
 
 /// A description of a single test against an Aho-Corasick automaton.
 ///
@@ -739,6 +739,8 @@ macro_rules! testcombo {
                 $collection,
                 $kind,
                 |b: &mut AhoCorasickBuilder| {
+                    // TODO: remove tests when option is removed.
+                    #[allow(deprecated)]
                     b.dfa(true).byte_classes(false);
                 }
             );
@@ -747,6 +749,8 @@ macro_rules! testcombo {
                 $collection,
                 $kind,
                 |b: &mut AhoCorasickBuilder| {
+                    // TODO: remove tests when option is removed.
+                    #[allow(deprecated)]
                     b.dfa(true).premultiply(false);
                 }
             );
@@ -755,6 +759,8 @@ macro_rules! testcombo {
                 $collection,
                 $kind,
                 |b: &mut AhoCorasickBuilder| {
+                    // TODO: remove tests when options are removed.
+                    #[allow(deprecated)]
                     b.dfa(true).byte_classes(false).premultiply(false);
                 }
             );
@@ -830,6 +836,8 @@ testconfig!(
     AC_STANDARD_OVERLAPPING,
     Standard,
     |b: &mut AhoCorasickBuilder| {
+        // TODO: remove tests when option is removed.
+        #[allow(deprecated)]
         b.dfa(true).byte_classes(false);
     }
 );
@@ -839,6 +847,8 @@ testconfig!(
     AC_STANDARD_OVERLAPPING,
     Standard,
     |b: &mut AhoCorasickBuilder| {
+        // TODO: remove tests when option is removed.
+        #[allow(deprecated)]
         b.dfa(true).premultiply(false);
     }
 );
@@ -848,6 +858,8 @@ testconfig!(
     AC_STANDARD_OVERLAPPING,
     Standard,
     |b: &mut AhoCorasickBuilder| {
+        // TODO: remove tests when options are removed.
+        #[allow(deprecated)]
         b.dfa(true).byte_classes(false).premultiply(false);
     }
 );
@@ -1129,7 +1141,7 @@ fn regression_ascii_case_insensitive_no_exponential() {
 // was incorrect, leading to a false negative.
 #[test]
 fn regression_rare_byte_prefilter() {
-    use AhoCorasick;
+    use crate::AhoCorasick;
 
     let ac = AhoCorasick::new_auto_configured(&["ab/j/", "x/"]);
     assert!(ac.is_match("ab/j/"));
@@ -1137,7 +1149,7 @@ fn regression_rare_byte_prefilter() {
 
 #[test]
 fn regression_case_insensitive_prefilter() {
-    use AhoCorasickBuilder;
+    use crate::AhoCorasickBuilder;
 
     for c in b'a'..b'z' {
         for c2 in b'a'..b'z' {

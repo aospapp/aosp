@@ -34,6 +34,8 @@
 #define RMI_F01_STATUS_CODE(status)		((status) & 0x0f)
 /* Indicates that flash programming is enabled (bootloader mode). */
 #define RMI_F01_STATUS_BOOTLOADER(status)	(!!((status) & 0x40))
+#define NO_SLEEP_OFF (0 << 2)
+#define NO_SLEEP_ON (1 << 2)
 
 /*
  * Sleep mode controls power management on the device and affects all
@@ -91,6 +93,10 @@ int F54Test::Prepare(f54_report_types reportType)
 	if (retval != TEST_SUCCESS)
 		return retval;
 
+	retval = DoPreparation();
+	if (retval != TEST_SUCCESS)
+		return retval;
+
 	data = (unsigned char)m_reportType;
 	retval = m_device.Write(m_f54.GetDataBase(), &data, 1);
 	if (retval < 0)
@@ -145,6 +151,7 @@ int F54Test::SetF54ReportType(f54_report_types report_type)
 	case F54_TRX_SHORTS:
 	case F54_ABS_RAW_CAP:
 	case F54_ABS_DELTA_CAP:
+	case F54_GUARD_PIN_SHORT:
 		m_reportType = report_type;
 		return SetF54ReportSize(report_type);
 	default:
@@ -159,6 +166,7 @@ int F54Test::SetF54ReportSize(f54_report_types report_type)
 	int retval;
 	unsigned char tx = m_txAssigned;
 	unsigned char rx = m_rxAssigned;
+	char buf[256];
 
 	switch (report_type) {
 	case F54_8BIT_IMAGE:
@@ -223,7 +231,14 @@ int F54Test::SetF54ReportSize(f54_report_types report_type)
 	case F54_ABS_DELTA_CAP:
 		m_reportSize = 4 * (tx + rx);
 		break;
+	case F54_GUARD_PIN_SHORT:
+		sprintf(buf, "F54_GUARD_PIN_SHORT\n");
+		m_display.Output(buf);
+		m_reportSize = GUARD_PIN_SHORT_DATA_SIZE;
+		break;
 	default:
+		sprintf(buf, "invalid report type\n");
+		m_display.Output(buf);
 		m_reportSize = 0;
 		return TEST_FAIL_INVALID_PARAMETER;
 	}
@@ -529,6 +544,213 @@ int F54Test::ReadF54Queries()
 		retval = m_device.Read(query_addr + offset,
 				m_f54Query_38.data,
 				sizeof(m_f54Query_38.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 39 */
+	if (m_f54Query_38.has_query39) {
+		retval = m_device.Read(query_addr + offset,
+					m_f54Query_39.data,
+					sizeof(m_f54Query_39.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 40 */
+	if (m_f54Query_39.has_query40) {
+		retval = m_device.Read(query_addr + offset,
+				m_f54Query_40.data,
+				sizeof(m_f54Query_40.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 41 */
+	if (m_f54Query_40.has_ctrl163_query41)
+		offset += 1;
+
+	/* query 42 */
+	if (m_f54Query_40.has_ctrl165_query42)
+		offset += 1;
+
+	/* query 43 */
+	if (m_f54Query_40.has_query43) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_43.data,
+				sizeof(m_f54Query_43.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	if (m_f54Query_43.has_ctrl172_query44_query45)
+		offset += 2;
+
+	/* query 46 */
+	if (m_f54Query_43.has_query46) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_46.data,
+				sizeof(m_f54Query_46.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 47 */
+	if (m_f54Query_46.has_query47) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_47.data,
+				sizeof(m_f54Query_47.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 48 reserved */
+
+	/* query 49 */
+	if (m_f54Query_47.has_query49) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_49.data,
+				sizeof(m_f54Query_49.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 50 */
+	if (m_f54Query_49.has_query50) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_50.data,
+				sizeof(m_f54Query_50.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 51 */
+	if (m_f54Query_50.has_query51) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_51.data,
+				sizeof(m_f54Query_51.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 53 54 */
+	if (m_f54Query_51.has_query53_query54_ctrl198)
+		offset += 2;
+
+	/* query 55 */
+	if (m_f54Query_51.has_query55) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_55.data,
+				sizeof(m_f54Query_55.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 56 */
+	if (m_f54Query_55.has_query56)
+		offset += 1;
+
+	/* query 57 */
+	if (m_f54Query_55.has_query57) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_57.data,
+				sizeof(m_f54Query_57.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 58 */
+	if (m_f54Query_57.has_query58) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_58.data,
+				sizeof(m_f54Query_58.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 59 */
+	if (m_f54Query_58.has_query59)
+		offset += 1;
+
+	/* query 60 */
+	if (m_f54Query_58.has_query60)
+		offset += 1;
+
+	/* query 61 */
+	if (m_f54Query_58.has_query61) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_61.data,
+				sizeof(m_f54Query_61.data));
+		if (retval < 0)
+			return retval;
+			offset += 1;
+	}
+
+	/* query 62 63 */
+	if (m_f54Query_61.has_ctrl215_query62_query63)
+		offset += 2;
+
+	/* query 64 */
+	if (m_f54Query_61.has_query64) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_64.data,
+				sizeof(m_f54Query_64.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 65 */
+	if (m_f54Query_64.has_query65) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_65.data,
+				sizeof(m_f54Query_65.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 66 */
+	if (m_f54Query_65.has_query66_ctrl231)
+		offset += 1;
+
+	/* query 67 */
+	if (m_f54Query_65.has_query67) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_67.data,
+				sizeof(m_f54Query_67.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 68 */
+	if (m_f54Query_67.has_query68) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_68.data,
+				sizeof(m_f54Query_68.data));
+		if (retval < 0)
+			return retval;
+		offset += 1;
+	}
+
+	/* query 69 */
+	if (m_f54Query_68.has_query69) {
+		m_device.Read(query_addr + offset,
+				m_f54Query_69.data,
+				sizeof(m_f54Query_69.data));
 		if (retval < 0)
 			return retval;
 		offset += 1;
@@ -1213,6 +1435,129 @@ int F54Test::SetupF54Controls()
 		m_f54Control.reg_149.address = reg_addr;
 		reg_addr += CONTROL_149_SIZE;
 	}
+	/* control 150 */
+	if (m_f54Query_38.has_ctrl150)
+		reg_addr += CONTROL_150_SIZE;
+
+	/* control 151 */
+	if (m_f54Query_38.has_ctrl151)
+		reg_addr += CONTROL_151_SIZE;
+
+	/* control 152 */
+	if (m_f54Query_38.has_ctrl152)
+		reg_addr += CONTROL_152_SIZE;
+
+	/* control 153 */
+	if (m_f54Query_38.has_ctrl153)
+		reg_addr += CONTROL_153_SIZE;
+
+	/* control 154 */
+	if (m_f54Query_39.has_ctrl154)
+		reg_addr += CONTROL_154_SIZE;
+
+	/* control 155 */
+	if (m_f54Query_39.has_ctrl155)
+		reg_addr += CONTROL_155_SIZE;
+
+	/* control 156 */
+	if (m_f54Query_39.has_ctrl156)
+		reg_addr += CONTROL_156_SIZE;
+
+	/* controls 157 158 */
+	if (m_f54Query_39.has_ctrl157_ctrl158)
+		reg_addr += CONTROL_157_158_SIZE;
+
+	/* controls 159 to 162 reserved */
+
+	/* control 163 */
+	if (m_f54Query_40.has_ctrl163_query41)
+		reg_addr += CONTROL_163_SIZE;
+
+	/* control 164 reserved */
+
+	/* control 165 */
+	if (m_f54Query_40.has_ctrl165_query42)
+		reg_addr += CONTROL_165_SIZE;
+
+	/* control 166 */
+	if (m_f54Query_40.has_ctrl166)
+		reg_addr += CONTROL_166_SIZE;
+
+	/* control 167 */
+	if (m_f54Query_40.has_ctrl167)
+		reg_addr += CONTROL_167_SIZE;
+
+	/* control 168 */
+	if (m_f54Query_40.has_ctrl168)
+		reg_addr += CONTROL_168_SIZE;
+
+	/* control 169 */
+	if (m_f54Query_40.has_ctrl169)
+		reg_addr += CONTROL_169_SIZE;
+
+	/* control 170 reserved */
+
+	/* control 171 */
+	if (m_f54Query_43.has_ctrl171)
+		reg_addr += CONTROL_171_SIZE;
+
+	/* control 172 */
+	if (m_f54Query_43.has_ctrl172_query44_query45)
+		reg_addr += CONTROL_172_SIZE;
+
+	/* control 173 */
+	if (m_f54Query_43.has_ctrl173)
+		reg_addr += CONTROL_173_SIZE;
+
+	/* control 174 */
+	if (m_f54Query_43.has_ctrl174)
+		reg_addr += CONTROL_174_SIZE;
+
+	/* control 175 */
+	if (m_f54Query_43.has_ctrl175)
+		reg_addr += CONTROL_175_SIZE;
+
+	/* control 176 */
+	if (m_f54Query_46.has_ctrl176)
+		reg_addr += CONTROL_176_SIZE;
+
+	/* controls 177 178 */
+	if (m_f54Query_46.has_ctrl177_ctrl178)
+		reg_addr += CONTROL_177_178_SIZE;
+
+	/* control 179 */
+	if (m_f54Query_46.has_ctrl179)
+		reg_addr += CONTROL_179_SIZE;
+
+	/* controls 180 to 181 reserved */
+
+	/* control 182 */
+	if (m_f54Query_47.has_ctrl182)
+		reg_addr += CONTROL_182_SIZE;
+
+	/* control 183 */
+	if (m_f54Query_47.has_ctrl183)
+		reg_addr += CONTROL_183_SIZE;
+
+	/* control 184 reserved */
+
+	/* control 185 */
+	if (m_f54Query_47.has_ctrl185)
+		reg_addr += CONTROL_185_SIZE;
+
+	/* control 186 */
+	if (m_f54Query_47.has_ctrl186)
+		reg_addr += CONTROL_186_SIZE;
+
+	/* control 187 */
+	if (m_f54Query_47.has_ctrl187)
+		reg_addr += CONTROL_187_SIZE;
+
+	/* control 188 */
+	if (m_f54Query_49.has_ctrl188) {
+		m_f54Control.reg_188.address = reg_addr;
+		reg_addr += CONTROL_188_SIZE;
+	}
 
 	return TEST_SUCCESS;
 }
@@ -1400,17 +1745,127 @@ exit:
 	return retval;
 }
 
+#define disable_cbc(ctrl_num)\
+do {\
+	retval = m_device.Read(\
+			m_f54Control.ctrl_num.address,\
+			m_f54Control.ctrl_num.data,\
+			sizeof(m_f54Control.ctrl_num.data));\
+	if (retval < 0) {\
+		return retval;\
+	} \
+	m_f54Control.ctrl_num.cbc_tx_carrier_selection = 0;\
+	retval = m_device.Write(\
+			m_f54Control.ctrl_num.address,\
+			m_f54Control.ctrl_num.data,\
+			sizeof(m_f54Control.ctrl_num.data));\
+	if (retval < 0) {\
+		return retval;\
+	} \
+} while (0)
+
+int F54Test::DoPreparation()
+{
+	int retval;
+	unsigned char value;
+	unsigned char zero = 0x00;
+	unsigned char device_ctrl;
+
+	retval = m_device.Read(m_f54.GetControlBase(),
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (retval < 0) {
+		return retval;
+	}
+
+	device_ctrl |= NO_SLEEP_ON;
+
+	retval = m_device.Write(m_f54.GetControlBase(),
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (retval < 0) {
+		return retval;
+	}
+
+	switch (m_reportType) {
+	case F54_16BIT_IMAGE:
+	case F54_RAW_16BIT_IMAGE:
+	case F54_SENSOR_SPEED:
+	case F54_ADC_RANGE:
+	case F54_ABS_RAW_CAP:
+	case F54_ABS_DELTA_CAP:
+		break;
+	default:
+		if (m_f54Query.touch_controller_family == 1)
+			disable_cbc(reg_7);
+		else if (m_f54Query.has_ctrl88)
+			disable_cbc(reg_88);
+
+		if (m_f54Query.has_0d_acquisition_control)
+			disable_cbc(reg_57);
+
+		if ((m_f54Query.has_query15) &&
+				(m_f54Query_15.has_query25) &&
+				(m_f54Query_25.has_query27) &&
+				(m_f54Query_27.has_query29) &&
+				(m_f54Query_29.has_query30) &&
+				(m_f54Query_30.has_query32) &&
+				(m_f54Query_32.has_query33) &&
+				(m_f54Query_33.has_query36) &&
+				(m_f54Query_36.has_query38) &&
+				(m_f54Query_38.has_ctrl149)) {
+			retval = m_device.Write(m_f54Control.reg_149.address,
+					&zero,
+					sizeof(m_f54Control.reg_149.data));
+			if (retval < 0) {
+				return retval;
+			}
+		}
+
+		if (m_f54Query.has_signal_clarity) {
+			retval = m_device.Read(m_f54Control.reg_41.address,
+					&value,
+					sizeof(m_f54Control.reg_41.data));
+			if (retval < 0) {
+				return retval;
+			}
+			value |= 0x01;
+			retval = m_device.Write(m_f54Control.reg_41.address,
+					&value,
+					sizeof(m_f54Control.reg_41.data));
+			if (retval < 0) {
+				return retval;
+			}
+		}
+
+		retval = DoF54Command(COMMAND_FORCE_UPDATE);
+		if (retval < 0) {
+			return retval;
+		}
+
+		retval = DoF54Command(COMMAND_FORCE_CAL);
+		if (retval < 0) {
+			return retval;
+		}
+	}
+	return TEST_SUCCESS;
+}
+
 int F54Test::ShowF54Report()
 {
 	unsigned int ii;
 	unsigned int jj;
+	unsigned int kk;
 	unsigned int tx_num = m_txAssigned;
 	unsigned int rx_num = m_rxAssigned;
 	char *report_data_8;
 	short *report_data_16;
 	int *report_data_32;
 	unsigned int *report_data_u32;
+	unsigned char *report_data_u8;
 	char buf[256];
+	bool rt26_result = true;
+	unsigned char rt26_ng_num;
 
 	switch (m_reportType) {
 	case F54_8BIT_IMAGE:
@@ -1550,6 +2005,68 @@ int F54Test::ShowF54Report()
 		m_display.Output(buf);
 		
 		break;
+	case F54_GUARD_PIN_SHORT:
+		report_data_u8 = (unsigned char *)m_reportData;
+		sprintf(buf, "Guard Pin Short Test:\n");
+		m_display.Output(buf);
+		for (ii = 0; ii < GUARD_PIN_SHORT_DATA_SIZE; ii++) {
+			sprintf(buf, "%03d: 0x%02x\n", ii, *(report_data_u8 + ii));
+			m_display.Output(buf);
+		}
+		sprintf(buf, "\n");
+		m_display.Output(buf);
+
+		if (report_data_u8[GUARD_PIN_SHORT_DATA_SIZE - 1] & 0xC0)
+			sprintf(buf, "Failed: pin %d\n",
+					(report_data_u8[GUARD_PIN_SHORT_DATA_SIZE - 1] & 0xC0) >> 7);
+		else
+			sprintf(buf, "Pass\n");
+		m_display.Output(buf);
+
+		break;
+	case F54_TRX_SHORTS:
+		report_data_u8 = (unsigned char *)m_reportData;
+		sprintf(buf, "Trx Short Test:\n");
+		m_display.Output(buf);
+
+		for (ii = 0; ii < m_reportSize; ii++) {
+			sprintf(buf, "%03d: 0x%02x\n", ii, *(report_data_u8 + ii));
+			m_display.Output(buf);
+		}
+		sprintf(buf, "\n");
+		m_display.Output(buf);
+
+		for (ii = 0; ii < m_reportSize; ii++) {
+			if (report_data_u8[ii] != 0) {
+				for (jj = 0; jj < sizeof(char); jj++) {
+					if (report_data_u8[ii] & (1 << jj)) {
+						rt26_ng_num = ii * 8 + jj;
+						for (kk = 0; kk < m_txAssigned; kk++) {
+							if (rt26_ng_num == m_txAssignment[kk]) {
+								rt26_result = false;
+								sprintf(buf, "Failed on %d\n", rt26_ng_num);
+								m_display.Output(buf);
+							}
+						}
+						for (kk = 0; kk < m_rxAssigned; kk++) {
+							if (rt26_ng_num == m_rxAssignment[kk]) {
+								rt26_result = false;
+								sprintf(buf, "Failed on %d\n", rt26_ng_num);
+								m_display.Output(buf);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (rt26_result) {
+			sprintf(buf, "Pass\n");
+			m_display.Output(buf);
+		}
+
+		break;
+
 	default:
 		for (ii = 0; ii < m_reportSize; ii++) {
 			sprintf(buf, "%03d: 0x%02x\n",

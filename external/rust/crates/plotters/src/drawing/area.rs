@@ -1,7 +1,7 @@
 use crate::coord::cartesian::{Cartesian2d, MeshLine};
 use crate::coord::ranged1d::{KeyPointHint, Ranged};
 use crate::coord::{CoordTranslate, Shift};
-use crate::element::{Drawable, PointCollection};
+use crate::element::{CoordMapper, Drawable, PointCollection};
 use crate::style::text_anchor::{HPos, Pos, VPos};
 use crate::style::{Color, SizeDesc, TextStyle};
 
@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 /// The representation of the rectangle in backend canvas
 #[derive(Clone, Debug)]
-struct Rect {
+pub struct Rect {
     x0: i32,
     y0: i32,
     x1: i32,
@@ -104,7 +104,7 @@ impl Rect {
     }
 
     /// Make the coordinate in the range of the rectangle
-    fn truncate(&self, p: (i32, i32)) -> (i32, i32) {
+    pub fn truncate(&self, p: (i32, i32)) -> (i32, i32) {
         (p.0.min(self.x1).max(self.x0), p.1.min(self.y1).max(self.y0))
     }
 }
@@ -286,7 +286,7 @@ impl<DB: DrawingBackend, CT: CoordTranslate> DrawingArea<DB, CT> {
             backend.draw_rect(
                 (self.rect.x0, self.rect.y0),
                 (self.rect.x1 - 1, self.rect.y1 - 1),
-                color,
+                &color.to_backend_color(),
                 true,
             )
         })
@@ -299,7 +299,7 @@ impl<DB: DrawingBackend, CT: CoordTranslate> DrawingArea<DB, CT> {
         color: &ColorType,
     ) -> Result<(), DrawingAreaError<DB>> {
         let pos = self.coord.translate(&pos);
-        self.backend_ops(|b| b.draw_pixel(pos, color.color()))
+        self.backend_ops(|b| b.draw_pixel(pos, color.to_backend_color()))
     }
 
     /// Present all the pending changes to the backend
@@ -308,14 +308,15 @@ impl<DB: DrawingBackend, CT: CoordTranslate> DrawingArea<DB, CT> {
     }
 
     /// Draw an high-level element
-    pub fn draw<'a, E>(&self, element: &'a E) -> Result<(), DrawingAreaError<DB>>
+    pub fn draw<'a, E, B>(&self, element: &'a E) -> Result<(), DrawingAreaError<DB>>
     where
-        &'a E: PointCollection<'a, CT::From>,
-        E: Drawable<DB>,
+        B: CoordMapper,
+        &'a E: PointCollection<'a, CT::From, B>,
+        E: Drawable<DB, B>,
     {
         let backend_coords = element.point_iter().into_iter().map(|p| {
             let b = p.borrow();
-            self.rect.truncate(self.coord.translate(b))
+            B::map(&self.coord, b, &self.rect)
         });
         self.backend_ops(move |b| element.draw(backend_coords, b, self.dim_in_pixel()))
     }

@@ -19,7 +19,7 @@ read_pem(const char *filename, char *pembuf, int pembuf_len)
 	if (fd == -1)
 		return -1;
 
-	n = read(fd, pembuf, pembuf_len - 1);
+	n = (int)read(fd, pembuf, (unsigned int)pembuf_len - 1);
 	close(fd);
 
 	pembuf[n++] = '\0';
@@ -43,7 +43,7 @@ read_pem_c509_cert(struct lws_x509_cert **x509, const char *filename,
 		return -1;
 	}
 
-	if (lws_x509_parse_from_pem(*x509, pembuf, n) < 0) {
+	if (lws_x509_parse_from_pem(*x509, pembuf, (unsigned int)n) < 0) {
 		lwsl_err("%s: unable to parse PEM %s\n", __func__, filename);
 		lws_x509_destroy(x509);
 
@@ -72,7 +72,9 @@ int main(int argc, const char **argv)
 	lwsl_user("LWS X509 api example\n");
 
 	memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
+#if defined(LWS_WITH_NETWORK)
 	info.port = CONTEXT_PORT_NO_LISTEN;
+#endif
 	info.options = 0;
 
 	context = lws_create_context(&info);
@@ -126,7 +128,7 @@ int main(int argc, const char **argv)
 		}
 
 		if ((p = lws_cmdline_option(argc, argv, "--alg")))
-			lws_jwk_strdup_meta(&jwk, JWK_META_ALG, p, strlen(p));
+			lws_jwk_strdup_meta(&jwk, JWK_META_ALG, p, (int)strlen(p));
 
 		lwsl_info("JWK version of trusted cert:\n");
 		lws_jwk_dump(&jwk);
@@ -143,7 +145,7 @@ int main(int argc, const char **argv)
 	lwsl_info("JWK version of cert:\n");
 
 	if ((p = lws_cmdline_option(argc, argv, "--alg")))
-		lws_jwk_strdup_meta(&jwk, JWK_META_ALG, p, strlen(p));
+		lws_jwk_strdup_meta(&jwk, JWK_META_ALG, p, (int)strlen(p));
 
 	lws_jwk_dump(&jwk);
 	/* only print public if he doesn't provide private */
@@ -164,7 +166,8 @@ int main(int argc, const char **argv)
 
 			goto bail3;
 		}
-		if (lws_x509_jwk_privkey_pem(&jwk, pembuf, n, NULL)) {
+		if (lws_x509_jwk_privkey_pem(context, &jwk, pembuf,
+						(unsigned int)n, NULL)) {
 			lwsl_err("%s: unable to parse privkey %s\n",
 					__func__, p);
 
@@ -172,7 +175,7 @@ int main(int argc, const char **argv)
 		}
 
 		if ((p = lws_cmdline_option(argc, argv, "--alg")))
-			lws_jwk_strdup_meta(&jwk, JWK_META_ALG, p, strlen(p));
+			lws_jwk_strdup_meta(&jwk, JWK_META_ALG, p, (int)strlen(p));
 
 		lwsl_info("JWK version of cert + privkey:\n");
 		lws_jwk_dump(&jwk);

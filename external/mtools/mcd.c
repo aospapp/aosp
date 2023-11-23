@@ -32,11 +32,21 @@ static int mcd_callback(direntry_t *entry, MainParam_t *mp UNUSEDP)
 		fprintf(stderr,"mcd: Can't open mcwd .file for writing\n");
 		return ERROR_ONE;
 	}
-	
+
 	fprintPwd(fp, entry,0);
 	fprintf(fp, "\n");
 	fclose(fp);
 	return GOT_ONE | STOP_NOW;
+}
+
+static void usage(int ret) NORETURN;
+static void usage(int ret)
+{
+		fprintf(stderr, "Mtools version %s, dated %s\n",
+			mversion, mdate);
+		fprintf(stderr, "Usage: %s: [-V] [-i image] msdosdirectory\n",
+			progname);
+		exit(ret);
 }
 
 
@@ -44,13 +54,22 @@ void mcd(int argc, char **argv, int type UNUSEDP) NORETURN;
 void mcd(int argc, char **argv, int type UNUSEDP)
 {
 	struct MainParam_t mp;
-
-	if (argc > 2) {
-		fprintf(stderr, "Mtools version %s, dated %s\n", 
-			mversion, mdate);
-		fprintf(stderr, "Usage: %s: [-V] msdosdirectory\n", argv[0]);
-		exit(1);
+	int c;
+	
+	while ((c = getopt(argc, argv, "i:")) != EOF) {
+		switch(c) {
+		case 'i':
+			set_cmd_line_image(optarg);
+			break;
+		case 'h':
+			usage(0);
+		default:
+			usage(1);
+		}
 	}
+
+	if (argc > optind + 1)
+		usage(1);
 
 	init_mp(&mp);
 	mp.lookupflags = ACCEPT_DIR | NO_DOTS;
@@ -58,6 +77,6 @@ void mcd(int argc, char **argv, int type UNUSEDP)
 	if (argc == 1) {
 		printf("%s\n", mp.mcwd);
 		exit(0);
-	} else 
-		exit(main_loop(&mp, argv + 1, 1));
+	} else
+		exit(main_loop(&mp, argv + optind, 1));
 }

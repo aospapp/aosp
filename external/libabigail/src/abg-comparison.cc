@@ -914,6 +914,8 @@ diff_context::diff_context()
   // add_diff_filter(f);
 }
 
+diff_context::~diff_context() = default;
+
 /// Set the corpus diff relevant to this context.
 ///
 /// @param d the corpus_diff we are interested in.
@@ -2804,10 +2806,6 @@ compute_diff_for_types(const type_or_decl_base_sptr& first,
   type_or_decl_base_sptr f = first;
   type_or_decl_base_sptr s = second;
 
-  // Look through no-op qualified types.
-  f = look_through_no_op_qualified_type(is_type(f));
-  s = look_through_no_op_qualified_type(is_type(s));
-
   diff_sptr d;
 
   ((d = try_to_diff<type_decl>(f, s, ctxt))
@@ -4196,15 +4194,19 @@ compute_diff(const enum_type_decl_sptr first,
 					second->get_underlying_type(),
 					ctxt);
   enum_diff_sptr d(new enum_diff(first, second, ud, ctxt));
-
-  compute_diff(first->get_enumerators().begin(),
-	       first->get_enumerators().end(),
-	       second->get_enumerators().begin(),
-	       second->get_enumerators().end(),
-	       d->priv_->enumerators_changes_);
-
-  d->ensure_lookup_tables_populated();
-
+  bool s = first->get_environment()->use_enum_binary_only_equality();
+  first->get_environment()->use_enum_binary_only_equality(true);
+  if (first != second)
+    {
+      first->get_environment()->use_enum_binary_only_equality(false);
+      compute_diff(first->get_enumerators().begin(),
+		   first->get_enumerators().end(),
+		   second->get_enumerators().begin(),
+		   second->get_enumerators().end(),
+		   d->priv_->enumerators_changes_);
+      d->ensure_lookup_tables_populated();
+    }
+  first->get_environment()->use_enum_binary_only_equality(s);
   ctxt->initialize_canonical_diff(d);
 
   return d;
@@ -4966,7 +4968,7 @@ class_or_union_diff::finish_diff_type()
 ///
 /// @return the (possibly) shared private data of the current instance
 /// of @ref class_or_union_diff.
-const class_or_union_diff::priv_sptr&
+const class_or_union_diff::priv_ptr&
 class_or_union_diff::get_priv() const
 {
   if (priv_)
@@ -5322,7 +5324,7 @@ class_diff::ensure_lookup_tables_populated(void) const
 				 get_priv()->sorted_changed_bases_);
 
   {
-    const class_or_union_diff::priv_sptr &p = class_or_union_diff::get_priv();
+    const class_or_union_diff::priv_ptr &p = class_or_union_diff::get_priv();
 
     edit_script& e = p->member_fns_changes_;
 
@@ -5543,7 +5545,7 @@ class_diff::~class_diff()
 ///
 /// @return the (possibly) shared private data of the current instance
 /// of class_diff.
-const class_diff::priv_sptr&
+const class_diff::priv_ptr&
 class_diff::get_priv() const
 {
   if (priv_)
@@ -7675,6 +7677,8 @@ struct diff_maps::priv
 diff_maps::diff_maps()
   : priv_(new diff_maps::priv())
 {}
+
+diff_maps::~diff_maps() = default;
 
 /// Getter of the map that contains basic type diffs.
 ///
@@ -10414,6 +10418,8 @@ corpus_diff::corpus_diff(corpus_sptr first,
   : priv_(new priv(first, second, ctxt))
 {}
 
+corpus_diff::~corpus_diff() = default;
+
 /// Finish building the current instance of @ref corpus_diff.
 void
 corpus_diff::finish_diff_type()
@@ -11194,6 +11200,8 @@ struct diff_node_visitor::priv
 diff_node_visitor::diff_node_visitor()
   : priv_(new priv)
 {}
+
+diff_node_visitor::~diff_node_visitor() = default;
 
 /// Constructor of the @ref diff_node_visitor type.
 ///
@@ -12206,9 +12214,25 @@ struct redundancy_marking_visitor : public diff_node_visitor
 		// LOCAL_NON_TYPE_CHANGE_KIND kind.
 		|| is_pointer_diff(d)
 		|| is_qualified_type_diff(d)
+		// A typedef with local non-type changes should not
+		// see redundancy propagation from its underlying
+		// type, otherwise, the non-type change might be
+		// "suppressed" away.
 		|| (is_typedef_diff(d)
 		    && (!(d->has_local_changes()
-			  & LOCAL_NON_TYPE_CHANGE_KIND)))))
+			  & LOCAL_NON_TYPE_CHANGE_KIND)))
+		// A (member) variable with non-type local changes
+		// should not see redundacy propagation from its type.
+		// If redundant local-type changes are carried by its
+		// type however, then that redundancy is propagated to
+		// the variable.  This is key to keep the redundancy
+		// consistency in the system; otherwise, a type change
+		// would be rightfully considered redundant at some
+		// places but not at others.
+		|| (is_var_diff(d)
+		    && (!(d->has_local_changes()
+			  & LOCAL_NON_TYPE_CHANGE_KIND)))
+		))
 	  {
 	    bool has_non_redundant_child = false;
 	    bool has_non_empty_child = false;

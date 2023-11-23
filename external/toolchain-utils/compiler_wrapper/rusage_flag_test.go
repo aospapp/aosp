@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -73,7 +73,7 @@ func TestReportGeneralErrorsFromLogRusage(t *testing.T) {
 func TestCreateDirAndFileForLogRusage(t *testing.T) {
 	withLogRusageTestContext(t, func(ctx *testContext) {
 		logFileName := filepath.Join(ctx.tempDir, "somedir", "rusage.log")
-		ctx.env = []string{"GETRUSAGE=" + logFileName}
+		ctx.env = []string{"TOOLCHAIN_RUSAGE_OUTPUT=" + logFileName}
 		ctx.must(callCompiler(ctx, ctx.cfg, ctx.newCommand(gccX86_64, mainCc)))
 
 		if _, err := os.Stat(logFileName); err != nil {
@@ -85,37 +85,32 @@ func TestCreateDirAndFileForLogRusage(t *testing.T) {
 func TestLogRusageFileContent(t *testing.T) {
 	withLogRusageTestContext(t, func(ctx *testContext) {
 		logFileName := filepath.Join(ctx.tempDir, "rusage.log")
-		ctx.env = []string{"GETRUSAGE=" + logFileName}
+		ctx.env = []string{"TOOLCHAIN_RUSAGE_OUTPUT=" + logFileName}
 		ctx.must(callCompiler(ctx, ctx.cfg, ctx.newCommand(gccX86_64, mainCc)))
 
 		data, err := ioutil.ReadFile(logFileName)
 		if err != nil {
 			t.Errorf("could not read the rusage log file. Error: %s", err)
 		}
-		// Example output:
-		// 0.100318 : 0.103412 : 0.096386 : 6508 : /tmp/compiler_wrapper036306868/x86_64-cros-linux-gnu-gcc.real : x86_64-cros-linux-gnu-gcc.real --sysroot=/tmp/compiler_wrapper036306868/usr/x86_64-cros-linux-gnu main.cc -mno-movbe
-		logParts := strings.Split(string(data), " : ")
-		if len(logParts) != 6 {
-			t.Errorf("unexpected number of rusage log parts. Got: %s", logParts)
+
+		rlog := rusageLog{}
+
+		if err := json.Unmarshal(data, &rlog); err != nil {
+			t.Fatalf("rusage log could not be unmarshalled. Got: %s", data)
 		}
 
-		// First 3 numbers are times in seconds.
-		for i := 0; i < 3; i++ {
-			if _, err := strconv.ParseFloat(logParts[i], 64); err != nil {
-				t.Errorf("unexpected value for index %d. Got: %s", i, logParts[i])
-			}
+		if rlog.Compiler != filepath.Join(ctx.tempDir, gccX86_64+".real") {
+			t.Errorf("unexpected compiler path. Got: %s", rlog.Compiler)
 		}
-		// Then an int for the memory usage
-		if _, err := strconv.ParseInt(logParts[3], 10, 64); err != nil {
-			t.Errorf("unexpected mem usage. Got: %s", logParts[3])
+		if matched, _ := regexp.MatchString("--sysroot=.*", rlog.CompilerArgs[0]); !matched {
+			t.Errorf("unexpected compiler args. Got: %s", rlog.CompilerArgs)
 		}
-		// Then the full path of the compiler
-		if logParts[4] != filepath.Join(ctx.tempDir, gccX86_64+".real") {
-			t.Errorf("unexpected compiler path. Got: %s", logParts[4])
+		cwd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current working directory: %v", err)
 		}
-		// Then the arguments, prefixes with the compiler basename
-		if matched, _ := regexp.MatchString("x86_64-cros-linux-gnu-gcc.real --sysroot=.* main.cc", logParts[5]); !matched {
-			t.Errorf("unexpected compiler args. Got: %s", logParts[5])
+		if rlog.WorkingDirectory != cwd {
+			t.Errorf("Unexpected working directory. Got: %q, Want: %q", rlog.WorkingDirectory, cwd)
 		}
 	})
 }
@@ -123,7 +118,7 @@ func TestLogRusageFileContent(t *testing.T) {
 func TestLogRusageAppendsToFile(t *testing.T) {
 	withLogRusageTestContext(t, func(ctx *testContext) {
 		logFileName := filepath.Join(ctx.tempDir, "rusage.log")
-		ctx.env = []string{"GETRUSAGE=" + logFileName}
+		ctx.env = []string{"TOOLCHAIN_RUSAGE_OUTPUT=" + logFileName}
 
 		ctx.must(callCompiler(ctx, ctx.cfg, ctx.newCommand(gccX86_64, mainCc)))
 		data, err := ioutil.ReadFile(logFileName)
@@ -164,7 +159,9 @@ func TestLogRusageAppendsToFile(t *testing.T) {
 
 func withLogRusageTestContext(t *testing.T, work func(ctx *testContext)) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.env = []string{"GETRUSAGE=" + filepath.Join(ctx.tempDir, "rusage.log")}
+		ctx.NoteTestWritesToUmask()
+
+		ctx.env = []string{"TOOLCHAIN_RUSAGE_OUTPUT=" + filepath.Join(ctx.tempDir, "rusage.log")}
 		work(ctx)
 	})
 }

@@ -58,7 +58,7 @@ import net.ltgt.gradle.incap.IncrementalAnnotationProcessorType;
 @AutoService(Processor.class)
 @SupportedAnnotationTypes(AUTO_ONE_OF_NAME)
 @IncrementalAnnotationProcessor(IncrementalAnnotationProcessorType.ISOLATING)
-public class AutoOneOfProcessor extends AutoValueOrOneOfProcessor {
+public class AutoOneOfProcessor extends AutoValueishProcessor {
   public AutoOneOfProcessor() {
     super(AUTO_ONE_OF_NAME);
   }
@@ -66,6 +66,11 @@ public class AutoOneOfProcessor extends AutoValueOrOneOfProcessor {
   @Override
   boolean propertiesCanBeVoid() {
     return true;
+  }
+
+  @Override
+  public ImmutableSet<String> getSupportedOptions() {
+    return ImmutableSet.of(Nullables.NULLABLE_OPTION);
   }
 
   @Override
@@ -123,19 +128,9 @@ public class AutoOneOfProcessor extends AutoValueOrOneOfProcessor {
   }
 
   private DeclaredType mirrorForKindType(TypeElement autoOneOfType) {
-    Optional<AnnotationMirror> oneOfAnnotation =
-        getAnnotationMirror(autoOneOfType, AUTO_ONE_OF_NAME);
-    if (!oneOfAnnotation.isPresent()) {
-      // This shouldn't happen unless the compilation environment is buggy,
-      // but it has happened in the past and can crash the compiler.
-      errorReporter()
-          .abortWithError(
-              autoOneOfType,
-              "[AutoOneOfCompilerBug] annotation processor for @AutoOneOf was invoked with a type"
-                  + " that does not have that annotation; this is probably a compiler bug");
-    }
-    AnnotationValue kindValue =
-        AnnotationMirrors.getAnnotationValue(oneOfAnnotation.get(), "value");
+    // The annotation is guaranteed to be present by the contract of Processor#process
+    AnnotationMirror oneOfAnnotation = getAnnotationMirror(autoOneOfType, AUTO_ONE_OF_NAME).get();
+    AnnotationValue kindValue = AnnotationMirrors.getAnnotationValue(oneOfAnnotation, "value");
     Object value = kindValue.getValue();
     if (value instanceof TypeMirror) {
       TypeMirror kindType = (TypeMirror) value;
@@ -162,9 +157,7 @@ public class AutoOneOfProcessor extends AutoValueOrOneOfProcessor {
     Map<String, String> transformedPropertyNames =
         propertyNames.stream().collect(toMap(this::transformName, s -> s));
     Map<String, Element> transformedEnumConstants =
-        kindElement
-            .getEnclosedElements()
-            .stream()
+        kindElement.getEnclosedElements().stream()
             .filter(e -> e.getKind().equals(ElementKind.ENUM_CONSTANT))
             .collect(toMap(e -> transformName(e.getSimpleName().toString()), e -> e));
 
@@ -215,8 +208,7 @@ public class AutoOneOfProcessor extends AutoValueOrOneOfProcessor {
       TypeMirror kindMirror,
       ImmutableSet<ExecutableElement> abstractMethods) {
     Set<ExecutableElement> kindGetters =
-        abstractMethods
-            .stream()
+        abstractMethods.stream()
             .filter(e -> sameType(kindMirror, e.getReturnType()))
             .filter(e -> e.getParameters().isEmpty())
             .collect(toSet());
@@ -273,14 +265,15 @@ public class AutoOneOfProcessor extends AutoValueOrOneOfProcessor {
       AutoOneOfTemplateVars vars,
       ImmutableMap<ExecutableElement, TypeMirror> propertyMethodsAndTypes,
       ExecutableElement kindGetter) {
-    vars.props = propertySet(
-        propertyMethodsAndTypes, ImmutableListMultimap.of(), ImmutableListMultimap.of());
+    vars.props =
+        propertySet(
+            propertyMethodsAndTypes, ImmutableListMultimap.of(), ImmutableListMultimap.of());
     vars.kindGetter = kindGetter.getSimpleName().toString();
     vars.kindType = TypeEncoder.encode(kindGetter.getReturnType());
     TypeElement javaIoSerializable = elementUtils().getTypeElement("java.io.Serializable");
     vars.serializable =
-        javaIoSerializable != null  // just in case
-        && typeUtils().isAssignable(type.asType(), javaIoSerializable.asType());
+        javaIoSerializable != null // just in case
+            && typeUtils().isAssignable(type.asType(), javaIoSerializable.asType());
   }
 
   @Override

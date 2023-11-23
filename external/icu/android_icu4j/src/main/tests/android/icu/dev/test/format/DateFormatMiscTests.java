@@ -96,7 +96,7 @@ public class DateFormatMiscTests extends TestFmwk {
                 errln("Constructor: the formats are not equal");
             }
             if (!df.equals(dfClone)) {
-                errln("The Clone Object does not equal with the orignal source");
+                errln("The Clone Object does not equal with the original source");
             }
         }
         //test SimpleDateFormat.setDateFormatSymbols()
@@ -118,7 +118,7 @@ public class DateFormatMiscTests extends TestFmwk {
                 errln("setDateFormatSymbols: the formats are not equal");
             }
             if (!df.equals(dfClone)) {
-                errln("The Clone Object does not equal with the orignal source");
+                errln("The Clone Object does not equal with the original source");
             }
         }
     }

@@ -51,7 +51,7 @@ struct VertexTask
 	VertexCache vertexCache;
 };
 
-using VertexRoutineFunction = FunctionT<void(Vertex *output, unsigned int *batch, VertexTask *vertextask, DrawData *draw)>;
+using VertexRoutineFunction = FunctionT<void(const vk::Device *device, Vertex *output, unsigned int *batch, VertexTask *vertextask, DrawData *draw)>;
 
 class VertexProcessor
 {
@@ -81,6 +81,7 @@ public:
 		Input input[MAX_INTERFACE_COMPONENTS / 4];
 		bool robustBufferAccess : 1;
 		bool isPoint : 1;
+		bool depthClipEnable : 1;
 	};
 
 	struct State : States

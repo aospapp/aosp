@@ -14,4 +14,7 @@ third_party {
   version: "5.4.1"
   last_upgrade_date { year: 2020 month: 10 day: 9 }
   license_type: NOTICE
+  security {
+    tag: "NVD-CPE2.3:cpe:/a:lua:lua"
+  }
 }

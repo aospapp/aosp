@@ -2,11 +2,11 @@
 name = "p9"
 version = "0.1.0"
 authors = ["The Chromium OS Authors"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 libc = "*"
-sys_util = { path = "../../sys_util" } # provided by ebuild
+sys_util = { path = "../sys_util" } # provided by ebuild
 wire_format_derive = { path = "wire_format_derive", version = "*" }
 
 [features]

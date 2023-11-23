@@ -31,8 +31,7 @@ namespace android {
 
 class BufferInfoGetter {
  public:
-  virtual ~BufferInfoGetter() {
-  }
+  virtual ~BufferInfoGetter() = default;
 
   virtual int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) = 0;
 
@@ -49,25 +48,34 @@ class LegacyBufferInfoGetter : public BufferInfoGetter {
 
   int Init();
 
-  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override = 0;
+  virtual int ValidateGralloc() {
+    return 0;
+  }
 
   static std::unique_ptr<LegacyBufferInfoGetter> CreateInstance();
 
   static uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
+
+  // NOLINTNEXTLINE:(readability-identifier-naming)
   const gralloc_module_t *gralloc_;
 };
 
 #ifdef DISABLE_LEGACY_GETTERS
 #define LEGACY_BUFFER_INFO_GETTER(getter_)
 #else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define LEGACY_BUFFER_INFO_GETTER(getter_)                             \
   std::unique_ptr<LegacyBufferInfoGetter>                              \
   LegacyBufferInfoGetter::CreateInstance() {                           \
     auto instance = std::make_unique<getter_>();                       \
     if (instance) {                                                    \
-      int ret = instance->Init();                                      \
-      if (ret) {                                                       \
-        ALOGE("Failed to initialize the " #getter_ " getter %d", ret); \
+      int err = instance->Init();                                      \
+      if (err) {                                                       \
+        ALOGE("Failed to initialize the " #getter_ " getter %d", err); \
+        instance.reset();                                              \
+      }                                                                \
+      err = instance->ValidateGralloc();                               \
+      if (err) {                                                       \
         instance.reset();                                              \
       }                                                                \
     }                                                                  \

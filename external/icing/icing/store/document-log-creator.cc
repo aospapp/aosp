@@ -72,19 +72,20 @@ DocumentLogCreator::Create(const Filesystem* filesystem,
   bool v1_exists =
       filesystem->FileExists(MakeDocumentLogFilenameV1(base_dir).c_str());
 
-  bool regen_derived_files = false;
+  bool new_file = false;
+  int preexisting_file_version = kCurrentVersion;
   if (v0_exists && !v1_exists) {
     ICING_RETURN_IF_ERROR(MigrateFromV0ToV1(filesystem, base_dir));
 
     // Need to regenerate derived files since documents may be written to a
     // different file offset in the log.
-    regen_derived_files = true;
+    preexisting_file_version = 0;
   } else if (!v1_exists) {
     // First time initializing a v1 log. There are no existing derived files at
     // this point, so we should generate some. "regenerate" here also means
     // "generate for the first time", i.e. we shouldn't expect there to be any
     // existing derived files.
-    regen_derived_files = true;
+    new_file = true;
   }
 
   ICING_ASSIGN_OR_RETURN(
@@ -96,7 +97,7 @@ DocumentLogCreator::Create(const Filesystem* filesystem,
               /*compress_in=*/true)));
 
   CreateResult create_result = {std::move(log_create_result),
-                                regen_derived_files};
+                                preexisting_file_version, new_file};
   return create_result;
 }
 

@@ -74,6 +74,64 @@ vrend_winsys_glx_sources = [
    'vrend_winsys_glx.h',
 ]
 
+venus_sources = [
+   'venus_hw.h',
+   'venus/venus-protocol/vn_protocol_renderer.h',
+   'venus/vkr_buffer.c',
+   'venus/vkr_buffer.h',
+   'venus/vkr_command_buffer.c',
+   'venus/vkr_command_buffer.h',
+   'venus/vkr_common.c',
+   'venus/vkr_common.h',
+   'venus/vkr_context.c',
+   'venus/vkr_context.h',
+   'venus/vkr_cs.c',
+   'venus/vkr_cs.h',
+   'venus/vkr_descriptor_set.c',
+   'venus/vkr_descriptor_set.h',
+   'venus/vkr_device.c',
+   'venus/vkr_device.h',
+   'venus/vkr_device_memory.c',
+   'venus/vkr_device_memory.h',
+   'venus/vkr_image.c',
+   'venus/vkr_image.h',
+   'venus/vkr_instance.c',
+   'venus/vkr_instance.h',
+   'venus/vkr_physical_device.c',
+   'venus/vkr_physical_device.h',
+   'venus/vkr_pipeline.c',
+   'venus/vkr_pipeline.h',
+   'venus/vkr_query_pool.c',
+   'venus/vkr_query_pool.h',
+   'venus/vkr_queue.c',
+   'venus/vkr_queue.h',
+   'venus/vkr_render_pass.c',
+   'venus/vkr_render_pass.h',
+   'venus/vkr_renderer.c',
+   'venus/vkr_renderer.h',
+   'venus/vkr_ring.c',
+   'venus/vkr_ring.h',
+   'venus/vkr_transport.c',
+   'venus/vkr_transport.h',
+]
+
+venus_codegen = custom_target(
+   'venus_codegen',
+   input : ['venus/vkr_device_object.py', 'venus/vkr_device_object.json'],
+   output : [
+      'vkr_buffer_gen.h',
+      'vkr_command_buffer_gen.h',
+      'vkr_descriptor_set_gen.h',
+      'vkr_device_memory_gen.h',
+      'vkr_image_gen.h',
+      'vkr_pipeline_gen.h',
+      'vkr_query_pool_gen.h',
+      'vkr_queue_gen.h',
+      'vkr_render_pass_gen.h',
+   ],
+   command : [prog_python, '@INPUT0@', '-o', '@OUTDIR@', '@INPUT1@'],
+)
+
 virgl_depends = [
    gallium_dep,
    epoxy_dep,
@@ -102,17 +160,23 @@ if have_glx
    virgl_depends += [glx_dep]
 endif
 
+if with_venus
+   virgl_sources += venus_sources
+   virgl_sources += venus_codegen
+   virgl_depends += [venus_dep]
+endif
+
 libvirgl = static_library(
    'virgl',
    virgl_sources,
-   include_directories: [inc_gallium, inc_configuration],
+   include_directories: [inc_gallium, inc_configuration, 'venus'],
    dependencies : virgl_depends,
 )
 
 libvirgl_inc = [
    inc_gallium,
    inc_configuration,
-   include_directories('.')
+   include_directories(['.', 'venus'])
 ]
 
 libvirgl_dep = declare_dependency(
@@ -120,7 +184,7 @@ libvirgl_dep = declare_dependency(
    include_directories: libvirgl_inc
 )
 
-libvirglrenderer = shared_library(
+libvirglrenderer = library(
    'virglrenderer',
    virglrenderer_sources,
    include_directories: [inc_gallium, inc_configuration],

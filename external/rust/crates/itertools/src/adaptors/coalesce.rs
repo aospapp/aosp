@@ -40,20 +40,21 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         // this fuses the iterator
-        let mut last = match self.last.take() {
-            None => return None,
-            Some(x) => x,
-        };
-        for next in &mut self.iter {
-            match self.f.coalesce_pair(last, next) {
-                Ok(joined) => last = joined,
-                Err((last_, next_)) => {
-                    self.last = Some(next_);
-                    return Some(last_);
-                }
-            }
-        }
-        Some(last)
+        let last = self.last.take()?;
+
+        let self_last = &mut self.last;
+        let self_f = &mut self.f;
+        Some(
+            self.iter
+                .try_fold(last, |last, next| match self_f.coalesce_pair(last, next) {
+                    Ok(joined) => Ok(joined),
+                    Err((last_, next_)) => {
+                        *self_last = Some(next_);
+                        Err(last_)
+                    }
+                })
+                .unwrap_or_else(|x| x),
+        )
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -84,7 +85,7 @@ impl<I: Iterator, F: CoalescePredicate<I::Item, T>, T> FusedIterator for Coalesc
 
 /// An iterator adaptor that may join together adjacent elements.
 ///
-/// See [`.coalesce()`](../trait.Itertools.html#method.coalesce) for more information.
+/// See [`.coalesce()`](crate::Itertools::coalesce) for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub type Coalesce<I, F> = CoalesceBy<I, F, <I as Iterator>::Item>;
 
@@ -111,12 +112,16 @@ where
 
 /// An iterator adaptor that removes repeated duplicates, determining equality using a comparison function.
 ///
-/// See [`.dedup_by()`](../trait.Itertools.html#method.dedup_by) or [`.dedup()`](../trait.Itertools.html#method.dedup) for more information.
+/// See [`.dedup_by()`](crate::Itertools::dedup_by) or [`.dedup()`](crate::Itertools::dedup) for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub type DedupBy<I, Pred> = CoalesceBy<I, DedupPred2CoalescePred<Pred>, <I as Iterator>::Item>;
 
 #[derive(Clone)]
 pub struct DedupPred2CoalescePred<DP>(DP);
+
+impl<DP> fmt::Debug for DedupPred2CoalescePred<DP> {
+    debug_fmt_fields!(DedupPred2CoalescePred,);
+}
 
 pub trait DedupPredicate<T> {
     // TODO replace by Fn(&T, &T)->bool once Rust supports it
@@ -136,7 +141,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DedupEq;
 
 impl<T: PartialEq> DedupPredicate<T> for DedupEq {
@@ -165,7 +170,7 @@ where
 
 /// An iterator adaptor that removes repeated duplicates.
 ///
-/// See [`.dedup()`](../trait.Itertools.html#method.dedup) for more information.
+/// See [`.dedup()`](crate::Itertools::dedup) for more information.
 pub type Dedup<I> = DedupBy<I, DedupEq>;
 
 /// Create a new `Dedup`.
@@ -179,13 +184,13 @@ where
 /// An iterator adaptor that removes repeated duplicates, while keeping a count of how many
 /// repeated elements were present. This will determine equality using a comparison function.
 ///
-/// See [`.dedup_by_with_count()`](../trait.Itertools.html#method.dedup_by_with_count) or
-/// [`.dedup_with_count()`](../trait.Itertools.html#method.dedup_with_count) for more information.
+/// See [`.dedup_by_with_count()`](crate::Itertools::dedup_by_with_count) or
+/// [`.dedup_with_count()`](crate::Itertools::dedup_with_count) for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub type DedupByWithCount<I, Pred> =
     CoalesceBy<I, DedupPredWithCount2CoalescePred<Pred>, (usize, <I as Iterator>::Item)>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DedupPredWithCount2CoalescePred<DP>(DP);
 
 impl<DP, T> CoalescePredicate<T, (usize, T)> for DedupPredWithCount2CoalescePred<DP>
@@ -208,7 +213,7 @@ where
 /// An iterator adaptor that removes repeated duplicates, while keeping a count of how many
 /// repeated elements were present.
 ///
-/// See [`.dedup_with_count()`](../trait.Itertools.html#method.dedup_with_count) for more information.
+/// See [`.dedup_with_count()`](crate::Itertools::dedup_with_count) for more information.
 pub type DedupWithCount<I> = DedupByWithCount<I, DedupEq>;
 
 /// Create a new `DedupByWithCount`.

@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "icing/transform/normalizer.h"
+#include "icing/util/character-iterator.h"
 
 namespace icing {
 namespace lib {
@@ -38,6 +39,17 @@ class MapNormalizer : public Normalizer {
   //
   // Read more mapping details in normalization-map.cc
   std::string NormalizeTerm(std::string_view term) const override;
+
+  // Returns a CharacterIterator pointing to one past the end of the segment of
+  // term that (once normalized) matches with normalized_term.
+  //
+  // Ex. FindNormalizedMatchEndPosition("YELLOW", "yell") will return
+  // CharacterIterator(u8:4, u16:4, u32:4).
+  //
+  // Ex. FindNormalizedMatchEndPosition("YELLOW", "red") will return
+  // CharacterIterator(u8:0, u16:0, u32:0).
+  CharacterIterator FindNormalizedMatchEndPosition(
+      std::string_view term, std::string_view normalized_term) const override;
 
  private:
   // The maximum term length allowed after normalization.

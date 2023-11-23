@@ -38,14 +38,14 @@ using std::unordered_set;
 /// it matches the supppression specification.
 class suppression_base
 {
-  class priv;
-  typedef shared_ptr<priv> priv_sptr;
-
+public:
+  class priv; // declare publicly to allow subclasses to reuse the priv
+private:
   // Forbid default constructor
   suppression_base();
 
 public:
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   suppression_base(const string& label);
 
@@ -139,14 +139,12 @@ typedef vector<type_suppression_sptr> type_suppressions_type;
 class type_suppression : public suppression_base
 {
   class priv;
-  typedef shared_ptr<priv> priv_sptr;
 
   // Forbid this;
   type_suppression();
 
 public:
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   /// The kind of the type the current type suppression is supposed to
   /// be about.
@@ -289,6 +287,9 @@ is_type_suppression(const suppression_sptr);
 /// might get inserted.
 class type_suppression::insertion_range
 {
+  struct priv;
+  std::unique_ptr<priv> priv_;
+
 public:
 
   class boundary;
@@ -305,13 +306,6 @@ public:
   /// fn_call_expr_boundary
   typedef shared_ptr<fn_call_expr_boundary> fn_call_expr_boundary_sptr;
 
-private:
-  struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
-
-public:
   insertion_range();
 
   insertion_range(boundary_sptr begin, boundary_sptr end);
@@ -334,7 +328,10 @@ public:
   static bool
   eval_boundary(boundary_sptr	boundary,
 		class_decl_sptr context,
-		ssize_t&	value);
+		uint64_t&	value);
+
+  static bool
+  boundary_value_is_end(uint64_t value);
 }; // end class insertion_range
 
 type_suppression::insertion_range::integer_boundary_sptr
@@ -348,9 +345,7 @@ is_fn_call_expr_boundary(type_suppression::insertion_range::boundary_sptr);
 class type_suppression::insertion_range::boundary
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
 public:
   boundary();
@@ -363,16 +358,14 @@ class type_suppression::insertion_range::integer_boundary
   : public type_suppression::insertion_range::boundary
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   integer_boundary();
 
 public:
-  integer_boundary(int value);
-  int as_integer() const;
-  operator int() const;
+  integer_boundary(uint64_t value);
+  uint64_t as_integer() const;
+  operator uint64_t () const;
   ~integer_boundary();
 }; //end class type_suppression::insertion_range::integer_boundary
 
@@ -383,9 +376,7 @@ class type_suppression::insertion_range::fn_call_expr_boundary
   : public type_suppression::insertion_range::boundary
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   fn_call_expr_boundary();
 
@@ -412,11 +403,10 @@ typedef vector<function_suppression_sptr> function_suppressions_type;
 class function_suppression : public suppression_base
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
 
 public:
 
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
   class parameter_spec;
 
   /// Convenience typedef for shared_ptr of @ref parameter_spec.
@@ -582,12 +572,10 @@ operator|(function_suppression::change_kind l,
 /// function suppression specification.
 class function_suppression::parameter_spec
 {
-  class priv;
-  typedef shared_ptr<priv> priv_sptr;
-
   friend class function_suppression;
 
-  priv_sptr priv_;
+  class priv;
+  std::unique_ptr<priv> priv_;
 
   // Forbid this.
   parameter_spec();
@@ -657,11 +645,9 @@ public:
 
 private:
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
 
 public:
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   variable_suppression(const string& label = "",
 		       const string& name = "",
@@ -791,10 +777,7 @@ typedef shared_ptr<file_suppression> file_suppression_sptr;
 /// which file it has to avoid loading.
 class file_suppression: public suppression_base
 {
-  class priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   // Forbid this
   file_suppression();

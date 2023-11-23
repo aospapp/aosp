@@ -19,8 +19,6 @@
 
 #include "utils/base/integral_types.h"
 
-namespace libtextclassifier3 {
-
 #if defined OS_LINUX || defined OS_CYGWIN || defined OS_ANDROID || \
     defined(__ANDROID__)
 #include <endian.h>
@@ -98,6 +96,8 @@ static inline uint64 bswap_64(uint64 x) {
 // there is also PDP endian ...
 
 #endif  // __BYTE_ORDER
+
+namespace libtextclassifier3 {
 
 class LittleEndian {
  public:

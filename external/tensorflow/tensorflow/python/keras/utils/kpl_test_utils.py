@@ -13,9 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 """Test related utilities for KPL + tf.distribute."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import random
 import tempfile
@@ -30,7 +27,6 @@ from tensorflow.python.keras.layers.preprocessing import string_lookup
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.platform import test
-from tensorflow.python.saved_model import save as tf_save
 
 
 class DistributeKplTestUtils(test.TestCase):
@@ -138,7 +134,7 @@ class DistributeKplTestUtils(test.TestCase):
     """Create string reverse lookup layer for serving."""
 
     label_inverse_lookup_layer = string_lookup.StringLookup(
-        num_oov_indices=1,
+        num_oov_indices=0,
         mask_token=None,
         vocabulary=self.LABEL_VOCAB,
         invert=True)
@@ -173,8 +169,8 @@ class DistributeKplTestUtils(test.TestCase):
                                                label_inverse_lookup_layer)
 
     saved_model_dir = tempfile.mkdtemp(dir=self.get_temp_dir())
-    tf_save.save(
-        model, saved_model_dir, signatures={"serving_default": serving_fn})
+    model.save(saved_model_dir, save_format="tf",
+               signatures={"serving_default": serving_fn})
 
     # Test the saved_model.
     loaded_serving_fn = keras.saving.save.load_model(

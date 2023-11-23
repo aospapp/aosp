@@ -42,7 +42,7 @@ public:
 #if defined(__sun) || defined(__QNX__) || defined(__SYMBIAN32__)
     using namespace std;
     return strerror(value);
-#elif defined(__MACH__) && defined(__APPLE__)    || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)    || defined(_AIX) || defined(__hpux) || defined(__osf__)    || defined(__ANDROID__)
+#elif defined(__MACH__) && defined(__APPLE__)    || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)    || defined(_AIX) || defined(__hpux) || defined(__osf__)    || defined(__ANDROID__) || defined(ANDROID_HOST_MUSL)
     char buf[256] = "";
     using namespace std;
     strerror_r(value, buf, sizeof(buf));

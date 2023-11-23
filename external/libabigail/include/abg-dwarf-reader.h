@@ -18,6 +18,7 @@
 #include <elfutils/libdwfl.h>
 #include "abg-corpus.h"
 #include "abg-suppression.h"
+#include "abg-elf-reader-common.h"
 
 namespace abigail
 {
@@ -27,42 +28,6 @@ namespace dwarf_reader
 {
 
 using namespace abigail::ir;
-
-/// The status of the @ref read_corpus_from_elf() call.
-enum status
-{
-  /// The status is in an unknown state
-  STATUS_UNKNOWN = 0,
-
-  /// This status is for when the call went OK.
-  STATUS_OK = 1,
-
-  /// This status is for when the debug info could not be read.
-  STATUS_DEBUG_INFO_NOT_FOUND = 1 << 1,
-
-  /// This status is for when the alternate debug info could not be
-  /// found.
-  STATUS_ALT_DEBUG_INFO_NOT_FOUND = 1 << 2,
-
-  /// This status is for when the symbols of the ELF binaries could
-  /// not be read.
-  STATUS_NO_SYMBOLS_FOUND = 1 << 3,
-};
-
-string
-status_to_diagnostic_string(status s);
-
-status
-operator|(status, status);
-
-status
-operator&(status, status);
-
-status&
-operator|=(status&, status);
-
-status&
-operator&=(status&, status);
 
 /// The kind of ELF file we are looking at.
 enum elf_type
@@ -111,17 +76,17 @@ void
 set_read_context_corpus_group(read_context& ctxt, corpus_group_sptr& group);
 
 corpus_sptr
-read_corpus_from_elf(read_context& ctxt, status& stat);
+read_corpus_from_elf(read_context& ctxt, elf_reader::status& stat);
 
 corpus_sptr
 read_corpus_from_elf(const std::string& elf_path,
 		     const vector<char**>& debug_info_root_paths,
 		     ir::environment*	environment,
 		     bool		load_all_types,
-		     status&);
+		     elf_reader::status&);
 
 corpus_sptr
-read_and_add_corpus_to_group_from_elf(read_context&, corpus_group&, status&);
+read_and_add_corpus_to_group_from_elf(read_context&, corpus_group&, elf_reader::status&);
 
 bool
 lookup_symbol_from_elf(const environment*		env,
@@ -140,12 +105,12 @@ bool
 refers_to_alt_debug_info(const read_context&	ctxt,
 			 string&		alt_di_path);
 
-status
+elf_reader::status
 has_alt_debug_info(read_context&	ctxt,
 		   bool&		has_alt_di,
 		   string&		alt_debug_info_path);
 
-status
+elf_reader::status
 has_alt_debug_info(const string&	elf_path,
 		   char**		debug_info_root_path,
 		   bool&		has_alt_di,
@@ -176,10 +141,6 @@ set_show_stats(read_context& ctxt,
 void
 set_drop_undefined_syms(read_context& ctxt,
 			bool f);
-
-void
-set_merge_translation_units(read_context& ctxt,
-			    bool f);
 
 void
 set_do_log(read_context& ctxt, bool f);

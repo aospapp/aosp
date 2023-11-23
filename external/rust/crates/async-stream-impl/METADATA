@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/async-stream-impl/async-stream-impl-0.3.0.crate"
+    value: "https://static.crates.io/crates/async-stream-impl/async-stream-impl-0.3.2.crate"
   }
-  version: "0.3.0"
+  version: "0.3.2"
   license_type: NOTICE
   last_upgrade_date {
     year: 2021
-    month: 2
-    day: 8
+    month: 6
+    day: 21
   }
 }

@@ -70,9 +70,9 @@ const char *TestResultTypeToString(TestResultType type);
 
 struct TestResult
 {
-    TestResultType type       = TestResultType::NoResult;
-    double elapsedTimeSeconds = 0.0;
-    uint32_t flakyFailures    = 0;
+    TestResultType type                    = TestResultType::NoResult;
+    std::vector<double> elapsedTimeSeconds = std::vector<double>({0.0});
+    uint32_t flakyFailures                 = 0;
 };
 
 inline bool operator==(const TestResult &a, const TestResult &b)
@@ -139,7 +139,8 @@ class TestSuite
     static TestSuite *GetInstance() { return mInstance; }
 
     // Returns the path to the artifact in the output directory.
-    std::string addTestArtifact(const std::string &artifactName);
+    bool hasTestArtifactsDirectory() const;
+    std::string reserveTestArtifactPath(const std::string &artifactName);
 
     int getShardIndex() const { return mShardIndex; }
     int getBatchId() const { return mBatchId; }
@@ -197,6 +198,7 @@ class TestSuite
     int mFlakyRetries;
     int mMaxFailures;
     int mFailureCount;
+    bool mModifiedPreferredDevice;
     std::vector<std::string> mChildProcessArgs;
     std::map<TestIdentifier, FileLine> mTestFileLines;
     std::vector<ProcessInfo> mCurrentProcesses;

@@ -1,15 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) 2017-2018 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2017-2021 Petr Vorel <pvorel@suse.cz>
 # Copyright (c) International Business Machines Corp., 2006
 # Author: Petr Vorel <pvorel@suse.cz>
 #
 # Setup script for multicast stress tests.
 
-TST_SETUP="do_setup"
-TST_CLEANUP="mcast_cleanup"
-TST_TESTFUNC="do_test"
-TST_NEEDS_TMPDIR=1
 . tst_net_stress.sh
 
 mcast_setup4()
@@ -57,6 +53,18 @@ mcast_setup()
 	netstress_setup
 
 	[ "$TST_IPV6" ] && mcast_setup6 || mcast_setup4 $max
+}
+
+mcast_setup_normal()
+{
+	mcast_setup $MCASTNUM_NORMAL
+}
+
+mcast_setup_normal_udp()
+{
+	mcast_setup_normal
+	MCAST_LCMD="ns-mcast_receiver"
+	MCAST_RCMD="ns-udpsender"
 }
 
 mcast_cleanup4()
@@ -139,4 +147,20 @@ do_multicast_test_join_leave()
 	for pid in $pids; do wait $pid; done
 
 	tst_res TPASS "test is finished successfully"
+}
+
+do_multicast_test_join_single_socket()
+{
+	local extra="$1"
+	local prefix="$MCAST_IPV4_ADDR_PREFIX"
+	[ "$TST_IPV6" ] && prefix="$MCAST_IPV6_ADDR_PREFIX"
+
+	# Run a multicast join tool
+	local tmpfile=$$
+	EXPECT_PASS $MCAST_LCMD -n 1 -p $prefix \> $tmpfile
+	tst_res TINFO "joined $(grep groups $tmpfile)"
+
+	local params
+	[ "$TST_IPV6" ] && params="-S $(tst_ipaddr) -m"
+	EXPECT_RHOST_PASS $MCAST_RCMD -t $NS_DURATION -r 0 $params $extra
 }

@@ -28,6 +28,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.lang.model.util.Types;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,18 +71,21 @@ public class SimpleTypeAnnotationValueTest {
 
   @Test
   public void visitorMethod() {
-    SimpleTypeAnnotationValue.of(objectType).accept(new SimpleAnnotationValueVisitor8<Void, Void>(){
-      @Override
-      public Void visitType(TypeMirror typeMirror, Void aVoid) {
-        // do nothing, expected case
-        return null;
-      }
+    SimpleTypeAnnotationValue.of(objectType)
+        .accept(
+            new SimpleAnnotationValueVisitor8<@Nullable Void, @Nullable Void>() {
+              @Override
+              public @Nullable Void visitType(TypeMirror typeMirror, @Nullable Void aVoid) {
+                // do nothing, expected case
+                return null;
+              }
 
-      @Override
-      protected Void defaultAction(Object o, Void aVoid) {
-        throw new AssertionError();
-      }
-    }, null);
+              @Override
+              protected @Nullable Void defaultAction(Object o, @Nullable Void aVoid) {
+                throw new AssertionError();
+              }
+            },
+            null);
   }
 
   @Test

@@ -18,7 +18,7 @@
  *
  * written by:
  *
- * Alain L. Knaff			
+ * Alain L. Knaff
  * alain@knaff.lu
  *
  */
@@ -43,7 +43,7 @@ void mmount(int argc, char **argv, int type UNUSEDP)
 	int media;
 	union bootsector boot;
 	Stream_t *Stream;
-	
+
 	if (argc<2 || !argv[1][0]  || argv[1][1] != ':' || argv[1][2]){
 		fprintf(stderr,"Usage: %s -V drive:\n", argv[0]);
 		exit(1);
@@ -59,7 +59,7 @@ void mmount(int argc, char **argv, int type UNUSEDP)
 	if ( dev.partition ) {
 		char part_name[4];
 		sprintf(part_name, "%d", dev.partition %1000);
-		strcat(name, part_name); 
+		strcat(name, part_name);
 	}
 
 	/* and finally mount it */
@@ -79,7 +79,7 @@ void mmount(int argc, char **argv, int type UNUSEDP)
 		exit(1);
 	default:
 		while ( wait(&status) != pid );
-	}	
+	}
 	if ( WEXITSTATUS(status) == 0 )
 		exit(0);
 	argv[0] = strdup("mount");
@@ -99,7 +99,7 @@ void mmount(int argc, char **argv, int type UNUSEDP)
 
 #include "msdos.h"
 
-void mmount(int argc, char **argv, int type)
+void mmount(int argc UNUSEDP, char **argv UNUSEDP, int type UNUSEDP)
 {
   fprintf(stderr,"This command is only available for LINUX \n");
   exit(1);

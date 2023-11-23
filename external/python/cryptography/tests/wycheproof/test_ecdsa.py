@@ -20,6 +20,10 @@ _DIGESTS = {
     "SHA-256": hashes.SHA256(),
     "SHA-384": hashes.SHA384(),
     "SHA-512": hashes.SHA512(),
+    "SHA3-224": hashes.SHA3_224(),
+    "SHA3-256": hashes.SHA3_256(),
+    "SHA3-384": hashes.SHA3_384(),
+    "SHA3-512": hashes.SHA3_512(),
 }
 
 
@@ -34,13 +38,23 @@ _DIGESTS = {
     "ecdsa_secp224r1_sha224_test.json",
     "ecdsa_secp224r1_sha256_test.json",
     "ecdsa_secp224r1_sha512_test.json",
+    "ecdsa_secp224r1_sha3_224_test.json",
+    "ecdsa_secp224r1_sha3_256_test.json",
+    "ecdsa_secp224r1_sha3_512_test.json",
     "ecdsa_secp256k1_sha256_test.json",
     "ecdsa_secp256k1_sha512_test.json",
+    "ecdsa_secp256k1_sha3_256_test.json",
+    "ecdsa_secp256k1_sha3_512_test.json",
     "ecdsa_secp256r1_sha256_test.json",
     "ecdsa_secp256r1_sha512_test.json",
+    "ecdsa_secp256r1_sha3_256_test.json",
+    "ecdsa_secp256r1_sha3_512_test.json",
     "ecdsa_secp384r1_sha384_test.json",
     "ecdsa_secp384r1_sha512_test.json",
+    "ecdsa_secp384r1_sha3_384_test.json",
+    "ecdsa_secp384r1_sha3_512_test.json",
     "ecdsa_secp521r1_sha512_test.json",
+    "ecdsa_secp521r1_sha3_512_test.json",
 )
 def test_ecdsa_signature(backend, wycheproof):
     try:
@@ -48,9 +62,9 @@ def test_ecdsa_signature(backend, wycheproof):
             binascii.unhexlify(wycheproof.testgroup["keyDer"]), backend
         )
     except (UnsupportedAlgorithm, ValueError):
-        # In OpenSSL 1.0.1, some keys fail to load with ValueError, instead of
-        # Unsupported Algorithm. We can remove handling for that exception
-        # when we drop support.
+        # In some OpenSSL 1.0.2s, some keys fail to load with ValueError,
+        # instead of  Unsupported Algorithm. We can remove handling for that
+        # exception when we drop support.
         pytest.skip(
             "unable to load key (curve {})".format(
                 wycheproof.testgroup["key"]["curve"]
@@ -58,9 +72,11 @@ def test_ecdsa_signature(backend, wycheproof):
         )
     digest = _DIGESTS[wycheproof.testgroup["sha"]]
 
-    if (
-        wycheproof.valid or
-        (wycheproof.acceptable and not wycheproof.has_flag("MissingZero"))
+    if not backend.hash_supported(digest):
+        pytest.skip("Hash {} not supported".format(digest))
+
+    if wycheproof.valid or (
+        wycheproof.acceptable and not wycheproof.has_flag("MissingZero")
     ):
         key.verify(
             binascii.unhexlify(wycheproof.testcase["sig"]),

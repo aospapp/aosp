@@ -1,5 +1,3 @@
-#!/usr/bin/python -B
-
 # Copyright 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,12 +19,31 @@ from __future__ import print_function
 import filecmp
 import glob
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
 
 import i18nutil
 import ziputil
+
+
+# See https://github.com/unicode-org/icu/blob/main/docs/userguide/icu_data/buildtool.md
+# for the documentation.
+ICU_DATA_FILTERS = """{
+  "featureFilters": {
+    "misc": {
+      "excludelist": [
+        "metaZones",
+        "timezoneTypes",
+        "windowsZones",
+        "zoneinfo64"
+      ]
+    }
+  }
+}
+"""
+
 
 def cldrDir():
   """Returns the location of CLDR in the Android source tree."""
@@ -69,8 +86,8 @@ def datFile(icu_build_dir):
   return dat_file
 
 
-def PrepareIcuBuild(icu_build_dir):
-  """Sets up an ICU build in the specified (non-existent) directory.
+def PrepareIcuBuild(icu_build_dir, data_filters_json=None):
+  """Sets up an ICU build in the specified directory.
 
   Creates the directory and runs "runConfigureICU Linux"
   """
@@ -78,15 +95,30 @@ def PrepareIcuBuild(icu_build_dir):
   original_working_dir = os.getcwd()
 
   # Create a directory to run 'make' from.
-  os.mkdir(icu_build_dir)
+  if not os.path.exists(icu_build_dir):
+    os.mkdir(icu_build_dir)
   os.chdir(icu_build_dir)
 
   # Build the ICU tools.
   print('Configuring ICU tools...')
-  subprocess.check_call(['env', 'ICU_DATA_BUILDTOOL_OPTS=--include_uni_core_data', '%s/runConfigureICU' % icu4cDir(), 'Linux'])
+  cmd = ['env']
+  if data_filters_json is not None:
+    json_file_path = os.path.join(icu_build_dir, "icu4c_data_filters.json")
+    print("json path: %s" % json_file_path)
+    writeFileContent(json_file_path, data_filters_json)
+    cmd.append('ICU_DATA_FILTER_FILE=%s' % json_file_path)
+
+  cmd += ['ICU_DATA_BUILDTOOL_OPTS=--include_uni_core_data',
+          '%s/runConfigureICU' % icu4cDir(),
+          'Linux']
+  subprocess.check_call(cmd)
 
   os.chdir(original_working_dir)
 
+def writeFileContent(file_path, file_content):
+  """Write a string into the file"""
+  with open(file_path, "w") as file:
+    file.write(file_content)
 
 def MakeTzDataFiles(icu_build_dir, iana_tar_file):
   """Builds and runs the ICU tools in ${icu_Build_dir}/tools/tzcode.
@@ -121,10 +153,13 @@ def MakeTzDataFiles(icu_build_dir, iana_tar_file):
   shutil.copy(zoneinfo_file, icu_txt_data_dir)
 
 
-def MakeAndCopyIcuDataFiles(icu_build_dir):
+def MakeAndCopyIcuDataFiles(icu_build_dir, copy_icu4c_dat_file_only=False):
   """Builds the ICU .dat and .jar files using the current src data.
 
   The files are copied back into the expected locations in the src tree.
+
+  This is a low-level method.
+  Please check :func:`GenerateIcuDataFiles()` for caveats.
   """
   # Keep track of the original cwd so we can go back to it at the end.
   original_working_dir = os.getcwd()
@@ -139,6 +174,9 @@ def MakeAndCopyIcuDataFiles(icu_build_dir):
 
   print('Copying %s to %s ...' % (dat_file, icu_dat_data_dir))
   shutil.copy(dat_file, icu_dat_data_dir)
+
+  if copy_icu4c_dat_file_only:
+    return
 
   # Generate the ICU4J .jar files
   subprocess.check_call(['make', '-j32', 'icu4j-data'])
@@ -175,7 +213,9 @@ def MakeAndCopyOverlayTzIcuData(icu_build_dir, dest_file):
 
   The overlay file can be used as an overlay of a full ICU .dat file
   to provide newer time zone data. Some strings like translated
-  time zone names will be missing, but rules will be correct."""
+  time zone names will be missing, but rules will be correct.
+  """
+
   # Keep track of the original cwd so we can go back to it at the end.
   original_working_dir = os.getcwd()
 
@@ -246,9 +286,12 @@ def MakeAndCopyOverlayTzIcuData(icu_build_dir, dest_file):
   # Switch back to the original working cwd.
   os.chdir(original_working_dir)
 
-def RequiredToMakeLangInfo():
-  """ Returns true if icu4c/source/data/misc/langInfo.txt has been re-generated.
-  Returns false if re-generation is not needed.
+def _MakeLangInfo():
+  """ Regenerates icu4c/source/data/misc/langInfo.txt.
+  Returns true if the file was changed and false otherwise.
+
+  This is implementation detail, should not be called outside
+  of this script.
   """
 
   # Generate icu4c/source/data/misc/langInfo.txt by a ICU4J tool
@@ -276,6 +319,55 @@ def RequiredToMakeLangInfo():
   print('Copying {src} to {dst}'.format(src=langInfo_out_path, dst=langInfo_dst_path))
   shutil.copyfile(langInfo_out_path, langInfo_dst_path)
   return True
+
+def GenerateIcuDataFiles():
+  """ There are ICU files generation of which depends on ICU itself.
+  This method repeatedly builds ICU and re-generates these files until they
+  converge, i.e. subsequent builds do not change these files.
+  """
+  last_icu_build_dir = _MakeIcuDataFilesOnce()
+
+  # If icu4c/source/data/misc/langInfo.txt is re-generated, the binary data files need to be
+  # re-generated. MakeIcuDataFiles() is called until it converges because the re-generation
+  # depends icu4j, and icu4j depends on the binary data files.
+  while _MakeLangInfo():
+    last_icu_build_dir = _MakeIcuDataFilesOnce()
+
+  _MakeIcuDataFilesWithoutTimeZoneFiles(last_icu_build_dir)
+
+def _MakeIcuDataFilesOnce():
+  """Builds ICU and copies .dat and .jar files to expected places.
+  Build is invoked only once. It is unlikely that you need to call
+  this method outside of this script.
+
+  This is a low-level method.
+  Please check :func:`GenerateIcuDataFiles()` for caveats.
+  """
+  i18nutil.SwitchToNewTemporaryDirectory()
+  icu_build_dir = '%s/icu' % os.getcwd()
+
+  PrepareIcuBuild(icu_build_dir)
+
+  MakeAndCopyIcuDataFiles(icu_build_dir)
+
+  return icu_build_dir
+
+def _MakeIcuDataFilesWithoutTimeZoneFiles(icu_build_dir):
+  """
+  Remove the timezone .res files from the .dat file in order to save ~200 KB file size.
+  TODO (b/206956042): Move this to the first build whenhttps://unicode-org.atlassian.net/browse/ICU-21769 is fixed.
+  Now another build is needed to build a new .dat file without the timezone files.
+  """
+  # A manual removal of the .lst file is needed to force GNUmake to rebuild the .lst file
+  list_file_path = pathlib.Path(icu_build_dir, 'data/out/tmp/icudata.lst')
+  list_file_path.unlink(missing_ok=True)
+
+  PrepareIcuBuild(icu_build_dir, data_filters_json=ICU_DATA_FILTERS)
+  # copy_icu4c_dat_file_only is set to true to avoid copying the ICU4J data or other files
+  # because the data files may be incomplete to be consumed for a host tool.
+  # The ICU4J implementation on device doesn't use the ICU4J data files,
+  # e.g. ./icu4j/main/shared/data/icudata.jar
+  MakeAndCopyIcuDataFiles(icu_build_dir, copy_icu4c_dat_file_only=True)
 
 def CopyLicenseFiles(target_dir):
   """Copies ICU license files to the target_dir"""

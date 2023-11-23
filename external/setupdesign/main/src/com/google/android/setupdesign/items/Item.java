@@ -66,6 +66,7 @@ public class Item extends AbstractItem {
     visible = a.getBoolean(R.styleable.SudItem_android_visible, true);
     iconTint = a.getColor(R.styleable.SudItem_sudIconTint, Color.TRANSPARENT);
     iconGravity = a.getInt(R.styleable.SudItem_sudIconGravity, Gravity.CENTER_VERTICAL);
+
     a.recycle();
   }
 
@@ -171,6 +172,10 @@ public class Item extends AbstractItem {
     return visible;
   }
 
+  private boolean hasSummary(CharSequence summary) {
+    return summary != null && summary.length() > 0;
+  }
+
   @Override
   public int getViewId() {
     return getId();
@@ -183,7 +188,7 @@ public class Item extends AbstractItem {
 
     TextView summaryView = (TextView) view.findViewById(R.id.sud_items_summary);
     CharSequence summary = getSummary();
-    if (summary != null && summary.length() > 0) {
+    if (hasSummary(summary)) {
       summaryView.setText(summary);
       summaryView.setVisibility(View.VISIBLE);
     } else {

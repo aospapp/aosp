@@ -43,12 +43,13 @@
  *       at right edge? (Not adjusting to screen size at all? Header wraps?)
  * TODO: top: thread support and SMP
  * TODO: pgrep -f only searches the amount of cmdline that fits in toybuf.
+ * TODO: pgrep qemu-system-i386 never matches because one char too long
 
 USE_PS(NEWTOY(ps, "k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*Tu*U*g*G*wZ[!ol][+Ae][!oO]", TOYFLAG_BIN|TOYFLAG_LOCALE))
 // stayroot because iotop needs root to read other process' proc/$$/io
 // TOP and IOTOP have a large common option block used for common processing,
 // the default values are different but the flags are in the same order.
-USE_TOP(NEWTOY(top, ">0O*" "Hk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE))
+USE_TOP(NEWTOY(top, ">0O*h" "Hk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE))
 USE_IOTOP(NEWTOY(iotop, ">0AaKO" "Hk*o*p*u*s#<1=7d%<100=3000m#n#<1bq", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_STAYROOT|TOYFLAG_LOCALE))
 USE_PGREP(NEWTOY(pgrep, "?cld:u*U*t*s*P*g*G*fnovxL:[-no]", TOYFLAG_USR|TOYFLAG_BIN))
 USE_PKILL(NEWTOY(pkill,    "?Vu*U*t*s*P*g*G*fnovxl:[-no]", TOYFLAG_USR|TOYFLAG_BIN))
@@ -88,11 +89,12 @@ config TOP
   bool "top"
   default y
   help
-    usage: top [-Hbq] [-k FIELD,] [-o FIELD,] [-s SORT] [-n NUMBER] [-m LINES] [-d SECONDS] [-p PID,] [-u USER,]
+    usage: top [-Hhbq] [-k FIELD,] [-o FIELD,] [-s SORT] [-n NUMBER] [-m LINES] [-d SECONDS] [-p PID,] [-u USER,]
 
     Show process activity in real time.
 
     -H	Show threads
+    -h	Usage graphs instead of text
     -k	Fallback sort FIELDS (default -S,-%CPU,-ETIME,-PID)
     -o	Show FIELDS (def PID,USER,PR,NI,VIRT,RES,SHR,S,%CPU,%MEM,TIME+,CMDLINE)
     -O	Add FIELDS (replacing PR,NI,VIRT,RES,SHR,S from default)
@@ -105,8 +107,8 @@ config TOP
     -u	Show these USERs
     -q	Quiet (no header lines)
 
-    Cursor LEFT/RIGHT to change sort, UP/DOWN move list, space to force
-    update, R to reverse sort, Q to exit.
+    Cursor UP/DOWN or LEFT/RIGHT to move list, SHIFT LEFT/RIGHT to change sort,
+    space to force update, R to reverse sort, Q to exit.
 
 # Requires CONFIG_IRQ_TIME_ACCOUNTING in the kernel for /proc/$$/io
 config IOTOP
@@ -209,7 +211,7 @@ GLOBALS(
 
   struct ptr_len gg, GG, pp, PP, ss, tt, uu, UU;
   struct dirtree *threadparent;
-  unsigned width, height;
+  unsigned width, height, scroll;
   dev_t tty;
   void *fields, *kfields;
   long long ticks, bits, time;
@@ -637,11 +639,14 @@ static char *string_field(struct procpid *tb, struct ofields *field)
 static void show_ps(void *p)
 {
   struct procpid *tb = p;
-  struct ofields *field;
-  int pad, len, width = TT.width, abslen, sign, olen, extra = 0;
+  struct ofields *field = TT.fields;
+  int pad, len, width = TT.width, abslen, sign, olen, scroll, extra = 0;
+
+  // Skip TT.scroll many fields (but not last one)
+  for (scroll = TT.scroll; scroll && field->next; scroll--) field = field->next;
 
   // Loop through fields to display
-  for (field = TT.fields; field; field = field->next) {
+  for (; field; field = field->next) {
     char *out = string_field(tb, field);
 
     // Output the field, appropriately padded
@@ -1124,7 +1129,10 @@ static char *parse_ko(void *data, char *type, int length)
 static long long get_headers(struct ofields *field, char *buf, int blen)
 {
   long long bits = 0;
-  int len = 0;
+  int len = 0, scroll;
+
+  // Skip TT.scroll many fields (but not last one)
+  for (scroll = TT.scroll; scroll && field->next; scroll--) field = field->next;
 
   for (; field; field = field->next) {
     len += snprintf(buf+len, blen-len, " %*s"+!bits, field->len,
@@ -1400,6 +1408,7 @@ void ps_main(void)
     if (CFG_TOYBOX_FREE) free(tbsort);
   }
 
+  if (!TT.kcount) toys.exitval = 1;
   if (CFG_TOYBOX_FREE) {
     free(TT.gg.ptr);
     free(TT.GG.ptr);
@@ -1413,7 +1422,6 @@ void ps_main(void)
   }
 }
 
-#define CLEANUP_ps
 #define FOR_top
 #include "generated/flags.h"
 
@@ -1456,8 +1464,8 @@ static int header_line(int line, int rev)
 
   if (FLAG(b)) puts(toybuf);
   else {
-    printf("%s%-*.*s%s\r\n", rev?"\033[7m":"", rev?TT.width:0, TT.width, toybuf,
-      rev?"\033[0m":"");
+    printf("%s%-*.*s%s\r\n", rev?"\e[7m":"", rev?TT.width:0, TT.width, toybuf,
+      rev?"\e[0m":"");
   }
 
   return line-1;
@@ -1465,7 +1473,36 @@ static int header_line(int line, int rev)
 
 static void top_cursor_cleanup(void)
 {
-  tty_esc("?25h");
+  xputsn("\e[?25h");
+}
+
+// Show a three color bar graph. spans: 0 total size, 1used, 2 nice, 3 sys
+static void bargraph(char *label, unsigned width, unsigned long span[4])
+{
+  char percent[16];
+  long long ll;
+  unsigned i, color, len;
+
+  if (!*span) ++*span;
+  i = ((span[1]+(unsigned long long)span[2]+span[3])*1000)/ *span;
+  len = sprintf(percent, "%u.%u", i/10, i%10);
+
+  printf("%s[", label);
+  for (ll = i = color = 0; i<width; i++) {
+    while (ll<1 && color<4) {
+      if (color++!=3) {
+        ll += span[color]*width;
+        if (ll<*span/2) continue;
+      }
+      // green, red, blue, grey
+      if (color==4) printf("\e[1;2;37m");
+      else printf("\e[%um", (char[]){32,34,31}[color-1]);
+      break;
+    }
+    if (color<4) ll -= *span;
+    printf("%c", width-i>len ? (color==4 ? ' ' : '|') : percent[len-(width-i)]);
+  }
+  printf("\e[0m]");
 }
 
 static void top_common(
@@ -1489,7 +1526,7 @@ static void top_common(
   if (!FLAG(b)) {
     setbuf(stdout, stdout_buf);
     sigatexit(top_cursor_cleanup);
-    tty_esc("?25l");
+    xputsn("\e[?25l");
   }
 
   toys.signal = SIGWINCH;
@@ -1564,7 +1601,7 @@ static void top_common(
       if (recalc) {
         qsort(mix.tb, mix.count, sizeof(struct procpid *), (void *)ksort);
         if (!FLAG(b)) {
-          printf("\033[H\033[J");
+          printf("\e[H\e[J");
           if (toys.signal) {
             toys.signal = 0;
             terminal_probesize(&TT.width, &TT.height);
@@ -1580,7 +1617,8 @@ static void top_common(
           char hr[4][32];
           long long ll, up = 0;
           long run[6];
-          int j, k;
+          int j, k, cpus = sysconf(_SC_NPROCESSORS_CONF);
+
 
           // Count running, sleeping, stopped, zombie processes.
           // The kernel has more states (and different sets in different
@@ -1603,6 +1641,7 @@ static void top_common(
               pos = strafter(toybuf+256, (char *[]){"MemTotal:","\nMemFree:",
                     "\nBuffers:","\nSwapTotal:","\nSwapFree:","\nCached:"}[i]);
               run[i] = pos ? atol(pos) : 0;
+              if (FLAG(h)) continue;
               k = (*run>=10000000);
               human_readable_long(hr[j+!!j], run[i]>>(10*k), 9, k+1, HR_NODOT);
               if (j==1) human_readable_long(hr[1], (run[i-1]-run[i])>>(10*k),
@@ -1614,17 +1653,24 @@ static void top_common(
                 lines = header_line(lines, 0);
               }
             }
+            if (FLAG(h)) {
+              unsigned long swp[] = {run[3], 0, 0, run[3]-run[4]},
+                mem[] = {run[0], run[0]-run[1]-run[2]-run[5], run[2], run[5]};
+
+              bargraph("Mem", 34, mem);
+              bargraph(" Swp", 34, swp);
+              xprintf("\r\n");
+            }
           }
           pos = toybuf;
-          i = sysconf(_SC_NPROCESSORS_CONF);
-          pos += sprintf(pos, "%d%%cpu", i*100);
-          j = 4+(i>10);
+          pos += sprintf(pos, "%d%%cpu", cpus*100);
+          j = 4+(cpus>10);
 
           // If a processor goes idle it's powered down and its idle ticks don't
           // advance, so calculate idle time as potential time - used.
           if (mix.count) up = mix.tb[0]->slot[SLOT_upticks];
           if (!up) up = 1;
-          now = up*i;
+          now = up*cpus;
           ll = stats[3] = stats[11] = 0;
           for (i = 0; i<8; i++) ll += stats[i]-stats[i+8];
           stats[3] = now - llabs(ll);
@@ -1633,7 +1679,7 @@ static void top_common(
             ll = (llabs(stats[i]-stats[i+8])*1000)/up;
             pos += sprintf(pos, "% *lld%%%s", j, (ll+5)/10, cpufields[i]);
           }
-          lines = header_line(lines, 0);
+        // Display "iotop" header.
         } else {
           struct ofields *field;
           struct procpid tb;
@@ -1655,9 +1701,10 @@ static void top_common(
               field->len, string_field(&tb, field));
           }
           *--pos = 0;
-          lines = header_line(lines, 0);
         }
 
+        lines = header_line(lines, 0);
+        // print line of header labels for currently displayed fields
         get_headers(TT.fields, pos = toybuf, sizeof(toybuf));
         for (i = 0, is = ' '; *pos; pos++) {
           was = is;
@@ -1670,18 +1717,16 @@ static void top_common(
         *pos = 0;
         lines = header_line(lines, 1);
       }
-      if (!recalc && !FLAG(b))
-        printf("\033[%dH\033[J", 1+TT.height-lines);
-      recalc = 1;
+      if (!recalc && !FLAG(b)) printf("\e[%dH\e[J", 1+TT.height-lines);
 
       for (i = 0; i<lines && i+topoff<mix.count; i++) {
         // Running processes are shown in bold.
         int bold = !FLAG(b) && mix.tb[i+topoff]->state == 'R';
 
         if (!FLAG(b) && i) putchar('\n');
-        if (bold) printf("\033[1m");
+        if (bold) printf("\e[1m");
         show_ps(mix.tb[i+topoff]);
-        if (bold) printf("\033[m");
+        if (bold) printf("\e[m");
       }
 
       if (TT.top.n && !--TT.top.n) {
@@ -1701,6 +1746,7 @@ static void top_common(
         break;
       } else fflush(stdout);
 
+      recalc = 1;
       i = scan_key_getsize(scratch, timeout-now, &TT.width, &TT.height);
       if (i==-1 || i==3 || toupper(i)=='Q') {
         done++;
@@ -1718,21 +1764,18 @@ static void top_common(
         ((struct ofields *)TT.kfields)->reverse *= -1;
       else {
         i -= 256;
-        if (i == KEY_LEFT) setsort(TT.sortpos-1);
-        else if (i == KEY_RIGHT) setsort(TT.sortpos+1);
-        // KEY_UP is 0, so at end of strchr
-        else if (strchr((char []){KEY_DOWN,KEY_PGUP,KEY_PGDN,KEY_UP}, i)) {
-          recalc = 0;
-
-          if (i == KEY_UP) topoff--;
-          else if (i == KEY_DOWN) topoff++;
-          else if (i == KEY_PGDN) topoff += lines;
-          else if (i == KEY_PGUP) topoff -= lines;
-          if (topoff<0) topoff = 0; 
-          if (topoff>mix.count) topoff = mix.count;
-        }
+        if (i == (KEY_SHIFT|KEY_LEFT)) setsort(TT.sortpos-1);
+        else if (i == (KEY_SHIFT|KEY_RIGHT)) setsort(TT.sortpos+1);
+        else if (i == KEY_RIGHT) TT.scroll++;
+        else if (i == KEY_LEFT && TT.scroll) TT.scroll--;
+        else if (recalc-- && i == KEY_UP) topoff--;
+        else if (i == KEY_DOWN) topoff++;
+        else if (i == KEY_PGDN) topoff += lines;
+        else if (i == KEY_PGUP) topoff -= lines;
+        else continue;
+        if (topoff<0) topoff = 0;
+        if (topoff>mix.count) topoff = mix.count;
       }
-      continue;
     }
 
     free(mix.tb);
@@ -1787,7 +1830,6 @@ void top_main(void)
   top_common(merge_deltas);
 }
 
-#define CLEANUP_top
 #define FOR_iotop
 #include "generated/flags.h"
 
@@ -1818,7 +1860,6 @@ void iotop_main(void)
 // context, so force pgrep's flags on even when building pkill standalone.
 // (All the pgrep/pkill functions drop out when building ps standalone.)
 #define FORCE_FLAGS
-#define CLEANUP_iotop
 #define FOR_pgrep
 #include "generated/flags.h"
 
@@ -1932,7 +1973,6 @@ void pgrep_main(void)
   if (TT.pgrep.d) xputc('\n');
 }
 
-#define CLEANUP_pgrep
 #define FOR_pkill
 #include "generated/flags.h"
 

@@ -96,8 +96,8 @@ $(intermediates)/ir3/ir3_parser.c: $(ir3_parser_deps) $(BISON) $(BISON_DATA) $(M
 $(intermediates)/ir3/ir3_parser.h: $(ir3_parser_deps) $(BISON) $(BISON_DATA) $(M4)
 	@mkdir -p $(dir $@)
 	@echo "Gen Header: $(PRIVATE_MODULE) <= $(notdir $(@))"
-	$(hide) $(BISON) $< --name-prefix=ir3_yy --defines=$@
-	$(hide) M4=$(M4) $(BISON) $< --name-prefix=ir3_yy --defines=$@
+	$(hide) $(BISON) $< --name-prefix=ir3_yy --defines=$@ --output=$@.tab.c
+	$(hide) M4=$(M4) $(BISON) $< --name-prefix=ir3_yy --defines=$@ --output=$@.tab.c
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

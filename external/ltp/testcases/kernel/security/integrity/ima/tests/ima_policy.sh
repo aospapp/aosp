@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2009 IBM Corporation
-# Copyright (c) 2018 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2018-2020 Petr Vorel <pvorel@suse.cz>
 # Author: Mimi Zohar <zohar@linux.ibm.com>
 #
 # Test replacing the default integrity measurement policy.
@@ -23,7 +23,6 @@ check_policy_writable()
 
 setup()
 {
-	IMA_POLICY="$IMA_DIR/policy"
 	check_policy_writable
 
 	VALID_POLICY="$TST_DATAROOT/measure.policy"

@@ -72,122 +72,146 @@ h1, h2, h3 {
 
 </style>
 
-<h1><a href="admin_directory_v1.html">Admin Directory API</a> . <a href="admin_directory_v1.users.html">users</a> . <a href="admin_directory_v1.users.photos.html">photos</a></h1>
+<h1><a href="admin_directory_v1.html">Admin SDK API</a> . <a href="admin_directory_v1.users.html">users</a> . <a href="admin_directory_v1.users.photos.html">photos</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#delete">delete(userKey)</a></code></p>
-<p class="firstline">Remove photos for the user</p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
 <p class="toc_element">
-  <code><a href="#get">get(userKey)</a></code></p>
-<p class="firstline">Retrieve photo of a user</p>
+  <code><a href="#delete">delete(userKey, x__xgafv=None)</a></code></p>
+<p class="firstline">Removes the user's photo.</p>
 <p class="toc_element">
-  <code><a href="#patch">patch(userKey, body)</a></code></p>
-<p class="firstline">Add a photo for the user. This method supports patch semantics.</p>
+  <code><a href="#get">get(userKey, x__xgafv=None)</a></code></p>
+<p class="firstline">Retrieves the user's photo.</p>
 <p class="toc_element">
-  <code><a href="#update">update(userKey, body)</a></code></p>
-<p class="firstline">Add a photo for the user</p>
+  <code><a href="#patch">patch(userKey, body=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Adds a photo for the user. This method supports [patch semantics](/admin-sdk/directory/v1/guides/performance#patch).</p>
+<p class="toc_element">
+  <code><a href="#update">update(userKey, body=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Adds a photo for the user.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="delete">delete(userKey)</code>
-  <pre>Remove photos for the user
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="delete">delete(userKey, x__xgafv=None)</code>
+  <pre>Removes the user&#x27;s photo.
 
 Args:
-  userKey: string, Email or immutable ID of the user (required)
+  userKey: string, Identifies the user in the API request. The value can be the user&#x27;s primary email address, alias email address, or unique user ID. (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 </pre>
 </div>
 
 <div class="method">
-    <code class="details" id="get">get(userKey)</code>
-  <pre>Retrieve photo of a user
+    <code class="details" id="get">get(userKey, x__xgafv=None)</code>
+  <pre>Retrieves the user&#x27;s photo.
 
 Args:
-  userKey: string, Email or immutable ID of the user (required)
+  userKey: string, Identifies the user in the API request. The value can be the user&#x27;s primary email address, alias email address, or unique user ID. (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # JSON template for Photo object in Directory API.
-      "mimeType": "A String", # Mime Type of the photo
-      "kind": "admin#directory#user#photo", # Kind of resource this is.
-      "photoData": "A String", # Base64 encoded photo data
-      "height": 42, # Height in pixels of the photo
-      "width": 42, # Width in pixels of the photo
-      "etag": "A String", # ETag of the resource.
-      "primaryEmail": "A String", # Primary email of User (Read-only)
-      "id": "A String", # Unique identifier of User (Read-only)
-    }</pre>
+    {
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;height&quot;: 42, # Height of the photo in pixels.
+  &quot;id&quot;: &quot;A String&quot;, # The ID the API uses to uniquely identify the user.
+  &quot;kind&quot;: &quot;admin#directory#user#photo&quot;, # The type of the API resource. For Photo resources, this is `admin#directory#user#photo`.
+  &quot;mimeType&quot;: &quot;A String&quot;, # The MIME type of the photo. Allowed values are `JPEG`, `PNG`, `GIF`, `BMP`, `TIFF`, and web-safe base64 encoding.
+  &quot;photoData&quot;: &quot;A String&quot;, # The user photo&#x27;s upload data in [web-safe Base64](https://en.wikipedia.org/wiki/Base64#URL_applications) format in bytes. This means: * The slash (/) character is replaced with the underscore (_) character. * The plus sign (+) character is replaced with the hyphen (-) character. * The equals sign (=) character is replaced with the asterisk (*). * For padding, the period (.) character is used instead of the RFC-4648 baseURL definition which uses the equals sign (=) for padding. This is done to simplify URL-parsing. * Whatever the size of the photo being uploaded, the API downsizes it to 96x96 pixels.
+  &quot;primaryEmail&quot;: &quot;A String&quot;, # The user&#x27;s primary email address.
+  &quot;width&quot;: 42, # Width of the photo in pixels.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="patch">patch(userKey, body)</code>
-  <pre>Add a photo for the user. This method supports patch semantics.
+    <code class="details" id="patch">patch(userKey, body=None, x__xgafv=None)</code>
+  <pre>Adds a photo for the user. This method supports [patch semantics](/admin-sdk/directory/v1/guides/performance#patch).
 
 Args:
-  userKey: string, Email or immutable ID of the user (required)
-  body: object, The request body. (required)
+  userKey: string, Identifies the user in the API request. The value can be the user&#x27;s primary email address, alias email address, or unique user ID. (required)
+  body: object, The request body.
     The object takes the form of:
 
-{ # JSON template for Photo object in Directory API.
-    "mimeType": "A String", # Mime Type of the photo
-    "kind": "admin#directory#user#photo", # Kind of resource this is.
-    "photoData": "A String", # Base64 encoded photo data
-    "height": 42, # Height in pixels of the photo
-    "width": 42, # Width in pixels of the photo
-    "etag": "A String", # ETag of the resource.
-    "primaryEmail": "A String", # Primary email of User (Read-only)
-    "id": "A String", # Unique identifier of User (Read-only)
-  }
+{
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;height&quot;: 42, # Height of the photo in pixels.
+  &quot;id&quot;: &quot;A String&quot;, # The ID the API uses to uniquely identify the user.
+  &quot;kind&quot;: &quot;admin#directory#user#photo&quot;, # The type of the API resource. For Photo resources, this is `admin#directory#user#photo`.
+  &quot;mimeType&quot;: &quot;A String&quot;, # The MIME type of the photo. Allowed values are `JPEG`, `PNG`, `GIF`, `BMP`, `TIFF`, and web-safe base64 encoding.
+  &quot;photoData&quot;: &quot;A String&quot;, # The user photo&#x27;s upload data in [web-safe Base64](https://en.wikipedia.org/wiki/Base64#URL_applications) format in bytes. This means: * The slash (/) character is replaced with the underscore (_) character. * The plus sign (+) character is replaced with the hyphen (-) character. * The equals sign (=) character is replaced with the asterisk (*). * For padding, the period (.) character is used instead of the RFC-4648 baseURL definition which uses the equals sign (=) for padding. This is done to simplify URL-parsing. * Whatever the size of the photo being uploaded, the API downsizes it to 96x96 pixels.
+  &quot;primaryEmail&quot;: &quot;A String&quot;, # The user&#x27;s primary email address.
+  &quot;width&quot;: 42, # Width of the photo in pixels.
+}
 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # JSON template for Photo object in Directory API.
-      "mimeType": "A String", # Mime Type of the photo
-      "kind": "admin#directory#user#photo", # Kind of resource this is.
-      "photoData": "A String", # Base64 encoded photo data
-      "height": 42, # Height in pixels of the photo
-      "width": 42, # Width in pixels of the photo
-      "etag": "A String", # ETag of the resource.
-      "primaryEmail": "A String", # Primary email of User (Read-only)
-      "id": "A String", # Unique identifier of User (Read-only)
-    }</pre>
+    {
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;height&quot;: 42, # Height of the photo in pixels.
+  &quot;id&quot;: &quot;A String&quot;, # The ID the API uses to uniquely identify the user.
+  &quot;kind&quot;: &quot;admin#directory#user#photo&quot;, # The type of the API resource. For Photo resources, this is `admin#directory#user#photo`.
+  &quot;mimeType&quot;: &quot;A String&quot;, # The MIME type of the photo. Allowed values are `JPEG`, `PNG`, `GIF`, `BMP`, `TIFF`, and web-safe base64 encoding.
+  &quot;photoData&quot;: &quot;A String&quot;, # The user photo&#x27;s upload data in [web-safe Base64](https://en.wikipedia.org/wiki/Base64#URL_applications) format in bytes. This means: * The slash (/) character is replaced with the underscore (_) character. * The plus sign (+) character is replaced with the hyphen (-) character. * The equals sign (=) character is replaced with the asterisk (*). * For padding, the period (.) character is used instead of the RFC-4648 baseURL definition which uses the equals sign (=) for padding. This is done to simplify URL-parsing. * Whatever the size of the photo being uploaded, the API downsizes it to 96x96 pixels.
+  &quot;primaryEmail&quot;: &quot;A String&quot;, # The user&#x27;s primary email address.
+  &quot;width&quot;: 42, # Width of the photo in pixels.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="update">update(userKey, body)</code>
-  <pre>Add a photo for the user
+    <code class="details" id="update">update(userKey, body=None, x__xgafv=None)</code>
+  <pre>Adds a photo for the user.
 
 Args:
-  userKey: string, Email or immutable ID of the user (required)
-  body: object, The request body. (required)
+  userKey: string, Identifies the user in the API request. The value can be the user&#x27;s primary email address, alias email address, or unique user ID. (required)
+  body: object, The request body.
     The object takes the form of:
 
-{ # JSON template for Photo object in Directory API.
-    "mimeType": "A String", # Mime Type of the photo
-    "kind": "admin#directory#user#photo", # Kind of resource this is.
-    "photoData": "A String", # Base64 encoded photo data
-    "height": 42, # Height in pixels of the photo
-    "width": 42, # Width in pixels of the photo
-    "etag": "A String", # ETag of the resource.
-    "primaryEmail": "A String", # Primary email of User (Read-only)
-    "id": "A String", # Unique identifier of User (Read-only)
-  }
+{
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;height&quot;: 42, # Height of the photo in pixels.
+  &quot;id&quot;: &quot;A String&quot;, # The ID the API uses to uniquely identify the user.
+  &quot;kind&quot;: &quot;admin#directory#user#photo&quot;, # The type of the API resource. For Photo resources, this is `admin#directory#user#photo`.
+  &quot;mimeType&quot;: &quot;A String&quot;, # The MIME type of the photo. Allowed values are `JPEG`, `PNG`, `GIF`, `BMP`, `TIFF`, and web-safe base64 encoding.
+  &quot;photoData&quot;: &quot;A String&quot;, # The user photo&#x27;s upload data in [web-safe Base64](https://en.wikipedia.org/wiki/Base64#URL_applications) format in bytes. This means: * The slash (/) character is replaced with the underscore (_) character. * The plus sign (+) character is replaced with the hyphen (-) character. * The equals sign (=) character is replaced with the asterisk (*). * For padding, the period (.) character is used instead of the RFC-4648 baseURL definition which uses the equals sign (=) for padding. This is done to simplify URL-parsing. * Whatever the size of the photo being uploaded, the API downsizes it to 96x96 pixels.
+  &quot;primaryEmail&quot;: &quot;A String&quot;, # The user&#x27;s primary email address.
+  &quot;width&quot;: 42, # Width of the photo in pixels.
+}
 
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # JSON template for Photo object in Directory API.
-      "mimeType": "A String", # Mime Type of the photo
-      "kind": "admin#directory#user#photo", # Kind of resource this is.
-      "photoData": "A String", # Base64 encoded photo data
-      "height": 42, # Height in pixels of the photo
-      "width": 42, # Width in pixels of the photo
-      "etag": "A String", # ETag of the resource.
-      "primaryEmail": "A String", # Primary email of User (Read-only)
-      "id": "A String", # Unique identifier of User (Read-only)
-    }</pre>
+    {
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;height&quot;: 42, # Height of the photo in pixels.
+  &quot;id&quot;: &quot;A String&quot;, # The ID the API uses to uniquely identify the user.
+  &quot;kind&quot;: &quot;admin#directory#user#photo&quot;, # The type of the API resource. For Photo resources, this is `admin#directory#user#photo`.
+  &quot;mimeType&quot;: &quot;A String&quot;, # The MIME type of the photo. Allowed values are `JPEG`, `PNG`, `GIF`, `BMP`, `TIFF`, and web-safe base64 encoding.
+  &quot;photoData&quot;: &quot;A String&quot;, # The user photo&#x27;s upload data in [web-safe Base64](https://en.wikipedia.org/wiki/Base64#URL_applications) format in bytes. This means: * The slash (/) character is replaced with the underscore (_) character. * The plus sign (+) character is replaced with the hyphen (-) character. * The equals sign (=) character is replaced with the asterisk (*). * For padding, the period (.) character is used instead of the RFC-4648 baseURL definition which uses the equals sign (=) for padding. This is done to simplify URL-parsing. * Whatever the size of the photo being uploaded, the API downsizes it to 96x96 pixels.
+  &quot;primaryEmail&quot;: &quot;A String&quot;, # The user&#x27;s primary email address.
+  &quot;width&quot;: 42, # Width of the photo in pixels.
+}</pre>
 </div>
 
 </body></html>

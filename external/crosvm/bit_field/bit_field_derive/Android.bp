@@ -14,8 +14,10 @@ rust_proc_macro {
     name: "libbit_field_derive",
     defaults: ["crosvm_defaults"],
     crate_name: "bit_field_derive",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["bit_field_derive.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libproc_macro2",
         "libquote",

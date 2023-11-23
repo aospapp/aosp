@@ -56,6 +56,8 @@ struct test_layout {
     const char *variant;
     const char *brief;
     const char *description;
+    const char *iso639[3];  /* language list (iso639 three letter codes), 3 is enough for our test  */
+    const char *iso3166[3]; /* country list (iso3166 two letter codes), 3 is enough for our tests */
 };
 
 struct test_option {
@@ -76,7 +78,9 @@ fprint_config_item(FILE *fp,
                    const char *name,
                    const char *vendor,
                    const char *brief,
-                   const char *description)
+                   const char *description,
+                   const char * const iso639[3],
+                   const char * const iso3166[3])
 {
     fprintf(fp, "  <configItem>\n"
                 "    <name>%s</name>\n", name);
@@ -86,6 +90,27 @@ fprint_config_item(FILE *fp,
         fprintf(fp, "    <description>%s</description>\n", description);
     if (vendor)
         fprintf(fp, "    <vendor>%s</vendor>\n", vendor);
+    if (iso3166 && iso3166[0]) {
+        fprintf(fp, "    <countryList>\n");
+        for (int i = 0; i < 3; i++) {
+            const char *iso = iso3166[i];
+            if (!iso)
+                break;
+            fprintf(fp, "        <iso3166Id>%s</iso3166Id>\n", iso);
+        }
+        fprintf(fp, "    </countryList>\n");
+    }
+    if (iso639 && iso639[0]) {
+        fprintf(fp, "    <languageList>\n");
+        for (int i = 0; i < 3; i++) {
+            const char *iso = iso639[i];
+            if (!iso)
+                break;
+            fprintf(fp, "        <iso639Id>%s</iso639Id>\n", iso);
+        }
+        fprintf(fp, "    </languageList>\n");
+    }
+
     fprintf(fp, "  </configItem>\n");
 }
 
@@ -131,7 +156,7 @@ test_create_rules(const char *ruleset,
 
         for (const struct test_model *m = test_models; m->name; m++) {
             fprintf(fp, "<model>\n");
-            fprint_config_item(fp, m->name, m->vendor, NULL, m->description);
+            fprint_config_item(fp, m->name, m->vendor, NULL, m->description, NULL, NULL);
             fprintf(fp, "</model>\n");
         }
         fprintf(fp, "</modelList>\n");
@@ -149,14 +174,13 @@ test_create_rules(const char *ruleset,
 
         while (l->name) {
             fprintf(fp, "<layout>\n");
-            fprint_config_item(fp, l->name, NULL, l->brief, l->description);
+            fprint_config_item(fp, l->name, NULL, l->brief, l->description, l->iso639, l->iso3166);
 
             if (next->name && streq(next->name, l->name)) {
                 fprintf(fp, "<variantList>\n");
                 do {
                     fprintf(fp, "<variant>\n");
-                    fprint_config_item(fp, next->variant, NULL, next->brief,
-                                       next->description);
+                    fprint_config_item(fp, next->variant, NULL, next->brief, next->description, next->iso639, next->iso3166);
                     fprintf(fp, "</variant>\n");
                     l = next;
                     next++;
@@ -175,10 +199,10 @@ test_create_rules(const char *ruleset,
         for (const struct test_option_group *g = test_groups; g->name; g++) {
             fprintf(fp, "<group allowMultipleSelection=\"%s\">\n",
                     g->allow_multiple_selection ? "true" : "false");
-            fprint_config_item(fp, g->name, NULL, NULL, g->description);
+            fprint_config_item(fp, g->name, NULL, NULL, g->description, NULL, NULL);
             for (const struct test_option *o = g->options; o->name; o++) {
                 fprintf(fp, "  <option>\n");
-                fprint_config_item(fp, o->name, NULL, NULL, o->description);
+                fprint_config_item(fp, o->name, NULL, NULL, o->description, NULL, NULL);
                 fprintf(fp, "</option>\n");
             }
             fprintf(fp, "</group>\n");
@@ -282,18 +306,21 @@ find_models(struct rxkb_context *ctx, ...)
     va_list args;
     const char *name;
     int idx = 0;
+    bool rc = false;
 
     va_start(args, ctx);
     name = va_arg(args, const char *);
     while(name) {
         assert(++idx < 20); /* safety guard */
         if (!find_model(ctx, name))
-            return false;
+            goto out;
         name = va_arg(args, const char *);
     };
 
+    rc = true;
+out:
     va_end(args);
-    return true;
+    return rc;
 }
 
 static struct rxkb_layout *
@@ -326,6 +353,7 @@ find_layouts(struct rxkb_context *ctx, ...)
     va_list args;
     const char *name, *variant;
     int idx = 0;
+    bool rc = false;
 
     va_start(args, ctx);
     name = va_arg(args, const char *);
@@ -333,14 +361,16 @@ find_layouts(struct rxkb_context *ctx, ...)
     while(name) {
         assert(++idx < 20); /* safety guard */
         if (!find_layout(ctx, name, variant))
-            return false;
+            goto out;
         name = va_arg(args, const char *);
         if (name)
             variant = va_arg(args, const char *);
     };
 
+    rc = true;
+out:
     va_end(args);
-    return true;
+    return rc;
 }
 
 static struct rxkb_option_group *
@@ -396,6 +426,7 @@ find_options(struct rxkb_context *ctx, ...)
     va_list args;
     const char *grp, *opt;
     int idx = 0;
+    bool rc = false;
 
     va_start(args, ctx);
     grp = va_arg(args, const char *);
@@ -403,14 +434,16 @@ find_options(struct rxkb_context *ctx, ...)
     while(grp) {
         assert(++idx < 20); /* safety guard */
         if (!find_option(ctx, grp, opt))
-            return false;
+            goto out;
         grp = va_arg(args, const char *);
         if (grp)
             opt = va_arg(args, const char *);
     };
 
+    rc = true;
+out:
     va_end(args);
-    return true;
+    return rc;
 }
 
 static bool
@@ -434,6 +467,9 @@ cmp_models(struct test_model *tm, struct rxkb_model *m)
 static bool
 cmp_layouts(struct test_layout *tl, struct rxkb_layout *l)
 {
+    struct rxkb_iso3166_code *iso3166 = NULL;
+    struct rxkb_iso639_code *iso639 = NULL;
+
     if (!tl || !l)
         return false;
 
@@ -447,6 +483,36 @@ cmp_layouts(struct test_layout *tl, struct rxkb_layout *l)
         return false;
 
     if (!streq_null(tl->description, rxkb_layout_get_description(l)))
+        return false;
+
+    iso3166 = rxkb_layout_get_iso3166_first(l);
+    for (size_t i = 0; i < sizeof(tl->iso3166); i++) {
+        const char *iso = tl->iso3166[i];
+        if (iso == NULL && iso3166 == NULL)
+            break;
+
+        if (!streq_null(iso, rxkb_iso3166_code_get_code(iso3166)))
+            return false;
+
+        iso3166 = rxkb_iso3166_code_next(iso3166);
+    }
+
+    if (iso3166 != NULL)
+        return false;
+
+    iso639 = rxkb_layout_get_iso639_first(l);
+    for (size_t i = 0; i < sizeof(tl->iso639); i++) {
+        const char *iso = tl->iso639[i];
+        if (iso == NULL && iso639 == NULL)
+            break;
+
+        if (!streq_null(iso, rxkb_iso639_code_get_code(iso639)))
+            return false;
+
+        iso639 = rxkb_iso639_code_next(iso639);
+    }
+
+    if (iso639 != NULL)
         return false;
 
     return true;
@@ -554,6 +620,7 @@ test_load_full(void)
     struct test_layout system_layouts[] =  {
         {"l1", NO_VARIANT, "lbrief1", "ldesc1"},
         {"l1", "v1", "vbrief1", "vdesc1"},
+        {"l1", "v2", NULL, "vdesc2"},
         {NULL},
     };
     struct test_option_group system_groups[] = {
@@ -588,6 +655,11 @@ test_load_full(void)
     assert(cmp_layouts(&system_layouts[1], l));
     rxkb_layout_unref(l);
 
+    l = fetch_layout(ctx, "l1", "v2");
+    struct test_layout expected = {"l1", "v2", "lbrief1", "vdesc2"};
+    assert(cmp_layouts(&expected, l));
+    rxkb_layout_unref(l);
+
     g = fetch_option_group(ctx, "grp1");
     assert(cmp_option_groups(&system_groups[0], g, CMP_EXACT));
     rxkb_option_group_unref(g);
@@ -595,6 +667,107 @@ test_load_full(void)
     g = fetch_option_group(ctx, "grp2");
     assert(cmp_option_groups(&system_groups[1], g, CMP_EXACT));
     rxkb_option_group_unref(g);
+
+    rxkb_context_unref(ctx);
+}
+
+static void
+test_load_languages(void)
+{
+    struct test_model system_models[] =  {
+        {"m1", "vendor1", "desc1"},
+        {NULL},
+    };
+    struct test_layout system_layouts[] =  {
+        {"l1", NO_VARIANT, "lbrief1", "ldesc1",
+            .iso639 = { "abc", "def" },
+            .iso3166 = { "uv", "wx" }},
+        {"l1", "v1", "vbrief1", "vdesc1",
+            .iso639 = {"efg"},
+            .iso3166 = {"yz"}},
+        {"l2", NO_VARIANT, "lbrief1", "ldesc1",
+            .iso639 = { "hij", "klm" },
+            .iso3166 = { "op", "qr" }},
+        {"l2", "v2", "lbrief1", "ldesc1",
+            .iso639 = { NULL }, /* inherit from parent */
+            .iso3166 = { NULL }},  /* inherit from parent */
+        {NULL},
+    };
+    struct test_option_group system_groups[] = {
+        {"grp1", "gdesc1", true,
+          { {"grp1:1", "odesc11"}, {"grp1:2", "odesc12"} } },
+        { NULL },
+    };
+    struct rxkb_context *ctx;
+    struct rxkb_layout *l;
+    struct rxkb_iso3166_code *iso3166;
+    struct rxkb_iso639_code *iso639;
+
+    ctx = test_setup_context(system_models, NULL,
+                             system_layouts, NULL,
+                             system_groups, NULL);
+
+    l = fetch_layout(ctx, "l1", NO_VARIANT);
+    assert(cmp_layouts(&system_layouts[0], l));
+    rxkb_layout_unref(l);
+
+    l = fetch_layout(ctx, "l1", "v1");
+    assert(cmp_layouts(&system_layouts[1], l));
+    rxkb_layout_unref(l);
+
+    l = fetch_layout(ctx, "l2", "v2");
+    iso3166 = rxkb_layout_get_iso3166_first(l);
+    assert(streq(rxkb_iso3166_code_get_code(iso3166), "op"));
+    iso3166 = rxkb_iso3166_code_next(iso3166);
+    assert(streq(rxkb_iso3166_code_get_code(iso3166), "qr"));
+
+    iso639 = rxkb_layout_get_iso639_first(l);
+    assert(streq(rxkb_iso639_code_get_code(iso639), "hij"));
+    iso639 = rxkb_iso639_code_next(iso639);
+    assert(streq(rxkb_iso639_code_get_code(iso639), "klm"));
+
+    rxkb_layout_unref(l);
+    rxkb_context_unref(ctx);
+}
+
+static void
+test_load_invalid_languages(void)
+{
+    struct test_model system_models[] =  {
+        {"m1", "vendor1", "desc1"},
+        {NULL},
+    };
+    struct test_layout system_layouts[] =  {
+        {"l1", NO_VARIANT, "lbrief1", "ldesc1",
+            .iso639 = { "ab", "def" },
+            .iso3166 = { "uvw", "xz" }},
+        {NULL},
+    };
+    struct test_option_group system_groups[] = {
+        {"grp1", "gdesc1", true,
+          { {"grp1:1", "odesc11"}, {"grp1:2", "odesc12"} } },
+        { NULL },
+    };
+    struct rxkb_context *ctx;
+    struct rxkb_layout *l;
+    struct rxkb_iso3166_code *iso3166;
+    struct rxkb_iso639_code *iso639;
+
+    ctx = test_setup_context(system_models, NULL,
+                             system_layouts, NULL,
+                             system_groups, NULL);
+
+    l = fetch_layout(ctx, "l1", NO_VARIANT);
+    /* uvw is invalid, we expect 2 letters, verify it was ignored */
+    iso3166 = rxkb_layout_get_iso3166_first(l);
+    assert(streq(rxkb_iso3166_code_get_code(iso3166), "xz"));
+    assert(rxkb_iso3166_code_next(iso3166) == NULL);
+
+    /* ab is invalid, we expect 3 letters, verify it was ignored */
+    iso639 = rxkb_layout_get_iso639_first(l);
+    assert(streq(rxkb_iso639_code_get_code(iso639), "def"));
+    assert(rxkb_iso639_code_next(iso639) == NULL);
+    rxkb_layout_unref(l);
 
     rxkb_context_unref(ctx);
 }
@@ -840,6 +1013,8 @@ main(void)
     test_load_full();
     test_load_merge();
     test_load_merge_no_overwrite();
+    test_load_languages();
+    test_load_invalid_languages();
     test_popularity();
 
     return 0;

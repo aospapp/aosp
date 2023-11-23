@@ -128,7 +128,7 @@ cc_defaults {
                 "simd/arm/jidctred-neon.c",
                 "simd/arm/jquanti-neon.c",
             ],
-            cflags: ["-DNEON_INTRINSICS"],
+            cflags: ["-DNEON_INTRINSICS", "-mfpu=neon"],
             local_include_dirs: ["simd/arm"],
         },
         arm64: {

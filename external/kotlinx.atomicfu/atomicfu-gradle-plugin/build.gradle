@@ -5,9 +5,19 @@
 apply plugin: 'kotlin'
 apply plugin: 'java-gradle-plugin'
 
-apply from: rootProject.file('gradle/compile-options.gradle')
+if (rootProject.ext.jvm_ir_enabled) {
+    kotlin.target.compilations.all {
+        kotlinOptions.useIR = true
+    }
+}
 
-ext.configureKotlin(org.jetbrains.kotlin.gradle.tasks.KotlinCompile)
+// Gradle plugin must be compiled targeting the same Kotlin version as used by Gradle
+kotlin.sourceSets.all {
+    languageSettings {
+        apiVersion = "1.3"
+        languageVersion = "1.3"
+    }
+}
 
 dependencies {
     compile gradleApi()
@@ -39,13 +49,13 @@ def jsLegacy = atomicfu.kotlin.targets.hasProperty("jsLegacy")
         : atomicfu.kotlin.targets.js
 def atomicfuJsJarTask = atomicfu.tasks.getByName(jsLegacy.artifactsTaskName)
 
-def atomicfuMetadataJarTask = atomicfu.tasks.getByName(atomicfu.kotlin.targets.metadata.artifactsTaskName)
+def atomicfuMetadataOutput = atomicfu.kotlin.targets.metadata.compilations["main"].output.allOutputs
 
 // Write the plugin's classpath to a file to share with the tests
 task createClasspathManifest {
     dependsOn(atomicfuJvmJarTask)
     dependsOn(atomicfuJsJarTask)
-    dependsOn(atomicfuMetadataJarTask)
+    dependsOn(atomicfuMetadataOutput)
 
     def outputDir = file("$buildDir/$name")
     outputs.dir outputDir
@@ -55,7 +65,7 @@ task createClasspathManifest {
         file("$outputDir/plugin-classpath.txt").text = (sourceSets.main.runtimeClasspath + configurations.testPluginClasspath).join("\n")
         file("$outputDir/atomicfu-jvm.txt").text = atomicfuJvmJarTask.archivePath
         file("$outputDir/atomicfu-js.txt").text = atomicfuJsJarTask.archivePath
-        file("$outputDir/atomicfu-metadata.txt").text = atomicfuMetadataJarTask.archivePath
+        file("$outputDir/atomicfu-metadata.txt").text = atomicfuMetadataOutput.join("\n")
     }
 }
 

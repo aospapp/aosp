@@ -16,3 +16,19 @@ python_test_host {
         unit_test: false,
     },
 }
+
+python_test {
+    name: "run_conformance",
+    main: "test_conformance/run_conformance.py",
+    srcs: [ "test_conformance/run_conformance.py" ],
+    version: {
+        py2: {
+            enabled: true,
+            embedded_launcher: true,
+        },
+        py3: {
+            enabled: false,
+       }
+    },
+}
+

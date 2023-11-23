@@ -322,12 +322,12 @@ zu{
         quc{"isi-Kʼicheʼ"}
         rap{"isi-Rapanui"}
         rar{"isi-Rarotongan"}
+        rhg{"Rohingya"}
         rm{"isi-Romansh"}
         rn{"isi-Rundi"}
         ro{"isi-Romanian"}
         ro_MD{"isi-Moldavian"}
         rof{"isi-Rombo"}
-        root{"isi-Root"}
         ru{"isi-Russian"}
         rup{"isi-Aromanian"}
         rw{"isi-Kinyarwanda"}
@@ -912,6 +912,7 @@ zu{
         SUTSILV{"i-SUTSILV"}
         TARASK{"Ubhalomagama lwesi-Taraskievica"}
         UCCOR{"Ubhalomagama Oluhlanganisiwe"}
+        UCRCOR{"Ubhalomagama Olubuyekeziwe Oluhlanganisiwe"}
         ULSTER{"i-ULSTER"}
         UNIFON{"Uhlamvu lwefonotiki lwe-Unifon"}
         VAIDIKA{"i-VAIDIKA"}

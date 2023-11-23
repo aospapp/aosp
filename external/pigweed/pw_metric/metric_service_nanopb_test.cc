@@ -16,14 +16,13 @@
 
 #include "gtest/gtest.h"
 #include "pw_log/log.h"
-#include "pw_rpc/nanopb_test_method_context.h"
+#include "pw_rpc/nanopb/test_method_context.h"
 
 namespace pw::metric {
 namespace {
 
-#define MetricMethodContext      \
-  PW_NANOPB_TEST_METHOD_CONTEXT( \
-      MetricService, Get, 4, sizeof(pw_metric_MetricResponse))
+#define MetricMethodContext \
+  PW_NANOPB_TEST_METHOD_CONTEXT(MetricService, Get, 4, 256)
 
 TEST(MetricService, EmptyGroupAndNoMetrics) {
   // Empty root group.

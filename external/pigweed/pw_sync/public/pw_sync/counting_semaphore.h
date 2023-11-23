@@ -49,35 +49,36 @@ class CountingSemaphore {
   CountingSemaphore& operator=(CountingSemaphore&&) = delete;
 
   // Atomically increments the internal counter by the value of update.
-  // Any thread(s) waiting for the counter to be greater than 0, i.e.
-  // blocked in acquire, will subsequently be unblocked.
+  // Any thread(s) waiting for the counter to be greater than 0, i.e. blocked
+  // in acquire, will subsequently be unblocked.
   // This is IRQ safe.
   //
-  // PRECONDITIONS:
-  //   update >= 0
-  //   update <= max() - counter
+  // Precondition: update >= 0
+  // Precondition: update <= max() - counter
   void release(ptrdiff_t update = 1);
 
   // Decrements the internal counter by 1 or blocks indefinitely until it can.
-  // This is thread safe.
+  // This is thread safe, but not IRQ safe.
   void acquire();
 
-  // Attempts to decrement by the internal counter by 1 without blocking.
+  // Tries to decrement by the internal counter by 1 without blocking.
   // Returns true if the internal counter was decremented successfully.
   // This is IRQ safe.
   bool try_acquire() noexcept;
 
-  // Attempts to decrement the internal counter by 1 where, if needed, blocking
-  // for at least the specified duration.
+  // Tries to decrement the internal counter by 1. Blocks until the specified
+  // timeout has elapsed or the counter was decremented by 1, whichever comes
+  // first.
   // Returns true if the internal counter was decremented successfully.
-  // This is thread safe.
-  bool try_acquire_for(chrono::SystemClock::duration for_at_least);
+  // This is thread safe, but not IRQ safe.
+  bool try_acquire_for(chrono::SystemClock::duration timeout);
 
-  // Attempts to decrement the internal counter by 1 where, if needed, blocking
-  // until at least the specified time point.
+  // Tries to decrement the internal counter by 1. Blocks until the specified
+  // deadline has been reached or the counter was decremented by 1, whichever
+  // comes first.
   // Returns true if the internal counter was decremented successfully.
-  // This is thread safe.
-  bool try_acquire_until(chrono::SystemClock::time_point until_at_least);
+  // This is thread safe, but not IRQ safe.
+  bool try_acquire_until(chrono::SystemClock::time_point deadline);
 
   static constexpr ptrdiff_t max() noexcept {
     return backend::kCountingSemaphoreMaxValue;
@@ -111,10 +112,10 @@ void pw_sync_CountingSemaphore_Acquire(pw_sync_CountingSemaphore* semaphore);
 bool pw_sync_CountingSemaphore_TryAcquire(pw_sync_CountingSemaphore* semaphore);
 bool pw_sync_CountingSemaphore_TryAcquireFor(
     pw_sync_CountingSemaphore* semaphore,
-    pw_chrono_SystemClock_Duration for_at_least);
+    pw_chrono_SystemClock_Duration timeout);
 bool pw_sync_CountingSemaphore_TryAcquireUntil(
     pw_sync_CountingSemaphore* semaphore,
-    pw_chrono_SystemClock_TimePoint until_at_least);
+    pw_chrono_SystemClock_TimePoint deadline);
 ptrdiff_t pw_sync_CountingSemaphore_Max(void);
 
 PW_EXTERN_C_END

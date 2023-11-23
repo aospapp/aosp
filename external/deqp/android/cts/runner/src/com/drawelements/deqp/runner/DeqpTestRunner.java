@@ -16,6 +16,8 @@
 package com.drawelements.deqp.runner;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.tradefed.targetprep.IncrementalDeqpPreparer;
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.MultiLineReceiver;
@@ -27,12 +29,14 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.error.HarnessRuntimeException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
@@ -54,6 +58,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -61,7 +66,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,7 +98,10 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     public static final String FEATURE_OPENGLES_DEQP_LEVEL = "android.software.opengles.deqp.level";
 
     private static final int TESTCASE_BATCH_LIMIT = 1000;
+    private static final int TESTCASE_BATCH_LIMIT_LARGE = 10000;
     private static final int UNRESPONSIVE_CMD_TIMEOUT_MS = 10 * 60 * 1000; // 10min
+    private static final int R_API_LEVEL = 30;
+    private static final int DEQP_LEVEL_R_2020 = 132383489;
 
     private static final String ANGLE_NONE = "none";
     private static final String ANGLE_VULKAN = "vulkan";
@@ -139,6 +146,9 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     @Option(name = "exclude-filter-file",
             description="Load list of excludes from the files given.")
     private List<String> mExcludeFilterFiles = new ArrayList<>();
+    @Option(name = "incremental-deqp-include-file",
+            description="Load list of includes from the files given for incremental dEQP.")
+    private List<String> mIncrementalDeqpIncludeFiles = new ArrayList<>();
     @Option(name = "collect-tests-only",
             description = "Only invoke the instrumentation to collect list of applicable test "
                     + "cases. All test run callbacks will be triggered, but test execution will "
@@ -160,7 +170,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                     "Disable the native testrunner's per-test watchdog.")
     private boolean mDisableWatchdog = false;
 
-    private Collection<TestDescription> mRemainingTests = null;
+    private Set<TestDescription> mRemainingTests = null;
     private Map<TestDescription, Set<BatchRunConfiguration>> mTestInstances = null;
     private final TestInstanceResultListener mInstanceListerner = new TestInstanceResultListener();
     private final Map<TestDescription, Integer> mTestInstabilityRatings = new HashMap<>();
@@ -171,8 +181,8 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     private Map<String, Optional<Integer>> mDeviceFeatures;
     private Map<String, Boolean> mConfigQuerySupportCache = new HashMap<>();
     private IRunUtil mRunUtil = RunUtil.getDefault();
-    // When set will override the mCaselistFile for testing purposes.
-    private Reader mCaselistReader = null;
+    private Set<String> mIncrementalDeqpIncludeTests = new HashSet<>();
+    private long mTimeOfLastRun = 0;
 
     private IRecovery mDeviceRecovery = new Recovery(); {
         mDeviceRecovery.setSleepProvider(new SleepProvider());
@@ -262,13 +272,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
      */
     public void setRunUtil(IRunUtil runUtil) {
         mRunUtil = runUtil;
-    }
-
-    /**
-     * Exposed for unit testing
-     */
-    public void setCaselistReader(Reader caselistReader) {
-        mCaselistReader = caselistReader;
     }
 
     private static final class CapabilityQueryFailureException extends Exception {
@@ -1015,33 +1018,58 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         }
     }
 
-    private static Map<TestDescription, Set<BatchRunConfiguration>> generateTestInstances(
-            Reader testlist, String configName, String screenRotation, String surfaceType,
-            boolean required) {
-        // Note: This is specifically a LinkedHashMap to guarantee that tests are iterated
-        // in the insertion order.
-        final Map<TestDescription, Set<BatchRunConfiguration>> instances = new LinkedHashMap<>();
-        try {
-            BufferedReader testlistReader = new BufferedReader(testlist);
+
+    private static void addTestsToInstancesMap(
+        File testlist,
+        String configName,
+        String screenRotation,
+        String surfaceType,
+        boolean required,
+        Map<TestDescription, Set<BatchRunConfiguration>> instances) {
+
+        try (final FileReader testlistInnerReader = new FileReader(testlist);
+             final BufferedReader testlistReader = new BufferedReader(testlistInnerReader)) {
+
             String testName;
             while ((testName = testlistReader.readLine()) != null) {
-                if (testName.length() > 0) {
-                    // Test name -> testId -> only one config -> done.
-                    final Set<BatchRunConfiguration> testInstanceSet = new LinkedHashSet<>();
-                    BatchRunConfiguration config = new BatchRunConfiguration(configName, screenRotation, surfaceType, required);
-                    testInstanceSet.add(config);
-                    TestDescription test = pathToIdentifier(testName);
-                    instances.put(test, testInstanceSet);
+                testName = testName.trim();
+
+                // Skip empty lines.
+                if (testName.isEmpty()) {
+                    continue;
                 }
+
+                // Lines starting with "#" are comments.
+                if (testName.startsWith("#")) {
+                    continue;
+                }
+
+                // If the "testName" ends with .txt, then it is a path to another test list
+                // (relative to the current test list, path separator is "/") that we need to
+                // read.
+                if (testName.endsWith(".txt")) {
+                    addTestsToInstancesMap(
+                        Paths.get(testlist.getParent(), testName.split("/")).toFile(),
+                        configName,
+                        screenRotation,
+                        surfaceType,
+                        required,
+                        instances);
+                    continue;
+                }
+
+                // Test name -> testId -> only one config -> done.
+                final Set<BatchRunConfiguration> testInstanceSet = new LinkedHashSet<>();
+                BatchRunConfiguration config = new BatchRunConfiguration(configName, screenRotation, surfaceType, required);
+                testInstanceSet.add(config);
+                TestDescription test = pathToIdentifier(testName);
+                instances.put(test, testInstanceSet);
             }
-            testlistReader.close();
         }
         catch (IOException e)
         {
             throw new RuntimeException("Failure while reading the test case list for deqp: " + e.getMessage());
         }
-
-        return instances;
     }
 
     private Set<BatchRunConfiguration> getTestRunConfigs(TestDescription testId) {
@@ -1221,6 +1249,13 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         return runBatch;
     }
 
+    private int getBatchSizeLimit() {
+        if (isIncrementalDeqpRun()) {
+            return TESTCASE_BATCH_LIMIT_LARGE;
+        }
+        return TESTCASE_BATCH_LIMIT;
+    }
+
     private int getBatchNumPendingCases(TestBatch batch) {
         int numPending = 0;
         for (TestDescription test : batch.tests) {
@@ -1233,7 +1268,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
 
     private int getBatchSizeLimitForInstability(int batchInstabilityRating) {
         // reduce group size exponentially down to one
-        return Math.max(1, TESTCASE_BATCH_LIMIT / (1 << batchInstabilityRating));
+        return Math.max(1, getBatchSizeLimit() / (1 << batchInstabilityRating));
     }
 
     private int getTestInstabilityRating(TestDescription testId) {
@@ -1257,7 +1292,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
      */
     private void runTests() throws DeviceNotAvailableException, CapabilityQueryFailureException {
         for (;;) {
-            TestBatch batch = selectRunBatch(mRemainingTests, null);
+            TestBatch batch = selectRunBatch(mTestInstances.keySet(), null);
 
             if (batch == null) {
                 break;
@@ -1278,6 +1313,29 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             mInstanceListerner.setTestInstances(test, getTestRunConfigs(test));
         }
 
+        // When incremental dEQP is enabled, skip all tests except those in
+        // mIncrementalDeqpIncludeTests
+        if (isIncrementalDeqpRun()) {
+            TestBatch skipBatch = new TestBatch();
+            skipBatch.config = batch.config;
+            skipBatch.tests = new ArrayList<>();
+            TestBatch runBatch = new TestBatch();
+            runBatch.config = batch.config;
+            runBatch.tests = new ArrayList<>();
+            for (TestDescription test : batch.tests) {
+                if (mIncrementalDeqpIncludeTests.contains(test.getClassName() + "."
+                      + test.getTestName())) {
+                  runBatch.tests.add(test);
+                } else {
+                  skipBatch.tests.add(test);
+                }
+            }
+            batch = runBatch;
+            fakePassTestRunBatch(skipBatch);
+            if (batch.tests.isEmpty()) {
+                return;
+            }
+        }
         // execute only if config is executable, else fake results
         if (isSupportedRunConfiguration(batch.config)) {
             executeTestRunBatch(batch);
@@ -1288,6 +1346,12 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                 fakePassTestRunBatch(batch);
             }
         }
+    }
+
+    private boolean isIncrementalDeqpRun() {
+        IBuildInfo buildInfo = mBuildHelper.getBuildInfo();
+        return buildInfo.getBuildAttributes().containsKey(
+            IncrementalDeqpPreparer.INCREMENTAL_DEQP_ATTRIBUTE_NAME);
     }
 
     private boolean isSupportedRunConfiguration(BatchRunConfiguration runConfig)
@@ -1441,7 +1505,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         }
 
         final String command = String.format(
-                "am instrument %s -w -e deqpLogFileName \"%s\" -e deqpCmdLine \"%s\""
+                "am instrument %s -w -e deqpLogFilename \"%s\" -e deqpCmdLine \"%s\""
                     + " -e deqpLogData \"%s\" %s",
                 AbiUtils.createAbiFlag(mAbi.getName()), APP_DIR + LOG_FILE_NAME,
                 deqpCmdLine.toString(), mLogData, instrumentationName);
@@ -1450,11 +1514,19 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         final InstrumentationParser parser = new InstrumentationParser(mInstanceListerner);
         Throwable interruptingError = null;
 
+        //Fix the requirement of sleep() between batches
+        long duration = System.currentTimeMillis() - mTimeOfLastRun;
+        if (duration < 5000) {
+            CLog.i("Sleeping for %dms", 5000 - duration);
+            mRunUtil.sleep(5000 - duration);
+        }
+
         try {
             executeShellCommandAndReadOutput(command, parser);
         } catch (Throwable ex) {
             interruptingError = ex;
         } finally {
+            mTimeOfLastRun = System.currentTimeMillis();
             parser.flush();
         }
 
@@ -1616,7 +1688,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
      */
     private void fakePassTests(ITestInvocationListener listener) {
         HashMap<String, Metric> emptyMap = new HashMap<>();
-        for (TestDescription test : mRemainingTests) {
+        for (TestDescription test : mTestInstances.keySet()) {
             listener.testStarted(test);
             listener.testEnded(test, emptyMap);
         }
@@ -1643,10 +1715,8 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     }
 
     /**
-     * Check whether the device's claimed Vulkan/OpenGL ES dEQP level is high enough that it should
+     * Check whether the device's claimed dEQP level is high enough that it should
      * pass the tests in the caselist.
-     *
-     * Precondition: the package must be a Vulkan or OpenGL ES package.
      */
     private boolean claimedDeqpLevelIsRecentEnough() throws CapabilityQueryFailureException,
             DeviceNotAvailableException {
@@ -1654,11 +1724,12 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         final String featureName;
         if (isVulkanPackage()) {
             featureName = FEATURE_VULKAN_DEQP_LEVEL;
-        } else if (isOpenGlEsPackage()) {
+        } else if (isOpenGlEsPackage() || isEglPackage()) {
+            // The OpenGL ES feature flag is used for EGL as well.
             featureName = FEATURE_OPENGLES_DEQP_LEVEL;
         } else {
             throw new AssertionError(
-                "Claims about dEQP support should only be checked for Vulkan or OpenGL ES "
+                "Claims about dEQP support should only be checked for Vulkan, OpenGL ES, or EGL "
                     + "packages");
         }
 
@@ -1666,7 +1737,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             featureName);
 
         // A Vulkan/OpenGL ES caselist filename has the form:
-        //     {gles2,gles3,gles31,vk}-master-YYYY-MM-DD.txt
+        //     {gles2,gles3,gles31,vk,egl}-master-YYYY-MM-DD.txt
         final Pattern caseListFilenamePattern = Pattern
             .compile("-master-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)\\.txt$");
         final Matcher matcher = caseListFilenamePattern.matcher(mCaselistFile);
@@ -1689,6 +1760,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         CLog.d("    2019-03-01 -> 132317953");
         CLog.d("    2020-03-01 -> 132383489");
         CLog.d("    2021-03-01 -> 132449025");
+        CLog.d("    2022-03-01 -> 132514561");
 
         CLog.d("Minimum level required to run this caselist is %d", minimumLevel);
 
@@ -1710,8 +1782,24 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             }
         }
 
-        CLog.d("Could not find dEQP level feature flag \"%s\". Running caselist unconditionally.",
-            featureName);
+        CLog.d("Could not find dEQP level feature flag \"%s\".",
+                featureName);
+
+        // A Vulkan dEQP level has been required since R.
+        // A GLES/EGL dEQP level has only been required since S.
+        // Thus, if the VSR level is <= R and there is no GLES dEQP level, then we can assume
+        // a GLES dEQP level of R (2020).
+        if (PropertyUtil.getVsrApiLevel(mDevice) <= R_API_LEVEL
+                && FEATURE_OPENGLES_DEQP_LEVEL.equals(featureName)) {
+            final int claimedDeqpLevel = DEQP_LEVEL_R_2020;
+            CLog.d("Device level is %d due to VSR R", claimedDeqpLevel);
+            final boolean shouldRunCaselist = claimedDeqpLevel >= minimumLevel;
+            CLog.d("Running caselist? %b", shouldRunCaselist);
+            return shouldRunCaselist;
+        }
+
+        CLog.d("Running caselist unconditionally");
+
         return true;
     }
 
@@ -1855,33 +1943,41 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                 BatchRunConfiguration.ROTATION_REVERSE_LANDSCAPE.equals(rotation);
     }
 
+    private void checkRecognizedPackage() {
+        if (!isRecognizedPackage()) {
+            throw new IllegalStateException("dEQP runner was created with illegal package name");
+        }
+    }
+
+    private boolean isRecognizedPackage() {
+        return "dEQP-EGL".equals(mDeqpPackage) || "dEQP-GLES2".equals(mDeqpPackage)
+                || "dEQP-GLES3".equals(mDeqpPackage) || "dEQP-GLES31".equals(mDeqpPackage)
+                || "dEQP-VK".equals(mDeqpPackage);
+    }
+
+    /**
+     * Parse EGL nature from package name
+     */
+    private boolean isEglPackage() {
+        checkRecognizedPackage();
+        return "dEQP-EGL".equals(mDeqpPackage);
+    }
+
     /**
      * Parse gl nature from package name
      */
     private boolean isOpenGlEsPackage() {
-        if ("dEQP-GLES2".equals(mDeqpPackage) || "dEQP-GLES3".equals(mDeqpPackage) ||
-                "dEQP-GLES31".equals(mDeqpPackage)) {
-            return true;
-        } else if ("dEQP-EGL".equals(mDeqpPackage) ||
-                "dEQP-VK".equals(mDeqpPackage)) {
-            return false;
-        } else {
-            throw new IllegalStateException("dEQP runner was created with illegal name");
-        }
+        checkRecognizedPackage();
+        return "dEQP-GLES2".equals(mDeqpPackage) || "dEQP-GLES3".equals(mDeqpPackage)
+                || "dEQP-GLES31".equals(mDeqpPackage);
     }
 
     /**
      * Parse vulkan nature from package name
      */
     private boolean isVulkanPackage() {
-        if ("dEQP-GLES2".equals(mDeqpPackage) || "dEQP-GLES3".equals(mDeqpPackage) ||
-                "dEQP-GLES31".equals(mDeqpPackage) || "dEQP-EGL".equals(mDeqpPackage)) {
-            return false;
-        } else if ("dEQP-VK".equals(mDeqpPackage)) {
-            return true;
-        } else {
-            throw new IllegalStateException("dEQP runner was created with illegal name");
-        }
+        checkRecognizedPackage();
+        return "dEQP-VK".equals(mDeqpPackage);
     }
 
     /**
@@ -1998,29 +2094,25 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     }
 
     /**
-     * Read a list of filters from a file.
-     *
-     * Note: Filters can be numerous so we prefer, for performance
-     * reasons, to add directly to the target list instead of using
-     * intermediate return value.
+     * Read each line from a file.
      */
-    static private void readFilterFile(List<String> filterList, File file) throws FileNotFoundException {
+    static private void readFile(Collection<String> lines, File file) throws FileNotFoundException {
         if (!file.canRead()) {
-            CLog.e("Failed to read filter file '%s'", file.getPath());
+            CLog.e("Failed to read file '%s'", file.getPath());
             throw new FileNotFoundException();
         }
         try (Reader plainReader = new FileReader(file);
              BufferedReader reader = new BufferedReader(plainReader)) {
-            String filter = "";
-            while ((filter = reader.readLine()) != null) {
+            String line = "";
+            while ((line = reader.readLine()) != null) {
                 // TOOD: Sanity check filter
-                filterList.add(filter);
+                lines.add(line);
             }
             // Rely on try block to autoclose
         }
         catch (IOException e)
         {
-            throw new RuntimeException("Failed to read filter list file '" + file.getPath() + "': " +
+            throw new RuntimeException("Failed to read file '" + file.getPath() + "': " +
                      e.getMessage());
         }
     }
@@ -2046,47 +2138,65 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     private void loadTests() {
         if (mTestInstances != null) throw new AssertionError("Re-load of tests not supported");
 
+        // Note: This is specifically a LinkedHashMap to guarantee that tests are iterated
+        // in the insertion order.
+        mTestInstances = new LinkedHashMap<>();
+
         try {
-            Reader reader = mCaselistReader;
-            if (reader == null) {
-                File testlist = new File(mBuildHelper.getTestsDir(), mCaselistFile);
-                if (!testlist.isFile()) {
-                    // Finding file in sub directory if no matching file in the first layer of
-                    // testdir.
-                    testlist = FileUtil.findFile(mBuildHelper.getTestsDir(), mCaselistFile);
-                    if (testlist == null || !testlist.isFile()) {
-                        throw new FileNotFoundException("Cannot find deqp test list file: "
-                            + mCaselistFile);
-                    }
+            File testlist = new File(mBuildHelper.getTestsDir(), mCaselistFile);
+            if (!testlist.isFile()) {
+                // Finding file in sub directory if no matching file in the first layer of
+                // testdir.
+                testlist = FileUtil.findFile(mBuildHelper.getTestsDir(), mCaselistFile);
+                if (testlist == null || !testlist.isFile()) {
+                    throw new FileNotFoundException("Cannot find deqp test list file: "
+                        + mCaselistFile);
                 }
-                reader = new FileReader(testlist);
             }
-            mTestInstances = generateTestInstances(reader, mConfigName, mScreenRotation, mSurfaceType, mConfigRequired);
-            mCaselistReader = null;
-            reader.close();
+            addTestsToInstancesMap(
+                testlist,
+                mConfigName,
+                mScreenRotation,
+                mSurfaceType,
+                mConfigRequired,
+                mTestInstances);
         }
         catch (FileNotFoundException e) {
             throw new RuntimeException("Cannot read deqp test list file: "  + mCaselistFile);
         }
-        catch (IOException e) {
-            CLog.w("Failed to close test list reader.");
-        }
 
         try
         {
+            if (isIncrementalDeqpRun()) {
+                for (String testFile : mIncrementalDeqpIncludeFiles) {
+                    CLog.d("Read incremental dEQP include file '%s'", testFile);
+                    File file = new File(mBuildHelper.getTestsDir(), testFile);
+                    if (!file.isFile()) {
+                        // Find file in sub directory if no matching file in the first layer of
+                        // testdir.
+                        file = FileUtil.findFile(mBuildHelper.getTestsDir(), testFile);
+                        if (file == null || !file.isFile()) {
+                            throw new FileNotFoundException(
+                                "Cannot find incremental dEQP include file: " + testFile);
+                        }
+                    }
+                    readFile(mIncrementalDeqpIncludeTests, file);
+                }
+            }
             for (String filterFile : mIncludeFilterFiles) {
                 CLog.d("Read include filter file '%s'", filterFile);
                 File file = new File(mBuildHelper.getTestsDir(), filterFile);
-                readFilterFile(mIncludeFilters, file);
+                readFile(mIncludeFilters, file);
             }
             for (String filterFile : mExcludeFilterFiles) {
                 CLog.d("Read exclude filter file '%s'", filterFile);
                 File file = new File(mBuildHelper.getTestsDir(), filterFile);
-                readFilterFile(mExcludeFilters, file);
+                readFile(mExcludeFilters, file);
             }
         }
         catch (FileNotFoundException e) {
-            throw new RuntimeException("Cannot read deqp filter list file:" + e.getMessage());
+            throw new HarnessRuntimeException("Cannot read deqp filter list file." + e,
+                TestErrorIdentifier.TEST_ABORTED);
         }
 
         CLog.d("Include filters:");
@@ -2174,7 +2284,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             loadTests();
         }
 
-        mRemainingTests = new LinkedList<>(mTestInstances.keySet());
+        mRemainingTests = new HashSet<>(mTestInstances.keySet());
         long startTime = System.currentTimeMillis();
         listener.testRunStarted(getId(), mRemainingTests.size());
 
@@ -2188,7 +2298,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                                             || (!isOpenGlEsPackage() && !isVulkanPackage());
             if (mCollectTestsOnly
                 || !isSupportedApi
-                || ((isVulkanPackage() || isOpenGlEsPackage()) && !claimedDeqpLevelIsRecentEnough())) {
+                || !claimedDeqpLevelIsRecentEnough()) {
                 // Pass all tests trivially if:
                 // - we are collecting the names of the tests only, or
                 // - the relevant API is not supported, or
@@ -2283,6 +2393,20 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         mCollectTestsOnly = collectTests;
     }
 
+    /**
+     * These methods are for testing.
+     */
+    public void addIncrementalDeqpIncludeTest(String test) {
+        mIncrementalDeqpIncludeTests.add(test);
+    }
+
+    /**
+     * These methods are for testing.
+     */
+    public void addIncrementalDeqpIncludeTests(Collection<String> tests) {
+        mIncrementalDeqpIncludeTests.addAll(tests);
+    }
+
     private static void copyOptions(DeqpTestRunner destination, DeqpTestRunner source) {
         destination.mDeqpPackage = source.mDeqpPackage;
         destination.mConfigName = source.mConfigName;
@@ -2299,6 +2423,8 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         destination.mCollectTestsOnly = source.mCollectTestsOnly;
         destination.mAngle = source.mAngle;
         destination.mDisableWatchdog = source.mDisableWatchdog;
+        destination.mIncrementalDeqpIncludeFiles = new ArrayList<>(source.mIncrementalDeqpIncludeFiles);
+
     }
 
     /**
@@ -2342,7 +2468,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         // Go through tests, split
         for (TestDescription test: iterationSet.keySet()) {
             currentSet.put(test, iterationSet.get(test));
-            if (currentSet.size() >= TESTCASE_BATCH_LIMIT) {
+            if (currentSet.size() >= getBatchSizeLimit()) {
                 runners.add(new DeqpTestRunner(this, currentSet));
                 // NOTE: Use linked hash map to keep the insertion order in iteration
                 currentSet = new LinkedHashMap<>();

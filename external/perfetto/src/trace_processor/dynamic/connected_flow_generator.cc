@@ -21,7 +21,7 @@
 #include <set>
 
 #include "src/trace_processor/dynamic/ancestor_generator.h"
-#include "src/trace_processor/dynamic/descendant_slice_generator.h"
+#include "src/trace_processor/dynamic/descendant_generator.h"
 #include "src/trace_processor/importers/common/flow_tracker.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 
@@ -34,7 +34,7 @@ ConnectedFlowGenerator::ConnectedFlowGenerator(Mode mode,
 
 ConnectedFlowGenerator::~ConnectedFlowGenerator() = default;
 
-util::Status ConnectedFlowGenerator::ValidateConstraints(
+base::Status ConnectedFlowGenerator::ValidateConstraints(
     const QueryConstraints& qc) {
   const auto& cs = qc.constraints();
 
@@ -47,8 +47,8 @@ util::Status ConnectedFlowGenerator::ValidateConstraints(
       std::find_if(cs.begin(), cs.end(), flow_id_fn) != cs.end();
 
   return has_flow_id_cs
-             ? util::OkStatus()
-             : util::ErrStatus("Failed to find required constraints");
+             ? base::OkStatus()
+             : base::ErrStatus("Failed to find required constraints");
 }
 
 namespace {
@@ -127,7 +127,7 @@ class BFS {
     }
     if (visit_relatives & VISIT_DESCENDANTS) {
       base::Optional<RowMap> descendants =
-          DescendantSliceGenerator::GetDescendantSlices(
+          DescendantGenerator::GetDescendantSlices(
               context_->storage->slice_table(), slice_id);
       GoToRelativesImpl(descendants->IterateRows());
     }
@@ -162,8 +162,8 @@ class BFS {
     auto rows = flow.FilterToRowMap({start_col.eq(slice_id.value)});
 
     for (auto row_it = rows.IterateRows(); row_it; row_it.Next()) {
-      flow_rows_.push_back(row_it.row());
-      SliceId next_slice_id = end_col[row_it.row()];
+      flow_rows_.push_back(row_it.index());
+      SliceId next_slice_id = end_col[row_it.index()];
       if (known_slices_.count(next_slice_id) != 0) {
         continue;
       }
@@ -179,7 +179,7 @@ class BFS {
   void GoToRelativesImpl(RowMap::Iterator it) {
     const auto& slice = context_->storage->slice_table();
     for (; it; it.Next()) {
-      auto relative_slice_id = slice.id()[it.row()];
+      auto relative_slice_id = slice.id()[it.index()];
       if (known_slices_.count(relative_slice_id))
         continue;
       known_slices_.insert(relative_slice_id);
@@ -196,23 +196,27 @@ class BFS {
 
 }  // namespace
 
-std::unique_ptr<Table> ConnectedFlowGenerator::ComputeTable(
+base::Status ConnectedFlowGenerator::ComputeTable(
     const std::vector<Constraint>& cs,
-    const std::vector<Order>&) {
+    const std::vector<Order>&,
+    const BitVector&,
+    std::unique_ptr<Table>& table_return) {
   const auto& flow = context_->storage->flow_table();
   const auto& slice = context_->storage->slice_table();
 
   auto it = std::find_if(cs.begin(), cs.end(), [&flow](const Constraint& c) {
     return c.col_idx == flow.GetColumnCount() && c.op == FilterOp::kEq;
   });
-
   PERFETTO_DCHECK(it != cs.end());
+  if (it == cs.end() || it->value.type != SqlValue::Type::kLong) {
+    return base::ErrStatus("invalid start_id");
+  }
 
   SliceId start_id{static_cast<uint32_t>(it->value.AsLong())};
 
   if (!slice.id().IndexOf(start_id)) {
-    PERFETTO_ELOG("Given slice id is invalid (ConnectedFlowGenerator)");
-    return nullptr;
+    return base::ErrStatus("invalid slice id %" PRIu32 "",
+                           static_cast<uint32_t>(start_id.value));
   }
 
   BFS bfs(context_);
@@ -240,11 +244,12 @@ std::unique_ptr<Table> ConnectedFlowGenerator::ComputeTable(
     start_ids->Append(start_id.value);
   }
 
-  return std::unique_ptr<Table>(
+  table_return.reset(
       new Table(flow.Apply(RowMap(std::move(result_rows)))
                     .ExtendWithColumn("start_id", std::move(start_ids),
                                       TypedColumn<uint32_t>::default_flags() |
                                           TypedColumn<uint32_t>::kHidden)));
+  return base::OkStatus();
 }
 
 Table::Schema ConnectedFlowGenerator::CreateSchema() {

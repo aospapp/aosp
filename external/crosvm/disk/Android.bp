@@ -10,14 +10,20 @@ package {
     default_applicable_licenses: ["external_crosvm_license"],
 }
 
-rust_defaults {
-    name: "disk_test_defaults",
+rust_test {
+    name: "disk_test_src_disk",
     defaults: ["crosvm_defaults"],
+    host_supported: true,
     crate_name: "disk",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/disk.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2018",
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2021",
     rustlibs: [
         "libbase_rust",
         "libcros_async",
@@ -34,41 +40,30 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "disk_host_test_src_disk",
-    defaults: ["disk_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "disk_device_test_src_disk",
-    defaults: ["disk_test_defaults"],
-}
-
 rust_library {
     name: "libdisk",
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "disk",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/disk.rs"],
-    edition: "2018",
+    edition: "2021",
     features: [
-        "composite-disk",  // Added manually
+        "composite-disk", // Added manually
     ],
     rustlibs: [
         "libbase_rust",
-        "libcrc32fast",  // Added manually
+        "libcrc32fast", // Added manually
         "libcros_async",
         "libdata_model",
         "libfutures",
         "liblibc",
-        "libprotobuf",  // Added manually
-        "libprotos",  // Added manually
+        "libprotobuf", // Added manually
+        "libprotos", // Added manually
         "libtempfile",
         "libthiserror",
-        "libuuid",  // Added manually
+        "libuuid", // Added manually
         "libvm_memory",
     ],
     proc_macros: [

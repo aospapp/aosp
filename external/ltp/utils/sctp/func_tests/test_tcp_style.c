@@ -50,6 +50,7 @@
 #include <errno.h>
 #include <netinet/sctp.h>
 #include <sctputil.h>
+#include "tst_kernel.h"
 
 char *TCID = __FILE__;
 int TST_TOTAL = 22;
@@ -58,7 +59,7 @@ int TST_CNT = 0;
 #define MAX_CLIENTS 10
 
 int
-main(int argc, char *argv[])
+main(void)
 {
 	int clt_sk[MAX_CLIENTS], accept_sk[MAX_CLIENTS];
 	int listen_sk, clt2_sk, accept2_sk;
@@ -80,6 +81,9 @@ main(int argc, char *argv[])
 	char incmsg[CMSG_SPACE(sizeof(sctp_cmsg_data_t))];
 	char *big_buffer;
 	struct iovec iov;
+
+	if (tst_check_driver("sctp"))
+		tst_brkm(TCONF, tst_exit, "sctp driver not available");
 
         /* Rather than fflush() throughout the code, set stdout to 
 	 * be unbuffered.  

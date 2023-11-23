@@ -5,12 +5,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type command struct {
@@ -24,15 +26,8 @@ type command struct {
 }
 
 func newProcessCommand() *command {
-	// This is a workaround for the fact that ld.so does not support
-	// passing in the executable name when ld.so is invoked as
-	// an executable (crbug/1003841).
-	path := os.Getenv("LD_ARGV0")
-	if path == "" {
-		path = os.Args[0]
-	}
 	return &command{
-		Path: path,
+		Path: os.Args[0],
 		Args: os.Args[1:],
 	}
 }
@@ -68,6 +63,26 @@ func runCmd(env env, cmd *command, stdin io.Reader, stdout io.Writer, stderr io.
 	execCmd.Stdout = stdout
 	execCmd.Stderr = stderr
 	return execCmd.Run()
+}
+
+func runCmdWithTimeout(env env, cmd *command, t time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), t)
+	defer cancel()
+	cmdCtx := exec.CommandContext(ctx, cmd.Path, cmd.Args...)
+	cmdCtx.Env = mergeEnvValues(env.environ(), cmd.EnvUpdates)
+	cmdCtx.Dir = env.getwd()
+	cmdCtx.Stdin = env.stdin()
+	cmdCtx.Stdout = env.stdout()
+	cmdCtx.Stderr = env.stderr()
+
+	if err := cmdCtx.Start(); err != nil {
+		return newErrorwithSourceLocf("exec error: %v", err)
+	}
+	err := cmdCtx.Wait()
+	if ctx.Err() == nil {
+		return err
+	}
+	return ctx.Err()
 }
 
 func resolveAgainstPathEnv(env env, cmd string) (string, error) {
@@ -141,7 +156,12 @@ func newCommandBuilder(env env, cfg *config, cmd *command) (*commandBuilder, err
 	if err != nil {
 		return nil, err
 	}
-	rootPath := filepath.Join(filepath.Dir(absWrapperPath), cfg.rootRelPath)
+	var rootPath string
+	if compilerType == gccType {
+		rootPath = filepath.Join(filepath.Dir(absWrapperPath), cfg.gccRootRelPath)
+	} else {
+		rootPath = filepath.Join(filepath.Dir(absWrapperPath), cfg.clangRootRelPath)
+	}
 	return &commandBuilder{
 		path:           cmd.Path,
 		args:           createBuilderArgs( /*fromUser=*/ true, cmd.Args),
@@ -207,8 +227,10 @@ func (builder *commandBuilder) clone() *commandBuilder {
 	}
 }
 
-func (builder *commandBuilder) wrapPath(path string) {
-	builder.args = append([]builderArg{{value: builder.path, fromUser: false}}, builder.args...)
+func (builder *commandBuilder) wrapPath(path string, extraFlags ...string) {
+	newArgs := createBuilderArgs( /*fromUser=*/ false, extraFlags)
+	newArgs = append(newArgs, builderArg{value: builder.path, fromUser: false})
+	builder.args = append(newArgs, builder.args...)
 	builder.path = path
 }
 

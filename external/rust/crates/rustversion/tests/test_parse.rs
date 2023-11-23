@@ -1,3 +1,5 @@
+#![allow(clippy::enum_glob_use, clippy::must_use_candidate)]
+
 include!("../build/rustc.rs");
 
 #[test]
@@ -74,6 +76,14 @@ fn test_parse() {
                     month: 9,
                     day: 20,
                 }),
+            },
+        ),
+        (
+            "rustc 1.52.1-nightly (gentoo)",
+            Version {
+                minor: 52,
+                patch: 1,
+                channel: Dev,
             },
         ),
     ];

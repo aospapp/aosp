@@ -92,7 +92,7 @@ struct PositionColor
 	}
 };
 
-//! Make a dummy sampler.
+//! Make a (unused) sampler.
 Move<VkSampler> makeSampler (const DeviceInterface& vk, const VkDevice device)
 {
 	const VkSamplerCreateInfo samplerParams =
@@ -395,6 +395,7 @@ struct TestParams
 
 	TestParams (void)
 		: numLayers			()
+		, sampleSource		(SAMPLE_SOURCE_IMAGE)
 		, numColorSamples	()
 		, colorFormat		()
 	{
@@ -443,7 +444,7 @@ struct WorkingData
 	Move<VkBuffer>					colorBuffer;				//!< Buffer used to copy image data
 	MovePtr<Allocation>				colorBufferAlloc;
 	VkDeviceSize					colorBufferSize;
-	Move<VkSampler>					defaultSampler;				//!< Dummy sampler, we are using texel fetches
+	Move<VkSampler>					defaultSampler;				//!< Unused sampler, we are using texel fetches
 
 	WorkingData (void)
 		: numVertices		()

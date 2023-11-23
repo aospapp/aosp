@@ -22,6 +22,7 @@ import static com.google.turbine.parse.UnicodeEscapePreprocessor.ASCII_SUB;
 import com.google.turbine.diag.SourceFile;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
+import org.jspecify.nullness.Nullable;
 
 /** A {@link Lexer} that streams input from a {@link UnicodeEscapePreprocessor}. */
 public class StreamLexer implements Lexer {
@@ -29,7 +30,7 @@ public class StreamLexer implements Lexer {
   private final UnicodeEscapePreprocessor reader;
 
   /** The current input character. */
-  private char ch;
+  private int ch;
 
   /** The start position of the current token. */
   private int position;
@@ -65,7 +66,7 @@ public class StreamLexer implements Lexer {
   }
 
   @Override
-  public String javadoc() {
+  public @Nullable String javadoc() {
     String result = javadoc;
     javadoc = null;
     if (result == null) {
@@ -353,7 +354,7 @@ public class StreamLexer implements Lexer {
                     eat();
                     return Token.ELLIPSIS;
                   } else {
-                    throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+                    throw inputError();
                   }
                 }
               case '0':
@@ -384,7 +385,7 @@ public class StreamLexer implements Lexer {
               case '\'':
                 throw error(ErrorKind.EMPTY_CHARACTER_LITERAL);
               default:
-                value = ch;
+                value = (char) ch;
                 eat();
             }
             if (ch == '\'') {
@@ -419,7 +420,7 @@ public class StreamLexer implements Lexer {
                   }
                   // falls through
                 default:
-                  sb.append(ch);
+                  sb.appendCodePoint(ch);
                   eat();
                   continue STRING;
               }
@@ -430,7 +431,7 @@ public class StreamLexer implements Lexer {
             // TODO(cushon): the style guide disallows non-ascii identifiers
             return identifier();
           }
-          throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+          throw inputError();
       }
     }
   }
@@ -511,7 +512,7 @@ public class StreamLexer implements Lexer {
           }
         }
       default:
-        throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+        throw inputError();
     }
   }
 
@@ -623,7 +624,7 @@ public class StreamLexer implements Lexer {
         eat();
         break;
       default:
-        throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+        throw inputError();
     }
     OUTER:
     while (true) {
@@ -658,7 +659,7 @@ public class StreamLexer implements Lexer {
               case '9':
                 continue OUTER;
               default:
-                throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+                throw inputError();
             }
           }
         case 'A':
@@ -695,7 +696,7 @@ public class StreamLexer implements Lexer {
     if ('0' <= ch && ch <= '9') {
       eat();
     } else {
-      throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+      throw inputError();
     }
     OUTER:
     while (true) {
@@ -707,7 +708,7 @@ public class StreamLexer implements Lexer {
           if ('0' <= ch && ch <= '9') {
             continue OUTER;
           } else {
-            throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+            throw inputError();
           }
         case '0':
         case '1':
@@ -746,7 +747,7 @@ public class StreamLexer implements Lexer {
         eat();
         break;
       default:
-        throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+        throw inputError();
     }
     OUTER:
     while (true) {
@@ -760,7 +761,7 @@ public class StreamLexer implements Lexer {
             case '1':
               continue OUTER;
             default:
-              throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+              throw inputError();
           }
         case '0':
         case '1':
@@ -798,7 +799,7 @@ public class StreamLexer implements Lexer {
         eat();
         break;
       default:
-        throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+        throw inputError();
     }
     OUTER:
     while (true) {
@@ -818,7 +819,7 @@ public class StreamLexer implements Lexer {
             case '7':
               continue OUTER;
             default:
-              throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+              throw inputError();
           }
         case '0':
         case '1':
@@ -992,7 +993,7 @@ public class StreamLexer implements Lexer {
         }
       case '/':
         // handled with comments
-        throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+        throw inputError();
 
       case '%':
         eat();
@@ -1011,7 +1012,7 @@ public class StreamLexer implements Lexer {
           return Token.XOR;
         }
       default:
-        throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+        throw inputError();
     }
   }
 
@@ -1139,6 +1140,12 @@ public class StreamLexer implements Lexer {
       default:
         return Token.IDENT;
     }
+  }
+
+  private TurbineError inputError() {
+    return error(
+        ErrorKind.UNEXPECTED_INPUT,
+        Character.isBmpCodePoint(ch) ? Character.toString((char) ch) : String.format("U+%X", ch));
   }
 
   private TurbineError error(ErrorKind kind, Object... args) {

@@ -26,7 +26,7 @@ import android.icu.util.VersionInfo;
  * Low-level implementation of the Unicode Normalization Algorithm.
  * For the data structure and details see the documentation at the end of
  * C++ normalizer2impl.h and in the design doc at
- * http://site.icu-project.org/design/normalization/custom
+ * https://icu.unicode.org/design/normalization/custom
  * @hide Only a subset of ICU is exposed in Android
  */
 public final class Normalizer2Impl {

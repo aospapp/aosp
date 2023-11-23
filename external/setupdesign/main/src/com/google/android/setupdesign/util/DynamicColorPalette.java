@@ -26,8 +26,6 @@ import java.lang.annotation.RetentionPolicy;
 /** The class to get dynamic colors. */
 public final class DynamicColorPalette {
 
-  private static int colorRes = 0;
-
   private DynamicColorPalette() {}
 
   /** Dynamic color category. */
@@ -40,7 +38,8 @@ public final class DynamicColorPalette {
     ColorType.ERROR_WARNING,
     ColorType.SUCCESS_DONE,
     ColorType.FALLBACK_ACCENT,
-    ColorType.BACKGROUND_SURFACE,
+    ColorType.BACKGROUND,
+    ColorType.SURFACE,
   })
   public @interface ColorType {
     int ACCENT = 0;
@@ -50,11 +49,14 @@ public final class DynamicColorPalette {
     int ERROR_WARNING = 4;
     int SUCCESS_DONE = 5;
     int FALLBACK_ACCENT = 6;
-    int BACKGROUND_SURFACE = 7;
+    int BACKGROUND = 7;
+    int SURFACE = 8;
   }
 
   @ColorInt
   public static int getColor(Context context, @ColorType int dynamicColorCategory) {
+    int colorRes = 0;
+
     switch (dynamicColorCategory) {
       case ColorType.ACCENT:
         colorRes = R.color.sud_dynamic_color_accent_glif_v3;
@@ -77,8 +79,11 @@ public final class DynamicColorPalette {
       case ColorType.FALLBACK_ACCENT:
         colorRes = R.color.sud_system_fallback_accent;
         break;
-      case ColorType.BACKGROUND_SURFACE:
+      case ColorType.BACKGROUND:
         colorRes = R.color.sud_system_background_surface;
+        break;
+      case ColorType.SURFACE:
+        colorRes = R.color.sud_system_surface;
         break;
         // fall out
     }

@@ -1,78 +1,88 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2015-2017 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;  without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- * the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program;  if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ * Copyright (c) 2020 Linaro Limited. All rights reserved.
+ * Author: Viresh Kumar <viresh.kumar@linaro.org>
  */
 
-/*
- * Check that select() timeouts correctly.
+/*\
+ * [Description]
+ *
+ * Test to check if fd set bits are cleared by select().
+ *
+ * [Algorithm]
+ *  - Check that writefds flag is cleared on full pipe
+ *  - Check that readfds flag is cleared on empty pipe
  */
+
 #include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <fcntl.h>
-
-#include "tst_timer_test.h"
-
 #include "select_var.h"
 
-static int fds[2];
+static fd_set readfds_pipe, writefds_pipe;
+static int fd_empty[2], fd_full[2];
 
-static int sample_fn(int clk_id, long long usec)
+static struct tcases {
+	int *fd;
+	fd_set *readfds;
+	fd_set *writefds;
+	char *desc;
+} tests[] = {
+	{&fd_empty[0], &readfds_pipe, NULL, "No data to read"},
+	{&fd_full[1], NULL, &writefds_pipe, "No space to write"},
+};
+
+static void run(unsigned int n)
 {
-	struct timeval timeout = tst_us_to_timeval(usec);
-	fd_set sfds;
+	struct tcases *tc = &tests[n];
+	struct timeval timeout = {.tv_sec = 0, .tv_usec = 1000};
 
-	FD_ZERO(&sfds);
+	FD_SET(fd_empty[0], &readfds_pipe);
+	FD_SET(fd_full[1], &writefds_pipe);
 
-	FD_SET(fds[0], &sfds);
+	TEST(do_select(*tc->fd + 1, tc->readfds, tc->writefds, NULL, &timeout));
 
-	tst_timer_start(clk_id);
-	TEST(do_select(1, &sfds, NULL, NULL, &timeout));
-	tst_timer_stop();
-	tst_timer_sample();
-
-	if (TST_RET != 0) {
-		tst_res(TFAIL | TTERRNO, "select() returned %li", TST_RET);
-		return 1;
+	if (TST_RET) {
+		tst_res(TFAIL, "%s: select() should have timed out", tc->desc);
+		return;
 	}
 
-	return 0;
+	if ((tc->readfds && FD_ISSET(*tc->fd, tc->readfds)) ||
+	    (tc->writefds && FD_ISSET(*tc->fd, tc->writefds))) {
+		tst_res(TFAIL, "%s: select() didn't clear the fd set", tc->desc);
+		return;
+	}
+
+	tst_res(TPASS, "%s: select() cleared the fd set", tc->desc);
 }
 
 static void setup(void)
 {
+	int buf = 0;
+
 	select_info();
 
-	SAFE_PIPE(fds);
-}
+	SAFE_PIPE(fd_empty);
+	FD_ZERO(&readfds_pipe);
 
-static void cleanup(void)
-{
-	if (fds[0] > 0)
-		SAFE_CLOSE(fds[0]);
+	SAFE_PIPE2(fd_full, O_NONBLOCK);
+	FD_ZERO(&writefds_pipe);
 
-	if (fds[1] > 0)
-		SAFE_CLOSE(fds[1]);
+	/* Make the write buffer full for fd_full */
+	do {
+		TEST(write(fd_full[1], &buf, sizeof(buf)));
+	} while (TST_RET != -1);
+
+	if (TST_ERR != EAGAIN)
+		tst_res(TFAIL | TTERRNO, "write() failed with unexpected error");
 }
 
 static struct tst_test test = {
-	.scall = "select()",
-	.sample = sample_fn,
-	.setup = setup,
+	.test = run,
+	.tcnt = ARRAY_SIZE(tests),
 	.test_variants = TEST_VARIANTS,
-	.cleanup = cleanup,
+	.setup = setup,
+	.needs_tmpdir = 1,
 };

@@ -56,7 +56,7 @@ helper, :class:`auto`.
     the bitwise operations without losing their :class:`Flag` membership.
 
 .. function:: unique
-   :noindex:
+    :noindex:
 
     Enum class decorator that ensures only one name is bound to any one value.
 
@@ -276,7 +276,7 @@ overridden::
 
 .. note::
 
-    The goal of the default :meth:`_generate_next_value_` methods is to provide
+    The goal of the default :meth:`_generate_next_value_` method is to provide
     the next :class:`int` in sequence with the last :class:`int` provided, but
     the way it does this is an implementation detail and may change.
 
@@ -416,7 +416,7 @@ any members.  So this is forbidden::
     ...
     Traceback (most recent call last):
     ...
-    TypeError: Cannot extend enumerations
+    TypeError: MoreColor: cannot extend enumeration 'Color'
 
 But this is allowed::
 
@@ -908,7 +908,7 @@ to handle any extra arguments::
     ...     BLEACHED_CORAL = () # New color, no Pantone code yet!
     ...
     >>> Swatch.SEA_GREEN
-    <Swatch.SEA_GREEN: 2>
+    <Swatch.SEA_GREEN>
     >>> Swatch.SEA_GREEN.pantone
     '1246'
     >>> Swatch.BLEACHED_CORAL.pantone
@@ -1121,6 +1121,15 @@ and raise an error if the two do not match::
     In Python 2 code the :attr:`_order_` attribute is necessary as definition
     order is lost before it can be recorded.
 
+
+_Private__names
+"""""""""""""""
+
+:ref:`Private names <private-name-mangling>` will be normal attributes in Python
+3.11 instead of either an error or a member (depending on if the name ends with
+an underscore). Using these names in 3.10 will issue a :exc:`DeprecationWarning`.
+
+
 ``Enum`` member type
 """"""""""""""""""""
 
@@ -1140,6 +1149,10 @@ all-uppercase names for members)::
     <FieldTypes.size: 2>
     >>> FieldTypes.size.value
     2
+
+.. note::
+
+   This behavior is deprecated and will be removed in 3.11.
 
 .. versionchanged:: 3.5
 
@@ -1169,7 +1182,7 @@ but not of the class::
     >>> dir(Planet)
     ['EARTH', 'JUPITER', 'MARS', 'MERCURY', 'NEPTUNE', 'SATURN', 'URANUS', 'VENUS', '__class__', '__doc__', '__members__', '__module__']
     >>> dir(Planet.EARTH)
-    ['__class__', '__doc__', '__module__', 'name', 'surface_gravity', 'value']
+    ['__class__', '__doc__', '__module__', 'mass', 'name', 'radius', 'surface_gravity', 'value']
 
 
 Combining members of ``Flag``
@@ -1190,4 +1203,10 @@ all named flags and all named combinations of flags that are in the value::
     <Color.YELLOW: 3>
     >>> Color(7)      # not named combination
     <Color.CYAN|MAGENTA|BLUE|YELLOW|GREEN|RED: 7>
+
+.. note::
+
+   In 3.11 unnamed combinations of flags will only produce the canonical flag
+   members (aka single-value flags).  So ``Color(7)`` will produce something
+   like ``<Color.BLUE|GREEN|RED: 7>``.
 

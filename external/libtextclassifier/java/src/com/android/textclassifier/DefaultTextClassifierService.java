@@ -30,11 +30,11 @@ import android.view.textclassifier.TextLinks;
 import android.view.textclassifier.TextSelection;
 import androidx.annotation.NonNull;
 import androidx.collection.LruCache;
-import com.android.textclassifier.common.ModelFileManager;
 import com.android.textclassifier.common.TextClassifierServiceExecutors;
 import com.android.textclassifier.common.TextClassifierSettings;
 import com.android.textclassifier.common.base.TcLog;
 import com.android.textclassifier.common.statsd.TextClassifierApiUsageLogger;
+import com.android.textclassifier.downloader.ModelDownloadManager;
 import com.android.textclassifier.utils.IndentingPrintWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -47,6 +47,7 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
@@ -58,6 +59,9 @@ public final class DefaultTextClassifierService extends TextClassifierService {
   // TODO: Figure out do we need more concurrency.
   private ListeningExecutorService normPriorityExecutor;
   private ListeningExecutorService lowPriorityExecutor;
+
+  @Nullable private ModelDownloadManager modelDownloadManager;
+
   private TextClassifierImpl textClassifier;
   private TextClassifierSettings settings;
   private ModelFileManager modelFileManager;
@@ -77,9 +81,14 @@ public final class DefaultTextClassifierService extends TextClassifierService {
   @Override
   public void onCreate() {
     super.onCreate();
-
     settings = injector.createTextClassifierSettings();
-    modelFileManager = injector.createModelFileManager(settings);
+    modelDownloadManager =
+        new ModelDownloadManager(
+            injector.getContext().getApplicationContext(),
+            settings,
+            TextClassifierServiceExecutors.getDownloaderExecutor());
+    modelDownloadManager.onTextClassifierServiceCreated();
+    modelFileManager = injector.createModelFileManager(settings, modelDownloadManager);
     normPriorityExecutor = injector.createNormPriorityExecutor();
     lowPriorityExecutor = injector.createLowPriorityExecutor();
     textClassifier = injector.createTextClassifierImpl(settings, modelFileManager);
@@ -91,6 +100,7 @@ public final class DefaultTextClassifierService extends TextClassifierService {
   @Override
   public void onDestroy() {
     super.onDestroy();
+    modelDownloadManager.destroy();
   }
 
   @Override
@@ -197,11 +207,21 @@ public final class DefaultTextClassifierService extends TextClassifierService {
 
   @Override
   protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
-    IndentingPrintWriter indentingPrintWriter = new IndentingPrintWriter(writer);
-    // TODO(licha): Also dump ModelDownloadManager for debugging
-    textClassifier.dump(indentingPrintWriter);
-    dumpImpl(indentingPrintWriter);
-    indentingPrintWriter.flush();
+    // Dump in a background thread b/c we may need to query Room db (e.g. to init model cache)
+    try {
+      TextClassifierServiceExecutors.getLowPriorityExecutor()
+          .submit(
+              () -> {
+                IndentingPrintWriter indentingPrintWriter = new IndentingPrintWriter(writer);
+                textClassifier.dump(indentingPrintWriter);
+                modelDownloadManager.dump(indentingPrintWriter);
+                dumpImpl(indentingPrintWriter);
+                indentingPrintWriter.flush();
+              })
+          .get();
+    } catch (ExecutionException | InterruptedException e) {
+      TcLog.e(TAG, "Failed to dump Default TextClassifierService", e);
+    }
   }
 
   private void dumpImpl(IndentingPrintWriter printWriter) {
@@ -289,8 +309,9 @@ public final class DefaultTextClassifierService extends TextClassifierService {
     }
 
     @Override
-    public ModelFileManager createModelFileManager(TextClassifierSettings settings) {
-      return new ModelFileManager(context, settings);
+    public ModelFileManager createModelFileManager(
+        TextClassifierSettings settings, ModelDownloadManager modelDownloadManager) {
+      return new ModelFileManagerImpl(context, modelDownloadManager, settings);
     }
 
     @Override
@@ -329,7 +350,8 @@ public final class DefaultTextClassifierService extends TextClassifierService {
   interface Injector {
     Context getContext();
 
-    ModelFileManager createModelFileManager(TextClassifierSettings settings);
+    ModelFileManager createModelFileManager(
+        TextClassifierSettings settings, ModelDownloadManager modelDownloadManager);
 
     TextClassifierSettings createTextClassifierSettings();
 

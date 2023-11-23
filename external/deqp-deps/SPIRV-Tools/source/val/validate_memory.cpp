@@ -893,6 +893,12 @@ spv_result_t ValidateLoad(ValidationState_t& _, const Instruction* inst) {
            << "'s type.";
   }
 
+  if (!_.options()->before_hlsl_legalization &&
+      _.ContainsRuntimeArray(inst->type_id())) {
+    return _.diag(SPV_ERROR_INVALID_ID, inst)
+           << "Cannot load a runtime-sized array";
+  }
+
   if (auto error = CheckMemoryAccess(_, inst, 3)) return error;
 
   if (_.HasCapability(SpvCapabilityShader) &&
@@ -1405,7 +1411,7 @@ spv_result_t ValidateArrayLength(ValidationState_t& state,
            << state.getIdName(inst->id()) << "' must be an OpTypeRuntimeArray.";
   }
 
-  // The array member must the the index of the last element (the run time
+  // The array member must the index of the last element (the run time
   // array).
   if (inst->GetOperandAs<uint32_t>(3) != num_of_members - 1) {
     return state.diag(SPV_ERROR_INVALID_ID, inst)

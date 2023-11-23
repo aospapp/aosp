@@ -8,6 +8,7 @@
 
 # CONFIG_TOYBOX_ANDROID_SCHEDPOLICY is not set
 # CONFIG_TOYBOX_CONTAINER is not set
+# CONFIG_TOYBOX_COPYFILERANGE is not set
 # CONFIG_TOYBOX_DEBUG is not set
 # CONFIG_TOYBOX_FALLOCATE is not set
 # CONFIG_TOYBOX_FIFREEZE is not set
@@ -132,6 +133,11 @@ CONFIG_GETCONF=y
 # CONFIG_GETFATTR is not set
 CONFIG_GETOPT=y
 # CONFIG_GETTY is not set
+# CONFIG_GPIODETECT is not set
+# CONFIG_GPIOFIND is not set
+# CONFIG_GPIOGET is not set
+# CONFIG_GPIOINFO is not set
+# CONFIG_GPIOSET is not set
 CONFIG_GREP=y
 # CONFIG_GROUPADD is not set
 # CONFIG_GROUPDEL is not set
@@ -142,7 +148,9 @@ CONFIG_HEAD=y
 # CONFIG_HELLO is not set
 # CONFIG_HELP_EXTRAS is not set
 # CONFIG_HELP is not set
+# CONFIG_HEXDUMP is not set
 # CONFIG_HEXEDIT is not set
+# CONFIG_HD is not set
 # CONFIG_HOSTID is not set
 # CONFIG_HOST is not set
 CONFIG_HOSTNAME=y
@@ -158,7 +166,7 @@ CONFIG_ID=y
 # CONFIG_INIT is not set
 # CONFIG_INOTIFYD is not set
 # CONFIG_INSMOD is not set
-# CONFIG_INSTALL is not set
+CONFIG_INSTALL=y
 # CONFIG_IONICE is not set
 # CONFIG_IORENICE is not set
 # CONFIG_IOTOP is not set
@@ -172,12 +180,14 @@ CONFIG_ID=y
 # CONFIG_KLOGD_SOURCE_RING_BUFFER is not set
 # CONFIG_LAST is not set
 # CONFIG_LINK is not set
+# CONFIG_LINUX32 is not set
 CONFIG_LN=y
 # CONFIG_LOAD_POLICY is not set
 # CONFIG_LOGGER is not set
 # CONFIG_LOGIN is not set
 # CONFIG_LOG is not set
 # CONFIG_LOGNAME is not set
+# CONFIG_LOGPATH is not set
 # CONFIG_LOGWRAPPER is not set
 # CONFIG_LOSETUP is not set
 # CONFIG_LSATTR is not set
@@ -282,6 +292,7 @@ CONFIG_SORT_FLOAT=y
 CONFIG_SORT=y
 # CONFIG_SPLIT is not set
 CONFIG_STAT=y
+# CONFIG_STRACE is not set
 # CONFIG_STRINGS is not set
 # CONFIG_STTY is not set
 # CONFIG_SU is not set
@@ -314,6 +325,7 @@ CONFIG_TRUNCATE=y
 CONFIG_TR=y
 # CONFIG_TTY is not set
 # CONFIG_TUNCTL is not set
+# CONFIG_UCLAMPSET is not set
 # CONFIG_ULIMIT is not set
 # CONFIG_UMOUNT is not set
 CONFIG_UNAME=y

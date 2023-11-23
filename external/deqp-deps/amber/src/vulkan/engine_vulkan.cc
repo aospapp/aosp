@@ -177,8 +177,11 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
   } else {
     vk_pipeline = MakeUnique<GraphicsPipeline>(
         device_.get(), pipeline->GetColorAttachments(),
-        pipeline->GetDepthStencilBuffer(), engine_data.fence_timeout_ms,
-        stage_create_info);
+        pipeline->GetDepthStencilBuffer(), pipeline->GetResolveTargets(),
+        engine_data.fence_timeout_ms, stage_create_info);
+
+    vk_pipeline->AsGraphics()->SetPatchControlPoints(
+        pipeline->GetPipelineData()->GetPatchControlPoints());
 
     r = vk_pipeline->AsGraphics()->Initialize(pipeline->GetFramebufferWidth(),
                                               pipeline->GetFramebufferHeight(),
@@ -254,6 +257,8 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
     cmd->SetBinding(buf_info.binding);
     cmd->SetBaseMipLevel(buf_info.base_mip_level);
     cmd->SetDynamicOffset(buf_info.dynamic_offset);
+    cmd->SetDescriptorOffset(buf_info.descriptor_offset);
+    cmd->SetDescriptorRange(buf_info.descriptor_range);
     cmd->SetBuffer(buf_info.buffer);
     cmd->SetSampler(buf_info.sampler);
 

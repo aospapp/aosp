@@ -104,25 +104,25 @@ hb_test_bug (const char *uri_base, unsigned int number)
 static inline void
 hb_test_bug_freedesktop (unsigned int number)
 {
-  hb_test_bug ("http://bugs.freedesktop.org/", number);
+  hb_test_bug ("https://bugs.freedesktop.org/", number);
 }
 
 static inline void
 hb_test_bug_gnome (unsigned int number)
 {
-  hb_test_bug ("http://bugzilla.gnome.org/", number);
+  hb_test_bug ("https://bugzilla.gnome.org/", number);
 }
 
 static inline void
 hb_test_bug_mozilla (unsigned int number)
 {
-  hb_test_bug ("http://bugzilla.mozilla.org/", number);
+  hb_test_bug ("https://bugzilla.mozilla.org/", number);
 }
 
 static inline void
 hb_test_bug_redhat (unsigned int number)
 {
-  hb_test_bug ("http://bugzilla.redhat.com/", number);
+  hb_test_bug ("https://bugzilla.redhat.com/", number);
 }
 
 
@@ -296,9 +296,9 @@ hb_test_open_font_file (const char *font_path)
   char *path = g_strdup (font_path);
 #endif
 
-  hb_blob_t *blob = hb_blob_create_from_file (path);
+  hb_blob_t *blob = hb_blob_create_from_file_or_fail (path);
   hb_face_t *face;
-  if (hb_blob_get_length (blob) == 0)
+  if (!blob)
     g_error ("Font %s not found.", path);
 
   face = hb_face_create (blob, 0);

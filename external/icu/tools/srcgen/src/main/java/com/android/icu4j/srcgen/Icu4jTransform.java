@@ -140,6 +140,7 @@ public class Icu4jTransform {
       "android.icu.text.DateFormat",
       "android.icu.text.DateFormat$BooleanAttribute",
       "android.icu.text.DateFormat$Field",
+      "android.icu.text.DateFormat$HourCycle",
       "android.icu.text.DateFormatSymbols",
       "android.icu.text.DateIntervalFormat",
       "android.icu.text.DateIntervalFormat$FormattedDateInterval",
@@ -159,6 +160,9 @@ public class Icu4jTransform {
       "android.icu.text.IDNA$Error",
       "android.icu.text.IDNA$Info",
       "android.icu.text.ListFormatter",
+      "android.icu.text.ListFormatter$FormattedList",
+      "android.icu.text.ListFormatter$Type",
+      "android.icu.text.ListFormatter$Width",
       "android.icu.text.LocaleDisplayNames",
       "android.icu.text.LocaleDisplayNames$DialectHandling",
       "android.icu.text.LocaleDisplayNames$UiListItem",
@@ -244,6 +248,7 @@ public class Icu4jTransform {
       "android.icu.util.LocaleData$PaperSize",
       "android.icu.util.Measure",
       "android.icu.util.MeasureUnit",
+      "android.icu.util.MeasureUnit$Complexity",
       "android.icu.util.Output",
       "android.icu.util.RangeValueIterator",
       "android.icu.util.RangeValueIterator$Element",
@@ -677,7 +682,7 @@ public class Icu4jTransform {
       "field:android.icu.util.LocaleData#ES_PUNCTUATION",
       "field:android.icu.util.LocaleData#ES_STANDARD",
       // Hide new measure units until a clear use case on Android is found.
-      // The cost of these APIs is the storage due to the addtional locale data embedded
+      // The cost of these APIs is the storage due to the additional locale data embedded
       // in the ICU data file.
       "field:android.icu.util.MeasureUnit#DUNAM",
       "field:android.icu.util.MeasureUnit#MOLE",
@@ -704,6 +709,15 @@ public class Icu4jTransform {
       "field:android.icu.util.MeasureUnit#BAR",
       "field:android.icu.util.MeasureUnit#PASCAL",
       "field:android.icu.util.MeasureUnit#THERM_US",
+      "field:android.icu.util.MeasureUnit#EARTH_RADIUS",
+      "field:android.icu.util.MeasureUnit#GRAIN",
+      "field:android.icu.util.MeasureUnit#DESSERT_SPOON",
+      "field:android.icu.util.MeasureUnit#DESSERT_SPOON_IMPERIAL",
+      "field:android.icu.util.MeasureUnit#DRAM",
+      "field:android.icu.util.MeasureUnit#DROP",
+      "field:android.icu.util.MeasureUnit#JIGGER",
+      "field:android.icu.util.MeasureUnit#PINCH",
+      "field:android.icu.util.MeasureUnit#QUART_IMPERIAL",
       // Skeleton syntax can evolve over time. Currently, the skeleton APIs are not prioritized to
       // be public. Android developers could easily miss the API version check for new syntax and
       // cause app crashing on older devices.

@@ -691,19 +691,21 @@ constexpr NormalizationPair kNormalizationMappings[] = {
 
 }  // namespace
 
-const std::unordered_map<char16_t, char16_t>& GetNormalizationMap() {
+const std::unordered_map<char16_t, char16_t> *GetNormalizationMap() {
   // The map is allocated dynamically the first time this function is executed.
-  static const std::unordered_map<char16_t, char16_t> normalization_map = [] {
-    std::unordered_map<char16_t, char16_t> map;
-    // Size of all the mappings is about 2.5 KiB.
-    constexpr int numMappings =
-        sizeof(kNormalizationMappings) / sizeof(NormalizationPair);
-    map.reserve(numMappings);
-    for (size_t i = 0; i < numMappings; ++i) {
-      map.emplace(kNormalizationMappings[i].from, kNormalizationMappings[i].to);
-    }
-    return map;
-  }();
+  static const std::unordered_map<char16_t, char16_t> *const normalization_map =
+      [] {
+        auto *map = new std::unordered_map<char16_t, char16_t>();
+        // Size of all the mappings is about 2.5 KiB.
+        constexpr int numMappings =
+            sizeof(kNormalizationMappings) / sizeof(NormalizationPair);
+        map->reserve(numMappings);
+        for (size_t i = 0; i < numMappings; ++i) {
+          map->emplace(kNormalizationMappings[i].from,
+                       kNormalizationMappings[i].to);
+        }
+        return map;
+      }();
 
   return normalization_map;
 }

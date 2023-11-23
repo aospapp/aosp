@@ -71,6 +71,8 @@ public:
   bool			list_undefined_symbols_only;
   bool			show_base_names;
   bool			show_redundant;
+  bool			redundant_opt_set;
+  bool			no_redundant_opt_set;
   bool			show_locs;
 
   options(const char* program_name)
@@ -81,6 +83,8 @@ public:
      list_undefined_symbols_only(),
      show_base_names(),
      show_redundant(true),
+     redundant_opt_set(),
+     no_redundant_opt_set(),
      show_locs(true)
   {}
 }; // end struct options
@@ -105,12 +109,12 @@ display_usage(const string& prog_name, ostream& out)
     "to the debug information directory for the first library\n"
     << "  --lib-debug-info-dir2|--libd2 <path-to-lib-debug-info2>  set the path "
     "to the debug information directory for the second library\n"
-    <<  "--suppressions|--suppr <path> specify a suppression file\n"
-    << "--no-redundant  do not display redundant changes\n"
-    << "--no-show-locs  do now show location information\n"
-    << "--redundant  display redundant changes (this is the default)\n"
-    << "--weak-mode  check compatibility between the application and "
-    "just one version of the library."
+    << "  --suppressions|--suppr <path> specify a suppression file\n"
+    << "  --no-redundant  do not display redundant changes\n"
+    << "  --no-show-locs  do now show location information\n"
+    << "  --redundant  display redundant changes (this is the default)\n"
+    << "  --weak-mode  check compatibility between the application and "
+    "just one version of the library.\n"
     ;
 }
 
@@ -191,9 +195,15 @@ parse_command_line(int argc, char* argv[], options& opts)
 	  ++i;
 	}
       else if (!strcmp(argv[i], "--redundant"))
-	opts.show_redundant = true;
+        {
+	  opts.show_redundant = true;
+	  opts.redundant_opt_set = true;
+	}
       else if (!strcmp(argv[i], "--no-redundant"))
-	opts.show_redundant = false;
+        {
+  	  opts.show_redundant = false;
+	  opts.no_redundant_opt_set = true;
+	}
       else if (!strcmp(argv[i], "--no-show-locs"))
 	opts.show_locs = false;
       else if (!strcmp(argv[i], "--help")
@@ -236,7 +246,7 @@ using abigail::ir::type_base_sptr;
 using abigail::ir::function_type_sptr;
 using abigail::ir::function_decl;
 using abigail::ir::var_decl;
-using abigail::dwarf_reader::status;
+using abigail::elf_reader::status;
 using abigail::dwarf_reader::read_corpus_from_elf;
 using abigail::comparison::diff_context_sptr;
 using abigail::comparison::diff_context;
@@ -390,7 +400,7 @@ perform_compat_check_in_normal_mode(options& opts,
   return status;
 }
 
-/// An description of a change of the type of a function.  It contains
+/// A description of a change of the type of a function.  It contains
 /// the declaration of the function we are interested in, as well as
 /// the differences found in the type of that function.
 struct fn_change
@@ -633,8 +643,24 @@ main(int argc, char* argv[])
   if (opts.display_version)
     {
       emit_prefix(argv[0], cout)
-	<< abigail::tools_utils::get_library_version_string();
+	<< abigail::tools_utils::get_library_version_string()
+	<< "\n";
       return 0;
+    }
+
+  if (opts.weak_mode && !opts.lib2_path.empty())
+    {
+      emit_prefix(argv[0], cout)
+        << "WARNING: The \'--weak-mode\' option is used. The "
+	<< opts.lib2_path << " will be ignored automatically\n";
+    }
+
+  if (opts.redundant_opt_set && opts.no_redundant_opt_set)
+    {
+      emit_prefix(argv[0], cerr)
+        << "ERROR: The \'--redundant\' and '--no-redundant' option are in conflict. "
+	<< "Please select only one option to use.\n";
+      return 1;
     }
 
   ABG_ASSERT(!opts.app_path.empty());
@@ -670,7 +696,7 @@ main(int argc, char* argv[])
   char * app_di_root = opts.app_di_root_path.get();
   vector<char**> app_di_roots;
   app_di_roots.push_back(&app_di_root);
-  status status = abigail::dwarf_reader::STATUS_UNKNOWN;
+  status status = abigail::elf_reader::STATUS_UNKNOWN;
   environment_sptr env(new environment);
   corpus_sptr app_corpus=
     read_corpus_from_elf(opts.app_path,
@@ -678,13 +704,13 @@ main(int argc, char* argv[])
 			 /*load_all_types=*/opts.weak_mode,
 			 status);
 
-  if (status & abigail::dwarf_reader::STATUS_NO_SYMBOLS_FOUND)
+  if (status & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
     {
       emit_prefix(argv[0], cerr)
 	<< "could not read symbols from " << opts.app_path << "\n";
       return abigail::tools_utils::ABIDIFF_ERROR;
     }
-  if (!(status & abigail::dwarf_reader::STATUS_OK))
+  if (!(status & abigail::elf_reader::STATUS_OK))
     {
       emit_prefix(argv[0], cerr)
 	<< "could not read file " << opts.app_path << "\n";
@@ -727,15 +753,15 @@ main(int argc, char* argv[])
 						 lib1_di_roots, env.get(),
 						 /*load_all_types=*/false,
 						 status);
-  if (status & abigail::dwarf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
+  if (status & abigail::elf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
     emit_prefix(argv[0], cerr)
       << "could not read debug info for " << opts.lib1_path << "\n";
-  if (status & abigail::dwarf_reader::STATUS_NO_SYMBOLS_FOUND)
+  if (status & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
     {
       cerr << "could not read symbols from " << opts.lib1_path << "\n";
       return abigail::tools_utils::ABIDIFF_ERROR;
     }
-  if (!(status & abigail::dwarf_reader::STATUS_OK))
+  if (!(status & abigail::elf_reader::STATUS_OK))
     {
       emit_prefix(argv[0], cerr)
 	<< "could not read file " << opts.lib1_path << "\n";
@@ -754,16 +780,16 @@ main(int argc, char* argv[])
 					 lib2_di_roots, env.get(),
 					 /*load_all_types=*/false,
 					 status);
-      if (status & abigail::dwarf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
+      if (status & abigail::elf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
 	emit_prefix(argv[0], cerr)
 	  << "could not read debug info for " << opts.lib2_path << "\n";
-      if (status & abigail::dwarf_reader::STATUS_NO_SYMBOLS_FOUND)
+      if (status & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
 	{
 	  emit_prefix(argv[0], cerr)
 	    << "could not read symbols from " << opts.lib2_path << "\n";
 	  return abigail::tools_utils::ABIDIFF_ERROR;
 	}
-      if (!(status & abigail::dwarf_reader::STATUS_OK))
+      if (!(status & abigail::elf_reader::STATUS_OK))
 	{
 	  emit_prefix(argv[0], cerr)
 	    << "could not read file " << opts.lib2_path << "\n";

@@ -29,15 +29,12 @@ SCANGOBJ_OPTIONS=
 # Extra options to supply to gtkdoc-scan.
 # e.g. SCAN_OPTIONS=--deprecated-guards="GTK_DISABLE_DEPRECATED"
 SCAN_OPTIONS=--rebuild-types --deprecated-guards="HB_DISABLE_DEPRECATED" \
-	--ignore-decorators="HB_EXTERN"
+	--ignore-decorators='HB_EXTERN|HB_DEPRECATED'
 
 # Header files or dirs to ignore when scanning. Use base file/dir names
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h private_code
 IGNORE_HFILES=`cd $(top_srcdir)/src; find . -path './*/*.h' | sed 's@^.*/@@'`
-if HAVE_GOBJECT
-else
 IGNORE_HFILES+=hb-gobject.h hb-gobject-enums.h hb-gobject-structs.h
-endif
 
 # Extra options to supply to gtkdoc-mkdb.
 # e.g. MKDB_OPTIONS=--xml-mode --output-format=xml
@@ -83,6 +80,7 @@ content_files=	\
 	usermanual-opentype-features.xml \
 	usermanual-clusters.xml \
 	usermanual-utilities.xml \
+	usermanual-integration.xml \
 	version.xml
 
 # SGML files where gtk-doc abbrevations (#GtkWidget) are expanded
@@ -106,7 +104,7 @@ include $(top_srcdir)/gtk-doc.make
 
 # Other files to distribute
 # e.g. EXTRA_DIST += version.xml.in
-EXTRA_DIST += version.xml.in
+EXTRA_DIST += version.xml.in meson.build
 
 # Files not to distribute
 # for --rebuild-types in $(SCAN_OPTIONS), e.g. $(DOC_MODULE).types

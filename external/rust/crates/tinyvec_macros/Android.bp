@@ -37,6 +37,8 @@ rust_library {
     name: "libtinyvec_macros",
     host_supported: true,
     crate_name: "tinyvec_macros",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     apex_available: [
@@ -44,26 +46,4 @@ rust_library {
         "com.android.resolv",
     ],
     min_sdk_version: "29",
-}
-
-rust_defaults {
-    name: "tinyvec_macros_defaults",
-    crate_name: "tinyvec_macros",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-}
-
-rust_test_host {
-    name: "tinyvec_macros_host_test_src_lib",
-    defaults: ["tinyvec_macros_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "tinyvec_macros_device_test_src_lib",
-    defaults: ["tinyvec_macros_defaults"],
 }

@@ -34,6 +34,7 @@ cc_defaults {
         "-DCOMP_DEFAULT=\"lz4\"",
         "-DGZIP_SUPPORT",
         "-DLZ4_SUPPORT",
+        "-DZSTD_SUPPORT",
         "-DXATTR_SUPPORT",
         "-DXATTR_DEFAULT",
         "-Wno-unused-parameter",
@@ -50,6 +51,7 @@ cc_defaults {
     ],
     static_libs: [
         "liblz4",
+        "libzstd",
         "libz",
     ],
 }
@@ -78,6 +80,7 @@ cc_binary_host {
         "gzip_wrapper.c",
         "android.c",
         "lz4_wrapper.c",
+        "zstd_wrapper.c",
     ],
 }
 
@@ -100,5 +103,6 @@ cc_binary_host {
         "gzip_wrapper.c",
         "android.c",
         "lz4_wrapper.c",
+        "zstd_wrapper.c",
     ],
 }

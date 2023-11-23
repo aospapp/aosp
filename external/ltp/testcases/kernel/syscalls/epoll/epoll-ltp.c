@@ -299,7 +299,7 @@ int test_epoll_create(unsigned int num_rand_attempts)
 /*
  * RES_FAIL_* indicates a FAIL result
  * In brief, there are two things that can go wrong in a
- * failiure. The return value (result = epoll_ctl(...)) and
+ * failure. The return value (result = epoll_ctl(...)) and
  * the errno value may not match expectations. In this notation,
  * MIS -> mismatch, MAT -> match, BAD -> bad, and IGN -> ignored.
  *
@@ -347,7 +347,7 @@ static const char *result_strings[] = {
 
 /****************************************************************************************/
 /* This macro helps keep the code below understandable. It prints out the
-   failiure message passed to it plus the parameters to the system call. */
+   failure message passed to it plus the parameters to the system call. */
 #define EPOLL_CTL_TEST_RESULTS_SHOW_PARAMS 1
 #if EPOLL_CTL_TEST_RESULTS_SHOW_PARAMS
 #define EPOLL_CTL_TEST_FAIL(msg , ...) \
@@ -549,7 +549,7 @@ int test_epoll_ctl(int epoll_fd)
 							for (index = 1;
 							     index < 64;
 							     index++) {
-								if (ev_ptr->events != epoll_events[index]) {
+								if ((int)ev_ptr->events != epoll_events[index]) {
 									expected_errno
 									    =
 									    EINVAL;
@@ -649,8 +649,7 @@ int test_epoll_ctl(int epoll_fd)
 							  RES_PASS_RETV_MAT_ERRNO_IGN)))
 						{
 							if (result >
-							    (sizeof
-							     (result_strings) /
+							   (int)(sizeof(result_strings) /
 							     sizeof(const char
 								    *))) {
 								/* Returned a result which has no corresponding text description */
@@ -660,7 +659,7 @@ int test_epoll_ctl(int epoll_fd)
 								if (result == -1)	/* Segfault during epoll_ctl call */
 									EPOLL_CTL_TEST_FAIL
 									    ("Test arguments caused abnormal exit.");
-								else	/* The 'normal' failiure */
+								else	/* The 'normal' failure */
 									EPOLL_CTL_TEST_FAIL
 									    ((result_strings[result]));
 							}
@@ -686,7 +685,7 @@ int test_epoll_ctl(int epoll_fd)
 	return (num_epoll_ctl_test_fails / num_epoll_ctl_test_calls);
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
 	int epoll_fd;
 	struct timeval tv;

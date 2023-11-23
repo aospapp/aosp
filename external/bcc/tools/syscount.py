@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # syscount   Summarize syscall counts and latencies.
 #
@@ -17,7 +17,7 @@ import sys
 import signal
 from bcc import BPF
 from bcc.utils import printb
-from bcc.syscall import syscall_name
+from bcc.syscall import syscall_name, syscalls
 
 if sys.version_info.major < 3:
     izip_longest = itertools.izip_longest
@@ -132,13 +132,17 @@ TRACEPOINT_PROBE(raw_syscalls, sys_exit) {
     if (!start_ns)
         return 0;
 
-    val = data.lookup_or_init(&key, &zero);
-    val->count++;
-    val->total_ns += bpf_ktime_get_ns() - *start_ns;
+    val = data.lookup_or_try_init(&key, &zero);
+    if (val) {
+        val->count++;
+        val->total_ns += bpf_ktime_get_ns() - *start_ns;
+    }
 #else
     u64 *val, zero = 0;
-    val = data.lookup_or_init(&key, &zero);
-    ++(*val);
+    val = data.lookup_or_try_init(&key, &zero);
+    if (val) {
+        ++(*val);
+    }
 #endif
     return 0;
 }

@@ -16,6 +16,9 @@
 /* Default SSL backend */
 /* #undef CURL_DEFAULT_SSL_BACKEND */
 
+/* disable alt-svc */
+/* #undef CURL_DISABLE_ALTSVC */
+
 /* to disable cookies support */
 /* #undef CURL_DISABLE_COOKIES */
 
@@ -39,6 +42,9 @@
 
 /* to disable Gopher */
 #define CURL_DISABLE_GOPHER 1
+
+/* disable alt-svc */
+/* #undef CURL_DISABLE_HSTS */
 
 /* to disable HTTP */
 /* #undef CURL_DISABLE_HTTP */
@@ -66,6 +72,9 @@
 
 /* disable netrc parsing */
 /* #undef CURL_DISABLE_NETRC */
+
+/* to disable NTLM support */
+/* #undef CURL_DISABLE_NTLM */
 
 /* if the OpenSSL configuration won't be loaded automatically */
 /* #undef CURL_DISABLE_OPENSSL_AUTO_LOAD_CONFIG */
@@ -126,12 +135,6 @@
 
 /* Define to the type of arg 2 for gethostname. */
 #define GETHOSTNAME_TYPE_ARG2 size_t
-
-/* Specifies the number of arguments to getservbyport_r */
-/* #undef GETSERVBYPORT_R_ARGS */
-
-/* Specifies the size of the buffer to pass to getservbyport_r */
-/* #undef GETSERVBYPORT_R_BUFSIZE */
 
 /* Define to 1 if you have the alarm function. */
 #define HAVE_ALARM 1
@@ -212,9 +215,6 @@
 /* Define to 1 if you have the freeaddrinfo function. */
 #define HAVE_FREEADDRINFO 1
 
-/* Define to 1 if you have the freeifaddrs function. */
-#define HAVE_FREEIFADDRS 1
-
 /* Define to 1 if you have the fsetxattr function. */
 #define HAVE_FSETXATTR 1
 
@@ -227,9 +227,6 @@
 /* Define to 1 if you have the ftruncate function. */
 #define HAVE_FTRUNCATE 1
 
-/* Define to 1 if you have the gai_strerror function. */
-#define HAVE_GAI_STRERROR 1
-
 /* Define to 1 if you have a working getaddrinfo function. */
 #define HAVE_GETADDRINFO 1
 
@@ -238,21 +235,6 @@
 
 /* Define to 1 if you have the `geteuid' function. */
 #define HAVE_GETEUID 1
-
-/* Define to 1 if you have the gethostbyaddr function. */
-#define HAVE_GETHOSTBYADDR 1
-
-/* Define to 1 if you have the gethostbyaddr_r function. */
-#define HAVE_GETHOSTBYADDR_R 1
-
-/* gethostbyaddr_r() takes 5 args */
-/* #undef HAVE_GETHOSTBYADDR_R_5 */
-
-/* gethostbyaddr_r() takes 7 args */
-/* #undef HAVE_GETHOSTBYADDR_R_7 */
-
-/* gethostbyaddr_r() takes 8 args */
-#define HAVE_GETHOSTBYADDR_R_8 1
 
 /* Define to 1 if you have the gethostbyname function. */
 #define HAVE_GETHOSTBYNAME 1
@@ -293,9 +275,6 @@
 /* Define to 1 if you have the `getrlimit' function. */
 #define HAVE_GETRLIMIT 1
 
-/* Define to 1 if you have the getservbyport_r function. */
-/* #undef HAVE_GETSERVBYPORT_R */
-
 /* Define to 1 if you have the getsockname function. */
 #define HAVE_GETSOCKNAME 1
 
@@ -332,6 +311,9 @@
 /* if you have MIT Kerberos */
 /* #undef HAVE_GSSMIT */
 
+/* Define to 1 if you have the <hyper.h> header file. */
+/* #undef HAVE_HYPER_H */
+
 /* Define to 1 if you have the <idn2.h> header file. */
 /* #undef HAVE_IDN2_H */
 
@@ -340,15 +322,6 @@
 
 /* Define to 1 if you have the `if_nametoindex' function. */
 #define HAVE_IF_NAMETOINDEX 1
-
-/* Define to 1 if you have the inet_ntoa_r function. */
-/* #undef HAVE_INET_NTOA_R */
-
-/* inet_ntoa_r() takes 2 args */
-/* #undef HAVE_INET_NTOA_R_2 */
-
-/* inet_ntoa_r() takes 3 args */
-/* #undef HAVE_INET_NTOA_R_3 */
 
 /* Define to 1 if you have a IPv6 capable working inet_ntop function. */
 #define HAVE_INET_NTOP 1
@@ -601,9 +574,6 @@
 /* Define to 1 if you have a working setsockopt SO_NONBLOCK function. */
 /* #undef HAVE_SETSOCKOPT_SO_NONBLOCK */
 
-/* Define to 1 if you have the <sgtty.h> header file. */
-/* #undef HAVE_SGTTY_H */
-
 /* Define to 1 if you have the sigaction function. */
 #define HAVE_SIGACTION 1
 
@@ -618,12 +588,6 @@
 
 /* Define to 1 if you have the sigsetjmp function or macro. */
 /* #undef HAVE_SIGSETJMP */
-
-/* Define to 1 if sig_atomic_t is an available typedef. */
-#define HAVE_SIG_ATOMIC_T 1
-
-/* Define to 1 if sig_atomic_t is already defined as volatile. */
-/* #undef HAVE_SIG_ATOMIC_T_VOLATILE */
 
 /* Define to 1 if struct sockaddr_in6 has the sin6_scope_id member */
 #define HAVE_SOCKADDR_IN6_SIN6_SCOPE_ID 1
@@ -652,6 +616,9 @@
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
 
+/* Define to 1 if you have the <stdio.h> header file. */
+#define HAVE_STDIO_H 1
+
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
 
@@ -675,9 +642,6 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
-
-/* Define to 1 if you have the strncasecmp function. */
-#define HAVE_STRNCASECMP 1
 
 /* Define to 1 if you have the strncmpi function. */
 /* #undef HAVE_STRNCMPI */
@@ -760,9 +724,6 @@
 /* Define to 1 if you have the <termio.h> header file. */
 #define HAVE_TERMIO_H 1
 
-/* Define to 1 if you have the <time.h> header file. */
-#define HAVE_TIME_H 1
-
 /* Define this if time_t is unsigned */
 /* #undef HAVE_TIME_T_UNSIGNED */
 
@@ -790,6 +751,9 @@
 /* Define to 1 if you have the winber.h header file. */
 /* #undef HAVE_WINBER_H */
 
+/* Define to 1 if you have the wincrypt.h header file. */
+/* #undef HAVE_WINCRYPT_H */
+
 /* Define to 1 if you have the windows.h header file. */
 /* #undef HAVE_WINDOWS_H */
 
@@ -799,14 +763,8 @@
 /* Define to 1 if you have the winsock2.h header file. */
 /* #undef HAVE_WINSOCK2_H */
 
-/* Define to 1 if you have the winsock.h header file. */
-/* #undef HAVE_WINSOCK_H */
-
 /* Define to 1 if you have the <wolfssh/ssh.h> header file. */
 /* #undef HAVE_WOLFSSH_SSH_H */
-
-/* Define to 1 if you have the `wolfSSLv3_client_method' function. */
-/* #undef HAVE_WOLFSSLV3_CLIENT_METHOD */
 
 /* if you have wolfSSL_DES_ecb_encrypt */
 /* #undef HAVE_WOLFSSL_DES_ECB_ENCRYPT */
@@ -866,7 +824,7 @@
 #define PACKAGE "curl"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "a suitable curl mailing list: https://curl.haxx.se/mail/"
+#define PACKAGE_BUGREPORT "a suitable curl mailing list: https://curl.se/mail/"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "curl"
@@ -900,9 +858,6 @@
 
 /* Define to the function return type for recv. */
 #define RECV_TYPE_RETV ssize_t
-
-/* Define as the return type of signal handlers (`int' or `void'). */
-#define RETSIGTYPE void
 
 /* Define to the type qualifier of arg 5 for select. */
 #define SELECT_QUAL_ARG5 
@@ -946,17 +901,13 @@
 /* The number of bytes in type short */
 #define SIZEOF_SHORT 2
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Define to 1 if all of the C90 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
 #define STDC_HEADERS 1
 
 /* Define to the type of arg 3 for strerror_r. */
 #define STRERROR_R_TYPE_ARG3 size_t
-
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#define TIME_WITH_SYS_TIME 1
-
-/* to enable alt-svc */
-/* #undef USE_ALTSVC */
 
 /* if AmiSSL is in use */
 /* #undef USE_AMISSL */
@@ -973,8 +924,11 @@
 /* if GnuTLS is enabled */
 /* #undef USE_GNUTLS */
 
-/* if GnuTLS uses nettle as crypto backend */
-/* #undef USE_GNUTLS_NETTLE */
+/* GSASL support enabled */
+/* #undef USE_GSASL */
+
+/* if hyper is in use */
+/* #undef USE_HYPER */
 
 /* PSL support enabled */
 /* #undef USE_LIBPSL */
@@ -996,9 +950,6 @@
 
 /* if MesaLink is enabled */
 /* #undef USE_MESALINK */
-
-/* Define to enable metalink support */
-/* #undef USE_METALINK */
 
 /* if nghttp2 is in use */
 /* #undef USE_NGHTTP2 */
@@ -1027,6 +978,9 @@
 /* if quiche is in use */
 /* #undef USE_QUICHE */
 
+/* if rustls is enabled */
+/* #undef USE_RUSTLS */
+
 /* to enable Windows native SSL/TLS support */
 /* #undef USE_SCHANNEL */
 
@@ -1044,6 +998,10 @@
 
 /* Use Unix domain sockets */
 #define USE_UNIX_SOCKETS 1
+
+/* Define to 1 if you are building a Windows target with crypto API support.
+   */
+/* #undef USE_WIN32_CRYPTO */
 
 /* Define to 1 if you have the `normaliz' (WinIDN) library (-lnormaliz). */
 /* #undef USE_WIN32_IDN */
@@ -1077,11 +1035,6 @@
 /* Define to 1 if OS is AIX. */
 #ifndef _ALL_SOURCE
 /* #  undef _ALL_SOURCE */
-#endif
-
-/* Enable large inode numbers on Mac OS X 10.5.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE 1
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */

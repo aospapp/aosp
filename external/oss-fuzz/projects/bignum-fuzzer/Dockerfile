@@ -15,12 +15,12 @@
 ################################################################################
 
 FROM gcr.io/oss-fuzz-base/base-builder
-RUN apt-get update && apt-get install -y software-properties-common python-software-properties wget curl sudo mercurial autoconf bison texinfo libboost-all-dev cmake
+RUN apt-get update && apt-get install -y software-properties-common curl sudo mercurial autoconf bison texinfo libboost-all-dev cmake wget
 
-RUN wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.0.tar.gz
+RUN wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
 RUN git clone --depth 1 https://github.com/guidovranken/bignum-fuzzer
 RUN git clone --depth 1 https://github.com/openssl/openssl
 RUN hg clone https://gmplib.org/repo/gmp/ libgmp/
 RUN git clone https://boringssl.googlesource.com/boringssl
-RUN git clone --depth 1 https://github.com/ARMmbed/mbedtls
+RUN git clone --depth 1 -b development_2.x https://github.com/ARMmbed/mbedtls
 COPY build.sh $SRC/

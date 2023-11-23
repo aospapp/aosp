@@ -33,11 +33,10 @@ namespace {
 // 7.11.2.4. Directional intra prediction process
 
 template <typename Pixel>
-void DirectionalIntraPredictorZone1_C(void* const dest, ptrdiff_t stride,
-                                      const void* const top_row,
-                                      const int width, const int height,
-                                      const int xstep,
-                                      const bool upsampled_top) {
+void DirectionalIntraPredictorZone1_C(
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row, const int width,
+    const int height, const int xstep, const bool upsampled_top) {
   const auto* const top = static_cast<const Pixel*>(top_row);
   auto* dst = static_cast<Pixel*>(dest);
   stride /= sizeof(Pixel);
@@ -96,13 +95,12 @@ void DirectionalIntraPredictorZone1_C(void* const dest, ptrdiff_t stride,
 }
 
 template <typename Pixel>
-void DirectionalIntraPredictorZone2_C(void* const dest, ptrdiff_t stride,
-                                      const void* const top_row,
-                                      const void* const left_column,
-                                      const int width, const int height,
-                                      const int xstep, const int ystep,
-                                      const bool upsampled_top,
-                                      const bool upsampled_left) {
+void DirectionalIntraPredictorZone2_C(
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row,
+    const void* LIBGAV1_RESTRICT const left_column, const int width,
+    const int height, const int xstep, const int ystep,
+    const bool upsampled_top, const bool upsampled_left) {
   const auto* const top = static_cast<const Pixel*>(top_row);
   const auto* const left = static_cast<const Pixel*>(left_column);
   auto* dst = static_cast<Pixel*>(dest);
@@ -146,11 +144,10 @@ void DirectionalIntraPredictorZone2_C(void* const dest, ptrdiff_t stride,
 }
 
 template <typename Pixel>
-void DirectionalIntraPredictorZone3_C(void* const dest, ptrdiff_t stride,
-                                      const void* const left_column,
-                                      const int width, const int height,
-                                      const int ystep,
-                                      const bool upsampled_left) {
+void DirectionalIntraPredictorZone3_C(
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const left_column, const int width,
+    const int height, const int ystep, const bool upsampled_left) {
   const auto* const left = static_cast<const Pixel*>(left_column);
   stride /= sizeof(Pixel);
 

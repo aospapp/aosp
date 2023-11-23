@@ -18,10 +18,13 @@ third_party {
   }
   version: "17.0.4"
   last_upgrade_date { year: 2017 month: 5 day: 22 }
-  # would be NOTICE save for:
-  #   include/drm-uapi/etnaviv_drm.h
-  # and RESTRICTED save for:
-  #   docs/README.VCE
-  #   docs/README.UVD
+  license_note: "would be NOTICE save for:\n"
+  "   include/drm-uapi/etnaviv_drm.h\n"
+  " and RESTRICTED save for:\n"
+  "   docs/README.VCE\n"
+  "   docs/README.UVD"
   license_type: BY_EXCEPTION_ONLY
+  security {
+    tag: "NVD-CPE2.3:cpe:/a:mesa3d:mesa:17.0.4"
+  }
 }

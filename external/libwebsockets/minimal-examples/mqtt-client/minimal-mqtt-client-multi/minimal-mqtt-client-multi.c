@@ -11,6 +11,12 @@
 #include <libwebsockets.h>
 #include <string.h>
 #include <signal.h>
+#if defined(WIN32)
+#define HAVE_STRUCT_TIMESPEC
+#if defined(pid_t)
+#undef pid_t
+#endif
+#endif
 #include <pthread.h>
 #include <assert.h>
 
@@ -47,6 +53,9 @@ static const lws_mqtt_client_connect_param_t client_connect_param = {
 	.client_id			= NULL,
 	.keep_alive			= 60,
 	.clean_start			= 1,
+	.client_id_nofree		= 1,
+	.username_nofree		= 1,
+	.password_nofree		= 1,
 	.will_param = {
 		.topic			= "good/bye",
 		.message		= "sign-off",
@@ -279,7 +288,7 @@ callback_mqtt(struct lws *wsi, enum lws_callback_reasons reason,
 					(int)chunk, (int)pss->pos);
 
 			if (lws_mqtt_client_send_publish(wsi, &pss->pub_param,
-					test_string + pss->pos, chunk,
+					test_string + pss->pos, (uint32_t)chunk,
 					(pss->pos + chunk == TEST_STRING_LEN))) {
 				lwsl_notice("%s: publish failed\n", __func__);
 				return -1;
@@ -368,12 +377,13 @@ static const struct lws_protocols protocols[] = {
 		.callback		= callback_mqtt,
 		.per_session_data_size	= sizeof(struct pss)
 	},
-	{ NULL, NULL, 0, 0 }
+	LWS_PROTOCOL_LIST_TERM
 };
 
 int main(int argc, const char **argv)
 {
-	lws_state_notify_link_t notifier = { {}, system_notify_cb, "app" };
+	lws_state_notify_link_t notifier = { { NULL, NULL, NULL },
+					     system_notify_cb, "app" };
 	lws_state_notify_link_t *na[] = { &notifier, NULL };
 	struct lws_context_creation_info info;
 	struct lws_context *context;
@@ -411,7 +421,7 @@ int main(int argc, const char **argv)
 	info.fd_limit_per_thread = 1 + COUNT + 1;
 	info.retry_and_idle_policy = &retry;
 
-#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_WITH_MBEDTLS) || defined(USE_WOLFSSL)
 	/*
 	 * OpenSSL uses the system trust store.  mbedTLS has to be told which
 	 * CA to trust explicitly.

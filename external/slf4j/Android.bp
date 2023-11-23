@@ -65,4 +65,9 @@ java_library {
     ],
 
     sdk_version: "core_current",
+    // SLF4J is used by mockftpserver, both of them are used in tests only.
+    visibility: [
+        "//external/mockftpserver",
+        "//libcore",
+    ],
 }

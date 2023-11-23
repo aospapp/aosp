@@ -104,7 +104,8 @@ static dict_t clstr_dict, ino_dict;
 
 static ext2fs_inode_bitmap inode_dup_map;
 
-static int dict_int_cmp(const void *a, const void *b)
+static int dict_int_cmp(const void *cmp_ctx EXT2FS_ATTR((unused)),
+			const void *a, const void *b)
 {
 	intptr_t	ia, ib;
 
@@ -180,10 +181,10 @@ static void inode_dnode_free(dnode_t *node,
 	di = (struct dup_inode *) dnode_get(node);
 	for (p = di->cluster_list; p; p = next) {
 		next = p->next;
-		free(p);
+		ext2fs_free_mem(&p);
 	}
-	free(di);
-	free(node);
+	ext2fs_free_mem(&di);
+	ext2fs_free_mem(&node);
 }
 
 /*
@@ -198,10 +199,10 @@ static void cluster_dnode_free(dnode_t *node,
 	dc = (struct dup_cluster *) dnode_get(node);
 	for (p = dc->inode_list; p; p = next) {
 		next = p->next;
-		free(p);
+		ext2fs_free_mem(&p);
 	}
-	free(dc);
-	free(node);
+	ext2fs_free_mem(&dc);
+	ext2fs_free_mem(&node);
 }
 
 
@@ -670,7 +671,7 @@ static int delete_file_block(ext2_filsys fs,
 		} else
 			com_err("delete_file_block", 0,
 			    _("internal error: can't find dup_blk for %llu\n"),
-				*block_nr);
+				(unsigned long long) *block_nr);
 	} else {
 		if ((*block_nr % EXT2FS_CLUSTER_RATIO(ctx->fs)) == 0)
 			ext2fs_block_alloc_stats2(fs, *block_nr, -1);
@@ -705,6 +706,10 @@ static void delete_file(e2fsck_t ctx, ext2_ino_t ino,
 		fix_problem(ctx, PR_1B_BLOCK_ITERATE, &pctx);
 	if (ctx->inode_bad_map)
 		ext2fs_unmark_inode_bitmap2(ctx->inode_bad_map, ino);
+	if (ctx->inode_reg_map)
+		ext2fs_unmark_inode_bitmap2(ctx->inode_reg_map, ino);
+	ext2fs_unmark_inode_bitmap2(ctx->inode_dir_map, ino);
+	ext2fs_unmark_inode_bitmap2(ctx->inode_used_map, ino);
 	ext2fs_inode_alloc_stats2(fs, ino, -1, LINUX_S_ISDIR(dp->inode.i_mode));
 	quota_data_sub(ctx->qctx, &dp->inode, ino,
 		       pb.dup_blocks * fs->blocksize);
@@ -824,7 +829,7 @@ static int clone_file_block(ext2_filsys fs,
 		if (!n) {
 			com_err("clone_file_block", 0,
 			    _("internal error: can't find dup_blk for %llu\n"),
-				*block_nr);
+				(unsigned long long) *block_nr);
 			return 0;
 		}
 
@@ -874,7 +879,8 @@ cluster_alloc_ok:
 		}
 #if 0
  		printf("Cloning block #%lld from %llu to %llu\n",
-		       blockcnt, *block_nr, new_block);
+		       blockcnt, (unsigned long long) *block_nr,
+		       (unsigned long long) new_block);
 #endif
 		retval = io_channel_read_blk64(fs->io, *block_nr, 1, cs->buf);
 		if (retval) {
@@ -974,7 +980,8 @@ static errcode_t clone_file(e2fsck_t ctx, ext2_ino_t ino,
 		if (!n) {
 			com_err("clone_file", 0,
 				_("internal error: couldn't lookup EA "
-				  "block record for %llu"), blk);
+				  "block record for %llu"),
+				(unsigned long long) blk);
 			retval = 0; /* OK to stumble on... */
 			goto errout;
 		}

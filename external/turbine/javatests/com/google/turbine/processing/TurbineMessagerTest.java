@@ -19,7 +19,11 @@ package com.google.turbine.processing;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
+import static org.junit.Assert.assertThrows;
 
+import com.google.auto.common.AnnotationMirrors;
+import com.google.auto.common.AnnotationValues;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -133,7 +137,13 @@ public class TurbineMessagerTest {
                 processingEnv
                     .getMessager()
                     .printMessage(
-                        Diagnostic.Kind.ERROR, String.format("%s %s %s", e, a, av), e, a, av);
+                        Diagnostic.Kind.ERROR,
+                        String.format(
+                            "%s %s %s",
+                            e, AnnotationMirrors.toString(a), AnnotationValues.toString(av)),
+                        e,
+                        a,
+                        av);
                 av.accept(
                     new SimpleAnnotationValueVisitor8<Void, Void>() {
                       @Override
@@ -198,35 +208,33 @@ public class TurbineMessagerTest {
             .map(TurbineMessagerTest::formatDiagnostic)
             .collect(toImmutableList());
 
-    ImmutableList<String> turbineDiagnostics;
     ImmutableList<Tree.CompUnit> units =
         SOURCES.sources.entrySet().stream()
             .map(e -> new SourceFile(e.getKey(), e.getValue()))
             .map(Parser::parse)
             .collect(toImmutableList());
-    try {
-      Binder.bind(
-          units,
-          ClassPathBinder.bindClasspath(ImmutableList.of()),
-          Processing.ProcessorInfo.create(
-              ImmutableList.of(new DiagnosticTesterProcessor()),
-              getClass().getClassLoader(),
-              ImmutableMap.of(),
-              SourceVersion.latestSupported()),
-          TestClassPaths.TURBINE_BOOTCLASSPATH,
-          Optional.empty());
-      throw new AssertionError();
-    } catch (TurbineError e) {
-      turbineDiagnostics =
-          e.diagnostics().stream()
-              .sorted(
-                  comparing(TurbineDiagnostic::path)
-                      .thenComparing(TurbineDiagnostic::line)
-                      .thenComparing(TurbineDiagnostic::column))
-              .map(TurbineMessagerTest::formatDiagnostic)
-              .collect(toImmutableList());
-    }
-
+    TurbineError e =
+        assertThrows(
+            TurbineError.class,
+            () ->
+                Binder.bind(
+                    units,
+                    ClassPathBinder.bindClasspath(ImmutableList.of()),
+                    Processing.ProcessorInfo.create(
+                        ImmutableList.of(new DiagnosticTesterProcessor()),
+                        getClass().getClassLoader(),
+                        ImmutableMap.of(),
+                        SourceVersion.latestSupported()),
+                    TestClassPaths.TURBINE_BOOTCLASSPATH,
+                    Optional.empty()));
+    ImmutableList<String> turbineDiagnostics =
+        e.diagnostics().stream()
+            .sorted(
+                comparing(TurbineDiagnostic::path)
+                    .thenComparing(TurbineDiagnostic::line)
+                    .thenComparing(TurbineDiagnostic::column))
+            .map(TurbineMessagerTest::formatDiagnostic)
+            .collect(toImmutableList());
     assertThat(turbineDiagnostics).containsExactlyElementsIn(javacDiagnostics).inOrder();
   }
 
@@ -242,7 +250,7 @@ public class TurbineMessagerTest {
 
   private static String shortPath(Diagnostic<? extends JavaFileObject> d) {
     return d.getSource() != null
-        ? Paths.get(d.getSource().getName()).getFileName().toString()
+        ? requireNonNull(Paths.get(d.getSource().getName()).getFileName()).toString()
         : "<>";
   }
 }

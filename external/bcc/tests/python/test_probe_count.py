@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) Suchakra Sharma <suchakrapani.sharma@polymtl.ca>
 # Licensed under the Apache License, Version 2.0 (the "License")
 
@@ -81,7 +81,7 @@ class TestProbeNotExist(TestCase):
 
     def test_not_exist(self):
         with self.assertRaises(Exception):
-            b.attach_kprobe(event="___doesnotexist", fn_name="count")
+            self.b.attach_kprobe(event="___doesnotexist", fn_name="count")
 
     def tearDown(self):
         self.b.cleanup()

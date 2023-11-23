@@ -507,9 +507,9 @@ static int hostapd_wpa_auth_get_seqnum(void *ctx, const u8 *addr, int idx,
 }
 
 
-static int hostapd_wpa_auth_send_eapol(void *ctx, const u8 *addr,
-				       const u8 *data, size_t data_len,
-				       int encrypt)
+int hostapd_wpa_auth_send_eapol(void *ctx, const u8 *addr,
+				const u8 *data, size_t data_len,
+				int encrypt)
 {
 	struct hostapd_data *hapd = ctx;
 	struct sta_info *sta;
@@ -1555,7 +1555,8 @@ int hostapd_setup_wpa(struct hostapd_data *hapd)
 		return -1;
 	}
 
-	hapd->ptksa = ptksa_cache_init();
+	if (!hapd->ptksa)
+		hapd->ptksa = ptksa_cache_init();
 	if (!hapd->ptksa) {
 		wpa_printf(MSG_ERROR, "Failed to allocate PTKSA cache");
 		return -1;

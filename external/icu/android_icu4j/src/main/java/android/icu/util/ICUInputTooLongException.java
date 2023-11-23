@@ -9,15 +9,12 @@ package android.icu.util;
  * processing time, stack depth, or heap memory requirements.
  *
  * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public class ICUInputTooLongException extends ICUException {
     private static final long serialVersionUID = -2602876786689338226L;
 
     /**
      * Default constructor.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public ICUInputTooLongException() {
     }
@@ -26,7 +23,6 @@ public class ICUInputTooLongException extends ICUException {
      * Constructor.
      *
      * @param message exception message string
-     * @hide draft / provisional / internal are hidden on Android
      */
     public ICUInputTooLongException(String message) {
         super(message);
@@ -36,7 +32,6 @@ public class ICUInputTooLongException extends ICUException {
      * Constructor.
      *
      * @param cause original exception
-     * @hide draft / provisional / internal are hidden on Android
      */
     public ICUInputTooLongException(Throwable cause) {
         super(cause);
@@ -47,7 +42,6 @@ public class ICUInputTooLongException extends ICUException {
      *
      * @param message exception message string
      * @param cause original exception
-     * @hide draft / provisional / internal are hidden on Android
      */
     public ICUInputTooLongException(String message, Throwable cause) {
         super(message, cause);

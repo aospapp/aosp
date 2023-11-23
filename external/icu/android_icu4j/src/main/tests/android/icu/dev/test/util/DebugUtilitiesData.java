@@ -14,7 +14,7 @@ import android.icu.testsharding.MainTestShard;
 
 @MainTestShard
 public class DebugUtilitiesData extends Object {
-    public static final String ICU4C_VERSION="68.2";
+    public static final String ICU4C_VERSION="70.1";
     public static final int UDebugEnumType = 0;
     public static final int UCalendarDateFields = 1;
     public static final int UCalendarMonths = 2;

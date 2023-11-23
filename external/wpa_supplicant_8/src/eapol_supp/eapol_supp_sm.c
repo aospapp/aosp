@@ -2075,6 +2075,27 @@ static void eapol_sm_set_anon_id(void *ctx, const u8 *id, size_t len)
 }
 
 
+static void
+eapol_sm_notify_eap_method_selected(void *ctx,
+				     const char* reason_string)
+{
+	struct eapol_sm *sm = ctx;
+
+	if (sm->ctx->eap_method_selected_cb)
+		sm->ctx->eap_method_selected_cb(sm->ctx->ctx, reason_string);
+}
+
+
+static void
+eapol_sm_notify_open_ssl_failure(void *ctx,
+				     const char* reason_string)
+{
+	struct eapol_sm *sm = ctx;
+
+	if (sm->ctx->open_ssl_failure_cb)
+		sm->ctx->open_ssl_failure_cb(sm->ctx->ctx, reason_string);
+}
+
 static const struct eapol_callbacks eapol_cb =
 {
 	eapol_sm_get_config,
@@ -2095,7 +2116,9 @@ static const struct eapol_callbacks eapol_cb =
 	eapol_sm_eap_proxy_notify_sim_status,
 	eapol_sm_get_eap_proxy_imsi,
 #endif /* CONFIG_EAP_PROXY */
-	eapol_sm_set_anon_id
+	eapol_sm_set_anon_id,
+	eapol_sm_notify_eap_method_selected,
+	eapol_sm_notify_open_ssl_failure
 };
 
 

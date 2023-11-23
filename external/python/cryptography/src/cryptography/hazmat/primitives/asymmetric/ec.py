@@ -11,6 +11,7 @@ import six
 
 from cryptography import utils
 from cryptography.hazmat._oid import ObjectIdentifier
+from cryptography.hazmat.backends import _get_backend
 
 
 class EllipticCurveOID(object):
@@ -166,6 +167,7 @@ class EllipticCurvePublicKey(object):
             raise ValueError("Unsupported elliptic curve point type")
 
         from cryptography.hazmat.backends.openssl.backend import backend
+
         return backend.load_elliptic_curve_public_bytes(curve, data)
 
 
@@ -289,26 +291,22 @@ class BrainpoolP512R1(object):
 _CURVE_TYPES = {
     "prime192v1": SECP192R1,
     "prime256v1": SECP256R1,
-
     "secp192r1": SECP192R1,
     "secp224r1": SECP224R1,
     "secp256r1": SECP256R1,
     "secp384r1": SECP384R1,
     "secp521r1": SECP521R1,
     "secp256k1": SECP256K1,
-
     "sect163k1": SECT163K1,
     "sect233k1": SECT233K1,
     "sect283k1": SECT283K1,
     "sect409k1": SECT409K1,
     "sect571k1": SECT571K1,
-
     "sect163r2": SECT163R2,
     "sect233r1": SECT233R1,
     "sect283r1": SECT283R1,
     "sect409r1": SECT409R1,
     "sect571r1": SECT571R1,
-
     "brainpoolP256r1": BrainpoolP256R1,
     "brainpoolP384r1": BrainpoolP384R1,
     "brainpoolP512r1": BrainpoolP512R1,
@@ -323,11 +321,13 @@ class ECDSA(object):
     algorithm = utils.read_only_property("_algorithm")
 
 
-def generate_private_key(curve, backend):
+def generate_private_key(curve, backend=None):
+    backend = _get_backend(backend)
     return backend.generate_elliptic_curve_private_key(curve)
 
 
-def derive_private_key(private_value, curve, backend):
+def derive_private_key(private_value, curve, backend=None):
+    backend = _get_backend(backend)
     if not isinstance(private_value, six.integer_types):
         raise TypeError("private_value must be an integer type.")
 
@@ -342,9 +342,8 @@ def derive_private_key(private_value, curve, backend):
 
 class EllipticCurvePublicNumbers(object):
     def __init__(self, x, y, curve):
-        if (
-            not isinstance(x, six.integer_types) or
-            not isinstance(y, six.integer_types)
+        if not isinstance(x, six.integer_types) or not isinstance(
+            y, six.integer_types
         ):
             raise TypeError("x and y must be integers.")
 
@@ -355,7 +354,8 @@ class EllipticCurvePublicNumbers(object):
         self._x = x
         self._curve = curve
 
-    def public_key(self, backend):
+    def public_key(self, backend=None):
+        backend = _get_backend(backend)
         return backend.load_elliptic_curve_public_numbers(self)
 
     def encode_point(self):
@@ -364,14 +364,15 @@ class EllipticCurvePublicNumbers(object):
             " and will be removed in a future version. Please use "
             "EllipticCurvePublicKey.public_bytes to obtain both "
             "compressed and uncompressed point encoding.",
-            utils.DeprecatedIn25,
+            utils.PersistentlyDeprecated2019,
             stacklevel=2,
         )
         # key_size is in bits. Convert to bytes and round up
         byte_length = (self.curve.key_size + 7) // 8
         return (
-            b'\x04' + utils.int_to_bytes(self.x, byte_length) +
-            utils.int_to_bytes(self.y, byte_length)
+            b"\x04"
+            + utils.int_to_bytes(self.x, byte_length)
+            + utils.int_to_bytes(self.y, byte_length)
         )
 
     @classmethod
@@ -383,21 +384,21 @@ class EllipticCurvePublicNumbers(object):
             "Support for unsafe construction of public numbers from "
             "encoded data will be removed in a future version. "
             "Please use EllipticCurvePublicKey.from_encoded_point",
-            utils.DeprecatedIn25,
+            utils.PersistentlyDeprecated2019,
             stacklevel=2,
         )
 
-        if data.startswith(b'\x04'):
+        if data.startswith(b"\x04"):
             # key_size is in bits. Convert to bytes and round up
             byte_length = (curve.key_size + 7) // 8
             if len(data) == 2 * byte_length + 1:
-                x = utils.int_from_bytes(data[1:byte_length + 1], 'big')
-                y = utils.int_from_bytes(data[byte_length + 1:], 'big')
+                x = utils.int_from_bytes(data[1 : byte_length + 1], "big")
+                y = utils.int_from_bytes(data[byte_length + 1 :], "big")
                 return cls(x, y, curve)
             else:
-                raise ValueError('Invalid elliptic curve point data length')
+                raise ValueError("Invalid elliptic curve point data length")
         else:
-            raise ValueError('Unsupported elliptic curve point type')
+            raise ValueError("Unsupported elliptic curve point type")
 
     curve = utils.read_only_property("_curve")
     x = utils.read_only_property("_x")
@@ -408,10 +409,10 @@ class EllipticCurvePublicNumbers(object):
             return NotImplemented
 
         return (
-            self.x == other.x and
-            self.y == other.y and
-            self.curve.name == other.curve.name and
-            self.curve.key_size == other.curve.key_size
+            self.x == other.x
+            and self.y == other.y
+            and self.curve.name == other.curve.name
+            and self.curve.key_size == other.curve.key_size
         )
 
     def __ne__(self, other):
@@ -441,7 +442,8 @@ class EllipticCurvePrivateNumbers(object):
         self._private_value = private_value
         self._public_numbers = public_numbers
 
-    def private_key(self, backend):
+    def private_key(self, backend=None):
+        backend = _get_backend(backend)
         return backend.load_elliptic_curve_private_numbers(self)
 
     private_value = utils.read_only_property("_private_value")
@@ -452,8 +454,8 @@ class EllipticCurvePrivateNumbers(object):
             return NotImplemented
 
         return (
-            self.private_value == other.private_value and
-            self.public_numbers == other.public_numbers
+            self.private_value == other.private_value
+            and self.public_numbers == other.public_numbers
         )
 
     def __ne__(self, other):
@@ -465,3 +467,36 @@ class EllipticCurvePrivateNumbers(object):
 
 class ECDH(object):
     pass
+
+
+_OID_TO_CURVE = {
+    EllipticCurveOID.SECP192R1: SECP192R1,
+    EllipticCurveOID.SECP224R1: SECP224R1,
+    EllipticCurveOID.SECP256K1: SECP256K1,
+    EllipticCurveOID.SECP256R1: SECP256R1,
+    EllipticCurveOID.SECP384R1: SECP384R1,
+    EllipticCurveOID.SECP521R1: SECP521R1,
+    EllipticCurveOID.BRAINPOOLP256R1: BrainpoolP256R1,
+    EllipticCurveOID.BRAINPOOLP384R1: BrainpoolP384R1,
+    EllipticCurveOID.BRAINPOOLP512R1: BrainpoolP512R1,
+    EllipticCurveOID.SECT163K1: SECT163K1,
+    EllipticCurveOID.SECT163R2: SECT163R2,
+    EllipticCurveOID.SECT233K1: SECT233K1,
+    EllipticCurveOID.SECT233R1: SECT233R1,
+    EllipticCurveOID.SECT283K1: SECT283K1,
+    EllipticCurveOID.SECT283R1: SECT283R1,
+    EllipticCurveOID.SECT409K1: SECT409K1,
+    EllipticCurveOID.SECT409R1: SECT409R1,
+    EllipticCurveOID.SECT571K1: SECT571K1,
+    EllipticCurveOID.SECT571R1: SECT571R1,
+}
+
+
+def get_curve_for_oid(oid):
+    try:
+        return _OID_TO_CURVE[oid]
+    except KeyError:
+        raise LookupError(
+            "The provided object identifier has no matching elliptic "
+            "curve class"
+        )

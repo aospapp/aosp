@@ -4,6 +4,10 @@ cldr-smoke.unicode.org
 [prod]
 st.unicode.org
 
+# CLDR Commit Checker web hosting here
+[ccc]
+cldr-smoke.unicode.org
+
 # "surveytool" includes both prod and staging
 [surveytool:children]
 staging
@@ -16,3 +20,7 @@ surveytool
 # auto-backup cldr db only for production
 [backupdb:children]
 prod
+
+# redact cldr db only for staging (cldr-smoke)
+[redactdb:children]
+staging

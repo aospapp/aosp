@@ -3,11 +3,14 @@
  * Copyright (c) 2014 SUSE.  All Rights Reserved.
  *
  * Started by Jan Kara <jack@suse.cz>
- *
- * DESCRIPTION
- *     Check that fanotify properly merges ignore mask of an inode and
- *     mountpoint.
- *
+ */
+
+/*\
+ * [Description]
+ * Check that fanotify properly merges ignore mask of an inode and mountpoint.
+ */
+
+/*
  * This is a regression test for:
  *
  *  commit 8edc6e1688fc8f02c8c1f53a2ec4928cb1055f4d
@@ -24,22 +27,21 @@
  *
  *      ovl: do not generate duplicate fsnotify events for "fake" path
  */
+
 #define _GNU_SOURCE
 #include "config.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/syscall.h>
 #include "tst_test.h"
-#include "fanotify.h"
 
-#if defined(HAVE_SYS_FANOTIFY_H)
-#include <sys/fanotify.h>
+#ifdef HAVE_SYS_FANOTIFY_H
+#include "fanotify.h"
 
 #define EVENT_MAX 1024
 /* size of the event structure, not counting name */
@@ -78,7 +80,6 @@ static struct tcase {
 static void create_fanotify_groups(void)
 {
 	unsigned int p, i;
-	int ret;
 
 	for (p = 0; p < FANOTIFY_PRIORITIES; p++) {
 		for (i = 0; i < GROUPS_PER_PRIO; i++) {
@@ -87,32 +88,20 @@ static void create_fanotify_groups(void)
 							     O_RDONLY);
 
 			/* Add mount mark for each group */
-			ret = fanotify_mark(fd_notify[p][i],
+			SAFE_FANOTIFY_MARK(fd_notify[p][i],
 					    FAN_MARK_ADD | FAN_MARK_MOUNT,
 					    FAN_MODIFY,
 					    AT_FDCWD, fname);
-			if (ret < 0) {
-				tst_brk(TBROK | TERRNO,
-					"fanotify_mark(%d, FAN_MARK_ADD | "
-					"FAN_MARK_MOUNT, FAN_MODIFY, AT_FDCWD,"
-					" %s) failed", fd_notify[p][i], fname);
-			}
+
 			/* Add ignore mark for groups with higher priority */
 			if (p == 0)
 				continue;
-			ret = fanotify_mark(fd_notify[p][i],
+
+			SAFE_FANOTIFY_MARK(fd_notify[p][i],
 					    FAN_MARK_ADD |
 					    FAN_MARK_IGNORED_MASK |
 					    FAN_MARK_IGNORED_SURV_MODIFY,
 					    FAN_MODIFY, AT_FDCWD, fname);
-			if (ret < 0) {
-				tst_brk(TBROK | TERRNO,
-					"fanotify_mark(%d, FAN_MARK_ADD | "
-					"FAN_MARK_IGNORED_MASK | "
-					"FAN_MARK_IGNORED_SURV_MODIFY, "
-					"FAN_MODIFY, AT_FDCWD, %s) failed",
-					fd_notify[p][i], fname);
-			}
 		}
 	}
 }

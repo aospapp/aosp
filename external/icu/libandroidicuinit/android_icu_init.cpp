@@ -24,7 +24,13 @@ void android_icu_init() {
 
     // We know that the environment variables are exported early in init.environ.rc on Android.
     #ifdef __ANDROID__
-    runAndroidInit = true;
+      #ifdef ANDROID_ICU_NO_DAT
+        // If we're intentionally building ICU on Android without the .dat file, no
+        // need to run init.
+        runAndroidInit = false;
+      #else  // !ANDROID_ICU_NO_DAT
+        runAndroidInit = true;
+      #endif
     #else // ART host testing environment has these env variables set.
     runAndroidInit = getenv("ANDROID_DATA") != NULL &&
                      getenv("ANDROID_TZDATA_ROOT") != NULL &&

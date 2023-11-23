@@ -128,6 +128,24 @@ static InOutSpec specs[] =
     "data/test-abidiff/test-crc-report.txt",
     "output/test-abidiff/test-crc-report-1-2.txt"
   },
+  {
+    "data/test-abidiff/test-PR27616-v0.xml",
+    "data/test-abidiff/test-PR27616-v1.xml",
+    "data/test-abidiff/empty-report.txt",
+    "output/test-abidiff/empty-report.txt"
+  },
+  {
+    "data/test-abidiff/test-PR27616-squished-v0.abi",
+    "data/test-abidiff/test-PR27616-squished-v1.abi",
+    "data/test-abidiff/empty-report.txt",
+    "output/test-abidiff/empty-report.txt"
+  },
+  {
+    "data/test-abidiff/test-PR27985-v0.o.abi",
+    "data/test-abidiff/test-PR27985-v1.o.abi",
+    "data/test-abidiff/test-PR27985-report.txt",
+    "output/test-abidiff/test-PR27985-report.txt"
+  },
   // This should be the last entry.
   {0, 0, 0, 0}
 };

@@ -224,7 +224,7 @@ RSA *bignum_pubkey2rsa(BIGNUM *in);
 extern int eay_revbnl __P((vchar_t *));
 #include <openssl/bn.h>
 extern int eay_v2bn __P((BIGNUM **, vchar_t *));
-extern int eay_bn2v __P((vchar_t **, BIGNUM *));
+extern int eay_bn2v __P((vchar_t **, const BIGNUM *));
 
 extern const char *eay_version __P((void));
 

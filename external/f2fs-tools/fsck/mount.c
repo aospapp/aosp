@@ -490,6 +490,9 @@ printout:
 
 void print_cp_state(u32 flag)
 {
+	if (c.show_file_map)
+		return;
+
 	MSG(0, "Info: checkpoint state = %x : ", flag);
 	if (flag & CP_QUOTA_NEED_FSCK_FLAG)
 		MSG(0, "%s", " quota_need_fsck");
@@ -578,14 +581,6 @@ void print_sb_state(struct f2fs_super_block *sb)
 	for (i = 0; i < 16; i++)
 		MSG(0, "%02x", sb->encrypt_pw_salt[i]);
 	MSG(0, "\n");
-}
-
-static inline bool is_valid_data_blkaddr(block_t blkaddr)
-{
-	if (blkaddr == NEW_ADDR || blkaddr == NULL_ADDR ||
-				blkaddr == COMPRESS_ADDR)
-		return 0;
-	return 1;
 }
 
 bool f2fs_is_valid_blkaddr(struct f2fs_sb_info *sbi,

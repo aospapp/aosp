@@ -1,4 +1,4 @@
-from fontTools.misc.py23 import bytechr, byteord, bytesjoin, tobytes, tostr
+from fontTools.misc.textTools import bytechr, byteord, bytesjoin, tobytes, tostr
 from fontTools.misc import eexec
 from .psOperators import (
 	PSOperators,
@@ -365,6 +365,7 @@ def suckfont(data, encoding="ascii"):
 	m = re.search(br"/FontName\s+/([^ \t\n\r]+)\s+def", data)
 	if m:
 		fontName = m.group(1)
+		fontName = fontName.decode()
 	else:
 		fontName = None
 	interpreter = PSInterpreter(encoding=encoding)

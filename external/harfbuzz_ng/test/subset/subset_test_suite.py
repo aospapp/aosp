@@ -1,6 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import io
 import os
 
 # A single test in a subset test suite. Identifies a font
@@ -12,14 +11,18 @@ class Test:
 		self.subset = subset
 
 	def unicodes(self):
+		import re
 		if self.subset == '*':
 			return self.subset[0]
+		elif re.match("^U\+", self.subset):
+			s = re.sub (r"U\+", "", self.subset)
+			return s
 		else:
 			return ",".join("%X" % ord(c) for (i, c) in enumerate(self.subset))
 
 	def get_profile_flags(self):
-		with io.open(self.profile_path, mode="r", encoding="utf-8") as f:
-		    return f.read().splitlines();
+		with open (self.profile_path, mode="r", encoding="utf-8") as f:
+		    return f.read().splitlines()
 
 	def get_font_name(self):
 		font_base_name = os.path.basename(self.font_path)

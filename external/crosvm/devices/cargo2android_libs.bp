@@ -1,1 +1,13 @@
-shared_libs: ["libgfxstream_backend"]
+target: {
+    host: {
+        features: [
+            "gfxstream",
+            "gpu",
+        ],
+        rustlibs: [
+            "libgpu_display",
+            "librutabaga_gfx",
+        ],
+        shared_libs: ["libgfxstream_backend"],
+    },
+}

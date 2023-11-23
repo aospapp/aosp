@@ -25,7 +25,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "handle_internal.h"
 #include <sepol/handle.h>
 #include "modules.h"
 #include "semanage_conf.h"
@@ -62,6 +61,7 @@ struct semanage_handle {
 	int is_in_transaction;
 	int do_reload;		/* whether to reload policy after commit */
 	int do_rebuild;		/* whether to rebuild policy if there were no changes */
+	int check_ext_changes;	/* whether to rebuild if external changes are detected via checksum */
 	int commit_err;		/* set by semanage_direct_commit() if there are
 				 * any errors when building or committing the
 				 * sandbox to kernel policy at /etc/selinux

@@ -25,24 +25,14 @@ makes use of this heavily; it defines basic compiler-only configurations, uses
 these as a base for board-specific toolchains, then creates its final targets on
 top of those.
 
-.. blockdiag::
+.. mermaid::
 
-  blockdiag {
-    default_fontsize = 14;
-    orientation = portrait;
-
-    arm_gcc  [label = "arm_gcc"];
-    arm_gcc_cortex_m4  [label = "cortex_m4"];
-    arm_gcc_cortex_m4f  [label = "cortex_m4f"];
-    arm_gcc_cortex_m4f_debug  [label = "cortex_m4f_debug"];
-    arm_gcc_cortex_m4f_size_optimized  [label = "cortex_m4f_size_optimized"];
-    stm32f429i_disc1_debug  [label = "stm32f429i_disc1_debug"];
-    arm_gcc -> arm_gcc_cortex_m4
-    arm_gcc -> arm_gcc_cortex_m4f
-    arm_gcc_cortex_m4f -> arm_gcc_cortex_m4f_debug
-    arm_gcc_cortex_m4f -> arm_gcc_cortex_m4f_size_optimized
-    arm_gcc_cortex_m4f_debug -> stm32f429i_disc1_debug
-  }
+  graph TD
+    arm_gcc --> arm_gcc_cortex_m4
+    arm_gcc --> arm_gcc_cortex_m4f
+    arm_gcc_cortex_m4f --> arm_gcc_cortex_m4f_debug
+    arm_gcc_cortex_m4f --> arm_gcc_cortex_m4f_size_optimized
+    arm_gcc_cortex_m4f_debug --> stm32f429i_disc1_debug
 
 Toolchain target variables
 --------------------------
@@ -61,7 +51,7 @@ build argument defined in Pigweed. Some notable arguments include:
 * ``default_public_deps``: List of GN targets which are added as a dependency
   to all ``pw_*`` GN targets. This is used to add global module dependencies;
   for example, in upstream, ``pw_polyfill`` is added here to provide C++17
-  features in C++11/C++14 code.
+  features in C++14 code.
 * Facade backends: Pigweed defines facades to provide a common interface for
   core system features such as logging without assuming an implementation.
   When building a Pigweed target, the implementations for each of these must be
@@ -77,9 +67,8 @@ Example Pigweed target
 The code below demonstrates how a project might configure one of its Pigweed
 targets.
 
-.. code::
+.. code-block::
 
-  # Prevent gn format from reordering this import.
   import("//build_overrides/pigweed.gni")
 
   import("$dir_pw_toolchain/arm_gcc/toolchains.gni")

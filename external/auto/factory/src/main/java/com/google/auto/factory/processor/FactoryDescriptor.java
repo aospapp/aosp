@@ -17,16 +17,15 @@ package com.google.auto.factory.processor;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import java.util.Collection;
+import com.google.common.collect.Streams;
 import java.util.HashSet;
-import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
@@ -47,20 +46,28 @@ abstract class FactoryDescriptor {
       };
 
   abstract PackageAndClass name();
+
   abstract TypeMirror extendingType();
+
   abstract ImmutableSet<TypeMirror> implementingTypes();
+
   abstract boolean publicType();
+
   abstract ImmutableSet<FactoryMethodDescriptor> methodDescriptors();
+
   abstract ImmutableSet<ImplementationMethodDescriptor> implementationMethodDescriptors();
+
   abstract boolean allowSubclasses();
+
   abstract ImmutableMap<Key, ProviderField> providers();
 
   final AutoFactoryDeclaration declaration() {
-    return Iterables.getFirst(methodDescriptors(), null).declaration();
+    // There is always at least one method descriptor.
+    return methodDescriptors().iterator().next().declaration();
   }
 
   private static class UniqueNameSet {
-    private final Set<String> uniqueNames = new HashSet<String>();
+    private final Set<String> uniqueNames = new HashSet<>();
 
     /**
      * Generates a unique name using {@code base}. If {@code base} has not yet been added, it will
@@ -92,33 +99,37 @@ abstract class FactoryDescriptor {
     }
     ImmutableMap.Builder<Key, ProviderField> providersBuilder = ImmutableMap.builder();
     UniqueNameSet uniqueNames = new UniqueNameSet();
-    for (Entry<Key, Collection<Parameter>> entry :
-        parametersForProviders.build().asMap().entrySet()) {
-      Key key = entry.getKey();
-      switch (entry.getValue().size()) {
-        case 0:
-          throw new AssertionError();
-        case 1:
-          Parameter parameter = Iterables.getOnlyElement(entry.getValue());
-          providersBuilder.put(
-              key,
-              ProviderField.create(
-                  uniqueNames.getUniqueName(parameter.name() + "Provider"),
-                  key,
-                  parameter.nullable()));
-          break;
-        default:
-          String providerName =
-              uniqueNames.getUniqueName(
-                  invalidIdentifierCharacters.replaceFrom(key.toString(), '_') + "Provider");
-          Optional<AnnotationMirror> nullable = Optional.absent();
-          for (Parameter param : entry.getValue()) {
-            nullable = nullable.or(param.nullable());
-          }
-          providersBuilder.put(key, ProviderField.create(providerName, key, nullable));
-          break;
-      }
-    }
+    parametersForProviders
+        .build()
+        .asMap()
+        .forEach(
+            (key, parameters) -> {
+              switch (parameters.size()) {
+                case 0:
+                  throw new AssertionError();
+                case 1:
+                  Parameter parameter = Iterables.getOnlyElement(parameters);
+                  providersBuilder.put(
+                      key,
+                      ProviderField.create(
+                          uniqueNames.getUniqueName(parameter.name() + "Provider"),
+                          key,
+                          parameter.nullable()));
+                  break;
+                default:
+                  String providerName =
+                      uniqueNames.getUniqueName(
+                          invalidIdentifierCharacters.replaceFrom(key.toString(), '_')
+                              + "Provider");
+                  Optional<AnnotationMirror> nullable =
+                      parameters.stream()
+                          .map(Parameter::nullable)
+                          .flatMap(Streams::stream)
+                          .findFirst();
+                  providersBuilder.put(key, ProviderField.create(providerName, key, nullable));
+                  break;
+              }
+            });
 
     ImmutableBiMap<FactoryMethodDescriptor, ImplementationMethodDescriptor>
         duplicateMethodDescriptors =
@@ -129,8 +140,8 @@ abstract class FactoryDescriptor {
         getDeduplicatedMethodDescriptors(methodDescriptors, duplicateMethodDescriptors);
 
     ImmutableSet<ImplementationMethodDescriptor> deduplicatedImplementationMethodDescriptors =
-        ImmutableSet.copyOf(
-            Sets.difference(implementationMethodDescriptors, duplicateMethodDescriptors.values()));
+        Sets.difference(implementationMethodDescriptors, duplicateMethodDescriptors.values())
+            .immutableCopy();
 
     return new AutoValue_FactoryDescriptor(
         name,
@@ -191,12 +202,12 @@ abstract class FactoryDescriptor {
           duplicateMethodDescriptors.get(methodDescriptor);
 
       FactoryMethodDescriptor newMethodDescriptor =
-         (duplicateMethodDescriptor != null)
-              ? methodDescriptor
-                  .toBuilder()
+          (duplicateMethodDescriptor != null)
+              ? methodDescriptor.toBuilder()
                   .overridingMethod(true)
                   .publicMethod(duplicateMethodDescriptor.publicMethod())
                   .returnType(duplicateMethodDescriptor.returnType())
+                  .exceptions(duplicateMethodDescriptor.exceptions())
                   .build()
               : methodDescriptor;
       deduplicatedMethodDescriptors.add(newMethodDescriptor);
@@ -213,8 +224,7 @@ abstract class FactoryDescriptor {
    * in the same order.
    */
   private static boolean areDuplicateMethodDescriptors(
-      FactoryMethodDescriptor factory,
-      ImplementationMethodDescriptor implementation) {
+      FactoryMethodDescriptor factory, ImplementationMethodDescriptor implementation) {
 
     if (!factory.name().equals(implementation.name())) {
       return false;

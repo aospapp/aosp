@@ -22,7 +22,6 @@ import java.util.Date;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.CorePlatformApi
 public abstract class TimeZoneRule implements Serializable {
 
     private static final long serialVersionUID = 6374143828553768100L;
@@ -70,7 +69,6 @@ public abstract class TimeZoneRule implements Serializable {
      * @return  The amount of daylight saving offset used by this rule
      *          in milliseconds.
      */
-    @libcore.api.CorePlatformApi
     public int getDSTSavings() {
         return dstSavings;
     }

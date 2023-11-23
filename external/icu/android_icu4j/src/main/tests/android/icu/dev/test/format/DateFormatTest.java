@@ -489,7 +489,7 @@ public class DateFormatTest extends TestFmwk {
                              EXPECTED[exp], field);
             }
 
-            // FieldPostion initialized by DateFormat.Field trac#6089
+            // FieldPosition initialized by DateFormat.Field trac#6089
             for(i = 0; i < DTFMT_FIELDS.length; i++) {
                 // The format method only set position for the first occurrence of
                 // the specified field.
@@ -1537,30 +1537,30 @@ public class DateFormatTest extends TestFmwk {
         { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "ZZZZ", "GMT-07:00", "-7:00" },
         { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "z", "GMT-7", "-7:00" },
         { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "zzzz", "GMT-07:00", "-7:00" },
-        { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "v", "Los Angeles", "America/Los_Angeles" },
-        { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "vvvv", "Los Angeles", "America/Los_Angeles" },
+        { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u120E\u1235 \u12A3\u1295\u1300\u1208\u1235", "America/Los_Angeles" },
+        { "ti", "America/Los_Angeles", "2004-07-15T00:00:00Z", "vvvv", "\u130D\u12DC \u120E\u1235 \u12A3\u1295\u1300\u1208\u1235", "America/Los_Angeles" },
 
         { "ti", "America/Argentina/Buenos_Aires", "2004-01-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "ti", "America/Argentina/Buenos_Aires", "2004-01-15T00:00:00Z", "ZZZZ", "GMT-03:00", "-3:00" },
         { "ti", "America/Argentina/Buenos_Aires", "2004-01-15T00:00:00Z", "z", "GMT-3", "-3:00" },
-        { "ti", "America/Argentina/Buenos_Aires", "2004-01-15T00:00:00Z", "zzzz", "GMT-03:00", "-3:00" },
+        { "ti", "America/Argentina/Buenos_Aires", "2004-01-15T00:00:00Z", "zzzz", "\u121D\u12F1\u1265 \u130D\u12DC \u12A3\u122D\u1300\u1295\u1272\u1293", "-3:00" },
         { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "ZZZZ", "GMT-03:00", "-3:00" },
         { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "z", "GMT-3", "-3:00" },
-        { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "zzzz", "GMT-03:00", "-3:00" },
-        { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "v", "Buenos Aires", "America/Buenos_Aires" },
-        { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "vvvv", "Buenos Aires", "America/Buenos_Aires" },
+        { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "zzzz", "\u121D\u12F1\u1265 \u130D\u12DC \u12A3\u122D\u1300\u1295\u1272\u1293", "-3:00" },
+        { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u1265\u12C8\u1296\u1235 \u12A3\u12ED\u1228\u1235", "America/Buenos_Aires" },
+        { "ti", "America/Argentina/Buenos_Aires", "2004-07-15T00:00:00Z", "vvvv", "\u121D\u12F1\u1265 \u130D\u12DC \u12A3\u122D\u1300\u1295\u1272\u1293", "America/Buenos_Aires" },
 
         { "ti", "America/Buenos_Aires", "2004-01-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "ti", "America/Buenos_Aires", "2004-01-15T00:00:00Z", "ZZZZ", "GMT-03:00", "-3:00" },
         { "ti", "America/Buenos_Aires", "2004-01-15T00:00:00Z", "z", "GMT-3", "-3:00" },
-        { "ti", "America/Buenos_Aires", "2004-01-15T00:00:00Z", "zzzz", "GMT-03:00", "-3:00" },
+        { "ti", "America/Buenos_Aires", "2004-01-15T00:00:00Z", "zzzz", "\u121D\u12F1\u1265 \u130D\u12DC \u12A3\u122D\u1300\u1295\u1272\u1293", "-3:00" },
         { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "ZZZZ", "GMT-03:00", "-3:00" },
         { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "z", "GMT-3", "-3:00" },
-        { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "zzzz", "GMT-03:00", "-3:00" },
-        { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "v", "Buenos Aires", "America/Buenos_Aires" },
-        { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "vvvv", "Buenos Aires", "America/Buenos_Aires" },
+        { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "zzzz", "\u121D\u12F1\u1265 \u130D\u12DC \u12A3\u122D\u1300\u1295\u1272\u1293", "-3:00" },
+        { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u1265\u12C8\u1296\u1235 \u12A3\u12ED\u1228\u1235", "America/Buenos_Aires" },
+        { "ti", "America/Buenos_Aires", "2004-07-15T00:00:00Z", "vvvv", "\u121D\u12F1\u1265 \u130D\u12DC \u12A3\u122D\u1300\u1295\u1272\u1293", "America/Buenos_Aires" },
 
         { "ti", "America/Havana", "2004-01-15T00:00:00Z", "Z", "-0500", "-5:00" },
         { "ti", "America/Havana", "2004-01-15T00:00:00Z", "ZZZZ", "GMT-05:00", "-5:00" },
@@ -1570,8 +1570,8 @@ public class DateFormatTest extends TestFmwk {
         { "ti", "America/Havana", "2004-07-15T00:00:00Z", "ZZZZ", "GMT-04:00", "-4:00" },
         { "ti", "America/Havana", "2004-07-15T00:00:00Z", "z", "GMT-4", "-4:00" },
         { "ti", "America/Havana", "2004-07-15T00:00:00Z", "zzzz", "GMT-04:00", "-4:00" },
-        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "v", "\u12A9\u1263", "America/Havana" },
-        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "vvvv", "\u12A9\u1263", "America/Havana" },
+        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u12A9\u1263", "America/Havana" },
+        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "vvvv", "\u130D\u12DC \u12A9\u1263", "America/Havana" },
 
         { "ti", "Australia/ACT", "2004-01-15T00:00:00Z", "Z", "+1100", "+11:00" },
         { "ti", "Australia/ACT", "2004-01-15T00:00:00Z", "ZZZZ", "GMT+11:00", "+11:00" },
@@ -1581,8 +1581,8 @@ public class DateFormatTest extends TestFmwk {
         { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "ZZZZ", "GMT+10:00", "+10:00" },
         { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "z", "GMT+10", "+10:00" },
         { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "zzzz", "GMT+10:00", "+10:00" },
-        { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "v", "Sydney", "Australia/Sydney" },
-        { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "vvvv", "Sydney", "Australia/Sydney" },
+        { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u1232\u12F5\u1292", "Australia/Sydney" },
+        { "ti", "Australia/ACT", "2004-07-15T00:00:00Z", "vvvv", "\u130D\u12DC \u1232\u12F5\u1292", "Australia/Sydney" },
 
         { "ti", "Australia/Sydney", "2004-01-15T00:00:00Z", "Z", "+1100", "+11:00" },
         { "ti", "Australia/Sydney", "2004-01-15T00:00:00Z", "ZZZZ", "GMT+11:00", "+11:00" },
@@ -1592,8 +1592,8 @@ public class DateFormatTest extends TestFmwk {
         { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "ZZZZ", "GMT+10:00", "+10:00" },
         { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "z", "GMT+10", "+10:00" },
         { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "zzzz", "GMT+10:00", "+10:00" },
-        { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "v", "Sydney", "Australia/Sydney" },
-        { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "vvvv", "Sydney", "Australia/Sydney" },
+        { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u1232\u12F5\u1292", "Australia/Sydney" },
+        { "ti", "Australia/Sydney", "2004-07-15T00:00:00Z", "vvvv", "\u130D\u12DC \u1232\u12F5\u1292", "Australia/Sydney" },
 
         { "ti", "Europe/London", "2004-01-15T00:00:00Z", "Z", "+0000", "+0:00" },
         { "ti", "Europe/London", "2004-01-15T00:00:00Z", "ZZZZ", "GMT", "+0:00" },
@@ -1602,9 +1602,9 @@ public class DateFormatTest extends TestFmwk {
         { "ti", "Europe/London", "2004-07-15T00:00:00Z", "Z", "+0100", "+1:00" },
         { "ti", "Europe/London", "2004-07-15T00:00:00Z", "ZZZZ", "GMT+01:00", "+1:00" },
         { "ti", "Europe/London", "2004-07-15T00:00:00Z", "z", "GMT+1", "+1:00" },
-        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "zzzz", "British Summer Time", "+1:00" },
-        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "v", "\u12A5\u1295\u130D\u120A\u12DD", "Europe/London" },
-        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\u12A5\u1295\u130D\u120A\u12DD", "Europe/London" },
+        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "zzzz", "\u130D\u12DC \u12AD\u1228\u121D\u1272 \u1265\u122A\u1323\u1295\u12EB", "+1:00" },
+        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u1265\u122A\u1323\u1295\u12EB", "Europe/London" },
+        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\u130D\u12DC \u1265\u122A\u1323\u1295\u12EB", "Europe/London" },
 
         { "ti", "Etc/GMT+3", "2004-01-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "ti", "Etc/GMT+3", "2004-01-15T00:00:00Z", "ZZZZ", "GMT-03:00", "-3:00" },
@@ -1626,8 +1626,8 @@ public class DateFormatTest extends TestFmwk {
         { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "ZZZZ", "GMT+05:30", "+5:30" },
         { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "z", "GMT+5:30", "+05:30" },
         { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "zzzz", "GMT+05:30", "+5:30" },
-        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "v", "\u1205\u1295\u12F2", "Asia/Calcutta" },
-        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "vvvv", "\u1205\u1295\u12F2", "Asia/Calcutta" },
+        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "v", "\u130D\u12DC \u1205\u1295\u12F2", "Asia/Calcutta" },
+        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "vvvv", "\u130D\u12DC \u1205\u1295\u12F2", "Asia/Calcutta" },
 
         // Ticket#8589 Partial location name to use country name if the zone is the golden
         // zone for the time zone's country.
@@ -2133,7 +2133,7 @@ public class DateFormatTest extends TestFmwk {
         String expectedUS = "Monday, September 15, 1997 at 12:00:00 AM Pacific Daylight Time";
         logln("Date set to : " + testDate);
         String out = dfFrench.format(testDate);
-        logln("Date Formated with French Locale " + out);
+        logln("Date Formatted with French Locale " + out);
         //fix the jdk resources differences between jdk 1.2 and jdk 1.3
         /* our own data only has GMT-xxxx information here
         String javaVersion = System.getProperty("java.version");
@@ -2148,7 +2148,7 @@ public class DateFormatTest extends TestFmwk {
         if (!out.equals(expectedFRENCH_JDK12))
             errln("FAIL: Expected " + expectedFRENCH_JDK12+" Got "+out);
         out = dfUS.format(testDate);
-        logln("Date Formated with US Locale " + out);
+        logln("Date Formatted with US Locale " + out);
         if (!out.equals(expectedUS))
             errln("FAIL: Expected " + expectedUS+" Got "+out);
     }
@@ -2192,7 +2192,7 @@ public class DateFormatTest extends TestFmwk {
         //String expectedFRENCH = "lundi 15 septembre 1997 00 h 00 PDT";
         logln("Date set to : " + testDate);
         String out = dfFrench.format(testDate);
-        logln("Date Formated with French Locale " + out);
+        logln("Date Formatted with French Locale " + out);
         if (!out.equals(expectedFRENCH_JDK12))
             errln("FAIL: Expected " + expectedFRENCH_JDK12+" Got "+out);
     }
@@ -3157,21 +3157,34 @@ public class DateFormatTest extends TestFmwk {
         String EN_DATA[] = {
             "yyyy MM dd",
 
-            "Q",    "fp", "1970 01 01", "1",           "1970 01 01",
-            "QQ",   "fp", "1970 04 01", "02",          "1970 04 01",
-            "QQQ",  "fp", "1970 07 01", "Q3",          "1970 07 01",
-            "QQQQ", "fp", "1970 10 01", "4th quarter", "1970 10 01",
+            "Q",     "fp", "1970 01 01", "1",           "1970 01 01",
+            "QQ",    "fp", "1970 04 01", "02",          "1970 04 01",
+            "QQQ",   "fp", "1970 07 01", "Q3",          "1970 07 01",
+            "QQQQ",  "fp", "1970 10 01", "4th quarter", "1970 10 01",
+            "QQQQQ", "fp", "1970 10 01", "4",           "1970 10 01",
 
-            "q",    "fp", "1970 01 01", "1",           "1970 01 01",
-            "qq",   "fp", "1970 04 01", "02",          "1970 04 01",
-            "qqq",  "fp", "1970 07 01", "Q3",          "1970 07 01",
-            "qqqq", "fp", "1970 10 01", "4th quarter", "1970 10 01",
+            "q",     "fp", "1970 01 01", "1",           "1970 01 01",
+            "qq",    "fp", "1970 04 01", "02",          "1970 04 01",
+            "qqq",   "fp", "1970 07 01", "Q3",          "1970 07 01",
+            "qqqq",  "fp", "1970 10 01", "4th quarter", "1970 10 01",
+            "qqqqq", "fp", "1970 10 01", "4",           "1970 10 01",
 
             "Qyy",  "fp", "2015 04 01", "215",         "2015 04 01",
             "QQyy", "fp", "2015 07 01", "0315",        "2015 07 01",
         };
+        String ES_MX_DATA[] = {
+            "yyyy MM dd",
+
+            "QQQQ y",  "fp", "1970 01 01", "1.er trimestre 1970", "1970 01 01",
+            "QQQ y",   "fp", "1970 01 01", "T1 1970",             "1970 01 01",
+            "QQQQQ y", "fp", "1970 01 01", "1 1970",              "1970 01 01",
+            "qqqq",    "fp", "1970 01 01", "1.er trimestre",      "1970 01 01",
+            "qqq",     "fp", "1970 01 01", "T1",                  "1970 01 01",
+            "qqqqq",   "fp", "1970 01 01", "1T",                  "1970 01 01",
+        };
 
         expect(EN_DATA, new Locale("en", "", ""));
+        expect(ES_MX_DATA, new Locale("es", "MX", ""));
     }
 
     /**
@@ -4781,7 +4794,7 @@ public class DateFormatTest extends TestFmwk {
 
     @Test
     public void TestDateFormatLeniency() {
-        // For details see http://bugs.icu-project.org/trac/ticket/10261
+        // For details see https://unicode-org.atlassian.net/browse/ICU-10261
 
         class TestDateFormatLeniencyItem {
             public ULocale locale;
@@ -4888,7 +4901,7 @@ public class DateFormatTest extends TestFmwk {
 
     @Test
     public void TestParseMultiPatternMatch() {
-        // For details see http://bugs.icu-project.org/trac/ticket/10336
+        // For details see https://unicode-org.atlassian.net/browse/ICU-10336
 
         class TestMultiPatternMatchItem {
             public boolean leniency;
@@ -4986,7 +4999,7 @@ public class DateFormatTest extends TestFmwk {
         // Set calendar to strict
         fmt.setCalendarLenient(false);
 
-        assertFalse("isLeninent after setCalendarLenient(FALSE)", fmt.isLenient());
+        assertFalse("isLenient after setCalendarLenient(FALSE)", fmt.isLenient());
         assertFalse("isCalendarLenient after setCalendarLenient(FALSE)", fmt.isCalendarLenient());
         assertTrue("ALLOW_WHITESPACE after setCalendarLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE));
         assertTrue("ALLOW_NUMERIC  after setCalendarLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_NUMERIC));
@@ -4994,7 +5007,7 @@ public class DateFormatTest extends TestFmwk {
         // Set to strict
         fmt.setLenient(false);
 
-        assertFalse("isLeninent after setLenient(FALSE)", fmt.isLenient());
+        assertFalse("isLenient after setLenient(FALSE)", fmt.isLenient());
         assertFalse("isCalendarLenient after setLenient(FALSE)", fmt.isCalendarLenient());
         assertFalse("ALLOW_WHITESPACE after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE));
         assertFalse("ALLOW_NUMERIC  after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_NUMERIC));
@@ -5005,7 +5018,7 @@ public class DateFormatTest extends TestFmwk {
         // Allow white space leniency
         fmt.setBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE, true);
 
-        assertFalse("isLeninent after ALLOW_WHITESPACE/TRUE", fmt.isLenient());
+        assertFalse("isLenient after ALLOW_WHITESPACE/TRUE", fmt.isLenient());
         assertFalse("isCalendarLenient after ALLOW_WHITESPACE/TRUE", fmt.isCalendarLenient());
         assertTrue("ALLOW_WHITESPACE after ALLOW_WHITESPACE/TRUE", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE));
         assertFalse("ALLOW_NUMERIC  after ALLOW_WHITESPACE/TRUE", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_NUMERIC));

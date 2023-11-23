@@ -32,12 +32,28 @@ class MockMlirOptimizationPass : public MlirOptimizationPass {
   // MOCK_METHOD does not work on Windows build, using MOCK_CONST_METHODX
   // instead.
   MOCK_CONST_METHOD0(name, llvm::StringRef());
-  MOCK_CONST_METHOD3(GetPassState,
-                     MlirOptimizationPassState(const DeviceSet* device_set,
-                                               const ConfigProto& config_proto,
-                                               const Graph& graph));
-  MOCK_METHOD3(Run, Status(const ConfigProto& config_proto,
-                           mlir::ModuleOp module, const Graph& graph));
+  MOCK_CONST_METHOD4(GetPassState,
+                     MlirOptimizationPassState(
+                         const DeviceSet* device_set,
+                         const ConfigProto& config_proto, const Graph& graph,
+                         const FunctionLibraryDefinition& function_library));
+  MOCK_METHOD4(Run, Status(const ConfigProto& config_proto,
+                           mlir::ModuleOp module, const Graph& graph,
+                           const FunctionLibraryDefinition& function_library));
+};
+
+class MockMlirV1CompatOptimizationPass : public MlirV1CompatOptimizationPass {
+ public:
+  // MOCK_METHOD does not work on Windows build, using MOCK_CONST_METHODX
+  // instead.
+  MOCK_CONST_METHOD0(name, llvm::StringRef());
+  MOCK_CONST_METHOD4(GetPassState,
+                     MlirOptimizationPassState(
+                         const DeviceSet* device_set,
+                         const ConfigProto& config_proto, const Graph& graph,
+                         const FunctionLibraryDefinition& function_library));
+  MOCK_METHOD2(Run, Status(const GraphOptimizationPassOptions& options,
+                           mlir::ModuleOp module));
 };
 
 class ModifyMlirModulePass : public MlirOptimizationPass {
@@ -46,15 +62,17 @@ class ModifyMlirModulePass : public MlirOptimizationPass {
   // MOCK_METHOD does not work on Windows build, using MOCK_CONST_METHODX
   // instead.
   MOCK_CONST_METHOD0(name, llvm::StringRef());
-  MOCK_CONST_METHOD3(GetPassState,
-                     MlirOptimizationPassState(const DeviceSet* device_set,
-                                               const ConfigProto& config_proto,
-                                               const Graph& graph));
+  MOCK_CONST_METHOD4(GetPassState,
+                     MlirOptimizationPassState(
+                         const DeviceSet* device_set,
+                         const ConfigProto& config_proto, const Graph& graph,
+                         const FunctionLibraryDefinition& function_library));
 
   // Just modify MLIR module so that we can check whether original TF graph
   // has changed or not.
   Status Run(const ConfigProto& config_proto, mlir::ModuleOp module,
-             const Graph& graph) override {
+             const Graph& graph,
+             const FunctionLibraryDefinition& function_library) override {
     mlir::Builder b(module.getContext());
     auto producer = b.getNamedAttr("producer", b.getI32IntegerAttr(0));
     auto min_consumer = b.getNamedAttr("min_consumer", b.getI32IntegerAttr(0));
@@ -82,9 +100,9 @@ class MlirGraphOptimizationPassTest : public Test {
       auto optimization_pass =
           std::make_unique<NiceMock<MockMlirOptimizationPass>>();
 
-      ON_CALL(*optimization_pass, GetPassState(_, _, _))
+      ON_CALL(*optimization_pass, GetPassState(_, _, _, _))
           .WillByDefault(Return(pass_state));
-      ON_CALL(*optimization_pass, Run(_, _, _))
+      ON_CALL(*optimization_pass, Run(_, _, _, _))
           .WillByDefault(Return(pass_run_result));
       MlirOptimizationPassRegistry::Global().Add(pass_priority++,
                                                  std::move(optimization_pass));
@@ -98,7 +116,7 @@ class MlirGraphOptimizationPassTest : public Test {
     // Add FallbackEnabled pass that modifies the graph.
     auto optimization_pass =
         std::make_unique<NiceMock<ModifyMlirModulePass>>(run_status);
-    ON_CALL(*optimization_pass, GetPassState(_, _, _))
+    ON_CALL(*optimization_pass, GetPassState(_, _, _, _))
         .WillByDefault(Return(pass_state));
     MlirOptimizationPassRegistry::Global().Add(10,
                                                std::move(optimization_pass));
@@ -134,7 +152,7 @@ class MlirGraphOptimizationPassTest : public Test {
   bool control_rets_updated_{false};
 };
 
-TEST_F(MlirGraphOptimizationPassTest, OptimizationPassFailsNoShadow) {
+TEST_F(MlirGraphOptimizationPassTest, OptimizationPassFailsNoFallback) {
   Init(Status(error::Code::ABORTED, "aborted"),
        {MlirOptimizationPassState::Enabled});
 
@@ -148,56 +166,9 @@ TEST_F(MlirGraphOptimizationPassTest, OptimizationPassFailsNoShadow) {
   verifyGraph(original_graph_def);
 }
 
-TEST_F(MlirGraphOptimizationPassTest, OptimizationPassFailsShadow) {
-  Init(Status(error::Code::ABORTED, "aborted"),
-       {MlirOptimizationPassState::ShadowEnabled,
-        MlirOptimizationPassState::ShadowEnabled});
-
-  GraphDef original_graph_def;
-  graph_->ToGraphDef(&original_graph_def);
-
-  EXPECT_EQ(function_optimization_pass_.Run(
-                device_set_, config_proto_, &graph_, flib_.get(),
-                &control_ret_node_names_, &control_rets_updated_),
-            Status::OK());
-  verifyGraph(original_graph_def);
-}
-
-TEST_F(MlirGraphOptimizationPassTest, OptimizationPassDoesNotFailShadow) {
-  Init(Status::OK(), {MlirOptimizationPassState::Disabled,
-                      MlirOptimizationPassState::ShadowEnabled});
-
-  GraphDef original_graph_def;
-  graph_->ToGraphDef(&original_graph_def);
-
-  EXPECT_EQ(function_optimization_pass_.Run(
-                device_set_, config_proto_, &graph_, flib_.get(),
-                &control_ret_node_names_, &control_rets_updated_),
-            Status::OK());
-  verifyGraph(original_graph_def);
-}
-
-TEST_F(MlirGraphOptimizationPassTest,
-       OptimizationPassFailsMixShadowAndEnabled) {
-  Init(Status(error::Code::ABORTED, "aborted"),
-       {MlirOptimizationPassState::Disabled, MlirOptimizationPassState::Enabled,
-        MlirOptimizationPassState::ShadowEnabled});
-
-  GraphDef original_graph_def;
-  graph_->ToGraphDef(&original_graph_def);
-
-  EXPECT_EQ(function_optimization_pass_.Run(
-                device_set_, config_proto_, &graph_, flib_.get(),
-                &control_ret_node_names_, &control_rets_updated_),
-            Status(error::Code::ABORTED, "aborted"));
-  verifyGraph(original_graph_def);
-}
-
-TEST_F(MlirGraphOptimizationPassTest,
-       OptimizationPassFailsShadowDisabledFallback) {
+TEST_F(MlirGraphOptimizationPassTest, OptimizationPassFailsDisabledFallback) {
   Init(Status(error::Code::ABORTED, "aborted"),
        {MlirOptimizationPassState::Disabled,
-        MlirOptimizationPassState::ShadowEnabled,
         MlirOptimizationPassState::FallbackEnabled});
 
   GraphDef original_graph_def;
@@ -212,10 +183,8 @@ TEST_F(MlirGraphOptimizationPassTest,
   verifyGraph(original_graph_def);
 }
 
-TEST_F(MlirGraphOptimizationPassTest,
-       OptimizationPassDoesNotFailShadowFallback) {
-  Init(Status::OK(), {MlirOptimizationPassState::ShadowEnabled,
-                      MlirOptimizationPassState::FallbackEnabled});
+TEST_F(MlirGraphOptimizationPassTest, OptimizationPassDoesNotFailFallback) {
+  Init(Status::OK(), {MlirOptimizationPassState::FallbackEnabled});
 
   GraphDef original_graph_def;
   graph_->ToGraphDef(&original_graph_def);
@@ -236,6 +205,15 @@ TEST(MlirOptimizationPassRegistry, RegisterPassesWithTheSamePriorityFails) {
   EXPECT_DEATH(MlirOptimizationPassRegistry::Global().Add(
                    0, std::make_unique<NiceMock<MockMlirOptimizationPass>>()),
                "Pass priority must be unique.");
+}
+
+TEST(MlirV1CompatOptimizationPassRegistry, RegisterMultiplePassesFails) {
+  MlirV1CompatOptimizationPassRegistry::Global().Add(
+      std::make_unique<NiceMock<MockMlirV1CompatOptimizationPass>>());
+  EXPECT_DEATH(
+      MlirV1CompatOptimizationPassRegistry::Global().Add(
+          std::make_unique<NiceMock<MockMlirV1CompatOptimizationPass>>()),
+      "Only a single pass can be registered");
 }
 
 }  // namespace tensorflow

@@ -64,7 +64,6 @@ config NSENTER
 
 #define FOR_nsenter
 #include "toys.h"
-#include <sys/syscall.h>
 #include <linux/sched.h>
 
 #define unshare(flags) syscall(SYS_unshare, flags)
@@ -76,15 +75,14 @@ GLOBALS(
 )
 
 // Code that must run in unshare's flag context
-#define CLEANUP_nsenter
 #define FOR_unshare
 #include <generated/flags.h>
 
 static void write_ugid_map(char *map, unsigned eugid)
 {
-  int bytes = sprintf(toybuf, "0 %u 1", eugid), fd = xopen(map, O_WRONLY);
+  int fd = xopen(map, O_WRONLY);
 
-  xwrite(fd, toybuf, bytes);
+  dprintf(fd, "0 %u 1", eugid);
   xclose(fd);
 }
 
@@ -112,7 +110,6 @@ static int test_f()
 }
 
 // Shift back to the context GLOBALS lives in (I.E. matching the filename).
-#define CLEANUP_unshare
 #define FOR_nsenter
 #include <generated/flags.h>
 

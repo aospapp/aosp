@@ -25,6 +25,7 @@ import android.content.pm.PackageManager;
 import android.net.NetworkSpecifier;
 import android.net.wifi.RttManager;
 import android.net.wifi.RttManager.RttResult;
+import android.net.wifi.WifiScanner;
 import android.net.wifi.aware.AttachCallback;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.DiscoverySession;
@@ -47,6 +48,7 @@ import android.util.Base64;
 import android.util.SparseArray;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.modules.utils.build.SdkLevel;
 
 import libcore.util.HexEncoding;
 
@@ -64,6 +66,7 @@ import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * WifiAwareManager functions.
@@ -280,7 +283,11 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         if (j.has("RangingEnabled")) {
             builder.setRangingEnabled(j.getBoolean("RangingEnabled"));
         }
-
+        if (SdkLevel.isAtLeastT() && j.has("InstantModeEnabled")) {
+            builder.setInstantCommunicationModeEnabled(true,
+                    Objects.equals(j.getString("InstantModeEnabled"), "5G")
+                            ? WifiScanner.WIFI_BAND_5_GHZ : WifiScanner.WIFI_BAND_24_GHZ);
+        }
 
         return builder.build();
     }
@@ -328,6 +335,11 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         }
         if (j.has("MaxDistanceMm")) {
             builder.setMaxDistanceMm(j.getInt("MaxDistanceMm"));
+        }
+        if (SdkLevel.isAtLeastT() && j.has("InstantModeEnabled")) {
+            builder.setInstantCommunicationModeEnabled(true,
+                    Objects.equals(j.getString("InstantModeEnabled"), "5G")
+                            ? WifiScanner.WIFI_BAND_5_GHZ : WifiScanner.WIFI_BAND_24_GHZ);
         }
 
         return builder.build();

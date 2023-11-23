@@ -53,6 +53,20 @@ java_library_host {
 }
 
 java_library {
+    name: "grpc-java-lite",
+    static_libs: [
+        "grpc-java-context",
+        "grpc-java-core",
+        "grpc-java-core-inprocess",
+        "grpc-java-core-internal",
+        "grpc-java-core-util",
+        "grpc-java-protobuf-lite",
+        "grpc-java-stub",
+    ],
+    visibility: ["//packages/modules/Bluetooth/android/blueberry/server"],
+}
+
+java_library {
     name: "grpc-java-okhttp-client-lite",
     host_supported: true,
     static_libs: [

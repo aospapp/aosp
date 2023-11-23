@@ -20,7 +20,9 @@
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -55,7 +57,9 @@
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -90,7 +94,9 @@
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -122,7 +128,9 @@
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
+            "-static-libgcc",
             "main.cc",
+            "-L/tmp/stable/a/b/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -154,7 +162,9 @@
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
+            "-static-libgcc",
             "main.cc",
+            "-L/tmp/stable/a/b/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -189,7 +199,9 @@
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [

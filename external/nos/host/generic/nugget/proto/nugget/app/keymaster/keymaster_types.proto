@@ -126,3 +126,11 @@ message VigoSecret {
   bytes iv = 2;
   bytes tag = 3;
 }
+
+message MacedKey{
+  bytes blob = 1;
+}
+
+message KeysToSign {
+  repeated MacedKey keys = 1;
+}

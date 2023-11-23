@@ -54,8 +54,8 @@ import android.icu.util.ULocale;
  * </p>
  * <p>
  * For more information, details, and tips for writing rules, see the <a
- * href="http://www.unicode.org/draft/reports/tr35/tr35.html#Language_Plural_Rules">LDML spec, C.11 Language Plural
- * Rules</a>
+ * href="https://www.unicode.org/reports/tr35/tr35-numbers.html#Language_Plural_Rules">LDML spec,
+ * Part 3.5 Language Plural Rules</a>
  * </p>
  * <p>
  * Examples:
@@ -213,7 +213,8 @@ public class PluralRules implements Serializable {
          *
          * <p>
          * ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>. For these predefined
-         * rules, see CLDR page at http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+         * rules, see CLDR page at
+         * https://unicode-org.github.io/cldr-staging/charts/latest/supplemental/language_plural_rules.html
          *
          * @param locale
          *            The locale for which a <code>PluralRules</code> object is returned.
@@ -256,7 +257,7 @@ public class PluralRules implements Serializable {
          * Returns the 'functionally equivalent' locale with respect to plural rules. Calling PluralRules.forLocale with
          * the functionally equivalent locale, and with the provided locale, returns rules that behave the same. <br>
          * All locales with the same functionally equivalent locale have plural rules that behave the same. This is not
-         * exaustive; there may be other locales whose plural rules behave the same that do not have the same equivalent
+         * exhaustive; there may be other locales whose plural rules behave the same that do not have the same equivalent
          * locale.
          *
          * @param locale
@@ -480,14 +481,27 @@ public class PluralRules implements Serializable {
         w,
 
         /**
-         * Suppressed exponent for compact notation (exponent needed in
-         * scientific notation with compact notation to approximate i).
+         * Suppressed exponent for scientific notation (exponent needed in
+         * scientific notation to approximate i).
          *
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
         e,
+
+        /**
+         * This operand is currently treated as an alias for `PLURAL_OPERAND_E`.
+         * In the future, it will represent:
+         *
+         * Suppressed exponent for compact notation (exponent needed in
+         * compact notation to approximate i).
+         *
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Deprecated
+        c,
 
         /**
          * THIS OPERAND IS DEPRECATED AND HAS BEEN REMOVED FROM THE SPEC.
@@ -537,6 +551,14 @@ public class PluralRules implements Serializable {
          */
         @Deprecated
         public boolean isInfinite();
+
+        /**
+         * Whether the number has no nonzero fraction digits.
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Deprecated
+        public boolean isHasIntegerValue();
     }
 
     /**
@@ -659,6 +681,7 @@ public class PluralRules implements Serializable {
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
+        @Override
         public boolean isHasIntegerValue() {
             return hasIntegerValue;
         }
@@ -691,19 +714,22 @@ public class PluralRules implements Serializable {
          * @param v number of digits to the right of the decimal place. e.g 1.00 = 2 25. = 0
          * @param f Corresponds to f in the plural rules grammar.
          *   The digits to the right of the decimal place as an integer. e.g 1.10 = 10
-         * @param e Suppressed exponent for scientific and compact notation
+         * @param e Suppressed exponent for scientific notation
+         * @param c Currently: an alias for param `e`
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
-        public FixedDecimal(double n, int v, long f, int e) {
+        public FixedDecimal(double n, int v, long f, int e, int c) {
             isNegative = n < 0;
             source = isNegative ? -n : n;
             visibleDecimalDigitCount = v;
             decimalDigits = f;
-            integerValue = n > MAX
-                    ? MAX
-                            : (long)n;
-            exponent = e;
+            integerValue = n > MAX ? MAX : (long) source;
+            int initExpVal = e;
+            if (initExpVal == 0) {
+                initExpVal = c;
+            }
+            exponent = initExpVal;
             hasIntegerValue = source == integerValue;
             // check values. TODO make into unit test.
             //
@@ -732,6 +758,15 @@ public class PluralRules implements Serializable {
                 visibleDecimalDigitCountWithoutTrailingZeros = trimmedCount;
             }
             baseFactor = (int) Math.pow(10, v);
+        }
+
+        /**
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Deprecated
+        public FixedDecimal(double n, int v, long f, int e) {
+            this(n, v, f, e, e);
         }
 
         /**
@@ -889,8 +924,11 @@ public class PluralRules implements Serializable {
          */
         @Deprecated
         private static FixedDecimal parseDecimalSampleRangeNumString(String num) {
-            if (num.contains("e")) {
+            if (num.contains("e") || num.contains("c")) {
                 int ePos = num.lastIndexOf('e');
+                if (ePos < 0) {
+                    ePos = num.lastIndexOf('c');
+                }
                 int expNumPos = ePos + 1;
                 String exponentStr = num.substring(expNumPos);
                 int exponent = Integer.parseInt(exponentStr);
@@ -924,14 +962,15 @@ public class PluralRules implements Serializable {
         @Deprecated
         public double getPluralOperand(Operand operand) {
             switch(operand) {
-            case n: return source;
-            case i: return integerValue;
+            case n: return (exponent == 0 ? source : source * Math.pow(10, exponent));
+            case i: return intValue();
             case f: return decimalDigits;
             case t: return decimalDigitsWithoutTrailingZeros;
             case v: return visibleDecimalDigitCount;
             case w: return visibleDecimalDigitCountWithoutTrailingZeros;
             case e: return exponent;
-            default: return source;
+            case c: return exponent;
+            default: return doubleValue();
             }
         }
 
@@ -1016,10 +1055,10 @@ public class PluralRules implements Serializable {
         @Override
         public String toString() {
             String baseString = String.format(Locale.ROOT, "%." + visibleDecimalDigitCount + "f", source);
-            if (exponent == 0) {
-                return baseString;
-            } else {
+            if (exponent != 0) {
                 return baseString + "e" + exponent;
+            } else {
+                return baseString;
             }
         }
 
@@ -1089,6 +1128,10 @@ public class PluralRules implements Serializable {
          */
         @Deprecated
         public long getShiftedValue() {
+            if (exponent != 0 && visibleDecimalDigitCount == 0 && decimalDigits == 0) {
+                // Need to take exponent into account if we have it
+                return (long)(source * Math.pow(10, exponent));
+            }
             return integerValue * baseFactor + decimalDigits;
         }
 
@@ -2085,7 +2128,7 @@ public class PluralRules implements Serializable {
      *
      * <p>ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>.
      * For these predefined rules, see CLDR page at
-     * http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+     * https://unicode-org.github.io/cldr-staging/charts/latest/supplemental/language_plural_rules.html
      *
      * @param locale The locale for which a <code>PluralRules</code> object is
      *   returned.
@@ -2106,7 +2149,7 @@ public class PluralRules implements Serializable {
      *
      * <p>ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>.
      * For these predefined rules, see CLDR page at
-     * http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+     * https://unicode-org.github.io/cldr-staging/charts/latest/supplemental/language_plural_rules.html
      *
      * @param locale The locale for which a <code>PluralRules</code> object is
      *   returned.
@@ -2126,7 +2169,7 @@ public class PluralRules implements Serializable {
      *
      * <p>ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>.
      * For these predefined rules, see CLDR page at
-     * http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+     * https://unicode-org.github.io/cldr-staging/charts/latest/supplemental/language_plural_rules.html
      *
      * @param locale The locale for which a <code>PluralRules</code> object is
      *   returned.
@@ -2147,7 +2190,7 @@ public class PluralRules implements Serializable {
      *
      * <p>ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>.
      * For these predefined rules, see CLDR page at
-     * http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+     * https://unicode-org.github.io/cldr-staging/charts/latest/supplemental/language_plural_rules.html
      *
      * @param locale The locale for which a <code>PluralRules</code> object is
      *   returned.
@@ -2229,7 +2272,6 @@ public class PluralRules implements Serializable {
      * @param range  The number range onto which the rules will be applied.
      * @return       The keyword of the selected rule.
      * @throws UnsupportedOperationException If called on an instance without plural ranges data.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public String select(FormattedNumberRange range) {
         if (standardPluralRanges == null) {
@@ -2458,7 +2500,7 @@ public class PluralRules implements Serializable {
      * locale, and with the provided locale, returns rules that behave the same.
      * <br>
      * All locales with the same functionally equivalent locale have
-     * plural rules that behave the same.  This is not exaustive;
+     * plural rules that behave the same.  This is not exhaustive;
      * there may be other locales whose plural rules behave the same
      * that do not have the same equivalent locale.
      *

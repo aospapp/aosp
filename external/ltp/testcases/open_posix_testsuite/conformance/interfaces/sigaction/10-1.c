@@ -23,8 +23,8 @@ static volatile int child_stopped;
 static volatile int child_continued;
 static volatile int notification;
 
-void handler(int signo LTP_ATTRIBUTE_UNUSED, siginfo_t *info,
-	void *context LTP_ATTRIBUTE_UNUSED)
+static void handler(int signo PTS_ATTRIBUTE_UNUSED, siginfo_t *info,
+	void *context PTS_ATTRIBUTE_UNUSED)
 {
 	if (!info)
 		return;
@@ -43,7 +43,7 @@ void handler(int signo LTP_ATTRIBUTE_UNUSED, siginfo_t *info,
 	}
 }
 
-void wait_for_notification(int val)
+static void wait_for_notification(int val)
 {
 	struct timeval tv;
 

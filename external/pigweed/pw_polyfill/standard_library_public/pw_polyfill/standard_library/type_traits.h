@@ -19,62 +19,16 @@
 
 _PW_POLYFILL_BEGIN_NAMESPACE_STD
 
-// Defines std:foo_t aliases for typename foo::type. This is a small subset of
-// <type_traits> which may be expanded as needed.
-#ifndef __cpp_lib_transformation_trait_aliases
-#define __cpp_lib_transformation_trait_aliases 201304L
-
-template <decltype(sizeof(int)) Len, decltype(sizeof(int)) Align>
-using aligned_storage_t = typename aligned_storage<Len, Align>::type;
-
-template <typename... T>
-using common_type_t = typename common_type<T...>::type;
-
-template <bool B, typename T, typename F>
-using conditional_t = typename conditional<B, T, F>::type;
-
-template <typename T>
-using decay_t = typename decay<T>::type;
-
-template <bool B, typename T = void>
-using enable_if_t = typename enable_if<B, T>::type;
-
-template <typename T>
-using make_signed_t = typename make_signed<T>::type;
-
-template <typename T>
-using make_unsigned_t = typename make_unsigned<T>::type;
-
-template <typename T>
-using remove_cv_t = typename remove_cv<T>::type;
-
-template <typename T>
-using remove_pointer_t = typename remove_pointer<T>::type;
-
-template <typename T>
-using remove_reference_t = typename remove_reference<T>::type;
-
-#endif  // __cpp_lib_transformation_trait_aliases
-
-#ifndef __cpp_lib_is_null_pointer
-#define __cpp_lib_is_null_pointer 201309L
-
-template <typename T>
-struct is_null_pointer : std::is_same<decltype(nullptr), std::remove_cv_t<T>> {
-};
-
-#endif  // __cpp_lib_is_null_pointer
-
 #ifndef __cpp_lib_bool_constant
 #define __cpp_lib_bool_constant 201505L
-template <bool value>
-using bool_constant = integral_constant<bool, value>;
+template <bool kValue>
+using bool_constant = integral_constant<bool, kValue>;
 #endif  // __cpp_lib_bool_constant
 
 #ifndef __cpp_lib_logical_traits
 #define __cpp_lib_logical_traits 201510L
-template <typename value>
-struct negation : bool_constant<!bool(value::value)> {};
+template <typename Value>
+struct negation : bool_constant<!bool(Value::value)> {};
 
 template <typename...>
 struct conjunction : std::true_type {};

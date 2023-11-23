@@ -81,7 +81,6 @@ java_library {
         "jsr330",
     ],
 
-    java_version: "1.8",
     sdk_version: "core_current",
 }
 
@@ -105,7 +104,6 @@ java_library {
         "jsr330",
     ],
 
-    java_version: "1.8",
     sdk_version: "core_current",
 }
 
@@ -178,7 +176,17 @@ java_library_host {
         include_dirs: ["external/protobuf/src/"],
     },
 
-    java_version: "1.8",
+    // From Java 9 onward com.sun.tools.javac is not visible by default
+    javacflags: [
+        "--add-modules=jdk.compiler",
+        "--add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    ],
 }
 
 // Compile  dummy implementations of annotations used by dagger2 but not
@@ -236,11 +244,17 @@ android_library {
         "java/dagger/hilt/android/internal/migration/*.java",
         "java/dagger/hilt/android/internal/modules/*.java",
         "java/dagger/hilt/android/lifecycle/*.java",
+        "java/dagger/hilt/internal/aggregatedroot/*.java",
+        "java/dagger/hilt/internal/processedrootsentinel/*.java",
     ],
     manifest: "java/dagger/hilt/android/AndroidManifest.xml",
     static_libs: [
+        "androidx.activity_activity",
         "androidx.annotation_annotation",
         "androidx.fragment_fragment",
+        "androidx.lifecycle_lifecycle-common",
+        "androidx.lifecycle_lifecycle-viewmodel",
+        "androidx.lifecycle_lifecycle-viewmodel-savedstate",
         "jsr305",
         "jsr330",
         "dagger2",
@@ -383,7 +397,7 @@ java_plugin {
 java_plugin {
     name: "hilt_uninstall_modules_processor",
     generates_api: true,
-    processor_class: "dagger.hilt.android.processor.internal.uninstallmodules.UninstallModulesProcessor",
+    processor_class: "dagger.hilt.processor.internal.uninstallmodules.UninstallModulesProcessor",
 }
 
 java_library_host {

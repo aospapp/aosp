@@ -19,23 +19,24 @@
 Unit tests for the JSON model.
 """
 from __future__ import absolute_import
-import six
 
 __author__ = "jcgregorio@google.com (Joe Gregorio)"
 
-import copy
-import json
-import os
-import platform
-import unittest2 as unittest
+import io
 import httplib2
+import json
+import platform
+import unittest
+import urllib
+
 import googleapiclient.model
 
-from googleapiclient import __version__
+from googleapiclient import version as googleapiclient_version
 from googleapiclient.errors import HttpError
 from googleapiclient.model import JsonModel
 
-from six.moves.urllib.parse import parse_qs
+_LIBRARY_VERSION = googleapiclient_version.__version__
+CSV_TEXT_MOCK = 'column1,column2,column3\nstring1,1.2,string2'
 
 
 class Model(unittest.TestCase):
@@ -128,14 +129,9 @@ class Model(unittest.TestCase):
         self.assertEqual(headers["accept"], "application/json")
         self.assertEqual(headers["content-type"], "application/json")
 
-        query_dict = parse_qs(query[1:])
+        query_dict = urllib.parse.parse_qs(query[1:])
         self.assertEqual(query_dict["foo"], ["1"])
-        if six.PY3:
-            # Python 3, no need to encode
-            self.assertEqual(query_dict["bar"], [u"\N{COMET}"])
-        else:
-            # Python 2, encode string
-            self.assertEqual(query_dict["bar"], [u"\N{COMET}".encode("utf-8")])
+        self.assertEqual(query_dict["bar"], [u"\N{COMET}"])
         self.assertEqual(query_dict["baz"], ["fe", "fi", "fo", "fum"])
         self.assertTrue("qux" not in query_dict)
         self.assertEqual(body, "{}")
@@ -171,7 +167,7 @@ class Model(unittest.TestCase):
             headers["x-goog-api-client"],
             "gccl/1.23.4"
             + " gdcl/"
-            + __version__
+            + _LIBRARY_VERSION
             + " gl-python/"
             + platform.python_version(),
         )
@@ -248,7 +244,7 @@ class Model(unittest.TestCase):
             def __init__(self, items):
                 super(MockResponse, self).__init__()
                 self.status = items["status"]
-                for key, value in six.iteritems(items):
+                for key, value in items.items():
                     self[key] = value
 
         old_logging = googleapiclient.model.LOGGER
@@ -294,6 +290,24 @@ class Model(unittest.TestCase):
         content = '{"data": "is good"}'
         content = model.response(resp, content)
         self.assertEqual(content, {"data": "is good"})
+
+    def test_no_data_wrapper_deserialize_text_format(self):
+        model = JsonModel(data_wrapper=False)
+        resp = httplib2.Response({"status": "200"})
+        resp.reason = "OK"
+        content = CSV_TEXT_MOCK
+        content = model.response(resp, content)
+        self.assertEqual(content, CSV_TEXT_MOCK)
+
+    def test_no_data_wrapper_deserialize_raise_type_error(self):
+        buffer = io.StringIO()
+        buffer.write('String buffer')
+        model = JsonModel(data_wrapper=False)
+        resp = httplib2.Response({"status": "500"})
+        resp.reason = "The JSON object must be str, bytes or bytearray, not StringIO"
+        content = buffer
+        with self.assertRaises(TypeError):
+            model.response(resp, content)
 
     def test_data_wrapper_deserialize(self):
         model = JsonModel(data_wrapper=True)

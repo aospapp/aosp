@@ -330,6 +330,13 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                 let flag = *attrs.parser().kind == ParserKind::FromFlag;
                 let occurrences = *attrs.parser().kind == ParserKind::FromOccurrences;
                 let name = attrs.cased_name();
+                let convert_type = match **ty {
+                    Ty::Vec | Ty::Option => sub_type(&field.ty).unwrap_or(&field.ty),
+                    Ty::OptionOption | Ty::OptionVec => {
+                        sub_type(&field.ty).and_then(sub_type).unwrap_or(&field.ty)
+                    }
+                    _ => &field.ty,
+                };
                 let field_value = match **ty {
                     Ty::Bool => quote_spanned!(ty.span()=> #matches.is_present(#name)),
 
@@ -349,7 +356,7 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                     Ty::OptionVec => quote_spanned! { ty.span()=>
                         if #matches.is_present(#name) {
                             Some(#matches.#values_of(#name)
-                                 .map_or_else(Vec::new, |v| v.map(#parse).collect()))
+                                 .map_or_else(Vec::new, |v| v.map::<#convert_type, _>(#parse).collect()))
                         } else {
                             None
                         }
@@ -357,7 +364,7 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
 
                     Ty::Vec => quote_spanned! { ty.span()=>
                         #matches.#values_of(#name)
-                            .map_or_else(Vec::new, |v| v.map(#parse).collect())
+                            .map_or_else(Vec::new, |v| v.map::<#convert_type, _>(#parse).collect())
                     },
 
                     Ty::Other if occurrences => quote_spanned! { ty.span()=>
@@ -409,6 +416,7 @@ fn gen_clap(attrs: &[Attribute]) -> GenOutput {
         None,
         Sp::call_site(DEFAULT_CASING),
         Sp::call_site(DEFAULT_ENV_CASING),
+        false,
     );
     let tokens = {
         let name = attrs.cased_name();
@@ -471,7 +479,7 @@ fn gen_augment_clap_enum(
 ) -> TokenStream {
     use syn::Fields::*;
 
-    let subcommands = variants.iter().map(|variant| {
+    let subcommands = variants.iter().filter_map(|variant| {
         let attrs = Attrs::from_struct(
             variant.span(),
             &variant.attrs,
@@ -479,26 +487,29 @@ fn gen_augment_clap_enum(
             Some(parent_attribute),
             parent_attribute.casing(),
             parent_attribute.env_casing(),
+            true,
         );
 
         let kind = attrs.kind();
         match &*kind {
+            Kind::Skip(_) => None,
+
             Kind::ExternalSubcommand => {
                 let app_var = Ident::new("app", Span::call_site());
-                quote_spanned! { attrs.kind().span()=>
+                Some(quote_spanned! { attrs.kind().span()=>
                     let #app_var = #app_var.setting(
                         ::structopt::clap::AppSettings::AllowExternalSubcommands
                     );
-                }
+                })
             },
 
             Kind::Flatten => {
                 match variant.fields {
                     Unnamed(FieldsUnnamed { ref unnamed, .. }) if unnamed.len() == 1 => {
                         let ty = &unnamed[0];
-                        quote! {
+                        Some(quote! {
                             let app = <#ty as ::structopt::StructOptInternal>::augment_clap(app);
-                        }
+                        })
                     },
                     _ => abort!(
                         variant,
@@ -509,9 +520,14 @@ fn gen_augment_clap_enum(
 
             _ => {
                 let app_var = Ident::new("subcommand", Span::call_site());
+                let from_attrs = attrs.top_level_methods();
+                let version = attrs.version();
+
                 let arg_block = match variant.fields {
+                    // If the variant is named, then gen_augmentation already generates the
+                    // top level methods (#from_attrs) and version.
                     Named(ref fields) => gen_augmentation(&fields.named, &app_var, &attrs),
-                    Unit => quote!( #app_var ),
+                    Unit => quote!( #app_var#from_attrs#version ),
                     Unnamed(FieldsUnnamed { ref unnamed, .. }) if unnamed.len() == 1 => {
                         let ty = &unnamed[0];
                         quote_spanned! { ty.span()=>
@@ -525,7 +541,7 @@ fn gen_augment_clap_enum(
                                     )
                                 } else {
                                     #app_var
-                                }
+                                }#from_attrs#version
                             }
                         }
                     }
@@ -533,15 +549,12 @@ fn gen_augment_clap_enum(
                 };
 
                 let name = attrs.cased_name();
-                let from_attrs = attrs.top_level_methods();
-                let version = attrs.version();
-                quote! {
+                Some(quote! {
                     let app = app.subcommand({
                         let #app_var = ::structopt::clap::SubCommand::with_name(#name);
-                        let #app_var = #arg_block;
-                        #app_var#from_attrs#version
+                        #arg_block
                     });
-                }
+                })
             },
         }
     });
@@ -559,10 +572,10 @@ fn gen_augment_clap_enum(
     }
 }
 
-fn gen_from_clap_enum(name: &Ident) -> TokenStream {
+fn gen_from_clap_enum() -> TokenStream {
     quote! {
         fn from_clap(matches: &::structopt::clap::ArgMatches) -> Self {
-            <#name as ::structopt::StructOptInternal>::from_subcommand(matches.subcommand())
+            <Self as ::structopt::StructOptInternal>::from_subcommand(matches.subcommand())
                 .expect("structopt misuse: You likely tried to #[flatten] a struct \
                          that contains #[subcommand]. This is forbidden.")
         }
@@ -588,58 +601,61 @@ fn gen_from_subcommand(
                 Some(parent_attribute),
                 parent_attribute.casing(),
                 parent_attribute.env_casing(),
+                true,
             );
 
             let variant_name = &variant.ident;
 
-            if let Kind::ExternalSubcommand = *attrs.kind() {
-                if ext_subcmd.is_some() {
-                    abort!(
-                        attrs.kind().span(),
-                        "Only one variant can be marked with `external_subcommand`, \
+            match *attrs.kind() {
+                Kind::ExternalSubcommand => {
+                    if ext_subcmd.is_some() {
+                        abort!(
+                            attrs.kind().span(),
+                            "Only one variant can be marked with `external_subcommand`, \
                          this is the second"
-                    );
-                }
-
-                let ty = match variant.fields {
-                    Unnamed(ref fields) if fields.unnamed.len() == 1 => &fields.unnamed[0].ty,
-
-                    _ => abort!(
-                        variant,
-                        "The enum variant marked with `external_attribute` must be \
-                         a single-typed tuple, and the type must be either `Vec<String>` \
-                         or `Vec<OsString>`."
-                    ),
-                };
-
-                let (span, str_ty, values_of) = match subty_if_name(ty, "Vec") {
-                    Some(subty) => {
-                        if is_simple_ty(subty, "String") {
-                            (
-                                subty.span(),
-                                quote!(::std::string::String),
-                                quote!(values_of),
-                            )
-                        } else {
-                            (
-                                subty.span(),
-                                quote!(::std::ffi::OsString),
-                                quote!(values_of_os),
-                            )
-                        }
+                        );
                     }
 
-                    None => abort!(
-                        ty,
-                        "The type must be either `Vec<String>` or `Vec<OsString>` \
-                         to be used with `external_subcommand`."
-                    ),
-                };
+                    let ty = match variant.fields {
+                        Unnamed(ref fields) if fields.unnamed.len() == 1 => &fields.unnamed[0].ty,
 
-                ext_subcmd = Some((span, variant_name, str_ty, values_of));
-                None
-            } else {
-                Some((variant, attrs))
+                        _ => abort!(
+                            variant,
+                            "The enum variant marked with `external_attribute` must be \
+                         a single-typed tuple, and the type must be either `Vec<String>` \
+                         or `Vec<OsString>`."
+                        ),
+                    };
+
+                    let (span, str_ty, values_of) = match subty_if_name(ty, "Vec") {
+                        Some(subty) => {
+                            if is_simple_ty(subty, "String") {
+                                (
+                                    subty.span(),
+                                    quote!(::std::string::String),
+                                    quote!(values_of),
+                                )
+                            } else {
+                                (
+                                    subty.span(),
+                                    quote!(::std::ffi::OsString),
+                                    quote!(values_of_os),
+                                )
+                            }
+                        }
+
+                        None => abort!(
+                            ty,
+                            "The type must be either `Vec<String>` or `Vec<OsString>` \
+                         to be used with `external_subcommand`."
+                        ),
+                    };
+
+                    ext_subcmd = Some((span, variant_name, str_ty, values_of));
+                    None
+                }
+                Kind::Skip(_) => None,
+                _ => Some((variant, attrs)),
             }
         })
         .partition(|(_, attrs)| match &*attrs.kind() {
@@ -736,9 +752,14 @@ fn gen_from_subcommand(
 }
 
 #[cfg(feature = "paw")]
-fn gen_paw_impl(name: &Ident) -> TokenStream {
+fn gen_paw_impl(
+    impl_generics: &ImplGenerics,
+    name: &Ident,
+    ty_generics: &TypeGenerics,
+    where_clause: &TokenStream,
+) -> TokenStream {
     quote! {
-        impl ::structopt::paw::ParseArgs for #name {
+        impl #impl_generics ::structopt::paw::ParseArgs for #name #ty_generics #where_clause {
             type Error = std::io::Error;
 
             fn parse_args() -> std::result::Result<Self, Self::Error> {
@@ -748,19 +769,117 @@ fn gen_paw_impl(name: &Ident) -> TokenStream {
     }
 }
 #[cfg(not(feature = "paw"))]
-fn gen_paw_impl(_: &Ident) -> TokenStream {
+fn gen_paw_impl(_: &ImplGenerics, _: &Ident, _: &TypeGenerics, _: &TokenStream) -> TokenStream {
     TokenStream::new()
+}
+
+fn split_structopt_generics_for_impl(
+    generics: &Generics,
+) -> (ImplGenerics, TypeGenerics, TokenStream) {
+    use syn::{token::Add, TypeParamBound::Trait};
+
+    fn path_ends_with(path: &Path, ident: &str) -> bool {
+        path.segments.last().unwrap().ident == ident
+    }
+
+    fn type_param_bounds_contains(bounds: &Punctuated<TypeParamBound, Add>, ident: &str) -> bool {
+        for bound in bounds {
+            if let Trait(bound) = bound {
+                if path_ends_with(&bound.path, ident) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    struct TraitBoundAmendments {
+        tokens: TokenStream,
+        need_where: bool,
+        need_comma: bool,
+    }
+
+    impl TraitBoundAmendments {
+        fn new(where_clause: Option<&WhereClause>) -> Self {
+            let tokens = TokenStream::new();
+            let (need_where, need_comma) = if let Some(where_clause) = where_clause {
+                if where_clause.predicates.trailing_punct() {
+                    (false, false)
+                } else {
+                    (false, true)
+                }
+            } else {
+                (true, false)
+            };
+            Self {
+                tokens,
+                need_where,
+                need_comma,
+            }
+        }
+
+        fn add(&mut self, amendment: TokenStream) {
+            if self.need_where {
+                self.tokens.extend(quote! { where });
+                self.need_where = false;
+            }
+            if self.need_comma {
+                self.tokens.extend(quote! { , });
+            }
+            self.tokens.extend(amendment);
+            self.need_comma = true;
+        }
+
+        fn into_tokens(self) -> TokenStream {
+            self.tokens
+        }
+    }
+
+    let mut trait_bound_amendments = TraitBoundAmendments::new(generics.where_clause.as_ref());
+
+    for param in &generics.params {
+        if let GenericParam::Type(param) = param {
+            let param_ident = &param.ident;
+            if type_param_bounds_contains(&param.bounds, "StructOpt") {
+                trait_bound_amendments
+                    .add(quote! { #param_ident : ::structopt::StructOptInternal });
+            }
+        }
+    }
+
+    if let Some(where_clause) = &generics.where_clause {
+        for predicate in &where_clause.predicates {
+            if let WherePredicate::Type(predicate) = predicate {
+                let predicate_bounded_ty = &predicate.bounded_ty;
+                if type_param_bounds_contains(&predicate.bounds, "StructOpt") {
+                    trait_bound_amendments
+                        .add(quote! { #predicate_bounded_ty : ::structopt::StructOptInternal });
+                }
+            }
+        }
+    }
+
+    let trait_bound_amendments = trait_bound_amendments.into_tokens();
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let where_clause = quote! { #where_clause #trait_bound_amendments };
+
+    (impl_generics, ty_generics, where_clause)
 }
 
 fn impl_structopt_for_struct(
     name: &Ident,
     fields: &Punctuated<Field, Comma>,
     attrs: &[Attribute],
+    generics: &Generics,
 ) -> TokenStream {
+    let (impl_generics, ty_generics, where_clause) = split_structopt_generics_for_impl(&generics);
+
     let basic_clap_app_gen = gen_clap_struct(attrs);
     let augment_clap = gen_augment_clap(fields, &basic_clap_app_gen.attrs);
     let from_clap = gen_from_clap(name, fields, &basic_clap_app_gen.attrs);
-    let paw_impl = gen_paw_impl(name);
+    let paw_impl = gen_paw_impl(&impl_generics, name, &ty_generics, &where_clause);
 
     let clap_tokens = basic_clap_app_gen.tokens;
     quote! {
@@ -778,7 +897,7 @@ fn impl_structopt_for_struct(
         )]
         #[deny(clippy::correctness)]
         #[allow(dead_code, unreachable_code)]
-        impl ::structopt::StructOpt for #name {
+        impl #impl_generics ::structopt::StructOpt for #name #ty_generics #where_clause {
             #clap_tokens
             #from_clap
         }
@@ -797,7 +916,7 @@ fn impl_structopt_for_struct(
         )]
         #[deny(clippy::correctness)]
         #[allow(dead_code, unreachable_code)]
-        impl ::structopt::StructOptInternal for #name {
+        impl #impl_generics ::structopt::StructOptInternal for #name #ty_generics #where_clause {
             #augment_clap
             fn is_subcommand() -> bool { false }
         }
@@ -810,15 +929,18 @@ fn impl_structopt_for_enum(
     name: &Ident,
     variants: &Punctuated<Variant, Comma>,
     attrs: &[Attribute],
+    generics: &Generics,
 ) -> TokenStream {
+    let (impl_generics, ty_generics, where_clause) = split_structopt_generics_for_impl(&generics);
+
     let basic_clap_app_gen = gen_clap_enum(attrs);
     let clap_tokens = basic_clap_app_gen.tokens;
     let attrs = basic_clap_app_gen.attrs;
 
     let augment_clap = gen_augment_clap_enum(variants, &attrs);
-    let from_clap = gen_from_clap_enum(name);
+    let from_clap = gen_from_clap_enum();
     let from_subcommand = gen_from_subcommand(name, variants, &attrs);
-    let paw_impl = gen_paw_impl(name);
+    let paw_impl = gen_paw_impl(&impl_generics, name, &ty_generics, &where_clause);
 
     quote! {
         #[allow(unknown_lints)]
@@ -834,7 +956,7 @@ fn impl_structopt_for_enum(
             clippy::cargo
         )]
         #[deny(clippy::correctness)]
-        impl ::structopt::StructOpt for #name {
+        impl #impl_generics ::structopt::StructOpt for #name #ty_generics #where_clause {
             #clap_tokens
             #from_clap
         }
@@ -853,7 +975,7 @@ fn impl_structopt_for_enum(
         )]
         #[deny(clippy::correctness)]
         #[allow(dead_code, unreachable_code)]
-        impl ::structopt::StructOptInternal for #name {
+        impl #impl_generics ::structopt::StructOptInternal for #name #ty_generics #where_clause {
             #augment_clap
             #from_subcommand
             fn is_subcommand() -> bool { true }
@@ -885,8 +1007,10 @@ fn impl_structopt(input: &DeriveInput) -> TokenStream {
         Struct(DataStruct {
             fields: syn::Fields::Named(ref fields),
             ..
-        }) => impl_structopt_for_struct(struct_name, &fields.named, &input.attrs),
-        Enum(ref e) => impl_structopt_for_enum(struct_name, &e.variants, &input.attrs),
+        }) => impl_structopt_for_struct(struct_name, &fields.named, &input.attrs, &input.generics),
+        Enum(ref e) => {
+            impl_structopt_for_enum(struct_name, &e.variants, &input.attrs, &input.generics)
+        }
         _ => abort_call_site!("structopt only supports non-tuple structs and enums"),
     }
 }

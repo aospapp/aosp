@@ -5,10 +5,10 @@ criticalstat \- A tracer to find and report long atomic critical sections in ker
 .B criticalstat [\-h] [\-p] [\-i] [\-d DURATION]
 .SH DESCRIPTION
 
-criticalstat traces and reports occurences of atomic critical sections in the
+criticalstat traces and reports occurrences of atomic critical sections in the
 kernel with useful stacktraces showing the origin of them. Such critical
 sections frequently occur due to use of spinlocks, or if interrupts or
-preemption were explicity disabled by a driver. IRQ routines in Linux are also
+preemption were explicitly disabled by a driver. IRQ routines in Linux are also
 executed with interrupts disabled. There are many reasons. Such critical
 sections are a source of long latency/responsive issues for real-time systems.
 
@@ -17,9 +17,10 @@ Since this uses BPF, only the root user can use this tool. Further, the kernel
 has to be built with certain CONFIG options enabled. See below.
 
 .SH REQUIREMENTS
-Enable CONFIG_PREEMPTIRQ_EVENTS and CONFIG_DEBUG_PREEMPT. Additionally, the
-following options should be DISABLED on older kernels: CONFIG_PROVE_LOCKING,
-CONFIG_LOCKDEP.
+Enable CONFIG_PREEMPT_TRACER, CONFIG_PREEMPTIRQ_EVENTS
+(CONFIG_PREEMPTIRQ_TRACEPOINTS in kernel 4.19 and later)
+and CONFIG_DEBUG_PREEMPT. Additionally, the following options
+should be DISABLED on older kernels: CONFIG_PROVE_LOCKING, CONFIG_LOCKDEP.
 .SH OPTIONS
 .TP
 \-h

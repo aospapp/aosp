@@ -20,6 +20,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 import android.provider.DeviceConfig;
 import android.provider.DeviceConfig.Properties;
+import android.text.TextUtils;
 import android.view.textclassifier.ConversationAction;
 import android.view.textclassifier.TextClassifier;
 import androidx.annotation.NonNull;
@@ -27,6 +28,7 @@ import com.android.textclassifier.utils.IndentingPrintWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -108,7 +110,8 @@ public final class TextClassifierSettings {
    */
   private static final String DETECT_LANGUAGES_FROM_TEXT_ENABLED =
       "detect_languages_from_text_enabled";
-
+  /** Whether to use models downloaded by config updater. */
+  private static final String CONFIG_UPDATER_MODEL_ENABLED = "config_updater_model_enabled";
   /** Whether to enable model downloading with ModelDownloadManager */
   @VisibleForTesting
   public static final String MODEL_DOWNLOAD_MANAGER_ENABLED = "model_download_manager_enabled";
@@ -117,13 +120,46 @@ public final class TextClassifierSettings {
       "manifest_download_required_network_type";
   /** Max attempts allowed for a single ModelDownloader downloading task. */
   @VisibleForTesting
-  static final String MODEL_DOWNLOAD_MAX_ATTEMPTS = "model_download_max_attempts";
+  static final String MODEL_DOWNLOAD_WORKER_MAX_ATTEMPTS = "model_download_worker_max_attempts";
+  /** Max attempts allowed for a certain manifest url. */
+  @VisibleForTesting
+  public static final String MANIFEST_DOWNLOAD_MAX_ATTEMPTS = "manifest_download_max_attempts";
 
   @VisibleForTesting
   static final String MODEL_DOWNLOAD_BACKOFF_DELAY_IN_MILLIS =
       "model_download_backoff_delay_in_millis";
+
+  private static final String MANIFEST_DOWNLOAD_REQUIRES_CHARGING =
+      "manifest_download_requires_charging";
+  private static final String MANIFEST_DOWNLOAD_REQUIRES_DEVICE_IDLE =
+      "manifest_download_requires_device_idle";
+
   /** Flag name for manifest url is dynamically formatted based on model type and model language. */
   @VisibleForTesting public static final String MANIFEST_URL_TEMPLATE = "manifest_url_%s_%s";
+
+  @VisibleForTesting public static final String MODEL_URL_BLOCKLIST = "model_url_blocklist";
+  @VisibleForTesting public static final String MODEL_URL_BLOCKLIST_SEPARATOR = ",";
+
+  /** Flags to control multi-language support settings. */
+  @VisibleForTesting
+  public static final String MULTI_LANGUAGE_SUPPORT_ENABLED = "multi_language_support_enabled";
+
+  @VisibleForTesting
+  public static final String MULTI_LANGUAGE_MODELS_LIMIT = "multi_language_models_limit";
+
+  @VisibleForTesting
+  public static final String ENABLED_MODEL_TYPES_FOR_MULTI_LANGUAGE_SUPPORT =
+      "enabled_model_types_for_multi_language_support";
+
+  @VisibleForTesting
+  public static final String MULTI_ANNOTATOR_CACHE_ENABLED = "multi_annotator_cache_enabled";
+
+  private static final String MULTI_ANNOTATOR_CACHE_SIZE = "multi_annotator_cache_size";
+
+  /** List of locale tags to override LocaleList for TextClassifier. Testing/debugging only. */
+  @VisibleForTesting
+  public static final String TESTING_LOCALE_LIST_OVERRIDE = "testing_locale_list_override";
+
   /** Sampling rate for TextClassifier API logging. */
   static final String TEXTCLASSIFIER_API_LOG_SAMPLE_RATE = "textclassifier_api_log_sample_rate";
 
@@ -193,11 +229,23 @@ public final class TextClassifierSettings {
   private static final boolean TEMPLATE_INTENT_FACTORY_ENABLED_DEFAULT = true;
   private static final boolean TRANSLATE_IN_CLASSIFICATION_ENABLED_DEFAULT = true;
   private static final boolean DETECT_LANGUAGES_FROM_TEXT_ENABLED_DEFAULT = true;
+  private static final boolean CONFIG_UPDATER_MODEL_ENABLED_DEFAULT = true;
   private static final boolean MODEL_DOWNLOAD_MANAGER_ENABLED_DEFAULT = false;
   private static final String MANIFEST_DOWNLOAD_REQUIRED_NETWORK_TYPE_DEFAULT = "UNMETERED";
-  private static final int MODEL_DOWNLOAD_MAX_ATTEMPTS_DEFAULT = 5;
+  private static final int MODEL_DOWNLOAD_WORKER_MAX_ATTEMPTS_DEFAULT = 5;
+  private static final int MANIFEST_DOWNLOAD_MAX_ATTEMPTS_DEFAULT = 3;
   private static final long MODEL_DOWNLOAD_BACKOFF_DELAY_IN_MILLIS_DEFAULT = HOURS.toMillis(1);
+  private static final boolean MANIFEST_DOWNLOAD_REQUIRES_DEVICE_IDLE_DEFAULT = false;
+  private static final boolean MANIFEST_DOWNLOAD_REQUIRES_CHARGING_DEFAULT = false;
+  private static final boolean MULTI_LANGUAGE_SUPPORT_ENABLED_DEFAULT = false;
+  private static final int MULTI_LANGUAGE_MODELS_LIMIT_DEFAULT = 2;
+  private static final ImmutableList<String>
+      ENABLED_MODEL_TYPES_FOR_MULTI_LANGUAGE_SUPPORT_DEFAULT =
+          ImmutableList.of(ModelType.ANNOTATOR);
+  private static final boolean MULTI_ANNOTATOR_CACHE_ENABLED_DEFAULT = false;
+  private static final int MULTI_ANNOTATOR_CACHE_SIZE_DEFAULT = 2;
   private static final String MANIFEST_URL_DEFAULT = "";
+  private static final String TESTING_LOCALE_LIST_OVERRIDE_DEFAULT = "";
   private static final float[] LANG_ID_CONTEXT_SETTINGS_DEFAULT = new float[] {20f, 1.0f, 0.4f};
   /**
    * Sampling rate for API logging. For example, 100 means there is a 0.01 chance that the API call
@@ -367,6 +415,11 @@ public final class TextClassifierSettings {
     return getDeviceConfigFloatArray(LANG_ID_CONTEXT_SETTINGS, LANG_ID_CONTEXT_SETTINGS_DEFAULT);
   }
 
+  public boolean isConfigUpdaterModelEnabled() {
+    return deviceConfig.getBoolean(
+        NAMESPACE, CONFIG_UPDATER_MODEL_ENABLED, CONFIG_UPDATER_MODEL_ENABLED_DEFAULT);
+  }
+
   public boolean isModelDownloadManagerEnabled() {
     return deviceConfig.getBoolean(
         NAMESPACE, MODEL_DOWNLOAD_MANAGER_ENABLED, MODEL_DOWNLOAD_MANAGER_ENABLED_DEFAULT);
@@ -380,9 +433,14 @@ public final class TextClassifierSettings {
         MANIFEST_DOWNLOAD_REQUIRED_NETWORK_TYPE_DEFAULT);
   }
 
-  public int getModelDownloadMaxAttempts() {
+  public int getModelDownloadWorkerMaxAttempts() {
     return deviceConfig.getInt(
-        NAMESPACE, MODEL_DOWNLOAD_MAX_ATTEMPTS, MODEL_DOWNLOAD_MAX_ATTEMPTS_DEFAULT);
+        NAMESPACE, MODEL_DOWNLOAD_WORKER_MAX_ATTEMPTS, MODEL_DOWNLOAD_WORKER_MAX_ATTEMPTS_DEFAULT);
+  }
+
+  public int getManifestDownloadMaxAttempts() {
+    return deviceConfig.getInt(
+        NAMESPACE, MANIFEST_DOWNLOAD_MAX_ATTEMPTS, MANIFEST_DOWNLOAD_MAX_ATTEMPTS_DEFAULT);
   }
 
   public long getModelDownloadBackoffDelayInMillis() {
@@ -392,39 +450,87 @@ public final class TextClassifierSettings {
         MODEL_DOWNLOAD_BACKOFF_DELAY_IN_MILLIS_DEFAULT);
   }
 
-  /**
-   * Get model's manifest url for given model type and language.
-   *
-   * @param modelType the type of model for the target url
-   * @param modelLanguageTag the language tag for the model (e.g. en), but can also be "universal"
-   * @return DeviceConfig configured url or empty string if not set
-   */
-  public String getManifestURL(@ModelType.ModelTypeDef String modelType, String modelLanguageTag) {
-    // E.g: manifest_url_annotator_zh, manifest_url_lang_id_universal,
-    // manifest_url_actions_suggestions_en
-    String urlFlagName = String.format(MANIFEST_URL_TEMPLATE, modelType, modelLanguageTag);
-    return deviceConfig.getString(NAMESPACE, urlFlagName, MANIFEST_URL_DEFAULT);
+  public boolean getManifestDownloadRequiresDeviceIdle() {
+    return deviceConfig.getBoolean(
+        NAMESPACE,
+        MANIFEST_DOWNLOAD_REQUIRES_DEVICE_IDLE,
+        MANIFEST_DOWNLOAD_REQUIRES_DEVICE_IDLE_DEFAULT);
   }
 
+  public boolean getManifestDownloadRequiresCharging() {
+    return deviceConfig.getBoolean(
+        NAMESPACE,
+        MANIFEST_DOWNLOAD_REQUIRES_CHARGING,
+        MANIFEST_DOWNLOAD_REQUIRES_CHARGING_DEFAULT);
+  }
+
+  /* Gets a list of models urls that should not be used. Usually used for a quick rollback.  */
+  public ImmutableList<String> getModelUrlBlocklist() {
+    return ImmutableList.copyOf(
+        Splitter.on(MODEL_URL_BLOCKLIST_SEPARATOR)
+            .split(deviceConfig.getString(NAMESPACE, MODEL_URL_BLOCKLIST, "")));
+  }
+
+  public boolean isMultiLanguageSupportEnabled() {
+    return deviceConfig.getBoolean(
+        NAMESPACE, MULTI_LANGUAGE_SUPPORT_ENABLED, MULTI_LANGUAGE_SUPPORT_ENABLED_DEFAULT);
+  }
+
+  public int getMultiLanguageModelsLimit() {
+    return deviceConfig.getInt(
+        NAMESPACE, MULTI_LANGUAGE_MODELS_LIMIT, MULTI_LANGUAGE_MODELS_LIMIT_DEFAULT);
+  }
+
+  public List<String> getEnabledModelTypesForMultiLanguageSupport() {
+    return getDeviceConfigStringList(
+        ENABLED_MODEL_TYPES_FOR_MULTI_LANGUAGE_SUPPORT,
+        ENABLED_MODEL_TYPES_FOR_MULTI_LANGUAGE_SUPPORT_DEFAULT);
+  }
+
+  public boolean getMultiAnnotatorCacheEnabled() {
+    return deviceConfig.getBoolean(
+        NAMESPACE, MULTI_ANNOTATOR_CACHE_ENABLED, MULTI_ANNOTATOR_CACHE_ENABLED_DEFAULT);
+  }
+
+  public int getMultiAnnotatorCacheSize() {
+    return deviceConfig.getInt(
+        NAMESPACE, MULTI_ANNOTATOR_CACHE_SIZE, MULTI_ANNOTATOR_CACHE_SIZE_DEFAULT);
+  }
   /**
-   * Gets all language variants configured for a specific ModelType.
+   * Gets all language variants and associated manifest url configured for a specific ModelType.
    *
    * <p>For a specific language, there can be many variants: de-CH, de-LI, zh-Hans, zh-Hant. There
    * is no easy way to hardcode the list in client. Therefore, we parse all configured flag's name
    * in DeviceConfig, and let the client to choose the best variant to download.
+   *
+   * <p>If one flag's value is empty, it will be ignored.
+   *
+   * @param modelType the type of model for the target url
+   * @return <localeTag, flagValue> map.
    */
-  public ImmutableList<String> getLanguageTagsForManifestURL(
+  public ImmutableMap<String, String> getLanguageTagAndManifestUrlMap(
       @ModelType.ModelTypeDef String modelType) {
     String urlFlagBaseName = String.format(MANIFEST_URL_TEMPLATE, modelType, /* language */ "");
     Properties properties = deviceConfig.getProperties(NAMESPACE);
-    ImmutableList.Builder<String> variantsBuilder = ImmutableList.builder();
+    ImmutableMap.Builder<String, String> variantsMapBuilder = ImmutableMap.builder();
     for (String name : properties.getKeyset()) {
-      if (name.startsWith(urlFlagBaseName)
-          && properties.getString(name, /* defaultValue= */ null) != null) {
-        variantsBuilder.add(name.substring(urlFlagBaseName.length()));
+      if (!name.startsWith(urlFlagBaseName)) {
+        continue;
+      }
+      String value = properties.getString(name, /* defaultValue= */ null);
+      if (!TextUtils.isEmpty(value)) {
+        String modelLanguageTag = name.substring(urlFlagBaseName.length());
+        String urlFlagName = String.format(MANIFEST_URL_TEMPLATE, modelType, modelLanguageTag);
+        String urlFlagValue = deviceConfig.getString(NAMESPACE, urlFlagName, MANIFEST_URL_DEFAULT);
+        variantsMapBuilder.put(modelLanguageTag, urlFlagValue);
       }
     }
-    return variantsBuilder.build();
+    return variantsMapBuilder.build();
+  }
+
+  public String getTestingLocaleListOverride() {
+    return deviceConfig.getString(
+        NAMESPACE, TESTING_LOCALE_LIST_OVERRIDE, TESTING_LOCALE_LIST_OVERRIDE_DEFAULT);
   }
 
   public int getTextClassifierApiLogSampleRate() {
@@ -457,8 +563,21 @@ public final class TextClassifierSettings {
     pw.printPair(USER_LANGUAGE_PROFILE_ENABLED, isUserLanguageProfileEnabled());
     pw.printPair(TEMPLATE_INTENT_FACTORY_ENABLED, isTemplateIntentFactoryEnabled());
     pw.printPair(TRANSLATE_IN_CLASSIFICATION_ENABLED, isTranslateInClassificationEnabled());
+    pw.printPair(CONFIG_UPDATER_MODEL_ENABLED, isConfigUpdaterModelEnabled());
     pw.printPair(MODEL_DOWNLOAD_MANAGER_ENABLED, isModelDownloadManagerEnabled());
-    pw.printPair(MODEL_DOWNLOAD_MAX_ATTEMPTS, getModelDownloadMaxAttempts());
+    pw.printPair(MULTI_LANGUAGE_SUPPORT_ENABLED, isMultiLanguageSupportEnabled());
+    pw.printPair(MULTI_LANGUAGE_MODELS_LIMIT, getMultiLanguageModelsLimit());
+    pw.printPair(
+        ENABLED_MODEL_TYPES_FOR_MULTI_LANGUAGE_SUPPORT,
+        getEnabledModelTypesForMultiLanguageSupport());
+    pw.printPair(MULTI_ANNOTATOR_CACHE_ENABLED, getMultiAnnotatorCacheEnabled());
+    pw.printPair(MULTI_ANNOTATOR_CACHE_SIZE, getMultiAnnotatorCacheSize());
+    pw.printPair(MANIFEST_DOWNLOAD_REQUIRED_NETWORK_TYPE, getManifestDownloadRequiredNetworkType());
+    pw.printPair(MODEL_DOWNLOAD_WORKER_MAX_ATTEMPTS, getModelDownloadWorkerMaxAttempts());
+    pw.printPair(MANIFEST_DOWNLOAD_MAX_ATTEMPTS, getManifestDownloadMaxAttempts());
+    pw.printPair(MANIFEST_DOWNLOAD_REQUIRES_CHARGING, getManifestDownloadRequiresCharging());
+    pw.printPair(MANIFEST_DOWNLOAD_REQUIRES_DEVICE_IDLE, getManifestDownloadRequiresDeviceIdle());
+    pw.printPair(TESTING_LOCALE_LIST_OVERRIDE, getTestingLocaleListOverride());
     pw.decreaseIndent();
     pw.printPair(TEXTCLASSIFIER_API_LOG_SAMPLE_RATE, getTextClassifierApiLogSampleRate());
     pw.printPair(SESSION_ID_TO_CONTEXT_CACHE_SIZE, getSessionIdToContextCacheSize());

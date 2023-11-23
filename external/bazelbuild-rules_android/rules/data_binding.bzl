@@ -54,8 +54,7 @@ def _copy_annotation_file(ctx, output_dir, annotation_template):
     _utils.copy_file(ctx, annotation_template, annotation_out)
     return annotation_out
 
-def _gen_sources(ctx, output_dir, java_package, deps, data_binding_exec):
-    layout_info = ctx.actions.declare_file(output_dir + "layout-info.zip")
+def _gen_sources(ctx, output_dir, java_package, deps, layout_info, data_binding_exec):
     class_info = ctx.actions.declare_file(output_dir + "class-info.zip")
     srcjar = ctx.actions.declare_file(output_dir + "baseClassSrc.srcjar")
 
@@ -67,22 +66,34 @@ def _gen_sources(ctx, output_dir, java_package, deps, data_binding_exec):
     args.add("-zipSourceOutput", "true")
     args.add("-useAndroidX", "false")
 
-    class_infos = []
-    for info in deps:
-        class_infos.extend(info.class_infos)
+    if deps:
+        if type(deps[0].class_infos) == "depset":
+            class_infos = depset(transitive = [info.class_infos for info in deps])
+            inputs = depset(direct = [layout_info], transitive = [class_infos])
+        elif type(deps[0].class_infos) == "list":
+            class_infos = []
+            for info in deps:
+                class_infos.extend(info.class_infos)
+            inputs = class_infos + [layout_info]
+        else:
+            fail("Expected list or depset. Got %s" % type(deps[0].class_infos))
+    else:
+        class_infos = []
+        inputs = [layout_info]
+
     args.add_all(class_infos, before_each = "-dependencyClassInfoList")
 
     ctx.actions.run(
         executable = data_binding_exec,
         arguments = ["GEN_BASE_CLASSES", args],
-        inputs = class_infos + [layout_info],
+        inputs = inputs,
         outputs = [class_info, srcjar],
         mnemonic = "GenerateDataBindingBaseClasses",
         progress_message = (
             "GenerateDataBindingBaseClasses %s" % class_info.short_path
         ),
     )
-    return srcjar, class_info, layout_info
+    return srcjar, class_info
 
 def _setup_dependent_lib_artifacts(ctx, output_dir, deps):
     # DataBinding requires files in very specific locations.
@@ -92,8 +103,8 @@ def _setup_dependent_lib_artifacts(ctx, output_dir, deps):
     for info in deps:
         # Yes, DataBinding requires depsets iterations.
         for artifact in (info.transitive_br_files.to_list() +
-                         info.setter_stores +
-                         info.class_infos):
+                         _utils.list_or_depset_to_list(info.setter_stores) +
+                         _utils.list_or_depset_to_list(info.class_infos)):
             # short_path might contain a parent directory reference if the
             # databinding artifact is from an external repository (e.g. an aar
             # from Maven). If that's the case, just remove the parent directory
@@ -157,6 +168,7 @@ def _process(
         defines_resources = False,
         enable_data_binding = False,
         java_package = None,
+        layout_info = None,
         deps = [],
         exports = [],
         data_binding_exec = None,
@@ -174,6 +186,7 @@ def _process(
       deps: sequence of DataBindingV2Info providers. A list of deps. Optional.
       exports: sequence of DataBindingV2Info providers. A list of exports.
         Optional.
+      layout_info: A file. The layout-info zip file.
       data_binding_exec: The DataBinding executable.
       data_binding_annotation_processor: JavaInfo. The JavaInfo for the
         annotation processor.
@@ -207,7 +220,7 @@ def _process(
         ]
         return struct(**db_info)
 
-    output_dir = "_migrated/databinding/%s/" % ctx.label.name
+    output_dir = "databinding/%s/" % ctx.label.name
 
     db_info[_JAVA_SRCS].append(_copy_annotation_file(
         ctx,
@@ -219,7 +232,6 @@ def _process(
     br_out = None
     setter_store_out = None
     class_info = None
-    layout_info = None
     if defines_resources:
         # Outputs of the Data Binding annotation processor.
         br_out = ctx.actions.declare_file(
@@ -233,11 +245,12 @@ def _process(
             setter_store_out,
         )
 
-        srcjar, class_info, layout_info = _gen_sources(
+        srcjar, class_info = _gen_sources(
             ctx,
             output_dir,
             java_package,
             deps,
+            layout_info,
             data_binding_exec,
         )
         db_info[_JAVA_SRCS].append(srcjar)

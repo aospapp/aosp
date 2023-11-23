@@ -299,9 +299,9 @@ def postExtractLibpng (path):
 
 PACKAGES = [
 	SourcePackage(
-		"http://zlib.net/zlib-1.2.11.tar.gz",
-		"zlib-1.2.11.tar.gz",
-		"c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+		"http://zlib.net/zlib-1.2.12.tar.gz",
+		"zlib-1.2.12.tar.gz",
+		"91844808532e5ce316b3c010929493c0244f3d37593afd6de04f71821d5136d9",
 		"zlib"),
 	SourcePackage(
 		"http://prdownloads.sourceforge.net/libpng/libpng-1.6.27.tar.gz",
@@ -317,23 +317,28 @@ PACKAGES = [
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Tools.git",
 		None,
-		"e065c482c6c98ef22900822d32a21df8c5473054",
+		"20b122b2e0d43fcc322a383354d1a3f4514e3757",
 		"spirv-tools"),
 	GitRepo(
 		"https://github.com/KhronosGroup/glslang.git",
 		None,
-		"5c4f421121c4d24aad23a507e630dc5dc6c92c7c",
+		"43d585d8636ebf765e567cef197b4580af8518fb",
 		"glslang",
 		removeTags = ["master-tot"]),
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Headers.git",
 		None,
-		"449bc986ba6f4c5e10e32828783f9daef2a77644",
+		"b42ba6d92faf6b4938e6f22ddd186dbdacc98d78",
 		"spirv-headers"),
+	GitRepo(
+		"https://github.com/KhronosGroup/Vulkan-Docs.git",
+		None,
+		"ee155139142a2a71b56238419bf0a6859f7b0a93",
+		"vulkan-docs"),
 	GitRepo(
 		"https://github.com/google/amber.git",
 		None,
-		"dabae26164714abf951c6815a2b4513260f7c6a4",
+		"615ab4863f7d2e31d3037d0c6a0f641fd6fc0d07",
 		"amber"),
 ]
 

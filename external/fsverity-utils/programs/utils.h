@@ -40,8 +40,11 @@ struct filedes {
 
 bool open_file(struct filedes *file, const char *filename, int flags, int mode);
 bool get_file_size(struct filedes *file, u64 *size_ret);
+bool preallocate_file(struct filedes *file, u64 size);
 bool full_read(struct filedes *file, void *buf, size_t count);
 bool full_write(struct filedes *file, const void *buf, size_t count);
+bool full_pwrite(struct filedes *file, const void *buf, size_t count,
+		 u64 offset);
 bool filedes_close(struct filedes *file);
 int read_callback(void *file, void *buf, size_t count);
 

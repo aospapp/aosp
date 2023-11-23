@@ -227,7 +227,7 @@ CTestPlatform::CommandReturn CTestPlatform::setCriterionState(const IRemoteComma
 
     bool bSuccess;
 
-    uint32_t state;
+    uint64_t state;
 
     if (convertTo(remoteCommand.getArgument(1), state)) {
         // Sucessfull conversion, set criterion state by numerical state
@@ -267,7 +267,7 @@ bool CTestPlatform::createExclusiveSelectionCriterionFromStateList(
         const std::string &strValue = remoteCommand.getArgument(state + 1);
 
         // FIXME state type vs addValuePair params
-        if (!pCriterionType->addValuePair(int(state), strValue, strResult)) {
+        if (!pCriterionType->addValuePair(uint64_t(state), strValue, strResult)) {
 
             strResult = "Unable to add value: " + strValue + ": " + strResult;
 
@@ -294,7 +294,7 @@ bool CTestPlatform::createInclusiveSelectionCriterionFromStateList(
 
         const std::string &strValue = remoteCommand.getArgument(state + 1);
 
-        if (!pCriterionType->addValuePair(0x1 << state, strValue, strResult)) {
+        if (!pCriterionType->addValuePair(0x1ull << state, strValue, strResult)) {
 
             strResult = "Unable to add value: " + strValue + ": " + strResult;
 
@@ -321,7 +321,7 @@ bool CTestPlatform::createExclusiveSelectionCriterion(const string &strName, siz
         ostrValue << state;
 
         // FIXME state type vs addValuePair params
-        if (!pCriterionType->addValuePair(int(state), ostrValue.str(), strResult)) {
+        if (!pCriterionType->addValuePair(uint64_t(state), ostrValue.str(), strResult)) {
 
             strResult = "Unable to add value: " + ostrValue.str() + ": " + strResult;
 
@@ -345,9 +345,9 @@ bool CTestPlatform::createInclusiveSelectionCriterion(const string &strName, siz
         std::ostringstream ostrValue;
 
         ostrValue << "State_0x";
-        ostrValue << (0x1 << state);
+        ostrValue << (0x1ull << state);
 
-        if (!pCriterionType->addValuePair(0x1 << state, ostrValue.str(), strResult)) {
+        if (!pCriterionType->addValuePair(0x1ull << state, ostrValue.str(), strResult)) {
 
             strResult = "Unable to add value: " + ostrValue.str() + ": " + strResult;
 
@@ -360,7 +360,7 @@ bool CTestPlatform::createInclusiveSelectionCriterion(const string &strName, siz
     return true;
 }
 
-bool CTestPlatform::setCriterionState(const string &strName, uint32_t uiState, string &strResult)
+bool CTestPlatform::setCriterionState(const string &strName, uint64_t uiState, string &strResult)
 {
     ISelectionCriterionInterface *pCriterion =
         mParameterMgrPlatformConnector.getSelectionCriterion(strName);
@@ -409,7 +409,7 @@ bool CTestPlatform::setCriterionStateByLexicalSpace(const IRemoteCommand &remote
     }
 
     /// Translate lexical state to numerical state
-    int iNumericalState = 0;
+    uint64_t iNumericalState = 0;
     size_t lexicalSubStateIndex;
 
     // Parse lexical substates

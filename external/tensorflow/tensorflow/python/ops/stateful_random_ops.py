@@ -18,23 +18,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import enum  # pylint: disable=g-bad-import-order
-
-import numpy as np
 import six
 
-from tensorflow.python.compat import compat
 from tensorflow.python.distribute import distribution_strategy_context as ds_context
+from tensorflow.python.distribute import sharded_variable
 from tensorflow.python.distribute import values_util
 from tensorflow.python.eager import context
+from tensorflow.python.framework import config
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import gen_stateful_random_ops
 from tensorflow.python.ops import gen_stateless_random_ops_v2
 from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import stateless_random_ops
 from tensorflow.python.ops import variables
+from tensorflow.python.ops.stateless_random_ops import Algorithm
 from tensorflow.python.training.tracking import tracking
+from tensorflow.python.util import nest
 from tensorflow.python.util.tf_export import tf_export
 
 
@@ -42,9 +43,10 @@ from tensorflow.python.util.tf_export import tf_export
 # bits, all of which will be sent to the C++ code. The actual C++
 # implementation of some algorithms may only use a lower part of the bits.
 
-MAX_INT64 = 2**63 - 1
-MIN_INT64 = -(2**63)
-UINT64_SPAN = 2**64
+UINT64_HALF_SPAN = 2**63
+MAX_INT64 = UINT64_HALF_SPAN - 1
+MIN_INT64 = -UINT64_HALF_SPAN
+UINT64_SPAN = UINT64_HALF_SPAN * 2
 # 'Variable' doesn't support uint32 or uint64 yet (due to reasons explained in
 # b/111604096 and cl/171681867), so I use signed int here. I choose int64
 # instead of int32 here because `VarHandleOp` doesn't support int32 on GPU.
@@ -61,12 +63,6 @@ STATE_TYPE = SEED_TYPE
 ALGORITHM_TYPE = STATE_TYPE
 PHILOX_STATE_SIZE = 3
 THREEFRY_STATE_SIZE = 2
-
-
-@tf_export("random.Algorithm", "random.experimental.Algorithm")
-class Algorithm(enum.Enum):
-  PHILOX = 1
-  THREEFRY = 2
 
 
 RNG_ALG_PHILOX = Algorithm.PHILOX.value
@@ -92,7 +88,7 @@ def non_deterministic_ints(shape, dtype=dtypes.int64):
 
 
 def _uint_to_int(n):
-  if n > SEED_MAX:
+  if isinstance(n, int) and n > SEED_MAX:
     n = n - SEED_UINT_SPAN
   return n
 
@@ -114,12 +110,10 @@ def _make_1d_state(state_size, seed):
       ls.append(seed & SEED_BIT_MASK)
       seed >>= SEED_TYPE_BITS
     seed = ls
-  # to avoid overflow error from np.asarray
-  seed = list(map(_uint_to_int, seed))
-  seed = np.asarray(seed, dtype=STATE_TYPE)
-  if len(seed.shape) != 1:
-    raise ValueError(
-        "seed should only have one dimension; got shape: %s" % seed.shape)
+  # to avoid overflow error from ops.convert_to_tensor
+  seed = nest.map_structure(_uint_to_int, seed)
+  seed = math_ops.cast(seed, STATE_TYPE)
+  seed = array_ops.reshape(seed, [-1])
   seed = seed[0:state_size]
   # Padding with zeros on the *left* if too short. Padding on the right would
   # cause a small seed to be used as the "counter" while the "key" is always
@@ -127,12 +121,13 @@ def _make_1d_state(state_size, seed):
   # layout counter is stored before key. In such a situation two RNGs with
   # two different small seeds may generate overlapping outputs.
   seed_size = seed.shape[0]
-  if seed_size < state_size:
-    seed = np.pad(
-        seed, [(state_size - seed_size, 0)],
-        mode="constant",
-        constant_values=0)
-  assert seed.shape == (state_size,), "Wrong seed.shape: %s" % seed.shape
+  if seed_size is None:
+    seed_size = array_ops.shape(seed)[0]
+  padding_size = math_ops.maximum(state_size - seed_size, 0)
+  padding = array_ops.zeros([padding_size], seed.dtype)
+  # can't use `pad` because it doesn't support integer dtypes on GPU
+  seed = array_ops.concat([padding, seed], axis=0)
+  seed.set_shape([state_size])
   return seed
 
 
@@ -142,7 +137,10 @@ def _get_counter_size(alg):
   elif alg == RNG_ALG_THREEFRY:
     return 1
   else:
-    raise ValueError("Unsupported algorithm id: %s" % alg)
+    raise ValueError(
+        f"Argument `alg` got unsupported value {alg}. Supported values are "
+        f"{RNG_ALG_PHILOX} for the Philox algorithm and {RNG_ALG_THREEFRY} for "
+        f"the ThreeFry algorithm.")
 
 
 def _get_state_size(alg):
@@ -151,7 +149,10 @@ def _get_state_size(alg):
   elif alg == RNG_ALG_THREEFRY:
     return THREEFRY_STATE_SIZE
   else:
-    raise ValueError("Unsupported algorithm id: %s" % alg)
+    raise ValueError(
+        f"Argument `alg` got unsupported value {alg}. Supported values are "
+        f"{RNG_ALG_PHILOX} for the Philox algorithm and {RNG_ALG_THREEFRY} for "
+        f"the ThreeFry algorithm.")
 
 
 def _check_state_shape(shape, alg):
@@ -164,34 +165,6 @@ def _make_state_from_seed(seed, alg):
   return _make_1d_state(_get_state_size(alg), seed)
 
 
-def _convert_alg_to_int(alg):
-  """Converts algorithm to an integer.
-
-  Args:
-    alg: can be one of these types: integer, Algorithm, Tensor, string. Allowed
-      strings are "philox" and "threefry".
-
-  Returns:
-    An integer, unless the input is a Tensor in which case a Tensor is returned.
-  """
-  if isinstance(alg, six.integer_types):
-    return alg
-  if isinstance(alg, Algorithm):
-    return alg.value
-  if isinstance(alg, ops.Tensor):
-    return alg
-  if isinstance(alg, str):
-    if alg == "philox":
-      return RNG_ALG_PHILOX
-    elif alg == "threefry":
-      return RNG_ALG_THREEFRY
-    else:
-      raise ValueError("Unknown algorithm name: %s" % alg)
-  else:
-    raise TypeError("Can't convert algorithm %s of type %s to int" %
-                    (alg, type(alg)))
-
-
 @tf_export("random.create_rng_state", "random.experimental.create_rng_state")
 def create_rng_state(seed, alg):
   """Creates a RNG state from an integer or a vector.
@@ -200,10 +173,10 @@ def create_rng_state(seed, alg):
 
   >>> tf.random.create_rng_state(
   ...     1234, "philox")
-  array([1234,    0,    0])
+  <tf.Tensor: shape=(3,), dtype=int64, numpy=array([1234,    0,    0])>
   >>> tf.random.create_rng_state(
   ...     [12, 34], "threefry")
-  array([12, 34])
+  <tf.Tensor: shape=(2,), dtype=int64, numpy=array([12, 34])>
 
   Args:
     seed: an integer or 1-D numpy array.
@@ -212,7 +185,7 @@ def create_rng_state(seed, alg):
   Returns:
     a 1-D numpy array whose size depends on the algorithm.
   """
-  alg = _convert_alg_to_int(alg)
+  alg = stateless_random_ops.convert_alg_to_int(alg)
   return _make_state_from_seed(seed, alg)
 
 
@@ -226,10 +199,9 @@ def _shape_tensor(shape):
 
 
 def _convert_to_state_tensor(t):
-  if isinstance(t, list):
-    # to avoid out-of-range error from ops.convert_to_tensor
-    t = list(map(_uint_to_int, t))
-  return ops.convert_to_tensor(t, dtype=STATE_TYPE)
+  # to avoid out-of-range error from ops.convert_to_tensor
+  t = nest.map_structure(_uint_to_int, t)
+  return math_ops.cast(t, STATE_TYPE)
 
 
 def get_replica_id():
@@ -296,9 +268,6 @@ class Generator(tracking.AutoTrackable):
   When creating a generator inside a `tf.distribute.Strategy` scope, each
   replica will get a different stream of random numbers.
 
-  Note: `tf.distribute.experimental.CentralStorageStrategy` and
-  `tf.distribute.experimental.ParameterServerStrategy` are not supported yet.
-
   For example, in this code:
 
   ```
@@ -333,6 +302,25 @@ class Generator(tracking.AutoTrackable):
   while another has made two RNG calls). We don't have such guarantee if the
   generator is saved in a strategy scope and restored outside of any strategy
   scope, or vice versa.
+
+  When a generator is created within the scope of
+  `tf.distribute.experimental.ParameterServerStrategy`, the workers
+  will share the generator's state (placed on one of the parameter
+  servers). In this way the workers will still get different
+  random-number streams, as stated above. (This is similar to replicas
+  in a `tf.distribute.MirroredStrategy` sequentially accessing a
+  generator created outside the strategy.) Each RNG call on a worker
+  will incur a round-trip to a parameter server, which may have
+  performance impacts. When creating a
+  `tf.distribute.experimental.ParameterServerStrategy`, please make
+  sure that the `variable_partitioner` argument won't shard small
+  variables of shape `[2]` or `[3]` (because generator states must not
+  be sharded). Ways to avoid sharding small variables include setting
+  `variable_partitioner` to `None` or to
+  `tf.distribute.experimental.partitioners.MinSizePartitioner` with a
+  large enough `min_shard_bytes` (see
+  `tf.distribute.experimental.ParameterServerStrategy`'s documentation
+  for more details).
   """
 
   @classmethod
@@ -372,7 +360,7 @@ class Generator(tracking.AutoTrackable):
     if alg is None:
       # TODO(b/170668986): more sophisticated algorithm selection
       alg = DEFAULT_ALGORITHM
-    alg = _convert_alg_to_int(alg)
+    alg = stateless_random_ops.convert_alg_to_int(alg)
     state = create_rng_state(seed, alg)
     return cls(state=state, alg=alg)
 
@@ -389,10 +377,13 @@ class Generator(tracking.AutoTrackable):
     Returns:
       The new generator.
     """
+    if config.deterministic_ops_enabled():
+      raise RuntimeError('"from_non_deterministic_state" cannot be called when '  # pylint: disable=g-doc-exception
+                         "determinism is enabled.")
     if alg is None:
       # TODO(b/170668986): more sophisticated algorithm selection
       alg = DEFAULT_ALGORITHM
-    alg = _convert_alg_to_int(alg)
+    alg = stateless_random_ops.convert_alg_to_int(alg)
     state = non_deterministic_ints(shape=[_get_state_size(alg)],
                                    dtype=SEED_TYPE)
     return cls(state=state, alg=alg)
@@ -416,7 +407,7 @@ class Generator(tracking.AutoTrackable):
     """
     counter = _convert_to_state_tensor(counter)
     key = _convert_to_state_tensor(key)
-    alg = _convert_alg_to_int(alg)
+    alg = stateless_random_ops.convert_alg_to_int(alg)
     counter.shape.assert_is_compatible_with([_get_state_size(alg) - 1])
     key.shape.assert_is_compatible_with([])
     key = array_ops.reshape(key, [1])
@@ -461,13 +452,7 @@ class Generator(tracking.AutoTrackable):
       self._alg = copy_from.algorithm
     else:
       assert alg is not None and state is not None
-      if ds_context.has_strategy():
-        strat_name = type(ds_context.get_strategy()).__name__
-        # TODO(b/174610856): Support CentralStorageStrategy and
-        #   ParameterServerStrategy.
-        if "CentralStorage" in strat_name or "ParameterServer" in strat_name:
-          raise ValueError("%s is not supported yet" % strat_name)
-      alg = _convert_alg_to_int(alg)
+      alg = stateless_random_ops.convert_alg_to_int(alg)
       if isinstance(state, variables.Variable):
         _check_state_shape(state.shape, alg)
         self._state_var = state
@@ -488,7 +473,20 @@ class Generator(tracking.AutoTrackable):
     Returns:
       The created variable.
     """
-    return variables.Variable(*args, **kwargs)
+    v = variables.Variable(*args, **kwargs)
+    if isinstance(v, sharded_variable.ShardedVariable):
+      # RNG state is an atomic entity representing a 128-bit or
+      # 192-bit value, so it mustn't be sharded.
+      raise ValueError(
+          "tf.random.Generator state is sharded, which is not allowed. When "
+          "creating a tf.distribute.experimental.ParameterServerStrategy, "
+          "please make sure that the `variable_partitioner` "
+          "argument won't shard a "
+          "small variable of shape [2] or [3]. Ways to avoid sharding small "
+          "variables include setting `variable_partitioner` to None or to "
+          "tf.distribute.experimental.partitioners.MinSizePartitioner with a "
+          "large enough `min_shard_bytes`.")
+    return v
 
   def reset(self, state):
     """Resets the generator by a new state.
@@ -542,12 +540,9 @@ class Generator(tracking.AutoTrackable):
     return self._alg
 
   def _standard_normal(self, shape, dtype):
-    if compat.forward_compatible(2020, 10, 25):
-      key, counter = self._prepare_key_counter(shape)
-      return gen_stateless_random_ops_v2.stateless_random_normal_v2(
-          shape, key=key, counter=counter, dtype=dtype, alg=self.algorithm)
-    return gen_stateful_random_ops.stateful_standard_normal_v2(
-        self.state.handle, self.algorithm, shape, dtype=dtype)
+    key, counter = self._prepare_key_counter(shape)
+    return gen_stateless_random_ops_v2.stateless_random_normal_v2(
+        shape, key=key, counter=counter, dtype=dtype, alg=self.algorithm)
 
   @property
   def key(self):
@@ -570,10 +565,18 @@ class Generator(tracking.AutoTrackable):
     if alg == RNG_ALG_PHILOX or alg == RNG_ALG_THREEFRY:
       return self._state_var[-1]
     else:
-      raise ValueError("Unsupported algorithm id: %s" % alg)
+      raise ValueError(
+          f"This generator uses an unsupported algorithm {alg}. Supported "
+          f"values are {RNG_ALG_PHILOX} for the Philox algorithm and "
+          f"{RNG_ALG_THREEFRY} for the ThreeFry algorithm.")
 
-  # TODO(wangpeng): Add "Returns" section to docstring once new version kicks in
-  # pylint: disable=g-doc-return-or-yield
+  def _skip_single_var(self, var, delta):
+    # TODO(wangpeng): Cache the cast algorithm instead of casting everytime.
+    return gen_stateful_random_ops.rng_read_and_skip(
+        var.handle,
+        alg=math_ops.cast(self.algorithm, dtypes.int32),
+        delta=math_ops.cast(delta, dtypes.uint64))
+
   def skip(self, delta):
     """Advance the counter of a counter-based RNG.
 
@@ -582,21 +585,11 @@ class Generator(tracking.AutoTrackable):
         `skip(n)` will be the same as that after `normal([n])`
         (or any other distribution). The actual increment added to the
         counter is an unspecified implementation detail.
+
+    Returns:
+      A `Tensor` of type `int64`.
     """
-    if compat.forward_compatible(2020, 10, 25):
-      return self._skip(delta)
-    gen_stateful_random_ops.rng_skip(
-        self.state.handle, math_ops.cast(self.algorithm, dtypes.int64),
-        math_ops.cast(delta, dtypes.int64))
-  # pylint: enable=g-doc-return-or-yield
 
-  def _skip_single_var(self, var, delta):
-    # TODO(wangpeng): Cache the cast algorithm instead of casting everytime.
-    return gen_stateful_random_ops.rng_read_and_skip(
-        var.handle, alg=math_ops.cast(self.algorithm, dtypes.int32),
-        delta=math_ops.cast(delta, dtypes.uint64))
-
-  def _skip(self, delta):
     def update_fn(v):
       return self._skip_single_var(v, delta)
     # TODO(b/170515001): Always call strategy.extended.update after calling it
@@ -611,7 +604,12 @@ class Generator(tracking.AutoTrackable):
           # Code that operates on all replicas of a variable cannot be saved
           # without retracing.
           values_util.mark_as_unsaveable()
+        if (ds_context.in_cross_replica_context() or
+            "CentralStorage" in type(self._distribution_strategy).__name__):
           # In cross-replica context we need to use strategy.extended.update.
+          # In CentralStorageStrategy we also need to use
+          # strategy.extended.update (even for replica context),
+          # because variable updates here must be within merge_call.
           return ds_context.get_strategy().extended.update(
               self.state, update_fn)
     return update_fn(self.state)
@@ -667,16 +665,9 @@ class Generator(tracking.AutoTrackable):
       return math_ops.add(rnd * stddev, mean, name=name)
 
   def _truncated_normal(self, shape, dtype):
-    if compat.forward_compatible(2020, 10, 25):
-      key, counter = self._prepare_key_counter(shape)
-      return gen_stateless_random_ops_v2.stateless_truncated_normal_v2(
-          shape=shape,
-          key=key,
-          counter=counter,
-          dtype=dtype,
-          alg=self.algorithm)
-    return gen_stateful_random_ops.stateful_truncated_normal(
-        self.state.handle, self.algorithm, shape, dtype=dtype)
+    key, counter = self._prepare_key_counter(shape)
+    return gen_stateless_random_ops_v2.stateless_truncated_normal_v2(
+        shape=shape, key=key, counter=counter, dtype=dtype, alg=self.algorithm)
 
   def truncated_normal(self, shape,
                        mean=0.0,
@@ -713,30 +704,19 @@ class Generator(tracking.AutoTrackable):
       return math_ops.add(mul, mean_tensor, name=name)
 
   def _uniform(self, shape, dtype):
-    if compat.forward_compatible(2020, 10, 25):
-      key, counter = self._prepare_key_counter(shape)
-      return gen_stateless_random_ops_v2.stateless_random_uniform_v2(
-          shape=shape,
-          key=key,
-          counter=counter,
-          dtype=dtype,
-          alg=self.algorithm)
-    return gen_stateful_random_ops.stateful_uniform(
-        self.state.handle, self.algorithm, shape=shape, dtype=dtype)
+    key, counter = self._prepare_key_counter(shape)
+    return gen_stateless_random_ops_v2.stateless_random_uniform_v2(
+        shape=shape, key=key, counter=counter, dtype=dtype, alg=self.algorithm)
 
   def _uniform_full_int(self, shape, dtype, name=None):
-    if compat.forward_compatible(2020, 10, 25):
-      key, counter = self._prepare_key_counter(shape)
-      return gen_stateless_random_ops_v2.stateless_random_uniform_full_int_v2(
-          shape=shape,
-          key=key,
-          counter=counter,
-          dtype=dtype,
-          alg=self.algorithm,
-          name=name)
-    return gen_stateful_random_ops.stateful_uniform_full_int(
-        self.state.handle, self.algorithm, shape=shape,
-        dtype=dtype, name=name)
+    key, counter = self._prepare_key_counter(shape)
+    return gen_stateless_random_ops_v2.stateless_random_uniform_full_int_v2(
+        shape=shape,
+        key=key,
+        counter=counter,
+        dtype=dtype,
+        alg=self.algorithm,
+        name=name)
 
   def uniform(self, shape, minval=0, maxval=None,
               dtype=dtypes.float32, name=None):
@@ -797,19 +777,15 @@ class Generator(tracking.AutoTrackable):
       minval = ops.convert_to_tensor(minval, dtype=dtype, name="min")
       maxval = ops.convert_to_tensor(maxval, dtype=dtype, name="max")
       if dtype.is_integer:
-        if compat.forward_compatible(2020, 10, 25):
-          key, counter = self._prepare_key_counter(shape)
-          return gen_stateless_random_ops_v2.stateless_random_uniform_int_v2(
-              shape=shape,
-              key=key,
-              counter=counter,
-              minval=minval,
-              maxval=maxval,
-              alg=self.algorithm,
-              name=name)
-        return gen_stateful_random_ops.stateful_uniform_int(
-            self.state.handle, self.algorithm, shape=shape,
-            minval=minval, maxval=maxval, name=name)
+        key, counter = self._prepare_key_counter(shape)
+        return gen_stateless_random_ops_v2.stateless_random_uniform_int_v2(
+            shape=shape,
+            key=key,
+            counter=counter,
+            minval=minval,
+            maxval=maxval,
+            alg=self.algorithm,
+            name=name)
       else:
         rnd = self._uniform(shape=shape, dtype=dtype)
         return math_ops.add(rnd * (maxval - minval), minval, name=name)
@@ -929,7 +905,10 @@ class Generator(tracking.AutoTrackable):
       zeros = array_ops.zeros_like(keys)
       return array_ops.stack([keys, zeros])
     else:
-      raise ValueError("Unsupported algorithm id: %s" % alg)
+      raise ValueError(
+          f"This generator uses an unsupported algorithm {alg}. Supported "
+          f"values are {RNG_ALG_PHILOX} for the Philox algorithm and "
+          f"{RNG_ALG_THREEFRY} for the ThreeFry algorithm.")
 
   def split(self, count=1):
     """Returns a list of independent `Generator` objects.
@@ -977,9 +956,12 @@ class Generator(tracking.AutoTrackable):
     if alg == RNG_ALG_PHILOX or alg == RNG_ALG_THREEFRY:
       keys = self._make_int64_keys(shape=[count])
       return [Generator(state=_key_to_state(alg, key), alg=alg)
-              for key in keys.numpy()]
+              for key in array_ops.unstack(keys, num=count)]
     else:
-      raise ValueError("Unsupported algorithm id: %s" % alg)
+      raise ValueError(
+          f"This generator uses an unsupported algorithm {alg}. Supported "
+          f"values are {RNG_ALG_PHILOX} for the Philox algorithm and "
+          f"{RNG_ALG_THREEFRY} for the ThreeFry algorithm.")
 
 
 # It's not safe to create TF ops before `init_google` is called, so this is
@@ -1003,6 +985,11 @@ def get_global_generator():
   """
   global global_generator
   if global_generator is None:
+    if config.deterministic_ops_enabled():
+      raise RuntimeError('"get_global_generator" cannot be called if '  # pylint: disable=g-doc-exception
+                         "determinism is enabled, unless "
+                         '"set_global_generator" has already been called. '
+                         'Please call "set_global_generator" first.')
     with ops.init_scope():
       global_generator = Generator.from_non_deterministic_state()
   return global_generator

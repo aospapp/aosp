@@ -16,15 +16,15 @@
 import * as m from 'mithril';
 
 import {Actions} from '../common/actions';
-import {Row} from '../common/protos';
 import {QueryResponse} from '../common/queries';
+import {Row} from '../common/query_result';
 import {fromNs} from '../common/time';
 
-import {copyToClipboard} from './clipboard';
+import {queryResponseToClipboard} from './clipboard';
 import {globals} from './globals';
 import {Panel} from './panel';
+import {Router} from './router';
 import {
-  findUiTrackId,
   horizontalScrollAndZoomToRange,
   verticalScrollToTrack
 } from './scroll_helper';
@@ -46,7 +46,7 @@ class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
   static rowOnClickHandler(
       event: Event, row: Row, nextTab: 'CurrentSelection'|'QueryResults') {
     // TODO(dproy): Make click handler work from analyze page.
-    if (globals.state.route !== '/viewer') return;
+    if (Router.parseUrl(window.location.href).page !== '/viewer') return;
     // If the click bubbles up to the pan and zoom handler that will deselect
     // the slice.
     event.stopPropagation();
@@ -56,8 +56,8 @@ class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
     const sliceDur = fromNs(Math.max(row.dur as number, 1));
     const sliceEnd = sliceStart + sliceDur;
     const trackId = row.track_id as number;
-    const uiTrackId = findUiTrackId(trackId);
-    if (uiTrackId === null) return;
+    const uiTrackId = globals.state.uiTrackIdByTraceTrackId[trackId];
+    if (uiTrackId === undefined) return;
     verticalScrollToTrack(uiTrackId, true);
     horizontalScrollAndZoomToRange(sliceStart, sliceEnd);
     let sliceId: number|undefined;
@@ -70,7 +70,7 @@ class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
       globals.makeSelection(
           Actions.selectChromeSlice(
               {id: sliceId, trackId: uiTrackId, table: 'slice'}),
-          nextTab === 'QueryResults' ? globals.frontendLocalState.currentTab :
+          nextTab === 'QueryResults' ? globals.state.currentTab :
                                        'current_selection');
     }
   }
@@ -135,43 +135,45 @@ export class QueryTable extends Panel<QueryTableAttrs> {
       rows.push(m(QueryTableRow, {row: resp.rows[i], columns: resp.columns}));
     }
 
+    const headers = [
+      m(
+          'header.overview',
+          `Query result - ${Math.round(resp.durationMs)} ms`,
+          m('span.code', resp.query),
+          resp.error ? null :
+                       m('button.query-ctrl',
+                         {
+                           onclick: () => {
+                             queryResponseToClipboard(resp);
+                           },
+                         },
+                         'Copy as .tsv'),
+          m('button.query-ctrl',
+            {
+              onclick: () => {
+                globals.queryResults.delete(queryId);
+                globals.rafScheduler.scheduleFullRedraw();
+              }
+            },
+            'Close'),
+          ),
+    ];
+
+
+    if (resp.statementWithOutputCount > 1) {
+      headers.push(
+          m('header.overview',
+            `${resp.statementWithOutputCount} out of ${resp.statementCount} ` +
+                `statements returned a result. Only the results for the last ` +
+                `statement are displayed in the table below.`));
+    }
+
     return m(
         'div',
-        m(
-            'header.overview',
-            `Query result - ${Math.round(resp.durationMs)} ms`,
-            m('span.code', resp.query),
-            resp.error ?
-                null :
-                m('button.query-ctrl',
-                  {
-                    onclick: () => {
-                      const lines: string[][] = [];
-                      lines.push(resp.columns);
-                      for (const row of resp.rows) {
-                        const line = [];
-                        for (const col of resp.columns) {
-                          line.push(row[col].toString());
-                        }
-                        lines.push(line);
-                      }
-                      copyToClipboard(
-                          lines.map(line => line.join('\t')).join('\n'));
-                    },
-                  },
-                  'Copy as .tsv'),
-            m('button.query-ctrl',
-              {
-                onclick: () => {
-                  globals.queryResults.delete(queryId);
-                  globals.rafScheduler.scheduleFullRedraw();
-                }
-              },
-              'Close'),
-            ),
+        ...headers,
         resp.error ?
             m('.query-error', `SQL error: ${resp.error}`) :
-            m('.query-table-container',
+            m('.query-table-container.x-scrollable',
               m('table.query-table', m('thead', header), m('tbody', rows))));
   }
 

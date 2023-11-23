@@ -32,8 +32,25 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- The INTERNET permission is restricted to the modelDownloaderServiceProcess -->
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
+        <processes>
+            <deny-permission android:name="android.permission.INTERNET" />
+            <process />
+            <process android:process=":modelDownloaderServiceProcess">
+                <allow-permission android:name="android.permission.INTERNET" />
+            </process>
+        </processes>
+
+        <service
+            android:exported="false"
+            android:name=".downloader.ModelDownloaderService"
+            android:process=":modelDownloaderServiceProcess">
+        </service>
 
         <service
             android:exported="true"

@@ -988,6 +988,20 @@ otData = [
 		('VarIdxMapValue', 'mapping', '', 0, 'Array of compressed data'),
 	]),
 
+	('DeltaSetIndexMapFormat0', [
+		('uint8', 'Format', None, None, 'Format of the DeltaSetIndexMap = 0'),
+		('uint8', 'EntryFormat', None, None, ''), # Automatically computed
+		('uint16', 'MappingCount', None, None, ''), # Automatically computed
+		('VarIdxMapValue', 'mapping', '', 0, 'Array of compressed data'),
+	]),
+
+	('DeltaSetIndexMapFormat1', [
+		('uint8', 'Format', None, None, 'Format of the DeltaSetIndexMap = 1'),
+		('uint8', 'EntryFormat', None, None, ''), # Automatically computed
+		('uint32', 'MappingCount', None, None, ''), # Automatically computed
+		('VarIdxMapValue', 'mapping', '', 0, 'Array of compressed data'),
+	]),
+
 	# Glyph advance variations
 
 	('HVAR', [
@@ -1546,8 +1560,10 @@ otData = [
 		('LOffset', 'BaseGlyphRecordArray', None, None, 'Offset (from beginning of COLR table) to Base Glyph records.'),
 		('LOffset', 'LayerRecordArray', None, None, 'Offset (from beginning of COLR table) to Layer Records.'),
 		('uint16', 'LayerRecordCount', None, None, 'Number of Layer Records.'),
-		('LOffset', 'BaseGlyphV1List', None, 'Version >= 1', 'Offset (from beginning of COLR table) to array of Version-1 Base Glyph records.'),
-		('LOffset', 'LayerV1List', None, 'Version >= 1', 'Offset (from beginning of COLR table) to LayerV1List.'),
+		('LOffset', 'BaseGlyphList', None, 'Version >= 1', 'Offset (from beginning of COLR table) to array of Version-1 Base Glyph records.'),
+		('LOffset', 'LayerList', None, 'Version >= 1', 'Offset (from beginning of COLR table) to LayerList.'),
+		('LOffset', 'ClipList', None, 'Version >= 1', 'Offset to ClipList table (may be NULL)'),
+		('LOffsetTo(DeltaSetIndexMap)', 'VarIndexMap', None, 'Version >= 1', 'Offset to DeltaSetIndexMap table (may be NULL)'),
 		('LOffset', 'VarStore', None, 'Version >= 1', 'Offset to variation store (may be NULL)'),
 	]),
 
@@ -1570,19 +1586,48 @@ otData = [
 		('uint16', 'PaletteIndex', None, None, 'Index value to use with a selected color palette.'),
 	]),
 
-	('BaseGlyphV1List', [
+	('BaseGlyphList', [
 		('uint32', 'BaseGlyphCount', None, None, 'Number of Version-1 Base Glyph records'),
-		('struct', 'BaseGlyphV1Record', 'BaseGlyphCount', 0, 'Array of Version-1 Base Glyph records'),
+		('struct', 'BaseGlyphPaintRecord', 'BaseGlyphCount', 0, 'Array of Version-1 Base Glyph records'),
 	]),
 
-	('BaseGlyphV1Record', [
+	('BaseGlyphPaintRecord', [
 		('GlyphID', 'BaseGlyph', None, None, 'Glyph ID of reference glyph.'),
-		('LOffset', 'Paint', None, None, 'Offset (from beginning of BaseGlyphV1Record) to Paint, typically a PaintColrLayers.'),
+		('LOffset', 'Paint', None, None, 'Offset (from beginning of BaseGlyphPaintRecord) to Paint, typically a PaintColrLayers.'),
 	]),
 
-	('LayerV1List', [
+	('LayerList', [
 		('uint32', 'LayerCount', None, None, 'Number of Version-1 Layers'),
-		('LOffset', 'Paint', 'LayerCount', 0, 'Array of offsets to Paint tables, from the start of the LayerV1List table.'),
+		('LOffset', 'Paint', 'LayerCount', 0, 'Array of offsets to Paint tables, from the start of the LayerList table.'),
+	]),
+
+	('ClipListFormat1', [
+		('uint8', 'Format', None, None, 'Format for ClipList with 16bit glyph IDs: 1'),
+		('uint32', 'ClipCount', None, None, 'Number of Clip records.'),
+		('struct', 'ClipRecord', 'ClipCount', 0, 'Array of Clip records sorted by glyph ID.'),
+	]),
+
+	('ClipRecord', [
+		('uint16', 'StartGlyphID', None, None, 'First glyph ID in the range.'),
+		('uint16', 'EndGlyphID', None, None, 'Last glyph ID in the range.'),
+		('Offset24', 'ClipBox', None, None, 'Offset to a ClipBox table.'),
+	]),
+
+	('ClipBoxFormat1', [
+		('uint8', 'Format', None, None, 'Format for ClipBox without variation: set to 1.'),
+		('int16', 'xMin', None, None, 'Minimum x of clip box.'),
+		('int16', 'yMin', None, None, 'Minimum y of clip box.'),
+		('int16', 'xMax', None, None, 'Maximum x of clip box.'),
+		('int16', 'yMax', None, None, 'Maximum y of clip box.'),
+	]),
+
+	('ClipBoxFormat2', [
+		('uint8', 'Format', None, None, 'Format for variable ClipBox: set to 2.'),
+		('int16', 'xMin', None, None, 'Minimum x of clip box.'),
+		('int16', 'yMin', None, None, 'Minimum y of clip box.'),
+		('int16', 'xMax', None, None, 'Maximum x of clip box.'),
+		('int16', 'yMax', None, None, 'Maximum y of clip box.'),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# COLRv1 Affine2x3 uses the same column-major order to serialize a 2D
@@ -1603,30 +1648,25 @@ otData = [
 		('Fixed', 'dy', None, None, 'Translation in y direction'),
 	]),
 	('VarAffine2x3', [
-		('VarFixed', 'xx', None, None, 'x-part of x basis vector'),
-		('VarFixed', 'yx', None, None, 'y-part of x basis vector'),
-		('VarFixed', 'xy', None, None, 'x-part of y basis vector'),
-		('VarFixed', 'yy', None, None, 'y-part of y basis vector'),
-		('VarFixed', 'dx', None, None, 'Translation in x direction'),
-		('VarFixed', 'dy', None, None, 'Translation in y direction'),
-	]),
-
-	('ColorIndex', [
-		('uint16', 'PaletteIndex', None, None, 'Index value to use with a selected color palette.'),
-		('F2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved'),
-	]),
-	('VarColorIndex', [
-		('uint16', 'PaletteIndex', None, None, 'Index value to use with a selected color palette.'),
-		('VarF2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved'),
+		('Fixed', 'xx', None, None, 'x-part of x basis vector'),
+		('Fixed', 'yx', None, None, 'y-part of x basis vector'),
+		('Fixed', 'xy', None, None, 'x-part of y basis vector'),
+		('Fixed', 'yy', None, None, 'y-part of y basis vector'),
+		('Fixed', 'dx', None, None, 'Translation in x direction'),
+		('Fixed', 'dy', None, None, 'Translation in y direction'),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	('ColorStop', [
 		('F2Dot14', 'StopOffset', None, None, ''),
-		('ColorIndex', 'Color', None, None, ''),
+		('uint16', 'PaletteIndex', None, None, 'Index for a CPAL palette entry.'),
+		('F2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved'),
 	]),
 	('VarColorStop', [
-		('VarF2Dot14', 'StopOffset', None, None, ''),
-		('VarColorIndex', 'Color', None, None, ''),
+		('F2Dot14', 'StopOffset', None, None, 'VarIndexBase + 0'),
+		('uint16', 'PaletteIndex', None, None, 'Index for a CPAL palette entry.'),
+		('F2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved. VarIndexBase + 1'),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	('ColorLine', [
@@ -1643,19 +1683,22 @@ otData = [
 	# PaintColrLayers
 	('PaintFormat1', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 1'),
-		('uint8', 'NumLayers', None, None, 'Number of offsets to Paint to read from LayerV1List.'),
-		('uint32', 'FirstLayerIndex', None, None, 'Index into LayerV1List.'),
+		('uint8', 'NumLayers', None, None, 'Number of offsets to Paint to read from LayerList.'),
+		('uint32', 'FirstLayerIndex', None, None, 'Index into LayerList.'),
 	]),
 
 	# PaintSolid
 	('PaintFormat2', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 2'),
-		('ColorIndex', 'Color', None, None, 'A solid color paint.'),
+		('uint16', 'PaletteIndex', None, None, 'Index for a CPAL palette entry.'),
+		('F2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved'),
 	]),
 	# PaintVarSolid
 	('PaintFormat3', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 3'),
-		('VarColorIndex', 'Color', None, None, 'A solid color paint.'),
+		('uint16', 'PaletteIndex', None, None, 'Index for a CPAL palette entry.'),
+		('F2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved. VarIndexBase + 0'),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintLinearGradient
@@ -1673,12 +1716,13 @@ otData = [
 	('PaintFormat5', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 5'),
 		('LOffset24To(VarColorLine)', 'ColorLine', None, None, 'Offset (from beginning of PaintVarLinearGradient table) to VarColorLine subtable.'),
-		('VarInt16', 'x0', None, None, ''),
-		('VarInt16', 'y0', None, None, ''),
-		('VarInt16', 'x1', None, None, ''),
-		('VarInt16', 'y1', None, None, ''),
-		('VarInt16', 'x2', None, None, ''),
-		('VarInt16', 'y2', None, None, ''),
+		('int16', 'x0', None, None, ''),
+		('int16', 'y0', None, None, ''),
+		('int16', 'x1', None, None, ''),
+		('int16', 'y1', None, None, ''),
+		('int16', 'x2', None, None, ''),
+		('int16', 'y2', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintRadialGradient
@@ -1696,12 +1740,13 @@ otData = [
 	('PaintFormat7', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 7'),
 		('LOffset24To(VarColorLine)', 'ColorLine', None, None, 'Offset (from beginning of PaintVarRadialGradient table) to VarColorLine subtable.'),
-		('VarInt16', 'x0', None, None, ''),
-		('VarInt16', 'y0', None, None, ''),
-		('VarUInt16', 'r0', None, None, ''),
-		('VarInt16', 'x1', None, None, ''),
-		('VarInt16', 'y1', None, None, ''),
-		('VarUInt16', 'r1', None, None, ''),
+		('int16', 'x0', None, None, ''),
+		('int16', 'y0', None, None, ''),
+		('uint16', 'r0', None, None, ''),
+		('int16', 'x1', None, None, ''),
+		('int16', 'y1', None, None, ''),
+		('uint16', 'r1', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintSweepGradient
@@ -1710,17 +1755,18 @@ otData = [
 		('Offset24', 'ColorLine', None, None, 'Offset (from beginning of PaintSweepGradient table) to ColorLine subtable.'),
 		('int16', 'centerX', None, None, 'Center x coordinate.'),
 		('int16', 'centerY', None, None, 'Center y coordinate.'),
-		('Fixed', 'startAngle', None, None, 'Start of the angular range of the gradient.'),
-		('Fixed', 'endAngle', None, None, 'End of the angular range of the gradient.'),
+		('Angle', 'startAngle', None, None, 'Start of the angular range of the gradient.'),
+		('Angle', 'endAngle', None, None, 'End of the angular range of the gradient.'),
 	]),
 	# PaintVarSweepGradient
 	('PaintFormat9', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 9'),
 		('LOffset24To(VarColorLine)', 'ColorLine', None, None, 'Offset (from beginning of PaintVarSweepGradient table) to VarColorLine subtable.'),
-		('VarInt16', 'centerX', None, None, 'Center x coordinate.'),
-		('VarInt16', 'centerY', None, None, 'Center y coordinate.'),
-		('VarFixed', 'startAngle', None, None, 'Start of the angular range of the gradient.'),
-		('VarFixed', 'endAngle', None, None, 'End of the angular range of the gradient.'),
+		('int16', 'centerX', None, None, 'Center x coordinate.'),
+		('int16', 'centerY', None, None, 'Center y coordinate.'),
+		('Angle', 'startAngle', None, None, 'Start of the angular range of the gradient.'),
+		('Angle', 'endAngle', None, None, 'End of the angular range of the gradient.'),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintGlyph
@@ -1733,76 +1779,177 @@ otData = [
 	# PaintColrGlyph
 	('PaintFormat11', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 11'),
-		('GlyphID', 'Glyph', None, None, 'Virtual glyph ID for a BaseGlyphV1List base glyph.'),
+		('GlyphID', 'Glyph', None, None, 'Virtual glyph ID for a BaseGlyphList base glyph.'),
 	]),
 
 	# PaintTransform
 	('PaintFormat12', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 12'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintTransform table) to Paint subtable.'),
-		('Affine2x3', 'Transform', None, None, '2x3 matrix for 2D affine transformations.'),
+		('LOffset24To(Affine2x3)', 'Transform', None, None, '2x3 matrix for 2D affine transformations.'),
 	]),
 	# PaintVarTransform
 	('PaintFormat13', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 13'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarTransform table) to Paint subtable.'),
-		('VarAffine2x3', 'Transform', None, None, '2x3 matrix for 2D affine transformations.'),
+		('LOffset24To(VarAffine2x3)', 'Transform', None, None, '2x3 matrix for 2D affine transformations.'),
 	]),
 
 	# PaintTranslate
 	('PaintFormat14', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 14'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintTranslate table) to Paint subtable.'),
-		('Fixed', 'dx', None, None, 'Translation in x direction.'),
-		('Fixed', 'dy', None, None, 'Translation in y direction.'),
+		('int16', 'dx', None, None, 'Translation in x direction.'),
+		('int16', 'dy', None, None, 'Translation in y direction.'),
 	]),
 	# PaintVarTranslate
 	('PaintFormat15', [
 		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 15'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarTranslate table) to Paint subtable.'),
-		('VarFixed', 'dx', None, None, 'Translation in x direction.'),
-		('VarFixed', 'dy', None, None, 'Translation in y direction.'),
+		('int16', 'dx', None, None, 'Translation in x direction.'),
+		('int16', 'dy', None, None, 'Translation in y direction.'),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
+	]),
+
+	# PaintScale
+	('PaintFormat16', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 16'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintScale table) to Paint subtable.'),
+		('F2Dot14', 'scaleX', None, None, ''),
+		('F2Dot14', 'scaleY', None, None, ''),
+	]),
+	# PaintVarScale
+	('PaintFormat17', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 17'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarScale table) to Paint subtable.'),
+		('F2Dot14', 'scaleX', None, None, ''),
+		('F2Dot14', 'scaleY', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
+	]),
+
+	# PaintScaleAroundCenter
+	('PaintFormat18', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 18'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintScaleAroundCenter table) to Paint subtable.'),
+		('F2Dot14', 'scaleX', None, None, ''),
+		('F2Dot14', 'scaleY', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+	]),
+	# PaintVarScaleAroundCenter
+	('PaintFormat19', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 19'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarScaleAroundCenter table) to Paint subtable.'),
+		('F2Dot14', 'scaleX', None, None, ''),
+		('F2Dot14', 'scaleY', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
+	]),
+
+	# PaintScaleUniform
+	('PaintFormat20', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 20'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintScaleUniform table) to Paint subtable.'),
+		('F2Dot14', 'scale', None, None, ''),
+	]),
+	# PaintVarScaleUniform
+	('PaintFormat21', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 21'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarScaleUniform table) to Paint subtable.'),
+		('F2Dot14', 'scale', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
+	]),
+
+	# PaintScaleUniformAroundCenter
+	('PaintFormat22', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 22'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintScaleUniformAroundCenter table) to Paint subtable.'),
+		('F2Dot14', 'scale', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+	]),
+	# PaintVarScaleUniformAroundCenter
+	('PaintFormat23', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 23'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarScaleUniformAroundCenter table) to Paint subtable.'),
+		('F2Dot14', 'scale', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintRotate
-	('PaintFormat16', [
-		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 16'),
+	('PaintFormat24', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 24'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintRotate table) to Paint subtable.'),
-		('Fixed', 'angle', None, None, ''),
-		('Fixed', 'centerX', None, None, ''),
-		('Fixed', 'centerY', None, None, ''),
+		('Angle', 'angle', None, None, ''),
 	]),
 	# PaintVarRotate
-	('PaintFormat17', [
-		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 17'),
+	('PaintFormat25', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 25'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarRotate table) to Paint subtable.'),
-		('VarFixed', 'angle', None, None, ''),
-		('VarFixed', 'centerX', None, None, ''),
-		('VarFixed', 'centerY', None, None, ''),
+		('Angle', 'angle', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
+	]),
+
+	# PaintRotateAroundCenter
+	('PaintFormat26', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 26'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintRotateAroundCenter table) to Paint subtable.'),
+		('Angle', 'angle', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+	]),
+	# PaintVarRotateAroundCenter
+	('PaintFormat27', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 27'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarRotateAroundCenter table) to Paint subtable.'),
+		('Angle', 'angle', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintSkew
-	('PaintFormat18', [
-		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 18'),
+	('PaintFormat28', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 28'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintSkew table) to Paint subtable.'),
-		('Fixed', 'xSkewAngle', None, None, ''),
-		('Fixed', 'ySkewAngle', None, None, ''),
-		('Fixed', 'centerX', None, None, ''),
-		('Fixed', 'centerY', None, None, ''),
+		('Angle', 'xSkewAngle', None, None, ''),
+		('Angle', 'ySkewAngle', None, None, ''),
 	]),
 	# PaintVarSkew
-	('PaintFormat19', [
-		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 19'),
+	('PaintFormat29', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 29'),
 		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarSkew table) to Paint subtable.'),
-		('VarFixed', 'xSkewAngle', None, None, ''),
-		('VarFixed', 'ySkewAngle', None, None, ''),
-		('VarFixed', 'centerX', None, None, ''),
-		('VarFixed', 'centerY', None, None, ''),
+		('Angle', 'xSkewAngle', None, None, ''),
+		('Angle', 'ySkewAngle', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
+	]),
+
+	# PaintSkewAroundCenter
+	('PaintFormat30', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 30'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintSkewAroundCenter table) to Paint subtable.'),
+		('Angle', 'xSkewAngle', None, None, ''),
+		('Angle', 'ySkewAngle', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+	]),
+	# PaintVarSkewAroundCenter
+	('PaintFormat31', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 31'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarSkewAroundCenter table) to Paint subtable.'),
+		('Angle', 'xSkewAngle', None, None, ''),
+		('Angle', 'ySkewAngle', None, None, ''),
+		('int16', 'centerX', None, None, ''),
+		('int16', 'centerY', None, None, ''),
+		('VarIndex', 'VarIndexBase', None, None, 'Base index into DeltaSetIndexMap.'),
 	]),
 
 	# PaintComposite
-	('PaintFormat20', [
-		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 20'),
+	('PaintFormat32', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 32'),
 		('LOffset24To(Paint)', 'SourcePaint', None, None, 'Offset (from beginning of PaintComposite table) to source Paint subtable.'),
 		('CompositeMode', 'CompositeMode', None, None, 'A CompositeMode enumeration value.'),
 		('LOffset24To(Paint)', 'BackdropPaint', None, None, 'Offset (from beginning of PaintComposite table) to backdrop Paint subtable.'),

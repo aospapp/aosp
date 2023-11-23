@@ -28,13 +28,25 @@
 #include "private-lib-core.h"
 
 #include <sys/ioctl.h>
+
+#if !defined(LWS_DETECTED_PLAT_IOS)
 #include <net/route.h>
+#endif
+
 #include <net/if.h>
 
 #include <pwd.h>
 #include <grp.h>
 
+#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_HAVE_MBEDTLS_NET_SOCKETS)
+#include "mbedtls/net_sockets.h"
+#else
+#include "mbedtls/net.h"
+#endif
+#endif
 
+#include <netinet/ip.h>
 
 int
 lws_send_pipe_choked(struct lws *wsi)
@@ -150,7 +162,7 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 	if (!unix_skt && vhost->bind_iface && vhost->iface) {
 		lwsl_info("binding listen skt to %s using SO_BINDTODEVICE\n", vhost->iface);
 		if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, vhost->iface,
-				strlen(vhost->iface)) < 0) {
+				(socklen_t)strlen(vhost->iface)) < 0) {
 			lwsl_warn("Failed to bind to device %s\n", vhost->iface);
 			return 1;
 		}
@@ -178,8 +190,100 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 	return lws_plat_set_nonblocking(fd);
 }
 
+static const int ip_opt_lws_flags[] = {
+	LCCSCF_IP_LOW_LATENCY, LCCSCF_IP_HIGH_THROUGHPUT,
+	LCCSCF_IP_HIGH_RELIABILITY
+#if !defined(__OpenBSD__)
+	, LCCSCF_IP_LOW_COST
+#endif
+}, ip_opt_val[] = {
+	IPTOS_LOWDELAY, IPTOS_THROUGHPUT, IPTOS_RELIABILITY
+#if !defined(__OpenBSD__) && !defined(__sun)
+	, IPTOS_MINCOST
+#endif
+};
+#if !defined(LWS_WITH_NO_LOGS)
+static const char *ip_opt_names[] = {
+	"LOWDELAY", "THROUGHPUT", "RELIABILITY"
+#if !defined(__OpenBSD__) && !defined(__sun)
+	, "MINCOST"
+#endif
+};
+#endif
+
+int
+lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
+{
+	int optval = (int)pri, ret = 0, n;
+	socklen_t optlen = sizeof(optval);
+#if !defined(LWS_WITH_NO_LOGS)
+	int en;
+#endif
+
+#if 0
+#if defined(TCP_FASTOPEN_CONNECT)
+	optval = 1;
+	if (setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, (void *)&optval,
+		       sizeof(optval)))
+		lwsl_warn("%s: FASTOPEN_CONNECT failed\n", __func__);
+	optval = (int)pri;
+#endif
+#endif
+
+#if !defined(__APPLE__) && \
+      !defined(__FreeBSD__) && !defined(__FreeBSD_kernel__) &&        \
+      !defined(__NetBSD__) && \
+      !defined(__OpenBSD__) && \
+      !defined(__sun) && \
+      !defined(__HAIKU__) && \
+      !defined(__CYGWIN__)
+
+	/* the BSDs don't have SO_PRIORITY */
+
+	if (pri) { /* 0 is the default already */
+		if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY,
+				(const void *)&optval, optlen) < 0) {
+#if !defined(LWS_WITH_NO_LOGS)
+			en = errno;
+			lwsl_warn("%s: unable to set socket pri %d: errno %d\n",
+				  __func__, (int)pri, en);
+#endif
+			ret = 1;
+		} else
+			lwsl_notice("%s: set pri %u\n", __func__, pri);
+	}
+#endif
+
+	for (n = 0; n < 4; n++) {
+		if (!(lws_flags & ip_opt_lws_flags[n]))
+			continue;
+
+		optval = (int)ip_opt_val[n];
+		if (setsockopt(fd, IPPROTO_IP, IP_TOS, (const void *)&optval,
+			       optlen) < 0) {
+#if !defined(LWS_WITH_NO_LOGS)
+			en = errno;
+			lwsl_warn("%s: unable to set %s: errno %d\n", __func__,
+				  ip_opt_names[n], en);
+#endif
+			ret = 1;
+		} else
+			lwsl_notice("%s: set ip flag %s\n", __func__,
+				    ip_opt_names[n]);
+	}
+
+	return ret;
+}
 
 /* cast a struct sockaddr_in6 * into addr for ipv6 */
+
+enum {
+	IP_SCORE_NONE,
+	IP_SCORE_NONNATIVE,
+	IP_SCORE_IPV6_SCOPE_BASE,
+	/* ipv6 scopes */
+	IP_SCORE_GLOBAL_NATIVE = 18
+};
 
 int
 lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
@@ -189,13 +293,20 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 
 	struct ifaddrs *ifr;
 	struct ifaddrs *ifc;
-#ifdef LWS_WITH_IPV6
+#if defined(LWS_WITH_IPV6)
 	struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+	unsigned long sco = IP_SCORE_NONE;
+	unsigned long ts;
+	const uint8_t *p;
 #endif
 
-	getifaddrs(&ifr);
-	for (ifc = ifr; ifc != NULL && rc; ifc = ifc->ifa_next) {
-		if (!ifc->ifa_addr)
+	if (getifaddrs(&ifr)) {
+		lwsl_err("%s: unable to getifaddrs: errno %d\n", __func__, errno);
+
+		return LWS_ITOSA_USABLE;
+	}
+	for (ifc = ifr; ifc != NULL; ifc = ifc->ifa_next) {
+		if (!ifc->ifa_addr || !ifc->ifa_name)
 			continue;
 
 		lwsl_debug(" interface %s vs %s (fam %d) ipv6 %d\n",
@@ -209,13 +320,19 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 #if defined(AF_PACKET)
 		case AF_PACKET:
 			/* interface exists but is not usable */
-			rc = LWS_ITOSA_NOT_USABLE;
+			if (rc == LWS_ITOSA_NOT_EXIST)
+				rc = LWS_ITOSA_NOT_USABLE;
 			continue;
 #endif
 
 		case AF_INET:
-#ifdef LWS_WITH_IPV6
+#if defined(LWS_WITH_IPV6)
 			if (ipv6) {
+				/* any existing solution is better than this */
+				if (sco != IP_SCORE_NONE)
+					break;
+				sco = IP_SCORE_NONNATIVE;
+				rc = LWS_ITOSA_USABLE;
 				/* map IPv4 to IPv6 */
 				memset((char *)&addr6->sin6_addr, 0,
 						sizeof(struct in6_addr));
@@ -225,44 +342,51 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 				       &((struct sockaddr_in *)ifc->ifa_addr)->sin_addr,
 							sizeof(struct in_addr));
 				lwsl_debug("%s: uplevelling ipv4 bind to ipv6\n", __func__);
-			} else
+				break;
+			}
+
+			sco = IP_SCORE_GLOBAL_NATIVE;
 #endif
-				memcpy(addr,
-					(struct sockaddr_in *)ifc->ifa_addr,
+			rc = LWS_ITOSA_USABLE;
+			memcpy(addr, (struct sockaddr_in *)ifc->ifa_addr,
 						    sizeof(struct sockaddr_in));
 			break;
-#ifdef LWS_WITH_IPV6
+#if defined(LWS_WITH_IPV6)
 		case AF_INET6:
+			p = (const uint8_t *)
+				&((struct sockaddr_in6 *)ifc->ifa_addr)->sin6_addr;
+			ts = IP_SCORE_IPV6_SCOPE_BASE;
+			if (p[0] == 0xff)
+				ts = (unsigned long)(IP_SCORE_IPV6_SCOPE_BASE + (p[1] & 0xf));
+
+			if (sco >= ts)
+				break;
+
+			sco = ts;
+			rc = LWS_ITOSA_USABLE;
+
 			memcpy(&addr6->sin6_addr,
-			  &((struct sockaddr_in6 *)ifc->ifa_addr)->sin6_addr,
+			     &((struct sockaddr_in6 *)ifc->ifa_addr)->sin6_addr,
 						       sizeof(struct in6_addr));
 			break;
 #endif
 		default:
-			continue;
+			break;
 		}
-		rc = LWS_ITOSA_USABLE;
 	}
 
 	freeifaddrs(ifr);
 
-	if (rc) {
-		/* check if bind to IP address */
-#ifdef LWS_WITH_IPV6
-		if (inet_pton(AF_INET6, ifname, &addr6->sin6_addr) == 1)
-			rc = LWS_ITOSA_USABLE;
-		else
-#endif
-		if (inet_pton(AF_INET, ifname, &addr->sin_addr) == 1)
-			rc = LWS_ITOSA_USABLE;
-	}
+	if (rc &&
+	    !lws_sa46_parse_numeric_address(ifname, (lws_sockaddr46 *)addr))
+		rc = LWS_ITOSA_USABLE;
 
 	return rc;
 }
 
 
 const char *
-lws_plat_inet_ntop(int af, const void *src, char *dst, int cnt)
+lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 {
 	return inet_ntop(af, src, dst, cnt);
 }
@@ -296,8 +420,8 @@ lws_plat_ifname_to_hwaddr(int fd, const char *ifname, uint8_t *hwaddr, int len)
 }
 
 int
-lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, int canned_len,
-			  int n, int fd, const char *iface)
+lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, size_t canned_len,
+			  size_t n, int fd, const char *iface)
 {
 #if defined(__linux__)
 	struct sockaddr_ll sll;
@@ -306,8 +430,8 @@ lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, int canned_len,
 
 	memcpy(p, canned, canned_len);
 
-	p[2] = n >> 8;
-	p[3] = n;
+	p[2] = (uint8_t)(n >> 8);
+	p[3] = (uint8_t)(n);
 
 	while (p16 < (uint16_t *)(p + 20))
 		ucs += ntohs(*p16++);
@@ -315,19 +439,19 @@ lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, int canned_len,
 	ucs += ucs >> 16;
 	ucs ^= 0xffff;
 
-	p[10] = ucs >> 8;
-	p[11] = ucs;
-	p[24] = (n - 20) >> 8;
-	p[25] = (n - 20);
+	p[10] = (uint8_t)(ucs >> 8);
+	p[11] = (uint8_t)(ucs);
+	p[24] = (uint8_t)((n - 20) >> 8);
+	p[25] = (uint8_t)((n - 20));
 
 	memset(&sll, 0, sizeof(sll));
 	sll.sll_family = AF_PACKET;
 	sll.sll_protocol = htons(0x800);
 	sll.sll_halen = 6;
-	sll.sll_ifindex = if_nametoindex(iface);
+	sll.sll_ifindex = (int)if_nametoindex(iface);
 	memset(sll.sll_addr, 0xff, 6);
 
-	return sendto(fd, p, n, 0, (struct sockaddr *)&sll, sizeof(sll));
+	return (int)sendto(fd, p, n, 0, (struct sockaddr *)&sll, sizeof(sll));
 #else
 	lwsl_err("%s: UNIMPLEMENTED on this platform\n", __func__);
 
@@ -391,62 +515,60 @@ lws_plat_BINDTODEVICE(lws_sockfd_type fd, const char *ifname)
 }
 
 int
-lws_plat_ifconfig_ip(const char *ifname, int fd, uint8_t *ip, uint8_t *mask_ip,
-			uint8_t *gateway_ip)
+lws_plat_ifconfig(int fd, lws_dhcpc_ifstate_t *is)
 {
 #if defined(__linux__)
-	struct sockaddr_in *addr;
-	struct sockaddr_in sin;
 	struct rtentry route;
 	struct ifreq ifr;
 
 	memset(&ifr, 0, sizeof(ifr));
 	memset(&route, 0, sizeof(route));
-	memset(&sin, 0, sizeof(sin));
 
-	lws_strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+	lws_strncpy(ifr.ifr_name, is->ifname, IFNAMSIZ);
 
-	lws_plat_if_up(ifname, fd, 0);
+	lws_plat_if_up(is->ifname, fd, 0);
 
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = htonl(*(uint32_t *)ip);
-
-	memcpy(&ifr.ifr_addr, &sin, sizeof(struct sockaddr));
+	memcpy(&ifr.ifr_addr, &is->sa46[LWSDH_SA46_IP], sizeof(struct sockaddr));
 	if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
 		lwsl_err("%s: SIOCSIFADDR fail\n", __func__);
 		return 1;
 	}
 
-	sin.sin_addr.s_addr = htonl(*(uint32_t *)mask_ip);
-	memcpy(&ifr.ifr_addr, &sin, sizeof(struct sockaddr));
-	if (ioctl(fd, SIOCSIFNETMASK, &ifr) < 0) {
-		lwsl_err("%s: SIOCSIFNETMASK fail\n", __func__);
-		return 1;
-	}
+	if (is->sa46[LWSDH_SA46_IP].sa4.sin_family == AF_INET) {
+		struct sockaddr_in sin;
 
-	lws_plat_if_up(ifname, fd, 1);
+		memset(&sin, 0, sizeof(sin));
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = *(uint32_t *)&is->nums[LWSDH_IPV4_SUBNET_MASK];
+		memcpy(&ifr.ifr_addr, &sin, sizeof(struct sockaddr));
+		if (ioctl(fd, SIOCSIFNETMASK, &ifr) < 0) {
+			lwsl_err("%s: SIOCSIFNETMASK fail\n", __func__);
+			return 1;
+		}
 
-	addr = (struct sockaddr_in *)&route.rt_gateway;
-	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = htonl(*(uint32_t *)gateway_ip);
+		lws_plat_if_up(is->ifname, fd, 1);
 
-	addr = (struct sockaddr_in *)&route.rt_dst;
-	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = 0;
+		memcpy(&route.rt_gateway,
+		       &is->sa46[LWSDH_SA46_IPV4_ROUTER].sa4,
+		       sizeof(struct sockaddr));
 
-	addr = (struct sockaddr_in *)&route.rt_genmask;
-	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = 0;
+		sin.sin_addr.s_addr = 0;
+		memcpy(&route.rt_dst, &sin, sizeof(struct sockaddr));
+		memcpy(&route.rt_genmask, &sin, sizeof(struct sockaddr));
 
-	route.rt_flags = RTF_UP | RTF_GATEWAY;
-	route.rt_metric = 100;
-	route.rt_dev = (char *)ifname;
+		route.rt_flags = RTF_UP | RTF_GATEWAY;
+		route.rt_metric = 100;
+		route.rt_dev = (char *)is->ifname;
 
-	if (ioctl(fd, SIOCADDRT, &route) < 0) {
-		lwsl_err("%s: SIOCADDRT 0x%x fail: %d\n", __func__,
-			(unsigned int)htonl(*(uint32_t *)gateway_ip), LWS_ERRNO);
-		return 1;
-	}
+		if (ioctl(fd, SIOCADDRT, &route) < 0) {
+			lwsl_err("%s: SIOCADDRT 0x%x fail: %d\n", __func__,
+				(unsigned int)htonl(*(uint32_t *)&is->
+					sa46[LWSDH_SA46_IPV4_ROUTER].
+						sa4.sin_addr.s_addr), LWS_ERRNO);
+			return 1;
+		}
+	} else
+		lws_plat_if_up(is->ifname, fd, 1);
 
 	return 0;
 #else
@@ -455,3 +577,61 @@ lws_plat_ifconfig_ip(const char *ifname, int fd, uint8_t *ip, uint8_t *mask_ip,
 	return -1;
 #endif
 }
+
+int
+lws_plat_vhost_tls_client_ctx_init(struct lws_vhost *vhost)
+{
+	return 0;
+}
+
+#if defined(LWS_WITH_MBEDTLS)
+int
+lws_plat_mbedtls_net_send(void *ctx, const uint8_t *buf, size_t len)
+{
+	int fd = ((mbedtls_net_context *) ctx)->MBEDTLS_PRIVATE(fd);
+	int ret;
+
+	if (fd < 0)
+		return MBEDTLS_ERR_NET_INVALID_CONTEXT;
+
+	ret = (int)write(fd, buf, len);
+	if (ret >= 0)
+		return ret;
+
+	if (errno == EAGAIN || errno == EWOULDBLOCK)
+		return MBEDTLS_ERR_SSL_WANT_WRITE;
+
+	if (errno == EPIPE || errno == ECONNRESET)
+		return MBEDTLS_ERR_NET_CONN_RESET;
+
+	if( errno == EINTR )
+		return MBEDTLS_ERR_SSL_WANT_WRITE;
+
+	return MBEDTLS_ERR_NET_SEND_FAILED;
+}
+
+int
+lws_plat_mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len)
+{
+	int fd = ((mbedtls_net_context *) ctx)->MBEDTLS_PRIVATE(fd);
+	int ret;
+
+	if (fd < 0)
+		return MBEDTLS_ERR_NET_INVALID_CONTEXT;
+
+	ret = (int)read(fd, buf, len);
+	if (ret >= 0)
+		return ret;
+
+	if (errno == EAGAIN || errno == EWOULDBLOCK)
+		return MBEDTLS_ERR_SSL_WANT_READ;
+
+	if (errno == EPIPE || errno == ECONNRESET)
+		return MBEDTLS_ERR_NET_CONN_RESET;
+
+	if (errno == EINTR)
+		return MBEDTLS_ERR_SSL_WANT_READ;
+
+	return MBEDTLS_ERR_NET_RECV_FAILED;
+}
+#endif

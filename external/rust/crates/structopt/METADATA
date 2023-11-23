@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/structopt/structopt-0.3.21.crate"
+    value: "https://static.crates.io/crates/structopt/structopt-0.3.26.crate"
   }
-  version: "0.3.21"
+  version: "0.3.26"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 11
-    day: 30
+    year: 2022
+    month: 3
+    day: 1
   }
 }

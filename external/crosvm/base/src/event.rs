@@ -2,19 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::mem;
-use std::ops::Deref;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
-use std::ptr;
-use std::time::Duration;
+use std::{
+    mem,
+    ops::Deref,
+    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd},
+    ptr,
+    time::Duration,
+};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AsRawDescriptor, FromRawDescriptor, IntoRawDescriptor, RawDescriptor, Result};
-use sys_util::EventFd;
-pub use sys_util::EventReadResult;
+use crate::descriptor::{AsRawDescriptor, FromRawDescriptor, IntoRawDescriptor};
+pub use crate::platform::EventReadResult;
+use crate::{generate_scoped_event, platform::EventFd, RawDescriptor, Result};
 
-/// See [EventFd](sys_util::EventFd) for struct- and method-level
+/// See [EventFd](crate::platform::EventFd) for struct- and method-level
 /// documentation.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -32,7 +34,7 @@ impl Event {
         self.0.read()
     }
 
-    pub fn read_timeout(&mut self, timeout: Duration) -> Result<EventReadResult> {
+    pub fn read_timeout(&self, timeout: Duration) -> Result<EventReadResult> {
         self.0.read_timeout(timeout)
     }
 
@@ -59,40 +61,4 @@ impl IntoRawDescriptor for Event {
     }
 }
 
-/// See [ScopedEvent](sys_util::ScopedEvent) for struct- and method-level
-/// documentation.
-pub struct ScopedEvent(Event);
-
-impl ScopedEvent {
-    pub fn new() -> Result<ScopedEvent> {
-        Ok(Event::new()?.into())
-    }
-}
-
-impl From<Event> for ScopedEvent {
-    fn from(e: Event) -> Self {
-        Self(e)
-    }
-}
-
-impl From<ScopedEvent> for Event {
-    fn from(scoped_event: ScopedEvent) -> Self {
-        let evt = unsafe { ptr::read(&scoped_event.0) };
-        mem::forget(scoped_event);
-        evt
-    }
-}
-
-impl Deref for ScopedEvent {
-    type Target = Event;
-
-    fn deref(&self) -> &Event {
-        &self.0
-    }
-}
-
-impl Drop for ScopedEvent {
-    fn drop(&mut self) {
-        self.write(1).expect("failed to trigger scoped event");
-    }
-}
+generate_scoped_event!(Event);

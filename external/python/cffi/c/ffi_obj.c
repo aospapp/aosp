@@ -1070,10 +1070,10 @@ static PyObject *ffi_init_once(FFIObject *self, PyObject *args, PyObject *kwds)
         if (res != NULL) {
             tup = PyTuple_Pack(2, Py_True, res);
             if (tup == NULL || PyDict_SetItem(cache, tag, tup) < 0) {
-                Py_XDECREF(tup);
                 Py_DECREF(res);
                 res = NULL;
             }
+            Py_XDECREF(tup);
         }
     }
 
@@ -1137,7 +1137,7 @@ static PyGetSetDef ffi_getsets[] = {
 
 static PyTypeObject FFI_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "CompiledFFI",
+    "_cffi_backend.FFI",
     sizeof(FFIObject),
     0,
     (destructor)ffi_dealloc,                    /* tp_dealloc */

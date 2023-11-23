@@ -4,6 +4,7 @@
 
 #include "bsdiff/suffix_array_index.h"
 
+#include <algorithm>
 #include <limits>
 #include <vector>
 

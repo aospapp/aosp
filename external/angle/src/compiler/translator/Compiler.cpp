@@ -61,6 +61,42 @@ namespace sh
 
 namespace
 {
+// Helper that returns if a top-level node is unused.  If it's a function, the function prototype is
+// returned as well.
+bool IsTopLevelNodeUnusedFunction(const CallDAG &callDag,
+                                  const std::vector<TFunctionMetadata> &metadata,
+                                  TIntermNode *node,
+                                  const TFunction **functionOut)
+{
+    const TIntermFunctionPrototype *asFunctionPrototype   = node->getAsFunctionPrototypeNode();
+    const TIntermFunctionDefinition *asFunctionDefinition = node->getAsFunctionDefinition();
+
+    *functionOut = nullptr;
+
+    if (asFunctionDefinition)
+    {
+        *functionOut = asFunctionDefinition->getFunction();
+    }
+    else if (asFunctionPrototype)
+    {
+        *functionOut = asFunctionPrototype->getFunction();
+    }
+    if (*functionOut == nullptr)
+    {
+        return false;
+    }
+
+    size_t callDagIndex = callDag.findIndex((*functionOut)->uniqueId());
+    if (callDagIndex == CallDAG::InvalidIndex)
+    {
+        // This happens only for unimplemented prototypes which are thus unused
+        ASSERT(asFunctionPrototype);
+        return true;
+    }
+
+    ASSERT(callDagIndex < metadata.size());
+    return !metadata[callDagIndex].used;
+}
 
 #if defined(ANGLE_ENABLE_FUZZER_CORPUS_OUTPUT)
 void DumpFuzzerCase(char const *const *shaderStrings,
@@ -170,7 +206,7 @@ int GetMaxUniformVectorsForShaderType(GLenum shaderType, const ShBuiltInResource
 namespace
 {
 
-class TScopedPoolAllocator
+class ANGLE_NO_DISCARD TScopedPoolAllocator
 {
   public:
     TScopedPoolAllocator(angle::PoolAllocator *allocator) : mAllocator(allocator)
@@ -188,7 +224,7 @@ class TScopedPoolAllocator
     angle::PoolAllocator *mAllocator;
 };
 
-class TScopedSymbolTableLevel
+class ANGLE_NO_DISCARD TScopedSymbolTableLevel
 {
   public:
     TScopedSymbolTableLevel(TSymbolTable *table) : mTable(table)
@@ -310,6 +346,7 @@ TCompiler::TCompiler(sh::GLenum type, ShShaderSpec spec, ShShaderOutput output)
       mTessEvaluationShaderInputOrderingType(EtetUndefined),
       mTessEvaluationShaderInputPointType(EtetUndefined),
       mHasAnyPreciseType(false),
+      mAdvancedBlendEquations(0),
       mCompileOptions(0)
 {}
 
@@ -390,7 +427,8 @@ TIntermBlock *TCompiler::compileTreeImpl(const char *const shaderStrings[],
         (compileOptions & SH_EMULATE_GL_BASE_VERTEX_BASE_INSTANCE) != 0;
     if (!glBaseVertexBaseInstanceSupported)
     {
-        auto it = mExtensionBehavior.find(TExtension::ANGLE_base_vertex_base_instance);
+        auto it =
+            mExtensionBehavior.find(TExtension::ANGLE_base_vertex_base_instance_shader_builtin);
         if (it != mExtensionBehavior.end())
         {
             mExtensionBehavior.erase(it);
@@ -423,7 +461,7 @@ TIntermBlock *TCompiler::compileTreeImpl(const char *const shaderStrings[],
         return nullptr;
     }
 
-    if (parseContext.getTreeRoot() == nullptr)
+    if (!postParseChecks(parseContext))
     {
         return nullptr;
     }
@@ -523,6 +561,10 @@ void TCompiler::setASTMetadata(const TParseContext &parseContext)
 
     mHasAnyPreciseType = parseContext.hasAnyPreciseType();
 
+    if (mShaderType == GL_FRAGMENT_SHADER)
+    {
+        mAdvancedBlendEquations = parseContext.getAdvancedBlendEquations();
+    }
     if (mShaderType == GL_GEOMETRY_SHADER_EXT)
     {
         mGeometryShaderInputPrimitiveType  = parseContext.getGeometryShaderInputPrimitiveType();
@@ -673,6 +715,7 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     {
         return false;
     }
+    mValidateASTOptions.validateNoStatementsAfterBranch = true;
 
     // We need to generate globals early if we have non constant initializers enabled
     bool initializeLocalsAndGlobals = (compileOptions & SH_INITIALIZE_UNINITIALIZED_LOCALS) != 0 &&
@@ -723,7 +766,11 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
         return false;
     }
 
-    pruneUnusedFunctions(root);
+    if (!pruneUnusedFunctions(root))
+    {
+        return false;
+    }
+
     if (IsSpecWithFunctionBodyNewScope(mShaderSpec, mShaderVersion))
     {
         if (!ReplaceShadowingVariables(this, root, &mSymbolTable))
@@ -820,7 +867,8 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     }
 
     if (mShaderType == GL_VERTEX_SHADER &&
-        IsExtensionEnabled(mExtensionBehavior, TExtension::ANGLE_base_vertex_base_instance))
+        IsExtensionEnabled(mExtensionBehavior,
+                           TExtension::ANGLE_base_vertex_base_instance_shader_builtin))
     {
         if ((compileOptions & SH_EMULATE_GL_BASE_VERTEX_BASE_INSTANCE) != 0)
         {
@@ -897,7 +945,6 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     }
 
     // Built-in function emulation needs to happen after validateLimitations pass.
-    // TODO(jmadill): Remove global pool allocator.
     GetGlobalPoolAllocator()->lock();
     initBuiltInFunctionEmulator(&mBuiltInFunctionEmulator, compileOptions);
     GetGlobalPoolAllocator()->unlock();
@@ -1072,6 +1119,29 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     return true;
 }
 
+bool TCompiler::postParseChecks(const TParseContext &parseContext)
+{
+    std::stringstream errorMessage;
+
+    if (parseContext.getTreeRoot() == nullptr)
+    {
+        errorMessage << "Shader parsing failed (mTreeRoot == nullptr)";
+    }
+
+    for (TType *type : parseContext.getDeferredArrayTypesToSize())
+    {
+        errorMessage << "Unsized global array type: " << type->getBasicString();
+    }
+
+    if (!errorMessage.str().empty())
+    {
+        mDiagnostics.globalError(errorMessage.str().c_str());
+        return false;
+    }
+
+    return true;
+}
+
 bool TCompiler::compile(const char *const shaderStrings[],
                         size_t numStrings,
                         ShCompileOptions compileOptionsIn)
@@ -1119,7 +1189,7 @@ bool TCompiler::compile(const char *const shaderStrings[],
                 (compileOptions & SH_EMULATE_GL_DRAW_ID) != 0;
             bool lookForBaseVertexBaseInstance =
                 IsExtensionEnabled(mExtensionBehavior,
-                                   TExtension::ANGLE_base_vertex_base_instance) &&
+                                   TExtension::ANGLE_base_vertex_base_instance_shader_builtin) &&
                 (compileOptions & SH_EMULATE_GL_BASE_VERTEX_BASE_INSTANCE) != 0;
 
             if (lookForDrawID || lookForBaseVertexBaseInstance)
@@ -1195,6 +1265,7 @@ void TCompiler::setResourceString()
         << ":EXT_blend_func_extended:" << mResources.EXT_blend_func_extended
         << ":EXT_frag_depth:" << mResources.EXT_frag_depth
         << ":EXT_primitive_bounding_box:" << mResources.EXT_primitive_bounding_box
+        << ":OES_primitive_bounding_box:" << mResources.OES_primitive_bounding_box
         << ":EXT_shader_texture_lod:" << mResources.EXT_shader_texture_lod
         << ":EXT_shader_framebuffer_fetch:" << mResources.EXT_shader_framebuffer_fetch
         << ":EXT_shader_framebuffer_fetch_non_coherent:" << mResources.EXT_shader_framebuffer_fetch_non_coherent
@@ -1217,7 +1288,7 @@ void TCompiler::setResourceString()
         << ":MaxViewsOVR:" << mResources.MaxViewsOVR
         << ":NV_draw_buffers:" << mResources.NV_draw_buffers
         << ":ANGLE_multi_draw:" << mResources.ANGLE_multi_draw
-        << ":ANGLE_base_vertex_base_instance:" << mResources.ANGLE_base_vertex_base_instance
+        << ":ANGLE_base_vertex_base_instance_shader_builtin:" << mResources.ANGLE_base_vertex_base_instance_shader_builtin
         << ":APPLE_clip_distance:" << mResources.APPLE_clip_distance
         << ":OES_texture_cube_map_array:" << mResources.OES_texture_cube_map_array
         << ":EXT_texture_cube_map_array:" << mResources.EXT_texture_cube_map_array
@@ -1450,61 +1521,50 @@ void TCompiler::internalTagUsedFunction(size_t index)
     }
 }
 
-// A predicate for the stl that returns if a top-level node is unused
-class TCompiler::UnusedPredicate
+bool TCompiler::pruneUnusedFunctions(TIntermBlock *root)
 {
-  public:
-    UnusedPredicate(const CallDAG *callDag, const std::vector<FunctionMetadata> *metadatas)
-        : mCallDag(callDag), mMetadatas(metadatas)
-    {}
-
-    bool operator()(TIntermNode *node)
-    {
-        const TIntermFunctionPrototype *asFunctionPrototype   = node->getAsFunctionPrototypeNode();
-        const TIntermFunctionDefinition *asFunctionDefinition = node->getAsFunctionDefinition();
-
-        const TFunction *func = nullptr;
-
-        if (asFunctionDefinition)
-        {
-            func = asFunctionDefinition->getFunction();
-        }
-        else if (asFunctionPrototype)
-        {
-            func = asFunctionPrototype->getFunction();
-        }
-        if (func == nullptr)
-        {
-            return false;
-        }
-
-        size_t callDagIndex = mCallDag->findIndex(func->uniqueId());
-        if (callDagIndex == CallDAG::InvalidIndex)
-        {
-            // This happens only for unimplemented prototypes which are thus unused
-            ASSERT(asFunctionPrototype);
-            return true;
-        }
-
-        ASSERT(callDagIndex < mMetadatas->size());
-        return !(*mMetadatas)[callDagIndex].used;
-    }
-
-  private:
-    const CallDAG *mCallDag;
-    const std::vector<FunctionMetadata> *mMetadatas;
-};
-
-void TCompiler::pruneUnusedFunctions(TIntermBlock *root)
-{
-    UnusedPredicate isUnused(&mCallDag, &mFunctionMetadata);
     TIntermSequence *sequence = root->getSequence();
 
-    if (!sequence->empty())
+    size_t writeIndex = 0;
+    for (size_t readIndex = 0; readIndex < sequence->size(); ++readIndex)
     {
-        sequence->erase(std::remove_if(sequence->begin(), sequence->end(), isUnused),
-                        sequence->end());
+        TIntermNode *node = sequence->at(readIndex);
+
+        // Keep anything that's not unused.
+        const TFunction *function = nullptr;
+        const bool shouldPrune =
+            IsTopLevelNodeUnusedFunction(mCallDag, mFunctionMetadata, node, &function);
+        if (!shouldPrune)
+        {
+            (*sequence)[writeIndex++] = node;
+            continue;
+        }
+
+        // If a function is unused, it may have a struct declaration in its return value which
+        // shouldn't be pruned.  In that case, replace the function definition with the struct
+        // definition.
+        ASSERT(function != nullptr);
+        const TType &returnType = function->getReturnType();
+        if (!returnType.isStructSpecifier())
+        {
+            continue;
+        }
+
+        TVariable *structVariable =
+            new TVariable(&mSymbolTable, kEmptyImmutableString, &returnType, SymbolType::Empty);
+        TIntermSymbol *structSymbol           = new TIntermSymbol(structVariable);
+        TIntermDeclaration *structDeclaration = new TIntermDeclaration;
+        structDeclaration->appendDeclarator(structSymbol);
+
+        structSymbol->setLine(node->getLine());
+        structDeclaration->setLine(node->getLine());
+
+        (*sequence)[writeIndex++] = structDeclaration;
     }
+
+    sequence->resize(writeIndex);
+
+    return validateAST(root);
 }
 
 bool TCompiler::limitExpressionComplexity(TIntermBlock *root)
@@ -1579,7 +1639,13 @@ bool TCompiler::initializeOutputVariables(TIntermBlock *root)
         ASSERT(mShaderType == GL_FRAGMENT_SHADER);
         for (const sh::ShaderVariable &var : mOutputVariables)
         {
-            list.push_back(var);
+            // in-out variables represent the context of the framebuffer
+            // when the draw call starts, so they have to be considered
+            // as already initialized.
+            if (!var.isFragmentInOut)
+            {
+                list.push_back(var);
+            }
         }
     }
     return InitializeVariables(this, root, list, &mSymbolTable, mShaderVersion, mExtensionBehavior,

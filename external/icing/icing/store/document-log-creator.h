@@ -30,14 +30,20 @@ namespace lib {
 // be necessary.
 class DocumentLogCreator {
  public:
+  // Version 0 refers to FileBackedProtoLog
+  // Version 1 refers to PortableFileBackedProtoLog with kFileFormatVersion = 0
+  static constexpr int32_t kCurrentVersion = 1;
   struct CreateResult {
     // The create result passed up from the PortableFileBackedProtoLog::Create.
     // Contains the document log.
     PortableFileBackedProtoLog<DocumentWrapper>::CreateResult log_create_result;
 
-    // Whether the caller needs to also regenerate/generate any derived files
-    // based off of the initialized document log.
-    bool regen_derived_files;
+    // The version number of the pre-existing document log file.
+    // If there is no document log file, it will be set to kCurrentVersion.
+    int preexisting_file_version;
+
+    // Whether the created file is new.
+    bool new_file;
   };
 
   // Creates the document log in the base_dir. Will create one if it doesn't

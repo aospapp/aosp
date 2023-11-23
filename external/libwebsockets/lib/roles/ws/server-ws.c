@@ -30,7 +30,7 @@
 static int
 lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 {
-	struct lws_context *context = wsi->context;
+	struct lws_context *context = wsi->a.context;
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
 	char ext_name[64], *args, *end = (*p) + budget - 1;
 	const struct lws_ext_options *opts, *po;
@@ -53,7 +53,7 @@ lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 	 * and go through them
 	 */
 
-	if (lws_hdr_copy(wsi, (char *)pt->serv_buf, context->pt_serv_buf_size,
+	if (lws_hdr_copy(wsi, (char *)pt->serv_buf, (int)context->pt_serv_buf_size,
 			 WSI_TOKEN_EXTENSIONS) < 0)
 		return 1;
 
@@ -112,7 +112,7 @@ lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 
 		/* check a client's extension against our support */
 
-		ext = wsi->vhost->ws.extensions;
+		ext = wsi->a.vhost->ws.extensions;
 
 		while (ext && ext->callback) {
 
@@ -135,7 +135,7 @@ lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 			 * ask user code if it's OK to apply it on this
 			 * particular connection + protocol
 			 */
-			m = (wsi->protocol->callback)(wsi,
+			m = (wsi->a.protocol->callback)(wsi,
 				LWS_CALLBACK_CONFIRM_EXTENSION_OKAY,
 				wsi->user_space, ext_name, 0);
 
@@ -177,7 +177,7 @@ lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 			else
 				LWS_CPYAPP(*p,
 					  "\x0d\x0aSec-WebSocket-Extensions: ");
-			*p += lws_snprintf(*p, (end - *p), "%s", ext_name);
+			*p += lws_snprintf(*p, lws_ptr_diff_size_t(end, *p), "%s", ext_name);
 
 			/*
 			 * The client may send a bunch of different option
@@ -216,10 +216,10 @@ lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 						LWS_EXT_CB_OPTION_SET,
 						wsi->ws->act_ext_user[
 							wsi->ws->count_act_ext],
-							  &oa, (end - *p))) {
+							  &oa, lws_ptr_diff_size_t(end, *p))) {
 
 						*p += lws_snprintf(*p,
-								   (end - *p),
+								   lws_ptr_diff_size_t(end, *p),
 							      "; %s", po->name);
 						lwsl_debug("adding option %s\n",
 							   po->name);
@@ -254,7 +254,7 @@ lws_extension_server_handshake(struct lws *wsi, char **p, int budget)
 int
 lws_process_ws_upgrade2(struct lws *wsi)
 {
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 #if defined(LWS_WITH_HTTP_BASIC_AUTH)
 	const struct lws_protocol_vhost_options *pvos = NULL;
 	const char *ws_prot_basic_auth = NULL;
@@ -268,7 +268,7 @@ lws_process_ws_upgrade2(struct lws *wsi)
 	 * section, as a pvo.
 	 */
 
-	pvos = lws_vhost_protocol_options(wsi->vhost, wsi->protocol->name);
+	pvos = lws_vhost_protocol_options(wsi->a.vhost, wsi->a.protocol->name);
 	if (pvos && pvos->options &&
 	    !lws_pvo_get_str((void *)pvos->options, "basic-auth",
 			     &ws_prot_basic_auth)) {
@@ -297,9 +297,36 @@ lws_process_ws_upgrade2(struct lws *wsi)
 
 	lws_pt_lock(pt, __func__);
 
-	if (!wsi->h2_stream_carries_ws)
+	/*
+	 * Switch roles if we're upgrading away from http
+	 */
+
+	if (!wsi->h2_stream_carries_ws) {
 		lws_role_transition(wsi, LWSIFR_SERVER, LRS_ESTABLISHED,
 				    &role_ops_ws);
+
+#if defined(LWS_WITH_SECURE_STREAMS) && defined(LWS_WITH_SERVER)
+
+		/*
+		 * If we're a SS server object, we have to switch to ss-ws
+		 * protocol handler too
+		 */
+		if (wsi->a.vhost->ss_handle) {
+			lwsl_info("%s: %s switching to ws protocol\n",
+				  __func__, lws_ss_tag(wsi->a.vhost->ss_handle));
+			wsi->a.protocol = &protocol_secstream_ws;
+
+			/*
+			 * inform the SS user code that this has done a one-way
+			 * upgrade to some other protocol... it will likely
+			 * want to treat subsequent payloads differently
+			 */
+
+			(void)lws_ss_event_helper(wsi->a.vhost->ss_handle,
+						LWSSSCS_SERVER_UPGRADE);
+		}
+#endif
+	}
 
 	lws_pt_unlock(pt);
 
@@ -312,7 +339,7 @@ lws_process_ws_upgrade2(struct lws *wsi)
 	}
 
 	if (lws_hdr_total_length(wsi, WSI_TOKEN_VERSION))
-		wsi->ws->ietf_spec_revision =
+		wsi->ws->ietf_spec_revision = (uint8_t)
 			       atoi(lws_hdr_simple_ptr(wsi, WSI_TOKEN_VERSION));
 
 	/* allocate wsi->user storage */
@@ -325,7 +352,7 @@ lws_process_ws_upgrade2(struct lws *wsi)
 	 * Give the user code a chance to study the request and
 	 * have the opportunity to deny it
 	 */
-	if ((wsi->protocol->callback)(wsi,
+	if ((wsi->a.protocol->callback)(wsi,
 			LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION,
 			wsi->user_space,
 		      lws_hdr_simple_ptr(wsi, WSI_TOKEN_PROTOCOL), 0)) {
@@ -362,13 +389,12 @@ lws_process_ws_upgrade2(struct lws *wsi)
 			 * validity checking
 			 */
 
-			__lws_sul_insert(&pt->pt_sul_owner, &wsi->sul_validity,
-					 LWS_SET_TIMER_USEC_CANCEL);
+			lws_sul_cancel(&wsi->sul_validity);
 		} else
 #endif
 		{
 			lwsl_parser("lws_parse calling handshake_04\n");
-			if (handshake_0405(wsi->context, wsi)) {
+			if (handshake_0405(wsi->a.context, wsi)) {
 				lwsl_notice("hs0405 has failed the connection\n");
 				return 1;
 			}
@@ -376,7 +402,10 @@ lws_process_ws_upgrade2(struct lws *wsi)
 		break;
 	}
 
-	lws_server_init_wsi_for_ws(wsi);
+	if (lws_server_init_wsi_for_ws(wsi)) {
+		lwsl_notice("%s: user ESTABLISHED failed connection\n", __func__);
+		return 1;
+	}
 	lwsl_parser("accepted v%02d connection\n", wsi->ws->ietf_spec_revision);
 
 #if defined(LWS_WITH_ACCESS_LOG)
@@ -391,7 +420,7 @@ lws_process_ws_upgrade2(struct lws *wsi)
 
 		lws_strnncpy(dotstar, uptr, l, sizeof(dotstar));
 		l = lws_snprintf(combo, sizeof(combo), "%s (%s)", dotstar,
-				 wsi->protocol->name);
+				 wsi->a.protocol->name);
 
 		if (meth < 0)
 			meth = 0;
@@ -400,7 +429,7 @@ lws_process_ws_upgrade2(struct lws *wsi)
 	}
 #endif
 
-	lwsl_info("%s: %p: dropping ah on ws upgrade\n", __func__, wsi);
+	lwsl_info("%s: %s: dropping ah on ws upgrade\n", __func__, lws_wsi_tag(wsi));
 	lws_header_table_detach(wsi, 1);
 
 	return 0;
@@ -415,7 +444,7 @@ lws_process_ws_upgrade(struct lws *wsi)
 	lws_tokenize_elem e;
 	int n;
 
-	if (!wsi->protocol)
+	if (!wsi->a.protocol)
 		lwsl_err("NULL protocol at lws_read\n");
 
 	/*
@@ -436,7 +465,7 @@ lws_process_ws_upgrade(struct lws *wsi)
 		n = lws_hdr_copy(wsi, buf, sizeof(buf) - 1, WSI_TOKEN_CONNECTION);
 		if (n <= 0)
 			goto bad_conn_format;
-		ts.len = n;
+		ts.len = (unsigned int)n;
 
 		do {
 			e = lws_tokenize(&ts);
@@ -505,9 +534,9 @@ lws_process_ws_upgrade(struct lws *wsi)
 		lwsl_err("%s: protocol list too long\n", __func__);
 		return 1;
 	}
-	ts.len = n;
+	ts.len = (unsigned int)n;
 	if (!ts.len) {
-		int n = wsi->vhost->default_protocol_index;
+		int n = wsi->a.vhost->default_protocol_index;
 		/*
 		 * Some clients only have one protocol and do not send the
 		 * protocol list header... allow it and match to the vhost's
@@ -518,7 +547,7 @@ lws_process_ws_upgrade(struct lws *wsi)
 		 * these "no protocol" ws connections to be rejected.
 		 */
 
-		if (n >= wsi->vhost->count_protocols) {
+		if (n >= wsi->a.vhost->count_protocols) {
 			lwsl_notice("%s: rejecting ws upg with no protocol\n",
 				    __func__);
 
@@ -527,11 +556,38 @@ lws_process_ws_upgrade(struct lws *wsi)
 
 		lwsl_info("%s: defaulting to prot handler %d\n", __func__, n);
 
-		lws_bind_protocol(wsi, &wsi->vhost->protocols[n],
+		lws_bind_protocol(wsi, &wsi->a.vhost->protocols[n],
 				  "ws upgrade default pcol");
 
 		goto alloc_ws;
 	}
+
+#if defined(LWS_WITH_SECURE_STREAMS) && defined(LWS_WITH_SERVER)
+	if (wsi->a.vhost->ss_handle) {
+		lws_ss_handle_t *sssh = wsi->a.vhost->ss_handle;
+
+		/*
+		 * At the moment, once we see it's a ss ws server, whatever
+		 * he asked for we bind him to the ss-ws protocol handler.
+		 *
+		 * In the response subprotocol header, we need to name
+		 *
+		 * sssh->policy->u.http.u.ws.subprotocol
+		 *
+		 * though...
+		 */
+
+		if (sssh->policy->u.http.u.ws.subprotocol) {
+			pcol = lws_vhost_name_to_protocol(wsi->a.vhost,
+							  "lws-secstream-ws");
+			if (pcol) {
+				lws_bind_protocol(wsi, pcol, "ss ws upg pcol");
+
+				goto alloc_ws;
+			}
+		}
+	}
+#endif
 
 	/* otherwise go through the user-provided protocol list */
 
@@ -546,7 +602,7 @@ lws_process_ws_upgrade(struct lws *wsi)
 				return 1;
 			}
 			lwsl_debug("checking %s\n", name);
-			pcol = lws_vhost_name_to_protocol(wsi->vhost, name);
+			pcol = lws_vhost_name_to_protocol(wsi->a.vhost, name);
 			if (pcol) {
 				/* if we know it, bind to it and stop looking */
 				lws_bind_protocol(wsi, pcol, "ws upg pcol");
@@ -609,10 +665,10 @@ handshake_0405(struct lws_context *context, struct lws *wsi)
 		    "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
 		    lws_hdr_simple_ptr(wsi, WSI_TOKEN_KEY));
 
-	lws_SHA1(pt->serv_buf, n, hash);
+	lws_SHA1(pt->serv_buf, (unsigned int)n, hash);
 
 	accept_len = lws_b64_encode_string((char *)hash, 20,
-			(char *)pt->serv_buf, context->pt_serv_buf_size);
+			(char *)pt->serv_buf, (int)context->pt_serv_buf_size);
 	if (accept_len < 0) {
 		lwsl_warn("Base64 encoded hash too long\n");
 		goto bail;
@@ -640,13 +696,34 @@ handshake_0405(struct lws_context *context, struct lws *wsi)
 	 *  - one came in, and ... */
 	if (lws_hdr_total_length(wsi, WSI_TOKEN_PROTOCOL) &&
 	    /*  - it is not an empty string */
-	    wsi->protocol->name &&
-	    wsi->protocol->name[0]) {
-		const char *prot = wsi->protocol->name;
+	    wsi->a.protocol->name &&
+	    wsi->a.protocol->name[0]) {
+		const char *prot = wsi->a.protocol->name;
 
 #if defined(LWS_WITH_HTTP_PROXY)
 		if (wsi->proxied_ws_parent && wsi->child_list)
 			prot = wsi->child_list->ws->actual_protocol;
+#endif
+
+#if defined(LWS_WITH_SECURE_STREAMS) && defined(LWS_WITH_SERVER)
+		{
+			lws_ss_handle_t *sssh = wsi->a.vhost->ss_handle;
+
+			/*
+			 * At the moment, once we see it's a ss ws server, whatever
+			 * he asked for we bind him to the ss-ws protocol handler.
+			 *
+			 * In the response subprotocol header, we need to name
+			 *
+			 * sssh->policy->u.http.u.ws.subprotocol
+			 *
+			 * though...
+			 */
+
+			if (sssh && sssh->policy &&
+			    sssh->policy->u.http.u.ws.subprotocol)
+				prot = sssh->policy->u.http.u.ws.subprotocol;
+		}
 #endif
 
 		LWS_CPYAPP(p, "\x0d\x0aSec-WebSocket-Protocol: ");
@@ -668,7 +745,7 @@ handshake_0405(struct lws_context *context, struct lws *wsi)
 	args.p = p;
 	args.max_len = lws_ptr_diff((char *)pt->serv_buf +
 				    context->pt_serv_buf_size, p);
-	if (user_callback_handle_rxflow(wsi->protocol->callback, wsi,
+	if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
 					LWS_CALLBACK_ADD_HEADERS,
 					wsi->user_space, &args, 0))
 		goto bail;
@@ -686,9 +763,9 @@ handshake_0405(struct lws_context *context, struct lws *wsi)
 #if defined(DEBUG)
 	fwrite(response, 1,  p - response, stderr);
 #endif
-	n = lws_write(wsi, (unsigned char *)response, p - response,
+	n = lws_write(wsi, (unsigned char *)response, lws_ptr_diff_size_t(p, response),
 		      LWS_WRITE_HTTP_HEADERS);
-	if (n != (p - response)) {
+	if (n != lws_ptr_diff(p, response)) {
 		lwsl_info("%s: ERROR writing to socket %d\n", __func__, n);
 		goto bail;
 	}
@@ -705,7 +782,7 @@ handshake_0405(struct lws_context *context, struct lws *wsi)
 		const struct lws_http_mount *hit =
 			lws_find_mount(wsi, uri_ptr, uri_len);
 		if (hit && hit->cgienv &&
-		    wsi->protocol->callback(wsi, LWS_CALLBACK_HTTP_PMO,
+		    wsi->a.protocol->callback(wsi, LWS_CALLBACK_HTTP_PMO,
 			wsi->user_space, (void *)hit->cgienv, 0))
 			return 1;
 	}
@@ -731,7 +808,7 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 	unsigned int avail = (unsigned int)len;
 	uint8_t *buffer = *buf, mask[4];
 #if !defined(LWS_WITHOUT_EXTENSIONS)
-	unsigned int old_packet_length = (int)wsi->ws->rx_packet_length;
+	unsigned int old_packet_length = (unsigned int)wsi->ws->rx_packet_length;
 #endif
 	int n = 0;
 
@@ -747,10 +824,10 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 	if (!wsi->ws->count_act_ext)
 #endif
 	{
-		if (wsi->protocol->rx_buffer_size)
-			avail = (int)wsi->protocol->rx_buffer_size;
+		if (wsi->a.protocol->rx_buffer_size)
+			avail = (unsigned int)wsi->a.protocol->rx_buffer_size;
 		else
-			avail = wsi->context->pt_serv_buf_size;
+			avail = wsi->a.context->pt_serv_buf_size;
 	}
 
 	/* do not consume more than we should */
@@ -765,9 +842,9 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 		return 0;
 
 	pmdrx.eb_in.token = buffer;
-	pmdrx.eb_in.len = avail;
+	pmdrx.eb_in.len = (int)avail;
 	pmdrx.eb_out.token = buffer;
-	pmdrx.eb_out.len = avail;
+	pmdrx.eb_out.len = (int)avail;
 
 	if (!wsi->ws->all_zero_nonce) {
 
@@ -775,7 +852,7 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 			mask[n] = wsi->ws->mask[(wsi->ws->mask_idx + n) & 3];
 
 		/* deal with 4-byte chunks using unwrapped loop */
-		n = avail >> 2;
+		n = (int)(avail >> 2);
 		while (n--) {
 			*(buffer) = *(buffer) ^ mask[0];
 			buffer++;
@@ -837,17 +914,17 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 	    old_packet_length &&	    /* we gave the inflator new input */
 	    !wsi->ws->rx_packet_length &&   /* raw ws packet payload all gone */
 	    wsi->ws->final &&		    /* the raw ws packet is a FIN guy */
-	    wsi->protocol->callback &&
+	    wsi->a.protocol->callback &&
 	    !wsi->wsistate_pre_close) {
 
 		lwsl_ext("%s: issuing zero length FIN pkt\n", __func__);
 
-		if (user_callback_handle_rxflow(wsi->protocol->callback, wsi,
+		if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
 						LWS_CALLBACK_RECEIVE,
 						wsi->user_space, NULL, 0))
 			return -1;
 
-		return avail;
+		return (int)avail;
 	}
 
 	/*
@@ -855,7 +932,7 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 	 * length receive.  Otherwise we're more willing.
 	 */
 	if (wsi->ws->count_act_ext && !pmdrx.eb_out.len)
-		return avail;
+		return (int)avail;
 
 	if (n == PMDR_HAS_PENDING)
 		/* extension had more... main loop will come back */
@@ -868,7 +945,7 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 	    wsi->ws->check_utf8 && !wsi->ws->defeat_check_utf8) {
 		if (lws_check_utf8(&wsi->ws->utf8,
 				   pmdrx.eb_out.token,
-				   pmdrx.eb_out.len)) {
+				   (unsigned int)pmdrx.eb_out.len)) {
 			lws_close_reason(wsi, LWS_CLOSE_STATUS_INVALID_PAYLOAD,
 					 (uint8_t *)"bad utf8", 8);
 			goto utf8_fail;
@@ -883,18 +960,18 @@ lws_ws_frame_rest_is_payload(struct lws *wsi, uint8_t **buf, size_t len)
 
 utf8_fail:
 			lwsl_info("utf8 error\n");
-			lwsl_hexdump_info(pmdrx.eb_out.token, pmdrx.eb_out.len);
+			lwsl_hexdump_info(pmdrx.eb_out.token, (size_t)pmdrx.eb_out.len);
 
 			return -1;
 		}
 	}
 
-	if (wsi->protocol->callback && !wsi->wsistate_pre_close)
-		if (user_callback_handle_rxflow(wsi->protocol->callback, wsi,
+	if (wsi->a.protocol->callback && !wsi->wsistate_pre_close)
+		if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
 						LWS_CALLBACK_RECEIVE,
 						wsi->user_space,
 						pmdrx.eb_out.token,
-						pmdrx.eb_out.len))
+						(unsigned int)pmdrx.eb_out.len))
 			return -1;
 
 	wsi->ws->first_fragment = 0;
@@ -905,7 +982,7 @@ utf8_fail:
 		  wsi->ws->rx_draining_ext);
 #endif
 
-	return avail; /* how much we used from the input */
+	return (int)avail; /* how much we used from the input */
 }
 
 
@@ -937,13 +1014,12 @@ lws_parse_ws(struct lws *wsi, unsigned char **buf, size_t len)
 			 * effectively "putting it back in the cache", we have
 			 * leave it where it is, already pointed to by the head.
 			 */
-			if (lws_rxflow_cache(wsi, *buf, 0, (int)len) ==
+			if (lws_rxflow_cache(wsi, *buf, 0, len) ==
 							LWSRXFC_TRIMMED) {
 				/*
 				 * We dealt with it by trimming the existing
 				 * rxflow cache HEAD to account for what we used.
 				 *
-				 * indicate we didn't use anything to the caller
 				 * so he doesn't do any consumed processing
 				 */
 				lwsl_info("%s: trimming inside rxflow cache\n",
@@ -975,7 +1051,7 @@ lws_parse_ws(struct lws *wsi, unsigned char **buf, size_t len)
 			bulk = 1;
 			m = lws_ws_frame_rest_is_payload(wsi, buf, len);
 			assert((int)lws_ptr_diff(*buf, bin) <= (int)len);
-			len -= lws_ptr_diff(*buf, bin);
+			len -= lws_ptr_diff_size_t(*buf, bin);
 
 			if (!m) {
 

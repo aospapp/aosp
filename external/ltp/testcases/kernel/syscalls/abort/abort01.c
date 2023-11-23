@@ -5,12 +5,17 @@
  *   01/02/2003	Port to LTP	avenkat@us.ibm.com
  *   11/11/2002: Ported to LTP Suite by Ananda
  *   06/30/2001	Port to Linux	nsharoff@us.ibm.com
+ */
+
+/*\
+ * [Description]
  *
- * ALGORITHM
- *	Fork child.  Have child abort, check return status.
+ * Checks that process which called abort() gets killed by SIGIOT and dumps core.
  *
- * RESTRICTIONS
- *      The ulimit for core file size must be greater than 0.
+ * [Algorithm]
+ *  - Fork child.
+ *  - Child calls abort.
+ *  - Parent checks return status.
  */
 
 #include <sys/types.h>
@@ -62,7 +67,7 @@ void verify_abort(void)
 		tst_res(TFAIL, "abort() raised %s", tst_strsig(sig));
 }
 
-#define MIN_RLIMIT_CORE (1024 * 1024)
+#define MIN_RLIMIT_CORE (512 * 1024)
 
 static void setup(void)
 {
@@ -70,6 +75,15 @@ static void setup(void)
 
 	/* make sure we get core dumps */
 	SAFE_GETRLIMIT(RLIMIT_CORE, &rlim);
+
+	if (rlim.rlim_max < MIN_RLIMIT_CORE) {
+		if (geteuid() != 0) {
+			tst_brk(TCONF, "hard limit(%lu)less than MIN_RLIMT_CORE(%i)",
+				rlim.rlim_max, MIN_RLIMIT_CORE);
+		}
+		tst_res(TINFO, "Raising rlim_max to %i", MIN_RLIMIT_CORE);
+		rlim.rlim_max = MIN_RLIMIT_CORE;
+	}
 	if (rlim.rlim_cur < MIN_RLIMIT_CORE) {
 		rlim.rlim_cur = MIN_RLIMIT_CORE;
 		SAFE_SETRLIMIT(RLIMIT_CORE, &rlim);

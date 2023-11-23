@@ -16,7 +16,7 @@
 
 int sample_fn(int clk_id, long long usec)
 {
-	struct timespec t = tst_us_to_timespec(usec);
+	struct timespec t = tst_timespec_from_us(usec);
 
 	tst_timer_start(clk_id);
 	TEST(nanosleep(&t, NULL));
@@ -24,7 +24,7 @@ int sample_fn(int clk_id, long long usec)
 	tst_timer_sample();
 
 	if (TST_RET != 0) {
-		tst_res(TFAIL | TERRNO,
+		tst_res(TFAIL | TTERRNO,
 			"nanosleep() returned %li", TST_RET);
 		return 1;
 	}

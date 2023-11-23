@@ -23,7 +23,7 @@ void xnn_f16_spmm_minmax_ukernel_16x1__neonfp16arith_x2(
     const uint32_t*restrict nidx_nnzmap,
     void*restrict output,
     size_t output_stride,
-    const struct xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mc != 0);
   assert(mc % sizeof(__fp16) == 0);
@@ -32,9 +32,9 @@ void xnn_f16_spmm_minmax_ukernel_16x1__neonfp16arith_x2(
   const __fp16*restrict i = (const __fp16*) input;
   __fp16*restrict o = (__fp16*) output;
 
-  const float16x8_t vscale = vld1q_dup_f16((const __fp16*) &params->scale);
-  const float16x8_t vmax = vld1q_dup_f16((const __fp16*) &params->max);
-  const float16x8_t vmin = vld1q_dup_f16((const __fp16*) &params->min);
+  const float16x8_t vscale = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.scale));
+  const float16x8_t vmax = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.max));
+  const float16x8_t vmin = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.min));
 
   size_t output_decrement = output_stride * nc - 16 * sizeof(__fp16);
   while XNN_LIKELY(mc >= 16 * sizeof(__fp16)) {
@@ -159,7 +159,7 @@ void xnn_f16_spmm_minmax_ukernel_16x1__neonfp16arith_x2(
         if XNN_LIKELY(nnz != 0) {
           do {
             const intptr_t diff = *dmap++;
-            const float16x4_t va01 = vreinterpret_f16_f32(vld1_dup_f32(__builtin_assume_aligned(i, 1)));
+            const float16x4_t va01 = vreinterpret_f16_f32(vld1_dup_f32((const void*) i));
             i = (const __fp16*restrict) ((uintptr_t) i + (uintptr_t) diff);
             const float16x4_t vb = vld1_dup_f16(w); w += 1;
             vacc01 = vfma_f16(vacc01, va01, vb);
@@ -167,7 +167,7 @@ void xnn_f16_spmm_minmax_ukernel_16x1__neonfp16arith_x2(
         }
         float16x4_t vout01 = vmin_f16(vacc01, vget_low_f16(vmax));
         vout01 = vmax_f16(vout01, vget_low_f16(vmin));
-        vst1_lane_f32(__builtin_assume_aligned(o, 1), vreinterpret_f32_f16(vout01), 0);
+        vst1_lane_f32((void*) o, vreinterpret_f32_f16(vout01), 0);
         o = (__fp16*restrict) ((uintptr_t) o + output_stride);
       } while (--n != 0);
       o = (__fp16*restrict) ((uintptr_t) o - output_decrement);

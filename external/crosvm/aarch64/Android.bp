@@ -10,79 +10,15 @@ package {
     default_applicable_licenses: ["external_crosvm_license"],
 }
 
-rust_defaults {
-    name: "aarch64_test_defaults",
-    defaults: ["crosvm_defaults"],
-    crate_name: "aarch64",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "libarch",
-        "libbase_rust",
-        "libdata_model",
-        "libdevices",
-        "libhypervisor",
-        "libkernel_cmdline",
-        "libkvm",
-        "libkvm_sys",
-        "liblibc",
-        "libminijail_rust",
-        "libresources",
-        "libsync_rust",
-        "libvm_control",
-        "libvm_memory",
-    ],
-    proc_macros: ["libremain"],
-}
-
-rust_test_host {
-    name: "aarch64_host_test_src_lib",
-    defaults: ["aarch64_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-    target: {
-        // It is necessary to disable this specifically as well as the arch below, because
-        // crosvm_defaults enables it and the more specific target apparently takes precedence over
-        // the less specific arch.
-        linux_glibc_x86_64: {
-            enabled: false,
-        },
-    },
-    arch: {
-        x86_64: {
-            enabled: false,
-        },
-    },
-}
-
-rust_test {
-    name: "aarch64_device_test_src_lib",
-    defaults: ["aarch64_test_defaults"],
-    target: {
-        // It is necessary to disable this specifically as well as the arch below, because
-        // crosvm_defaults enables it and the more specific target apparently takes precedence over
-        // the less specific arch.
-        linux_glibc_x86_64: {
-            enabled: false,
-        },
-    },
-    arch: {
-        x86_64: {
-            enabled: false,
-        },
-    },
-}
-
 rust_library {
     name: "libaarch64",
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "aarch64",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libarch",
         "libbase_rust",
@@ -93,9 +29,11 @@ rust_library {
         "libkvm",
         "libkvm_sys",
         "liblibc",
+        "libmemoffset",
         "libminijail_rust",
         "libresources",
         "libsync_rust",
+        "libthiserror",
         "libvm_control",
         "libvm_memory",
     ],
@@ -107,10 +45,14 @@ rust_library {
         linux_glibc_x86_64: {
             enabled: false,
         },
+        linux_musl_x86_64: {
+            enabled: false,
+        },
     },
     arch: {
         x86_64: {
             enabled: false,
         },
     },
+
 }

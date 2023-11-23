@@ -1,7 +1,7 @@
 #ifndef MTOOLS_LLONG_H
 #define MTOOLS_LLONG_H
 
-/*  Copyright 1999,2001-2004,2007-2009 Alain Knaff.
+/*  Copyright 1999,2001-2004,2007-2009,2021 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -21,30 +21,32 @@
 #if 1
 
 
-#ifdef HAVE_OFF_T_64
+#if SIZEOF_OFF_T >= 8
 /* if off_t is already 64 bits, be happy, and don't worry about the
  * loff_t and llseek stuff */
 # define MT_OFF_T off_t
-# if SIZEOF_SIZE_T == 4
-/* Some systems (NetBSD) apparently have 64 bit off_t, but 32 bit size_t ... */
-#  define MT_SIZE_T off_t
-# else
-#  define MT_SIZE_T size_t
+# define SIZEOF_MT_OFF_T SIZEOF_OFF_T
+#endif
+
+#ifndef MT_OFF_T
+# if defined(HAVE_LSEEK64) && defined (HAVE_OFF64_T)
+#  define MT_OFF_T off64_t
+#  define SIZEOF_MT_OFF_T 8
 # endif
 #endif
+
 
 #ifndef MT_OFF_T
 # if defined(HAVE_LLSEEK) || defined(HAVE_LSEEK64)
 /* we have llseek. Now, what's its type called? loff_t or offset_t ? */
 #  ifdef HAVE_LOFF_T
 #   define MT_OFF_T loff_t
+#   define SIZEOF_MT_OFF_T 8
 /* use the same type for size. Better to get signedness wrong than width */
-#   define MT_SIZE_T loff_t
 #  else
 #   ifdef HAVE_OFFSET_T
 #    define MT_OFF_T offset_t
-/* use the same type for size. Better to get signedness wrong than width */
-#    define MT_SIZE_T offset_t
+#    define SIZEOF_MT_OFF_T 8
 #   endif
 #  endif
 # endif
@@ -55,21 +57,34 @@
 # ifdef HAVE_LONG_LONG
 /* ... first try long long ... */
 #  define MT_OFF_T long long
-#  define MT_SIZE_T unsigned long long
+#  define SIZEOF_MT_OFF_T 8
 # else
-#  ifdef HAVE_OFF64_T
-#   define MT_OFF_T off64_t
-#   define MT_SIZE_T off64_t
-#  else
-/* ... and if that fails, fall back on good ole' off_t */
-#   define MT_OFF_T off_t
-#   define MT_SIZE_T size_t
-#  endif
+/* ... and if that fails, fall back on good ole' off_t, even if that
+ * only has 32 bits */
+#  define MT_OFF_T off_t
+#  define SIZEOF_MT_OFF_T SIZEOF_OFF_T
 # endif
 #endif
 
 typedef MT_OFF_T mt_off_t;
-typedef MT_SIZE_T mt_size_t;
+
+/* Define a common supertype of uint32_t and mt_off_t. Usually,
+ * mt_off_t is bigger, except on 32-bit architectures without large
+ * file support, where uint32_t can represent larger values. N.B. in
+ * such a setup, negative values of mt_off_t could not be handled, but
+ * we don't use any such values anyways in mtools
+ */
+#if SIZEOF_MT_OFF_T == 4
+
+typedef uint32_t smt_off_t;
+mt_off_t to_mt_off_t(uint32_t off);
+
+#else
+
+typedef mt_off_t smt_off_t;
+#define to_mt_off_t(x) (x)
+
+#endif
 
 #else
 /* testing: meant to flag dubious assignments between 32 bit length types
@@ -78,11 +93,6 @@ typedef struct {
 	unsigned int lo;
 	int high;
 } *mt_off_t;
-
-typedef struct {
-	unsigned int lo;
-	unsigned int high;
-} *mt_size_t;
 
 #endif
 
@@ -100,11 +110,13 @@ extern const mt_off_t max_off_t_31;
 extern const mt_off_t max_off_t_41;
 extern const mt_off_t max_off_t_seek;
 
-extern off_t truncBytes32(mt_off_t off);
+extern off_t truncBytes32(mt_off_t off); /* truncMtOffToOff */
+extern uint32_t truncMtOffTo32u(mt_off_t off);
+extern uint32_t truncSizeTo32u(size_t siz);
 extern int fileTooBig(mt_off_t off);
 
 int mt_lseek(int fd, mt_off_t where, int whence);
 
-unsigned int log_2(int);
+unsigned int log_2(unsigned int);
 
 #endif

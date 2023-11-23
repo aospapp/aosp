@@ -42,13 +42,18 @@ struct vtest_input {
    int (*read)(struct vtest_input *input, void *buf, int size);
 };
 
-int vtest_init_renderer(int ctx_flags, const char *render_device);
+int vtest_init_renderer(bool multi_clients,
+                        int ctx_flags,
+                        const char *render_device);
 void vtest_cleanup_renderer(void);
 
 int vtest_create_context(struct vtest_input *input, int out_fd,
                          uint32_t length_dw, struct vtest_context **out_ctx);
 int vtest_lazy_init_context(struct vtest_context *ctx);
 void vtest_destroy_context(struct vtest_context *ctx);
+
+void vtest_poll_context(struct vtest_context *ctx);
+int vtest_get_context_poll_fd(struct vtest_context *ctx);
 
 void vtest_set_current_context(struct vtest_context *ctx);
 
@@ -72,8 +77,8 @@ int vtest_block_read(struct vtest_input *input, void *buf, int size);
 int vtest_buf_read(struct vtest_input *input, void *buf, int size);
 
 int vtest_resource_busy_wait(uint32_t length_dw);
-int vtest_renderer_create_fence(void);
-int vtest_poll(void);
+int vtest_resource_busy_wait_nop(uint32_t length_dw);
+void vtest_poll_resource_busy_wait(void);
 
 int vtest_ping_protocol_version(uint32_t length_dw);
 int vtest_protocol_version(uint32_t length_dw);
@@ -82,6 +87,15 @@ int vtest_protocol_version(uint32_t length_dw);
 int vtest_get_param(uint32_t length_dw);
 int vtest_get_capset(uint32_t length_dw);
 int vtest_context_init(uint32_t length_dw);
+int vtest_resource_create_blob(uint32_t length_dw);
+
+int vtest_sync_create(uint32_t length_dw);
+int vtest_sync_unref(uint32_t length_dw);
+int vtest_sync_read(uint32_t length_dw);
+int vtest_sync_write(uint32_t length_dw);
+int vtest_sync_wait(uint32_t length_dw);
+
+int vtest_submit_cmd2(uint32_t length_dw);
 
 void vtest_set_max_length(uint32_t length);
 

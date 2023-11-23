@@ -28,6 +28,14 @@
 
 namespace perfetto {
 
+namespace protos {
+namespace pbzero {
+enum FtraceClock : int32_t;
+}  // namespace pbzero
+}  // namespace protos
+
+struct FtraceSetupErrors;
+
 // State held by the muxer per data source, used to parse ftrace according to
 // that data source's config.
 struct FtraceDataSourceConfig {
@@ -53,7 +61,7 @@ struct FtraceDataSourceConfig {
   std::vector<std::string> atrace_apps;
   std::vector<std::string> atrace_categories;
 
-  // When enabled will turn on the the kallsyms symbolizer in CpuReader.
+  // When enabled will turn on the kallsyms symbolizer in CpuReader.
   const bool symbolize_ksyms;
 };
 
@@ -87,7 +95,8 @@ class FtraceConfigMuxer {
   // (if you enable an atrace category we try to give you the matching events).
   // If someone else is tracing we won't touch atrace (since it resets the
   // buffer).
-  FtraceConfigId SetupConfig(const FtraceConfig& request);
+  FtraceConfigId SetupConfig(const FtraceConfig& request,
+                             FtraceSetupErrors* = nullptr);
 
   // Activate ftrace for the given config (if not already active).
   bool ActivateConfig(FtraceConfigId);
@@ -109,6 +118,10 @@ class FtraceConfigMuxer {
     SetupClock(request);
   }
 
+  protos::pbzero::FtraceClock ftrace_clock() const {
+    return current_state_.ftrace_clock;
+  }
+
   std::set<GroupAndName> GetFtraceEventsForTesting(
       const FtraceConfig& request,
       const ProtoTranslationTable* table) {
@@ -121,7 +134,8 @@ class FtraceConfigMuxer {
 
  private:
   static bool StartAtrace(const std::vector<std::string>& apps,
-                          const std::vector<std::string>& categories);
+                          const std::vector<std::string>& categories,
+                          std::string* atrace_errors);
 
   struct FtraceState {
     EventFilter ftrace_events;
@@ -130,6 +144,7 @@ class FtraceConfigMuxer {
     std::vector<std::string> atrace_categories;
     size_t cpu_buffer_size_pages = 0;
     bool atrace_on = false;
+    protos::pbzero::FtraceClock ftrace_clock{};
   };
 
   FtraceConfigMuxer(const FtraceConfigMuxer&) = delete;
@@ -137,7 +152,7 @@ class FtraceConfigMuxer {
 
   void SetupClock(const FtraceConfig& request);
   void SetupBufferSize(const FtraceConfig& request);
-  void UpdateAtrace(const FtraceConfig& request);
+  void UpdateAtrace(const FtraceConfig& request, std::string* atrace_errors);
   void DisableAtrace();
 
   // This processes the config to get the exact events.

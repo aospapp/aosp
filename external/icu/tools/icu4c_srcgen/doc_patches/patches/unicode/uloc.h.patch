@@ -1,5 +1,5 @@
---- libicu/ndk_headers/unicode/uloc.h	2021-01-19 16:37:46.343488297 +0000
-+++ libicu/ndk_headers/unicode/uloc.h	2021-01-19 16:37:46.447489035 +0000
+--- libicu/ndk_headers/unicode/uloc.h	2021-07-29 18:38:27.301302935 +0100
++++ libicu/ndk_headers/unicode/uloc.h	2021-07-29 18:38:27.461304332 +0100
 @@ -368,6 +368,9 @@
   *   and unchanged even when uloc_setDefault() is called.
   *   The returned storage is owned by ICU, and must not be altered or deleted
@@ -9,4 +9,4 @@
 + * java.util.Locale#setDefault in java or by reverse JNI.
   *  
   * @return the ICU default locale
-  * @system
+  * \xrefitem system "System" "System List" Do not use unless you know what you are doing.

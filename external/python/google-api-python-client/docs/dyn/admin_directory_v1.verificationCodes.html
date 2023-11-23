@@ -72,58 +72,78 @@ h1, h2, h3 {
 
 </style>
 
-<h1><a href="admin_directory_v1.html">Admin Directory API</a> . <a href="admin_directory_v1.verificationCodes.html">verificationCodes</a></h1>
+<h1><a href="admin_directory_v1.html">Admin SDK API</a> . <a href="admin_directory_v1.verificationCodes.html">verificationCodes</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#generate">generate(userKey)</a></code></p>
-<p class="firstline">Generate new backup verification codes for the user.</p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
 <p class="toc_element">
-  <code><a href="#invalidate">invalidate(userKey)</a></code></p>
-<p class="firstline">Invalidate the current backup verification codes for the user.</p>
+  <code><a href="#generate">generate(userKey, x__xgafv=None)</a></code></p>
+<p class="firstline">Generates new backup verification codes for the user.</p>
 <p class="toc_element">
-  <code><a href="#list">list(userKey)</a></code></p>
+  <code><a href="#invalidate">invalidate(userKey, x__xgafv=None)</a></code></p>
+<p class="firstline">Invalidates the current backup verification codes for the user.</p>
+<p class="toc_element">
+  <code><a href="#list">list(userKey, x__xgafv=None)</a></code></p>
 <p class="firstline">Returns the current set of valid backup verification codes for the specified user.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="generate">generate(userKey)</code>
-  <pre>Generate new backup verification codes for the user.
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="generate">generate(userKey, x__xgafv=None)</code>
+  <pre>Generates new backup verification codes for the user.
 
 Args:
   userKey: string, Email or immutable ID of the user (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 </pre>
 </div>
 
 <div class="method">
-    <code class="details" id="invalidate">invalidate(userKey)</code>
-  <pre>Invalidate the current backup verification codes for the user.
+    <code class="details" id="invalidate">invalidate(userKey, x__xgafv=None)</code>
+  <pre>Invalidates the current backup verification codes for the user.
 
 Args:
   userKey: string, Email or immutable ID of the user (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 </pre>
 </div>
 
 <div class="method">
-    <code class="details" id="list">list(userKey)</code>
+    <code class="details" id="list">list(userKey, x__xgafv=None)</code>
   <pre>Returns the current set of valid backup verification codes for the specified user.
 
 Args:
-  userKey: string, Identifies the user in the API request. The value can be the user's primary email address, alias email address, or unique user ID. (required)
+  userKey: string, Identifies the user in the API request. The value can be the user&#x27;s primary email address, alias email address, or unique user ID. (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     { # JSON response template for List verification codes operation in Directory API.
-    "items": [ # A list of verification code resources.
-      { # JSON template for verification codes in Directory API.
-        "kind": "admin#directory#verificationCode", # The type of the resource. This is always admin#directory#verificationCode.
-        "etag": "A String", # ETag of the resource.
-        "userId": "A String", # The obfuscated unique ID of the user.
-        "verificationCode": "A String", # A current verification code for the user. Invalidated or used verification codes are not returned as part of the result.
-      },
-    ],
-    "kind": "admin#directory#verificationCodesList", # The type of the resource. This is always admin#directory#verificationCodesList.
-    "etag": "A String", # ETag of the resource.
-  }</pre>
+  &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+  &quot;items&quot;: [ # A list of verification code resources.
+    { # The Directory API allows you to view, generate, and invalidate backup verification codes for a user.
+      &quot;etag&quot;: &quot;A String&quot;, # ETag of the resource.
+      &quot;kind&quot;: &quot;admin#directory#verificationCode&quot;, # The type of the resource. This is always `admin#directory#verificationCode`.
+      &quot;userId&quot;: &quot;A String&quot;, # The obfuscated unique ID of the user.
+      &quot;verificationCode&quot;: &quot;A String&quot;, # A current verification code for the user. Invalidated or used verification codes are not returned as part of the result.
+    },
+  ],
+  &quot;kind&quot;: &quot;admin#directory#verificationCodesList&quot;, # The type of the resource. This is always `admin#directory#verificationCodesList`.
+}</pre>
 </div>
 
 </body></html>

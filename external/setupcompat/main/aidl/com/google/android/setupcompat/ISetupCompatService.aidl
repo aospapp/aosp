@@ -26,4 +26,6 @@ interface ISetupCompatService {
   oneway void validateActivity(String screenName, in Bundle arguments) = 0;
 
   oneway void logMetric(int metricType, in Bundle arguments, in Bundle extras) = 1;
+
+  oneway void onFocusStatusChanged(in Bundle bundle) = 2;
 }

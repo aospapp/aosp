@@ -84,7 +84,9 @@ std::shared_ptr<WaitableCompileEvent> ShaderMtl::compileImplMtl(
     const std::string &source,
     ShCompileOptions compileOptions)
 {
-#if defined(ANGLE_ENABLE_ASSERTS)
+// TODO(jcunningham): Remove this workaround once correct fix to move validation to the very end is
+// in place. See: https://bugs.webkit.org/show_bug.cgi?id=224991
+#if defined(ANGLE_ENABLE_ASSERTS) && 0
     compileOptions |= SH_VALIDATE_AST;
 #endif
 
@@ -101,31 +103,17 @@ std::shared_ptr<WaitableCompileEvent> ShaderMtl::compile(const gl::Context *cont
                                                          gl::ShCompilerInstance *compilerInstance,
                                                          ShCompileOptions options)
 {
-    ContextMtl *contextMtl = mtl::GetImpl(context);
-    if (getState().getShaderType() == gl::ShaderType::Vertex &&
-        !contextMtl->getDisplay()->getFeatures().hasBaseVertexInstancedDraw.enabled)
-    {
-        // Emulate gl_InstanceID
-        sh::TShHandleBase *base = static_cast<sh::TShHandleBase *>(compilerInstance->getHandle());
-        auto translatorMetalDirect = base->getAsTranslatorMetalDirect();
-        if (translatorMetalDirect == nullptr)
-        {
-            // TODO(jonahr): This isn't implemented in TranslatorMetal. Do we care? That should be
-            // deprecated. auto translatorMetal = static_cast<sh::TranslatorMetal
-            // *>(base->getAsCompiler()); translatorMetal->enableEmulatedInstanceID(true);
-        }
-        else
-        {
-            translatorMetalDirect->enableEmulatedInstanceID(true);
-        }
-    }
-
+    ContextMtl *contextMtl          = mtl::GetImpl(context);
     ShCompileOptions compileOptions = SH_INITIALIZE_UNINITIALIZED_LOCALS;
 
-    bool isWebGL = context->getExtensions().webglCompatibility;
-    if (isWebGL && mState.getShaderType() != gl::ShaderType::Compute)
+    if (context->isWebGL() && mState.getShaderType() != gl::ShaderType::Compute)
     {
         compileOptions |= SH_INIT_OUTPUT_VARIABLES;
+    }
+
+    if (contextMtl->getDisplay()->getFeatures().intelExplicitBoolCastWorkaround.enabled)
+    {
+        compileOptions |= SH_ADD_EXPLICIT_BOOL_CASTS;
     }
 
     compileOptions |= SH_CLAMP_POINT_SIZE;
@@ -137,8 +125,11 @@ std::shared_ptr<WaitableCompileEvent> ShaderMtl::compile(const gl::Context *cont
     {
         compileOptions |= SH_REWRITE_ROW_MAJOR_MATRICES;
     }
-    // IF SPIRV
+    // If compiling through SPIR-V
     compileOptions |= SH_ADD_VULKAN_XFB_EMULATION_SUPPORT_CODE;
+    // If compiling through SPIR-V.  This path outputs text, so cannot use the direct SPIR-V gen
+    // path unless fixed.
+    compileOptions |= SH_GENERATE_SPIRV_THROUGH_GLSLANG;
 
     return compileImplMtl(context, compilerInstance, getState().getSource(),
                           compileOptions | options);
@@ -146,7 +137,12 @@ std::shared_ptr<WaitableCompileEvent> ShaderMtl::compile(const gl::Context *cont
 
 std::string ShaderMtl::getDebugInfo() const
 {
-    return mState.getCompiledBinary().empty() ? "" : "<binary blob>";
+    std::string debugInfo = mState.getTranslatedSource();
+    if (debugInfo.empty())
+    {
+        return mState.getCompiledBinary().empty() ? "" : "<binary blob>";
+    }
+    return debugInfo;
 }
 
 }  // namespace rx

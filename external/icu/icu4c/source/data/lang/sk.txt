@@ -410,13 +410,13 @@ sk{
         raj{"radžastančina"}
         rap{"rapanujčina"}
         rar{"rarotongská maorijčina"}
+        rhg{"rohingčina"}
         rm{"rétorománčina"}
         rn{"rundčina"}
         ro{"rumunčina"}
         ro_MD{"moldavčina"}
         rof{"rombo"}
         rom{"rómčina"}
-        root{"koreň"}
         ru{"ruština"}
         rup{"arumunčina"}
         rw{"rwandčina"}

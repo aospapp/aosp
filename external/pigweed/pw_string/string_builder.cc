@@ -29,14 +29,14 @@ void StringBuilder::clear() {
 }
 
 StringBuilder& StringBuilder::append(size_t count, char ch) {
-  char* const append_destination = &buffer_[size_];
-  std::memset(append_destination, ch, ResizeAndTerminate(count));
+  char* const append_destination = buffer_.data() + size_;
+  std::fill_n(append_destination, ResizeAndTerminate(count), ch);
   return *this;
 }
 
 StringBuilder& StringBuilder::append(const char* str, size_t count) {
-  char* const append_destination = &buffer_[size_];
-  std::memcpy(append_destination, str, ResizeAndTerminate(count));
+  char* const append_destination = buffer_.data() + size_;
+  std::copy_n(str, ResizeAndTerminate(count), append_destination);
   return *this;
 }
 
@@ -44,7 +44,7 @@ StringBuilder& StringBuilder::append(const char* str) {
   // Use buffer_.size() - size() as the maximum length so that strings too long
   // to fit in the buffer will request one character too many, which sets the
   // status to RESOURCE_EXHAUSTED.
-  return append(str, string::Length(str, buffer_.size() - size()));
+  return append(string::ClampedCString(str, buffer_.size() - size()));
 }
 
 StringBuilder& StringBuilder::append(const std::string_view& str) {
@@ -98,6 +98,16 @@ StringBuilder& StringBuilder::FormatVaList(const char* format, va_list args) {
   HandleStatusWithSize(
       string::FormatVaList(buffer_.subspan(size_), format, args));
   return *this;
+}
+
+void StringBuilder::WriteBytes(std::span<const std::byte> data) {
+  if (size() + data.size() * 2 > max_size()) {
+    SetErrorStatus(Status::ResourceExhausted());
+  } else {
+    for (std::byte val : data) {
+      *this << val;
+    }
+  }
 }
 
 void StringBuilder::CopySizeAndStatus(const StringBuilder& other) {

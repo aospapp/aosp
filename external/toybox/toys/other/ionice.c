@@ -6,7 +6,7 @@
  * Documentation/block/ioprio.txt in the linux source.
 
 USE_IONICE(NEWTOY(ionice, "^tc#<0>3=2n#<0>7=5p#", TOYFLAG_USR|TOYFLAG_BIN))
-USE_IORENICE(NEWTOY(iorenice, "?<1>3", TOYFLAG_USR|TOYFLAG_BIN))
+USE_IORENICE(NEWTOY(iorenice, "<1>3", TOYFLAG_USR|TOYFLAG_BIN))
 
 config IONICE
   bool "ionice"
@@ -37,7 +37,6 @@ config IORENICE
 
 #define FOR_ionice
 #include "toys.h"
-#include <sys/syscall.h>
 
 GLOBALS(
   long p, n, c;
@@ -60,11 +59,12 @@ void ionice_main(void)
   if (!TT.p && !toys.optc) error_exit("Need -p or COMMAND");
   if (toys.optflags == FLAG_p) {
     int p = ioprio_get();
+
     xprintf("%s: prio %d\n",
       (char *[]){"unknown", "Realtime", "Best-effort", "Idle"}[(p>>13)&3],
       p&7);
   } else {
-    if (-1 == ioprio_set() && !(toys.optflags&FLAG_t)) perror_exit("set");
+    if (-1 == ioprio_set() && !FLAG(t)) perror_exit("set");
     if (!TT.p) xexec(toys.optargs);
   }
 }

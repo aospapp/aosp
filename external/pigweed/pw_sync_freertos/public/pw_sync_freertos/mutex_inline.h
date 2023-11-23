@@ -14,7 +14,7 @@
 #pragma once
 
 #include "FreeRTOS.h"
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_interrupt/context.h"
 #include "pw_sync/mutex.h"
 #include "semphr.h"
@@ -33,34 +33,42 @@ inline Mutex::Mutex() : native_type_() {
   const SemaphoreHandle_t handle = xSemaphoreCreateMutexStatic(&native_type_);
   // This should never fail since the pointer provided was not null and it
   // should return a pointer to the StaticSemaphore_t.
-  PW_DASSERT(handle == &native_type_);
+  PW_DASSERT(handle == reinterpret_cast<SemaphoreHandle_t>(&native_type_));
 }
 
-inline Mutex::~Mutex() { vSemaphoreDelete(&native_type_); }
+inline Mutex::~Mutex() {
+  vSemaphoreDelete(reinterpret_cast<SemaphoreHandle_t>(&native_type_));
+}
 
 inline void Mutex::lock() {
-  PW_ASSERT(!interrupt::InInterruptContext());
+  // Enforce the pw::sync::Mutex IRQ contract.
+  PW_DASSERT(!interrupt::InInterruptContext());
 #if INCLUDE_vTaskSuspend == 1  // This means portMAX_DELAY is indefinite.
-  const BaseType_t result = xSemaphoreTake(&native_type_, portMAX_DELAY);
+  const BaseType_t result = xSemaphoreTake(
+      reinterpret_cast<SemaphoreHandle_t>(&native_type_), portMAX_DELAY);
   PW_DASSERT(result == pdTRUE);
 #else
   // In case we need to block for longer than the FreeRTOS delay can represent
   // repeatedly hit take until success.
-  while (xSemaphoreTake(&native_type_, chrono::freertos::kMaxTimeout.count()) ==
-         pdFALSE) {
+  while (xSemaphoreTake(reinterpret_cast<SemaphoreHandle_t>(&native_type_),
+                        chrono::freertos::kMaxTimeout.count()) == pdFALSE) {
   }
 #endif  // INCLUDE_vTaskSuspend
 }
 
 inline bool Mutex::try_lock() {
-  PW_ASSERT(!interrupt::InInterruptContext());
-  return xSemaphoreTake(&native_type_, 0) == pdTRUE;
+  // Enforce the pw::sync::Mutex IRQ contract.
+  PW_DASSERT(!interrupt::InInterruptContext());
+  return xSemaphoreTake(reinterpret_cast<SemaphoreHandle_t>(&native_type_),
+                        0) == pdTRUE;
 }
 
 inline void Mutex::unlock() {
-  PW_ASSERT(!interrupt::InInterruptContext());
+  // Enforce the pw::sync::Mutex IRQ contract.
+  PW_DASSERT(!interrupt::InInterruptContext());
   // Unlocking only fails if it was not locked first.
-  PW_ASSERT(xSemaphoreGive(&native_type_) == pdTRUE);
+  PW_ASSERT(xSemaphoreGive(
+                reinterpret_cast<SemaphoreHandle_t>(&native_type_)) == pdTRUE);
 }
 
 inline Mutex::native_handle_type Mutex::native_handle() { return native_type_; }

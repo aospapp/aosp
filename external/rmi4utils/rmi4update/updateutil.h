@@ -54,8 +54,4 @@ enum update_error {
 
 const char * update_err_to_string(int err);
 
-unsigned long extract_long(const unsigned char *data);
-unsigned short extract_short(const unsigned char *data);
-const char * StripPath(const char * path, ssize_t size);
-
 #endif // _UPDATEUTIL_H_

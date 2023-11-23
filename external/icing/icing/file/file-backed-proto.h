@@ -63,6 +63,17 @@ class FileBackedProto {
   // file_path : Must be a path within in a directory that already exists.
   FileBackedProto(const Filesystem& filesystem, std::string_view file_path);
 
+  // Reset the internal file_path for the file backed proto.
+  // Example use:
+  //   auto file_backed_proto1 = *FileBackedProto<Proto>::Create(...);
+  //   auto file_backed_proto2 = *FileBackedProto<Proto>::Create(...);
+  //   filesystem.SwapFiles(file1, file2);
+  //   file_backed_proto1.SetSwappedFilepath(file2);
+  //   file_backed_proto2.SetSwappedFilepath(file1);
+  void SetSwappedFilepath(std::string_view swapped_to_file_path) {
+    file_path_ = swapped_to_file_path;
+  }
+
   // Returns a reference to the proto read from the file. It
   // internally caches the read proto so that future calls are fast.
   //
@@ -99,7 +110,7 @@ class FileBackedProto {
   mutable absl_ports::shared_mutex mutex_;
 
   const Filesystem* const filesystem_;
-  const std::string file_path_;
+  std::string file_path_;
 
   mutable std::unique_ptr<ProtoT> cached_proto_ ICING_GUARDED_BY(mutex_);
 };

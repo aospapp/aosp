@@ -30,14 +30,15 @@
 #pragma once
 
 #include <string>
+#include <stdint.h>
 
 #include "SelectionCriterionTypeInterface.h"
 
 class ISelectionCriterionInterface
 {
 public:
-    virtual void setCriterionState(int iState) = 0;
-    virtual int getCriterionState() const = 0;
+    virtual void setCriterionState(uint64_t iState) = 0;
+    virtual uint64_t getCriterionState() const = 0;
     virtual std::string getCriterionName() const = 0;
     virtual const ISelectionCriterionTypeInterface *getCriterionType() const = 0;
 

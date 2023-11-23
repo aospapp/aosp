@@ -17,8 +17,7 @@
  */
 #include <string.h>
 
-#include "netutils/checksum.h"
-
+#include "checksum.h"
 #include "debug.h"
 #include "dump.h"
 #include "logging.h"

@@ -14,6 +14,10 @@
 #include "libANGLE/Thread.h"
 #include "libANGLE/features.h"
 
+#if defined(ANGLE_PLATFORM_APPLE) || (ANGLE_PLATFORM_ANDROID)
+#    include "common/tls.h"
+#endif
+
 #include <mutex>
 
 namespace angle
@@ -89,16 +93,22 @@ namespace egl
 class Debug;
 class Thread;
 
+#if defined(ANGLE_PLATFORM_APPLE)
+extern Thread *GetCurrentThreadTLS();
+extern void SetCurrentThreadTLS(Thread *thread);
+#else
 extern thread_local Thread *gCurrentThread;
+#endif
 
 angle::GlobalMutex &GetGlobalMutex();
+angle::GlobalMutex &GetGlobalSurfaceMutex();
 gl::Context *GetGlobalLastContext();
 void SetGlobalLastContext(gl::Context *context);
 Thread *GetCurrentThread();
 Debug *GetDebug();
 
 // Sync the current context from Thread to global state.
-class ScopedSyncCurrentContextFromThread
+class ANGLE_NO_DISCARD ScopedSyncCurrentContextFromThread
 {
   public:
     ScopedSyncCurrentContextFromThread(egl::Thread *thread);
@@ -110,8 +120,14 @@ class ScopedSyncCurrentContextFromThread
 
 }  // namespace egl
 
+#define ANGLE_GLOBAL_SURFACE_LOCK_VAR_NAME globalSurfaceMutexLock
+#define ANGLE_SCOPED_GLOBAL_SURFACE_LOCK()                                  \
+    std::lock_guard<angle::GlobalMutex> ANGLE_GLOBAL_SURFACE_LOCK_VAR_NAME( \
+        egl::GetGlobalSurfaceMutex())
+
+#define ANGLE_GLOBAL_LOCK_VAR_NAME globalMutexLock
 #define ANGLE_SCOPED_GLOBAL_LOCK() \
-    std::lock_guard<angle::GlobalMutex> globalMutexLock(egl::GetGlobalMutex())
+    std::lock_guard<angle::GlobalMutex> ANGLE_GLOBAL_LOCK_VAR_NAME(egl::GetGlobalMutex())
 
 namespace gl
 {
@@ -125,8 +141,13 @@ ANGLE_INLINE Context *GetGlobalContext()
     }
 #endif
 
-    ASSERT(egl::gCurrentThread);
-    return egl::gCurrentThread->getContext();
+#if defined(ANGLE_PLATFORM_APPLE)
+    egl::Thread *currentThread = egl::GetCurrentThreadTLS();
+#else
+    egl::Thread *currentThread = egl::gCurrentThread;
+#endif
+    ASSERT(currentThread);
+    return currentThread->getContext();
 }
 
 ANGLE_INLINE Context *GetValidGlobalContext()
@@ -144,7 +165,11 @@ ANGLE_INLINE Context *GetValidGlobalContext()
     }
 #endif
 
+#if defined(ANGLE_PLATFORM_APPLE)
+    return GetCurrentValidContextTLS();
+#else
     return gCurrentValidContext;
+#endif
 }
 
 // Generate a context lost error on the context if it is non-null and lost.

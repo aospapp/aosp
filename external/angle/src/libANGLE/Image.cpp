@@ -71,15 +71,18 @@ void ImageSibling::setTargetImage(const gl::Context *context, egl::Image *imageT
     imageTarget->addTargetSibling(this);
 }
 
-angle::Result ImageSibling::orphanImages(const gl::Context *context)
+angle::Result ImageSibling::orphanImages(const gl::Context *context,
+                                         RefCountObjectReleaser<Image> *outReleaseImage)
 {
+    ASSERT(outReleaseImage != nullptr);
+
     if (mTargetOf.get() != nullptr)
     {
         // Can't be a target and have sources.
         ASSERT(mSourcesOf.empty());
 
         ANGLE_TRY(mTargetOf->orphanSibling(context, this));
-        mTargetOf.set(DisplayFromContext(context), nullptr);
+        *outReleaseImage = mTargetOf.set(DisplayFromContext(context), nullptr);
     }
     else
     {
@@ -191,6 +194,11 @@ GLsizei ExternalImageSibling::getAttachmentSamples(const gl::ImageIndex &imageIn
     return static_cast<GLsizei>(mImplementation->getSamples());
 }
 
+GLuint ExternalImageSibling::getLevelCount() const
+{
+    return static_cast<GLuint>(mImplementation->getLevelCount());
+}
+
 bool ExternalImageSibling::isRenderable(const gl::Context *context,
                                         GLenum binding,
                                         const gl::ImageIndex &imageIndex) const
@@ -206,6 +214,11 @@ bool ExternalImageSibling::isTextureable(const gl::Context *context) const
 bool ExternalImageSibling::isYUV() const
 {
     return mImplementation->isYUV();
+}
+
+bool ExternalImageSibling::isCubeMap() const
+{
+    return mImplementation->isCubeMap();
 }
 
 bool ExternalImageSibling::hasProtectedContent() const
@@ -255,8 +268,10 @@ ImageState::ImageState(EGLenum target, ImageSibling *buffer, const AttributeMap 
       targets(),
       format(GL_NONE),
       yuv(false),
+      cubeMap(false),
       size(),
       samples(),
+      levelCount(1),
       sourceType(target),
       colorspace(
           static_cast<EGLenum>(attribs.get(EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_DEFAULT_EXT))),
@@ -276,6 +291,7 @@ Image::Image(rx::EGLImplFactory *factory,
 {
     ASSERT(mImplementation != nullptr);
     ASSERT(buffer != nullptr);
+    ASSERT(context == nullptr || context->isShared());
 
     mState.source->addImageSource(this);
 }
@@ -405,6 +421,11 @@ bool Image::isYUV() const
     return mState.yuv;
 }
 
+bool Image::isCubeMap() const
+{
+    return mState.cubeMap;
+}
+
 size_t Image::getWidth() const
 {
     return mState.size.width;
@@ -415,6 +436,11 @@ size_t Image::getHeight() const
     return mState.size.height;
 }
 
+const gl::Extents &Image::getExtents() const
+{
+    return mState.size;
+}
+
 bool Image::isLayered() const
 {
     return mState.imageIndex.isLayered();
@@ -423,6 +449,11 @@ bool Image::isLayered() const
 size_t Image::getSamples() const
 {
     return mState.samples;
+}
+
+GLuint Image::getLevelCount() const
+{
+    return mState.levelCount;
 }
 
 bool Image::hasProtectedContent() const
@@ -443,7 +474,8 @@ Error Image::initialize(const Display *display)
         ANGLE_TRY(externalSibling->initialize(display));
 
         mState.hasProtectedContent = externalSibling->hasProtectedContent();
-
+        mState.levelCount          = externalSibling->getLevelCount();
+        mState.cubeMap             = externalSibling->isCubeMap();
         // Only external siblings can be YUV
         mState.yuv = externalSibling->isYUV();
     }
@@ -463,6 +495,11 @@ Error Image::initialize(const Display *display)
 
     mState.size    = mState.source->getAttachmentSize(mState.imageIndex);
     mState.samples = mState.source->getAttachmentSamples(mState.imageIndex);
+
+    if (IsTextureTarget(mState.sourceType))
+    {
+        mState.size.depth = 1;
+    }
 
     return mImplementation->initialize(display);
 }
@@ -490,6 +527,11 @@ void Image::setInitState(gl::InitState initState)
     }
 
     return mState.source->setInitState(mState.imageIndex, initState);
+}
+
+Error Image::exportVkImage(void *vkImage, void *vkImageCreateInfo)
+{
+    return mImplementation->exportVkImage(vkImage, vkImageCreateInfo);
 }
 
 void Image::notifySiblings(const ImageSibling *notifier, angle::SubjectMessage message)

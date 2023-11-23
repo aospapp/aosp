@@ -27,6 +27,21 @@
 #undef ftello
 #endif
 #endif  // _WIN32
+
+#ifdef ANDROID_HOST_MUSL
+# ifdef fopen64
+#  undef fopen64
+# endif
+# ifdef fseeko64
+#  undef fseeko64
+# endif
+# ifdef ftello64
+#  undef ftello64
+# endif
+# ifdef tmpfile64
+#  undef tmpfile64
+# endif
+#endif
 // END ANDROID-SPECIFIC
 
 namespace llvm {

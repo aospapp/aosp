@@ -54,6 +54,7 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
+#include <assert.h>
 #include <stdio.h>
 
 #include <openssl/bn.h>
@@ -62,6 +63,8 @@
 #include <openssl/objects.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+
+#include "internal.h"
 
 
 int X509_REQ_print_fp(FILE *fp, X509_REQ *x) {
@@ -102,7 +105,9 @@ int X509_REQ_print_ex(BIO *bio, X509_REQ *x, unsigned long nmflags,
   }
   if (!(cflag & X509_FLAG_NO_VERSION)) {
     l = X509_REQ_get_version(x);
-    if (BIO_printf(bio, "%8sVersion: %ld (0x%lx)\n", "", l + 1, l) <= 0) {
+    assert(l == X509_REQ_VERSION_1);
+    if (BIO_printf(bio, "%8sVersion: %ld (0x%lx)\n", "", l + 1,
+                   (unsigned long)l) <= 0) {
       goto err;
     }
   }

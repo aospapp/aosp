@@ -1,7 +1,7 @@
 use crate::syntax::atom::Atom::*;
 use crate::syntax::{
-    Array, Atom, Derive, Enum, ExternFn, ExternType, Impl, Lifetimes, NamedType, Ptr, Receiver,
-    Ref, Signature, SliceRef, Struct, Ty1, Type, TypeAlias, Var,
+    Array, Atom, Derive, Enum, EnumRepr, ExternFn, ExternType, Impl, Lifetimes, NamedType, Ptr,
+    Receiver, Ref, Signature, SliceRef, Struct, Ty1, Type, TypeAlias, Var,
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
@@ -43,6 +43,7 @@ impl ToTokens for Var {
             attrs: _,
             visibility: _,
             name,
+            colon_token: _,
             ty,
         } = self;
         name.rust.to_tokens(tokens);
@@ -279,6 +280,15 @@ impl ToTokens for Signature {
     }
 }
 
+impl ToTokens for EnumRepr {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            EnumRepr::Native { atom, repr_type: _ } => atom.to_tokens(tokens),
+            EnumRepr::Foreign { rust_type } => rust_type.to_tokens(tokens),
+        }
+    }
+}
+
 impl ToTokens for NamedType {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let NamedType { rust, generics } = self;
@@ -310,6 +320,7 @@ impl ToTokens for ReceiverType<'_> {
             lifetime,
             mutable: _,
             var: _,
+            colon_token: _,
             ty,
             shorthand: _,
             pin_tokens,
@@ -337,6 +348,7 @@ impl ToTokens for ReceiverTypeSelf<'_> {
             lifetime,
             mutable: _,
             var: _,
+            colon_token: _,
             ty,
             shorthand: _,
             pin_tokens,

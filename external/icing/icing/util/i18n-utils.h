@@ -67,6 +67,9 @@ bool IsAscii(char c);
 // Checks if the Unicode char is within ASCII range.
 bool IsAscii(UChar32 c);
 
+// Checks if the Unicode char is alphanumeric.
+bool IsAlphaNumeric(UChar32 c);
+
 // Returns how many code units (char) are used for the UTF-8 encoding of this
 // Unicode character. Returns 0 if not valid.
 int GetUtf8Length(UChar32 c);

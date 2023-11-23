@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -92,6 +92,47 @@ void gicv3_rdistif_base_addrs_probe(uintptr_t *rdistif_base_addrs,
 }
 
 /*******************************************************************************
+ * Helper function to get the maximum SPI INTID + 1.
+ ******************************************************************************/
+unsigned int gicv3_get_spi_limit(uintptr_t gicd_base)
+{
+	unsigned int spi_limit;
+	unsigned int typer_reg = gicd_read_typer(gicd_base);
+
+	/* (maximum SPI INTID + 1) is equal to 32 * (GICD_TYPER.ITLinesNumber+1) */
+	spi_limit = ((typer_reg & TYPER_IT_LINES_NO_MASK) + 1U) << 5;
+
+	/* Filter out special INTIDs 1020-1023 */
+	if (spi_limit > (MAX_SPI_ID + 1U)) {
+		return MAX_SPI_ID + 1U;
+	}
+
+	return spi_limit;
+}
+
+#if GIC_EXT_INTID
+/*******************************************************************************
+ * Helper function to get the maximum ESPI INTID + 1.
+ ******************************************************************************/
+unsigned int gicv3_get_espi_limit(uintptr_t gicd_base)
+{
+	unsigned int typer_reg = gicd_read_typer(gicd_base);
+
+	/* Check if extended SPI range is implemented */
+	if ((typer_reg & TYPER_ESPI) != 0U) {
+		/*
+		 * (maximum ESPI INTID + 1) is equal to
+		 * 32 * (GICD_TYPER.ESPI_range + 1) + 4096
+		 */
+		return ((((typer_reg >> TYPER_ESPI_RANGE_SHIFT) &
+			TYPER_ESPI_RANGE_MASK) + 1U) << 5) + MIN_ESPI_ID;
+	}
+
+	return 0U;
+}
+#endif /* GIC_EXT_INTID */
+
+/*******************************************************************************
  * Helper function to configure the default attributes of (E)SPIs.
  ******************************************************************************/
 void gicv3_spis_config_defaults(uintptr_t gicd_base)
@@ -100,10 +141,9 @@ void gicv3_spis_config_defaults(uintptr_t gicd_base)
 #if GIC_EXT_INTID
 	unsigned int num_eints;
 #endif
-	unsigned int typer_reg = gicd_read_typer(gicd_base);
 
-	/* Maximum SPI INTID is 32 * (GICD_TYPER.ITLinesNumber + 1) - 1 */
-	num_ints = ((typer_reg & TYPER_IT_LINES_NO_MASK) + 1U) << 5;
+	num_ints = gicv3_get_spi_limit(gicd_base);
+	INFO("Maximum SPI INTID supported: %u\n", num_ints - 1);
 
 	/* Treat all (E)SPIs as G1NS by default. We do 32 at a time. */
 	for (i = MIN_SPI_ID; i < num_ints; i += (1U << IGROUPR_SHIFT)) {
@@ -111,20 +151,16 @@ void gicv3_spis_config_defaults(uintptr_t gicd_base)
 	}
 
 #if GIC_EXT_INTID
-	/* Check if extended SPI range is implemented */
-	if ((typer_reg & TYPER_ESPI) != 0U) {
-		/*
-		 * Maximum ESPI INTID is 32 * (GICD_TYPER.ESPI_range + 1) + 4095
-		 */
-		num_eints = ((((typer_reg >> TYPER_ESPI_RANGE_SHIFT) &
-			TYPER_ESPI_RANGE_MASK) + 1U) << 5) + MIN_ESPI_ID - 1;
+	num_eints = gicv3_get_espi_limit(gicd_base);
+	if (num_eints != 0U) {
+		INFO("Maximum ESPI INTID supported: %u\n", num_eints - 1);
 
 		for (i = MIN_ESPI_ID; i < num_eints;
 					i += (1U << IGROUPR_SHIFT)) {
 			gicd_write_igroupr(gicd_base, i, ~0U);
 		}
 	} else {
-		num_eints = 0U;
+		INFO("ESPI range is not implemented.\n");
 	}
 #endif
 

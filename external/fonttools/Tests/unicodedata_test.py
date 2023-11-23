@@ -198,7 +198,7 @@ def test_block():
     assert unicodedata.block("\x7F") == "Basic Latin"
     assert unicodedata.block("\x80") == "Latin-1 Supplement"
     assert unicodedata.block("\u1c90") == "Georgian Extended"
-    assert unicodedata.block("\u0870") == "No_Block"
+    assert unicodedata.block("\u0870") == "Arabic Extended-B"
 
 
 def test_ot_tags_from_script():
@@ -230,6 +230,9 @@ def test_ot_tag_to_script():
     assert unicodedata.ot_tag_to_script("vai ") == "Vaii"
     assert unicodedata.ot_tag_to_script("lao ") == "Laoo"
     assert unicodedata.ot_tag_to_script("yi") == "Yiii"
+    # both 'hang' and 'jamo' tags map to the Hangul script
+    assert unicodedata.ot_tag_to_script("hang") == "Hang"
+    assert unicodedata.ot_tag_to_script("jamo") == "Hang"
 
     for invalid_value in ("", " ", "z zz", "zzzzz"):
         with pytest.raises(ValueError, match="invalid OpenType tag"):
@@ -240,6 +243,7 @@ def test_script_horizontal_direction():
     assert unicodedata.script_horizontal_direction("Latn") == "LTR"
     assert unicodedata.script_horizontal_direction("Arab") == "RTL"
     assert unicodedata.script_horizontal_direction("Thaa") == "RTL"
+    assert unicodedata.script_horizontal_direction("Ougr") == "RTL"
 
     with pytest.raises(KeyError):
         unicodedata.script_horizontal_direction("Azzz")

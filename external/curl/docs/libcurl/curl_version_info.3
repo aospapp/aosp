@@ -5,11 +5,11 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
-.\" * are also available at https://curl.haxx.se/docs/copyright.html.
+.\" * are also available at https://curl.se/docs/copyright.html.
 .\" *
 .\" * You may opt to use, copy, modify, merge, publish, distribute and/or sell
 .\" * copies of the Software, and permit persons to whom the Software is
@@ -20,7 +20,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH curl_version_info 3 "August 27, 2020" "libcurl 7.73.0" "libcurl Manual"
+.TH curl_version_info 3 "October 31, 2021" "libcurl 7.80.0" "libcurl Manual"
 
 .SH NAME
 curl_version_info - returns run-time libcurl version info
@@ -98,11 +98,17 @@ typedef struct {
   unsigned int zstd_ver_num; /* Numeric Zstd version
                                   (MAJOR << 24) | (MINOR << 12) | PATCH */
   const char *zstd_version; /* human readable string. */
+  /* when 'age' is CURLVERSION_NINTH or higher (>= 7.75.0), the members
+     below exist */
+  const char *hyper_version; /* human readable string. */
+  /* when 'age' is CURLVERSION_TENTH or higher (>= 7.77.0), the members
+     below exist */
+  const char *gsasl_version; /* human readable string. */
 } curl_version_info_data;
 .fi
 
 \fIage\fP describes what the age of this struct is. The number depends on how
-new the libcurl you're using is. You are however guaranteed to get a struct
+new the libcurl you are using is. You are however guaranteed to get a struct
 that you have a matching struct for in the header, as you tell libcurl your
 "age" with the input argument.
 
@@ -137,6 +143,9 @@ libcurl was built with memory tracking debug capabilities. This is mainly of
 interest for libcurl hackers. (added in 7.19.6)
 .IP CURL_VERSION_DEBUG
 libcurl was built with debug capabilities (added in 7.10.6)
+.IP CURL_VERSION_GSASL
+libcurl was built with libgsasl and thus with some extra SCRAM-SHA
+authentication methods. (added in 7.76.0)
 .IP CURL_VERSION_GSSAPI
 libcurl was built with support for GSS-API. This makes libcurl use provided
 functions for Kerberos and SPNEGO authentication. It also allows libcurl
@@ -144,6 +153,9 @@ to use the current user credentials without the app having to pass them on.
 (Added in 7.38.0)
 .IP CURL_VERSION_GSSNEGOTIATE
 supports HTTP GSS-Negotiate (added in 7.10.6)
+.IP CURL_VERSION_HSTS
+libcurl was built with support for HSTS (HTTP Strict Transport Security)
+(Added in 7.74.0)
 .IP CURL_VERSION_HTTPS_PROXY
 libcurl was built with support for HTTPS-proxy.
 (Added in 7.52.0)
@@ -180,7 +192,7 @@ libcurl was built with support for NTLM delegation to a winbind helper.
 (Added in 7.22.0)
 .IP CURL_VERSION_PSL
 libcurl was built with support for Mozilla's Public Suffix List. This makes
-libcurl ignore cookies with a domain that's on the list.
+libcurl ignore cookies with a domain that is on the list.
 (Added in 7.47.0)
 .IP CURL_VERSION_SPNEGO
 libcurl was built with support for SPNEGO authentication (Simple and Protected
@@ -212,6 +224,16 @@ libcurl has no libz support, this is NULL.
 names protocols that libcurl supports (using lowercase letters). The protocol
 names are the same as would be used in URLs. The array is terminated by a NULL
 entry.
+.SH EXAMPLE
+.nf
+curl_version_info_data *ver = curl_version_info(CURLVERSION_NOW);
+printf("libcurl version %u.%u.%u\\n",
+       (ver->version_num >> 16) & 0xff,
+       (ver->version_num >> 8) & 0xff,
+       ver->version_num & 0xff,
+.fi
+.SH AVAILABILITY
+Added in 7.10
 .SH RETURN VALUE
 A pointer to a curl_version_info_data struct.
 .SH "SEE ALSO"

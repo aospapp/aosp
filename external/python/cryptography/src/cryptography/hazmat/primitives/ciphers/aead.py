@@ -18,7 +18,7 @@ class ChaCha20Poly1305(object):
         if not backend.aead_cipher_supported(self):
             raise exceptions.UnsupportedAlgorithm(
                 "ChaCha20Poly1305 is not supported by this version of OpenSSL",
-                exceptions._Reasons.UNSUPPORTED_CIPHER
+                exceptions._Reasons.UNSUPPORTED_CIPHER,
             )
         utils._check_byteslike("key", key)
 
@@ -42,18 +42,14 @@ class ChaCha20Poly1305(object):
             )
 
         self._check_params(nonce, data, associated_data)
-        return aead._encrypt(
-            backend, self, nonce, data, associated_data, 16
-        )
+        return aead._encrypt(backend, self, nonce, data, associated_data, 16)
 
     def decrypt(self, nonce, data, associated_data):
         if associated_data is None:
             associated_data = b""
 
         self._check_params(nonce, data, associated_data)
-        return aead._decrypt(
-            backend, self, nonce, data, associated_data, 16
-        )
+        return aead._decrypt(backend, self, nonce, data, associated_data, 16)
 
     def _check_params(self, nonce, data, associated_data):
         utils._check_byteslike("nonce", nonce)
@@ -79,12 +75,6 @@ class AESCCM(object):
             raise ValueError("Invalid tag_length")
 
         self._tag_length = tag_length
-
-        if not backend.aead_cipher_supported(self):
-            raise exceptions.UnsupportedAlgorithm(
-                "AESCCM is not supported by this version of OpenSSL",
-                exceptions._Reasons.UNSUPPORTED_CIPHER
-            )
 
     @classmethod
     def generate_key(cls, bit_length):
@@ -126,7 +116,7 @@ class AESCCM(object):
         # https://tools.ietf.org/html/rfc3610#section-2.1
         l_val = 15 - len(nonce)
         if 2 ** (8 * l_val) < data_len:
-            raise ValueError("Nonce too long for data")
+            raise ValueError("Data too long for nonce")
 
     def _check_params(self, nonce, data, associated_data):
         utils._check_byteslike("nonce", nonce)
@@ -167,22 +157,18 @@ class AESGCM(object):
             )
 
         self._check_params(nonce, data, associated_data)
-        return aead._encrypt(
-            backend, self, nonce, data, associated_data, 16
-        )
+        return aead._encrypt(backend, self, nonce, data, associated_data, 16)
 
     def decrypt(self, nonce, data, associated_data):
         if associated_data is None:
             associated_data = b""
 
         self._check_params(nonce, data, associated_data)
-        return aead._decrypt(
-            backend, self, nonce, data, associated_data, 16
-        )
+        return aead._decrypt(backend, self, nonce, data, associated_data, 16)
 
     def _check_params(self, nonce, data, associated_data):
         utils._check_byteslike("nonce", nonce)
         utils._check_bytes("data", data)
         utils._check_bytes("associated_data", associated_data)
-        if len(nonce) == 0:
-            raise ValueError("Nonce must be at least 1 byte")
+        if len(nonce) < 8 or len(nonce) > 128:
+            raise ValueError("Nonce must be between 8 and 128 bytes")

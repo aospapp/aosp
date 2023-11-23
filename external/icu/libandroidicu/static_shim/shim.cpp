@@ -43,6 +43,7 @@
 #include <unicode/unorm2.h>
 #include <unicode/unum.h>
 #include <unicode/unumberformatter.h>
+#include <unicode/unumberrangeformatter.h>
 #include <unicode/unumsys.h>
 #include <unicode/upluralrules.h>
 #include <unicode/uregex.h>

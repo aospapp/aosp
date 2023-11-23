@@ -27,35 +27,37 @@ uint32_t GetAHBFormatFromVkFormat(VkFormat format)
 {
 	switch(format)
 	{
-		case VK_FORMAT_D16_UNORM:
-			return AHARDWAREBUFFER_FORMAT_D16_UNORM;
-		case VK_FORMAT_X8_D24_UNORM_PACK32:
-			UNSUPPORTED("AHardwareBufferExternalMemory::VkFormat VK_FORMAT_X8_D24_UNORM_PACK32");
-			return AHARDWAREBUFFER_FORMAT_D24_UNORM;
-		case VK_FORMAT_D24_UNORM_S8_UINT:
-			UNSUPPORTED("AHardwareBufferExternalMemory::VkFormat VK_FORMAT_D24_UNORM_S8_UINT");
-			return AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT;
-		case VK_FORMAT_D32_SFLOAT:
-			return AHARDWAREBUFFER_FORMAT_D32_FLOAT;
-		case VK_FORMAT_D32_SFLOAT_S8_UINT:
-			return AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT;
-		case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
-			return AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM;
-		case VK_FORMAT_R16G16B16A16_SFLOAT:
-			return AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT;
-		case VK_FORMAT_R5G6B5_UNORM_PACK16:
-			return AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM;
-		case VK_FORMAT_R8G8B8A8_UNORM:
-			return AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
-		case VK_FORMAT_R8G8B8_UNORM:
-			return AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM;
-		case VK_FORMAT_S8_UINT:
-			return AHARDWAREBUFFER_FORMAT_S8_UINT;
-		case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
-			return AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
-		default:
-			UNSUPPORTED("AHardwareBufferExternalMemory::VkFormat %d", int(format));
-			return 0;
+	case VK_FORMAT_D16_UNORM:
+		return AHARDWAREBUFFER_FORMAT_D16_UNORM;
+	case VK_FORMAT_X8_D24_UNORM_PACK32:
+		UNSUPPORTED("AHardwareBufferExternalMemory::VkFormat VK_FORMAT_X8_D24_UNORM_PACK32");
+		return AHARDWAREBUFFER_FORMAT_D24_UNORM;
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+		UNSUPPORTED("AHardwareBufferExternalMemory::VkFormat VK_FORMAT_D24_UNORM_S8_UINT");
+		return AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT;
+	case VK_FORMAT_D32_SFLOAT:
+		return AHARDWAREBUFFER_FORMAT_D32_FLOAT;
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		return AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT;
+	case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+		return AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM;
+	case VK_FORMAT_R16G16B16A16_SFLOAT:
+		return AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT;
+	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+		return AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM;
+	case VK_FORMAT_R8G8B8A8_UNORM:
+		return AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+	case VK_FORMAT_R8G8B8_UNORM:
+		return AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM;
+	case VK_FORMAT_S8_UINT:
+		return AHARDWAREBUFFER_FORMAT_S8_UINT;
+	case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
+		return AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
+	case VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16:
+		return AHARDWAREBUFFER_FORMAT_YCbCr_P010;
+	default:
+		UNSUPPORTED("AHardwareBufferExternalMemory::VkFormat %d", int(format));
+		return 0;
 	}
 }
 
@@ -164,77 +166,59 @@ VkFormatFeatureFlags GetVkFormatFeaturesFromAHBFormat(uint32_t ahbFormat)
 
 }  // namespace
 
-AHardwareBufferExternalMemory::AllocateInfo::AllocateInfo(const VkMemoryAllocateInfo *pAllocateInfo)
+AHardwareBufferExternalMemory::AllocateInfo::AllocateInfo(const vk::DeviceMemory::ExtendedAllocationInfo &extendedAllocationInfo)
 {
-	const auto *createInfo = reinterpret_cast<const VkBaseInStructure *>(pAllocateInfo->pNext);
-	while(createInfo)
+	if(extendedAllocationInfo.importAndroidHardwareBufferInfo)
 	{
-		switch(createInfo->sType)
-		{
-			case VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID:
-			{
-				const auto *importInfo = reinterpret_cast<const VkImportAndroidHardwareBufferInfoANDROID *>(createInfo);
-				importAhb = true;
-				ahb = importInfo->buffer;
-			}
-			break;
-			case VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO:
-			{
-				const auto *exportInfo = reinterpret_cast<const VkExportMemoryAllocateInfo *>(createInfo);
+		importAhb = true;
+		ahb = extendedAllocationInfo.importAndroidHardwareBufferInfo->buffer;
+	}
 
-				if(exportInfo->handleTypes == VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
-				{
-					exportAhb = true;
-				}
-				else
-				{
-					UNSUPPORTED("VkExportMemoryAllocateInfo::handleTypes %d", int(exportInfo->handleTypes));
-				}
-			}
-			break;
-			case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO:
-			{
-				const auto *dedicatedAllocateInfo = reinterpret_cast<const VkMemoryDedicatedAllocateInfo *>(createInfo);
-				dedicatedImageHandle = vk::Cast(dedicatedAllocateInfo->image);
-				dedicatedBufferHandle = vk::Cast(dedicatedAllocateInfo->buffer);
-			}
-			break;
-			default:
-			{
-				LOG_TRAP("VkMemoryAllocateInfo->pNext sType = %s", vk::Stringify(createInfo->sType).c_str());
-			}
-			break;
+	if(extendedAllocationInfo.exportMemoryAllocateInfo)
+	{
+		if(extendedAllocationInfo.exportMemoryAllocateInfo->handleTypes == VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
+		{
+			exportAhb = true;
 		}
-		createInfo = createInfo->pNext;
+		else
+		{
+			UNSUPPORTED("VkExportMemoryAllocateInfo::handleTypes %d", int(extendedAllocationInfo.exportMemoryAllocateInfo->handleTypes));
+		}
+	}
+
+	if(extendedAllocationInfo.dedicatedAllocateInfo)
+	{
+		dedicatedImageHandle = vk::Cast(extendedAllocationInfo.dedicatedAllocateInfo->image);
+		dedicatedBufferHandle = vk::Cast(extendedAllocationInfo.dedicatedAllocateInfo->buffer);
 	}
 }
 
-AHardwareBufferExternalMemory::AHardwareBufferExternalMemory(const VkMemoryAllocateInfo *pAllocateInfo)
-    : allocateInfo(pAllocateInfo)
+AHardwareBufferExternalMemory::AHardwareBufferExternalMemory(const VkMemoryAllocateInfo *pCreateInfo, void *mem, const DeviceMemory::ExtendedAllocationInfo &extendedAllocationInfo, vk::Device *pDevice)
+    : vk::DeviceMemory(pCreateInfo, pDevice)
+    , allocateInfo(extendedAllocationInfo)
 {
 }
 
 AHardwareBufferExternalMemory::~AHardwareBufferExternalMemory()
 {
-	// correct deallocation of AHB does not require a pointer or size
-	deallocate(nullptr, 0);
+	freeBuffer();
 }
 
-// VkAllocateMemory
-VkResult AHardwareBufferExternalMemory::allocate(size_t size, void **pBuffer)
+// vkAllocateMemory
+VkResult AHardwareBufferExternalMemory::allocateBuffer()
 {
 	if(allocateInfo.importAhb)
 	{
-		return importAndroidHardwareBuffer(allocateInfo.ahb, pBuffer);
+		return importAndroidHardwareBuffer(allocateInfo.ahb, &buffer);
 	}
 	else
 	{
 		ASSERT(allocateInfo.exportAhb);
-		return allocateAndroidHardwareBuffer(size, pBuffer);
+		return allocateAndroidHardwareBuffer(allocationSize, &buffer);
 	}
 }
 
-void AHardwareBufferExternalMemory::deallocate(void *buffer, size_t size)
+void AHardwareBufferExternalMemory::freeBuffer()
 {
 	if(ahb != nullptr)
 	{
@@ -350,6 +334,11 @@ VkResult AHardwareBufferExternalMemory::unlockAndroidHardwareBuffer()
 
 VkResult AHardwareBufferExternalMemory::exportAndroidHardwareBuffer(AHardwareBuffer **pAhb) const
 {
+	if(getFlagBit() != VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
+	{
+		return VK_ERROR_OUT_OF_HOST_MEMORY;
+	}
+
 	// Each call to vkGetMemoryAndroidHardwareBufferANDROID *must* return an Android hardware buffer with a new reference
 	// acquired in addition to the reference held by the VkDeviceMemory. To avoid leaking resources, the application *must*
 	// release the reference by calling AHardwareBuffer_release when it is no longer needed.
@@ -362,40 +351,42 @@ VkFormat AHardwareBufferExternalMemory::GetVkFormatFromAHBFormat(uint32_t ahbFor
 {
 	switch(ahbFormat)
 	{
-		case AHARDWAREBUFFER_FORMAT_BLOB:
-			return VK_FORMAT_UNDEFINED;
-		case AHARDWAREBUFFER_FORMAT_D16_UNORM:
-			return VK_FORMAT_D16_UNORM;
-		case AHARDWAREBUFFER_FORMAT_D24_UNORM:
-			UNSUPPORTED("AHardwareBufferExternalMemory::AndroidHardwareBuffer_Format AHARDWAREBUFFER_FORMAT_D24_UNORM");
-			return VK_FORMAT_X8_D24_UNORM_PACK32;
-		case AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT:
-			UNSUPPORTED("AHardwareBufferExternalMemory::AndroidHardwareBuffer_Format AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT");
-			return VK_FORMAT_X8_D24_UNORM_PACK32;
-		case AHARDWAREBUFFER_FORMAT_D32_FLOAT:
-			return VK_FORMAT_D32_SFLOAT;
-		case AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT:
-			return VK_FORMAT_D32_SFLOAT_S8_UINT;
-		case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
-			return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
-		case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
-			return VK_FORMAT_R16G16B16A16_SFLOAT;
-		case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
-			return VK_FORMAT_R5G6B5_UNORM_PACK16;
-		case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
-			return VK_FORMAT_R8G8B8A8_UNORM;
-		case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
-			return VK_FORMAT_R8G8B8A8_UNORM;
-		case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
-			return VK_FORMAT_R8G8B8_UNORM;
-		case AHARDWAREBUFFER_FORMAT_S8_UINT:
-			return VK_FORMAT_S8_UINT;
-		case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
-		case AHARDWAREBUFFER_FORMAT_YV12:
-			return VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
-		default:
-			UNSUPPORTED("AHardwareBufferExternalMemory::AHardwareBuffer_Format %d", int(ahbFormat));
-			return VK_FORMAT_UNDEFINED;
+	case AHARDWAREBUFFER_FORMAT_BLOB:
+		return VK_FORMAT_UNDEFINED;
+	case AHARDWAREBUFFER_FORMAT_D16_UNORM:
+		return VK_FORMAT_D16_UNORM;
+	case AHARDWAREBUFFER_FORMAT_D24_UNORM:
+		UNSUPPORTED("AHardwareBufferExternalMemory::AndroidHardwareBuffer_Format AHARDWAREBUFFER_FORMAT_D24_UNORM");
+		return VK_FORMAT_X8_D24_UNORM_PACK32;
+	case AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT:
+		UNSUPPORTED("AHardwareBufferExternalMemory::AndroidHardwareBuffer_Format AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT");
+		return VK_FORMAT_X8_D24_UNORM_PACK32;
+	case AHARDWAREBUFFER_FORMAT_D32_FLOAT:
+		return VK_FORMAT_D32_SFLOAT;
+	case AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT:
+		return VK_FORMAT_D32_SFLOAT_S8_UINT;
+	case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
+		return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+	case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
+		return VK_FORMAT_R16G16B16A16_SFLOAT;
+	case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
+		return VK_FORMAT_R5G6B5_UNORM_PACK16;
+	case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
+		return VK_FORMAT_R8G8B8_UNORM;
+	case AHARDWAREBUFFER_FORMAT_S8_UINT:
+		return VK_FORMAT_S8_UINT;
+	case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
+	case AHARDWAREBUFFER_FORMAT_YV12:
+		return VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
+	case AHARDWAREBUFFER_FORMAT_YCbCr_P010:
+		return VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
+	default:
+		UNSUPPORTED("AHardwareBufferExternalMemory::AHardwareBuffer_Format %d", int(ahbFormat));
+		return VK_FORMAT_UNDEFINED;
 	}
 }
 
@@ -414,7 +405,8 @@ VkResult AHardwareBufferExternalMemory::GetAndroidHardwareBufferFormatProperties
 
 	// YUV formats are not listed in the AHardwareBuffer Format Equivalence table in the Vulkan spec.
 	// Clients must use VkExternalFormatANDROID.
-	if(pFormat->format == VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM)
+	if(pFormat->format == VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM ||
+	   pFormat->format == VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16)
 	{
 		pFormat->format = VK_FORMAT_UNDEFINED;
 	}
@@ -464,14 +456,14 @@ VkResult AHardwareBufferExternalMemory::GetAndroidHardwareBufferProperties(VkDev
 
 		VkImage Image;
 
-		result = vk::Image::Create(vk::DEVICE_MEMORY, &info, &Image, vk::Cast(device));
+		result = vk::Image::Create(vk::NULL_ALLOCATION_CALLBACKS, &info, &Image, vk::Cast(device));
 		if(result != VK_SUCCESS)
 		{
 			return result;
 		}
 
 		pProperties->allocationSize = vk::Cast(Image)->getMemoryRequirements().size;
-		vk::destroy(Image, vk::DEVICE_MEMORY);
+		vk::destroy(Image, vk::NULL_ALLOCATION_CALLBACKS);
 	}
 
 	return result;
@@ -483,52 +475,55 @@ int AHardwareBufferExternalMemory::externalImageRowPitchBytes(VkImageAspectFlagB
 
 	switch(ahbDesc.format)
 	{
-		case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
-		case AHARDWAREBUFFER_FORMAT_YV12:
-			switch(aspect)
-			{
-				case VK_IMAGE_ASPECT_PLANE_0_BIT:
-					return static_cast<int>(ahbPlanes.planes[0].rowStride);
-				case VK_IMAGE_ASPECT_PLANE_1_BIT:
-					return static_cast<int>(ahbPlanes.planes[1].rowStride);
-				case VK_IMAGE_ASPECT_PLANE_2_BIT:
-					return static_cast<int>(ahbPlanes.planes[2].rowStride);
-				default:
-					UNSUPPORTED("Unsupported aspect %d for AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420", int(aspect));
-					return 0;
-			}
-			break;
+	case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
+	case AHARDWAREBUFFER_FORMAT_YV12:
+	case AHARDWAREBUFFER_FORMAT_YCbCr_P010:
+		switch(aspect)
+		{
+		case VK_IMAGE_ASPECT_PLANE_0_BIT:
+			return static_cast<int>(ahbPlanes.planes[0].rowStride);
+		case VK_IMAGE_ASPECT_PLANE_1_BIT:
+			return static_cast<int>(ahbPlanes.planes[1].rowStride);
+		case VK_IMAGE_ASPECT_PLANE_2_BIT:
+			return static_cast<int>(ahbPlanes.planes[2].rowStride);
 		default:
-			break;
+			UNSUPPORTED("Unsupported aspect %d for AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420", int(aspect));
+			return 0;
+		}
+		break;
+	default:
+		break;
 	}
 	return static_cast<int>(ahbPlanes.planes[0].rowStride);
 }
 
+// TODO(b/208505033): Treat each image plane data pointer as a separate address instead of an offset.
 VkDeviceSize AHardwareBufferExternalMemory::externalImageMemoryOffset(VkImageAspectFlagBits aspect) const
 {
 	ASSERT(allocateInfo.dedicatedImageHandle != nullptr);
 
 	switch(ahbDesc.format)
 	{
-		case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
-		case AHARDWAREBUFFER_FORMAT_YV12:
-			switch(aspect)
-			{
-				case VK_IMAGE_ASPECT_PLANE_0_BIT:
-					return 0;
-				case VK_IMAGE_ASPECT_PLANE_1_BIT:
-					return reinterpret_cast<const char *>(ahbPlanes.planes[1].data) -
-					       reinterpret_cast<const char *>(ahbPlanes.planes[0].data);
-				case VK_IMAGE_ASPECT_PLANE_2_BIT:
-					return reinterpret_cast<const char *>(ahbPlanes.planes[2].data) -
-					       reinterpret_cast<const char *>(ahbPlanes.planes[0].data);
-				default:
-					UNSUPPORTED("Unsupported aspect %d for AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420", int(aspect));
-					return 0;
-			}
-			break;
+	case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
+	case AHARDWAREBUFFER_FORMAT_YV12:
+	case AHARDWAREBUFFER_FORMAT_YCbCr_P010:
+		switch(aspect)
+		{
+		case VK_IMAGE_ASPECT_PLANE_0_BIT:
+			return 0;
+		case VK_IMAGE_ASPECT_PLANE_1_BIT:
+			return reinterpret_cast<const char *>(ahbPlanes.planes[1].data) -
+			       reinterpret_cast<const char *>(ahbPlanes.planes[0].data);
+		case VK_IMAGE_ASPECT_PLANE_2_BIT:
+			return reinterpret_cast<const char *>(ahbPlanes.planes[2].data) -
+			       reinterpret_cast<const char *>(ahbPlanes.planes[0].data);
 		default:
-			break;
+			UNSUPPORTED("Unsupported aspect %d for AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420", int(aspect));
+			return 0;
+		}
+		break;
+	default:
+		break;
 	}
 	return 0;
 }

@@ -20,10 +20,6 @@ load(
     "if_tensorrt",
 )
 load(
-    "//tensorflow/core/platform/default:cuda_build_defs.bzl",
-    "if_cuda_is_configured",
-)
-load(
     "@local_config_cuda//cuda:build_defs.bzl",
     "cuda_library",
     "if_cuda",
@@ -42,8 +38,12 @@ load(
 )
 load(
     "//third_party/mkl_dnn:build_defs.bzl",
-    "if_mkl_open_source_only",
-    "if_mkldnn_threadpool",
+    "if_mkldnn_aarch64_acl",
+    "if_mkldnn_openmp",
+)
+load(
+    "//third_party/llvm_openmp:openmp.bzl",
+    "windows_llvm_openmp_linkopts",
 )
 load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -52,9 +52,14 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 # not contain rc or alpha, only numbers.
 # Also update tensorflow/core/public/version.h
 # and tensorflow/tools/pip_package/setup.py
-VERSION = "2.5.0"
+VERSION = "2.7.0"
 VERSION_MAJOR = VERSION.split(".")[0]
 two_gpu_tags = ["requires-gpu-nvidia:2", "notap", "manual", "no_pip"]
+
+# The workspace root, to be used to set workspace 'include' paths in a way that
+# will still work correctly when TensorFlow is included as a dependency of an
+# external project.
+workspace_root = Label("//:WORKSPACE").workspace_root or "."
 
 def clean_dep(target):
     """Returns string to 'target' in @org_tensorflow repository.
@@ -100,21 +105,6 @@ def if_nvcc(a):
         "@local_config_cuda//cuda:using_nvcc": a,
         "//conditions:default": [],
     })
-
-# In Google builds, this corresponds to whether `--config=cuda` has been
-# specified. In OSS, this corresponds to whether the environment contains
-# TF_NEED_CUDA=1, which is in turn triggered by --config=using_cuda through
-# .bazelrc, which is again triggered by --config=cuda.
-#
-# In other words, --config=cuda is sufficient for this function to return
-# x both for Google and OSS builds. But for OSS builds it is not necessary.
-# We are working on a plan to clean up this complicated setup.
-def if_cuda_is_configured_compat(x):
-    # copybara:uncomment_begin(--config=cuda is necessary and sufficient)
-    # return if_cuda(x)
-    # copybara:uncomment_end_and_comment_begin
-    return if_cuda_is_configured(x)
-    # copybara:comment_end
 
 def if_xla_available(if_true, if_false = []):
     return select({
@@ -205,6 +195,13 @@ def if_android(a):
         "//conditions:default": [],
     })
 
+def if_android_or_ios(a):
+    return select({
+        clean_dep("//tensorflow:android"): a,
+        clean_dep("//tensorflow:ios"): a,
+        "//conditions:default": [],
+    })
+
 def if_emscripten(a):
     return select({
         clean_dep("//tensorflow:emscripten"): a,
@@ -269,7 +266,7 @@ def if_windows(a, otherwise = []):
 
 def if_windows_cuda(a, otherwise = []):
     return select({
-        clean_dep("//tensorflow:with_cuda_support_windows_override"): a,
+        clean_dep("//tensorflow:is_cuda_enabled_and_windows"): a,
         "//conditions:default": otherwise,
     })
 
@@ -315,6 +312,9 @@ def if_registration_v2(if_true, if_false = []):
         "//tensorflow:registration_v2": if_true,
         "//conditions:default": if_false,
     })
+
+def if_portable(if_true, if_false = []):
+    return if_true
 
 # Linux systems may required -lrt linker flag for e.g. clock_gettime
 # see https://github.com/tensorflow/tensorflow/issues/15129
@@ -379,9 +379,13 @@ def tf_copts(
         if_libtpu(["-DLIBTPU_ON_GCE"], []) +
         if_xla_available(["-DTENSORFLOW_USE_XLA=1"]) +
         if_tensorrt(["-DGOOGLE_TENSORRT=1"]) +
-        if_mkl(["-DINTEL_MKL=1", "-DENABLE_MKLDNN_V1", "-DENABLE_INTEL_MKL_BFLOAT16", "-DINTEL_MKL_DNN_ONLY"]) +
-        if_mkldnn_threadpool(["-DENABLE_MKLDNN_THREADPOOL"]) +
+        # Compile in oneDNN based ops when building for x86 platforms
+        if_mkl(["-DINTEL_MKL"]) +
+        # Enable additional ops (e.g., ops with non-NHWC data layout) and
+        # optimizations for Intel builds using oneDNN if configured
         if_enable_mkl(["-DENABLE_MKL"]) +
+        if_mkldnn_openmp(["-DENABLE_ONEDNN_OPENMP"]) +
+        if_mkldnn_aarch64_acl(["-DENABLE_MKL", "-DENABLE_ONEDNN_OPENMP", "-DDNNL_AARCH64_USE_ACL=1"]) +
         if_android_arm(["-mfpu=neon"]) +
         if_linux_x86_64(["-msse3"]) +
         if_ios_x86_64(["-msse4.1"]) +
@@ -409,8 +413,16 @@ def tf_openmp_copts():
         # "//third_party/mkl:build_with_mkl_windows_openmp": ["/openmp"],
         # copybara:uncomment_end_and_comment_begin
         "@org_tensorflow//third_party/mkl:build_with_mkl_lnx_openmp": ["-fopenmp"],
-        "@org_tensorflow//third_party/mkl:build_with_mkl_windows_openmp": ["/openmp"],
+        "@org_tensorflow//third_party/mkl:build_with_mkl_windows_openmp": ["/openmp:llvm"],
         # copybara:comment_end
+        "//conditions:default": [],
+    })
+
+def tf_openmp_lopts():
+    # When compiling on Windows, force MSVC to use libiomp that was compiled
+    # as part of this build.
+    return select({
+        "//third_party/mkl:build_with_mkl_windows_openmp": [windows_llvm_openmp_linkopts()],
         "//conditions:default": [],
     })
 
@@ -441,6 +453,16 @@ def tf_features_nomodules_if_android():
 
 def tf_features_nomodules_if_mobile():
     return if_mobile(["-use_header_modules"])
+
+# portable_tensorflow_lib_lite does not export the headers needed to
+# use it.  Thus anything that depends on it needs to disable layering
+# check.
+def tf_features_nolayering_check_if_android_or_ios():
+    return select({
+        clean_dep("//tensorflow:android"): ["-layering_check"],
+        clean_dep("//tensorflow:ios"): ["-layering_check"],
+        "//conditions:default": [],
+    })
 
 def tf_opts_nortti_if_lite_protos():
     return tf_portable_full_lite_protos(
@@ -782,7 +804,7 @@ def tf_native_cc_binary(
                 "-lpthread",
                 "-lm",
             ],
-        }) + linkopts + _rpath_linkopts(name),
+        }) + linkopts + _rpath_linkopts(name) + lrt_if_needed(),
         **kwargs
     )
 
@@ -954,7 +976,7 @@ def tf_gen_op_wrappers_cc(
 #   out: name of the python file created by this rule. If None, then
 #     "ops/gen_{name}.py" is used.
 #   hidden: Optional list of ops names to make private in the Python module.
-#     It is invalid to specify both "hidden" and "op_whitelist".
+#     It is invalid to specify both "hidden" and "op_allowlist".
 #   visibility: passed to py_library.
 #   deps: list of dependencies for the intermediate tool used to generate the
 #     python target. NOTE these `deps` are not applied to the final python
@@ -966,8 +988,9 @@ def tf_gen_op_wrappers_cc(
 #     starting characters are treated as comments and ignored.
 #   generated_target_name: name of the generated target (overrides the
 #     "name" arg)
-#   op_whitelist: if not empty, only op names in this list will be wrapped. It
-#     is invalid to specify both "hidden" and "op_whitelist".
+#   op_whitelist: [DEPRECATED] an older spelling for "op_allowlist"
+#   op_allowlist: if not empty, only op names in this list will be wrapped. It
+#     is invalid to specify both "hidden" and "op_allowlist".
 #   cc_linkopts: Optional linkopts to be added to tf_cc_binary that contains the
 #     specified ops.
 
@@ -981,14 +1004,23 @@ def tf_gen_op_wrapper_py(
         hidden_file = None,
         generated_target_name = None,
         op_whitelist = [],
+        op_allowlist = [],
         cc_linkopts = lrt_if_needed(),
         api_def_srcs = [],
         compatible_with = [],
         testonly = False):
     _ = require_shape_functions  # Unused.
+    if op_whitelist and op_allowlist:
+        fail("op_whitelist is deprecated. Only use op_allowlist.")
+    if op_whitelist:
+        full_target_name = "//" + native.package_name() + ":" + name
+        print("op_whitelist is deprecated. Please migrate to the preferred " +
+              "`op_allowlist` spelling. Offending target: " +
+              full_target_name)  # buildifier: disable=print
+        op_allowlist = op_whitelist
 
-    if (hidden or hidden_file) and op_whitelist:
-        fail("Cannot pass specify both hidden and op_whitelist.")
+    if (hidden or hidden_file) and op_allowlist:
+        fail("Cannot pass specify both hidden and op_allowlist.")
 
     # Construct a cc_binary containing the specified ops.
     tool_name = "gen_" + name + "_py_wrappers_cc"
@@ -1002,7 +1034,7 @@ def tf_gen_op_wrapper_py(
         visibility = [clean_dep("//tensorflow:internal")],
         deps = ([
             clean_dep("//tensorflow/core:framework"),
-            clean_dep("//tensorflow/python:python_op_gen_main"),
+            clean_dep("//tensorflow/python/framework:python_op_gen_main"),
         ] + deps),
         testonly = testonly,
     )
@@ -1014,8 +1046,8 @@ def tf_gen_op_wrapper_py(
     if hidden:
         op_list_arg = ",".join(hidden)
         op_list_is_whitelist = False
-    elif op_whitelist:
-        op_list_arg = ",".join(op_whitelist)
+    elif op_allowlist:
+        op_list_arg = ",".join(op_allowlist)
         op_list_is_whitelist = True
     else:
         op_list_arg = "''"
@@ -1098,7 +1130,7 @@ def tf_cc_test(
         linkstatic = 0,
         extra_copts = [],
         suffix = "",
-        linkopts = [],
+        linkopts = lrt_if_needed(),
         kernels = [],
         **kwargs):
     cc_test(
@@ -1158,7 +1190,7 @@ def tf_gpu_cc_test(
         srcs = srcs,
         args = args,
         data = data,
-        extra_copts = extra_copts,
+        extra_copts = extra_copts + if_cuda(["-DNV_CUDNN_DISABLE_EXCEPTION"]),
         kernels = kernels,
         linkopts = linkopts,
         linkstatic = linkstatic,
@@ -1171,7 +1203,7 @@ def tf_gpu_cc_test(
         srcs = srcs,
         args = args,
         data = data,
-        extra_copts = extra_copts,
+        extra_copts = extra_copts + if_cuda(["-DNV_CUDNN_DISABLE_EXCEPTION"]),
         kernels = kernels,
         linkopts = linkopts,
         linkstatic = select({
@@ -1183,9 +1215,7 @@ def tf_gpu_cc_test(
         }),
         suffix = "_gpu",
         tags = tags + tf_gpu_tests_tags(),
-        deps = deps + if_cuda_is_configured([
-            clean_dep("//tensorflow/core:gpu_runtime"),
-        ]) + if_rocm_is_configured([
+        deps = deps + if_cuda_or_rocm([
             clean_dep("//tensorflow/core:gpu_runtime"),
         ]),
     )
@@ -1211,9 +1241,7 @@ def tf_gpu_cc_test(
             }),
             suffix = "_2gpu",
             tags = cleaned_tags,
-            deps = deps + if_cuda_is_configured([
-                clean_dep("//tensorflow/core:gpu_runtime"),
-            ]) + if_rocm_is_configured([
+            deps = deps + if_cuda_or_rocm([
                 clean_dep("//tensorflow/core:gpu_runtime"),
             ]),
         )
@@ -1334,7 +1362,7 @@ def tf_cc_test_mkl(
                     "-lpthread",
                     "-lm",
                 ],
-            }) + _rpath_linkopts(src_to_test_name(src)),
+            }) + _rpath_linkopts(src_to_test_name(src)) + tf_openmp_lopts(),
             deps = deps + tf_binary_dynamic_kernel_deps(kernels) + if_mkl_ml(["//third_party/mkl:intel_binary_blob"]),
             data = data + tf_binary_dynamic_kernel_dsos(),
             exec_properties = tf_exec_properties({"tags": tags}),
@@ -1396,14 +1424,14 @@ def _cuda_copts(opts = []):
         """
     return select({
         "//conditions:default": [],
-        "@local_config_cuda//cuda:using_nvcc": ([
+        "@local_config_cuda//cuda:using_nvcc": [
             "-nvcc_options=relaxed-constexpr",
             "-nvcc_options=ftz=true",
-        ]),
-        "@local_config_cuda//cuda:using_clang": ([
+        ] + opts,
+        "@local_config_cuda//cuda:using_clang": [
             "-fcuda-flush-denormals-to-zero",
-        ]),
-    }) + if_cuda_is_configured_compat(opts)
+        ] + opts,
+    })
 
 # Build defs for TensorFlow kernels
 
@@ -1428,10 +1456,9 @@ def tf_gpu_kernel_library(
         srcs = srcs,
         hdrs = hdrs,
         copts = copts,
-        deps = deps + if_cuda_is_configured_compat([
+        deps = deps + if_cuda([
             clean_dep("//tensorflow/stream_executor/cuda:cudart_stub"),
-            clean_dep("//tensorflow/core:gpu_lib"),
-        ]) + if_rocm_is_configured([
+        ]) + if_cuda_or_rocm([
             clean_dep("//tensorflow/core:gpu_lib"),
         ]),
         alwayslink = 1,
@@ -1441,35 +1468,36 @@ def tf_gpu_kernel_library(
 def tf_gpu_library(deps = None, cuda_deps = None, copts = tf_copts(), **kwargs):
     """Generate a cc_library with a conditional set of CUDA dependencies.
 
-      When the library is built with --config=cuda:
+    When the library is built with --config=cuda:
 
-      - Both deps and cuda_deps are used as dependencies.
-      - The cuda runtime is added as a dependency (if necessary).
-      - The library additionally passes -DGOOGLE_CUDA=1 to the list of copts.
-      - In addition, when the library is also built with TensorRT enabled, it
-          additionally passes -DGOOGLE_TENSORRT=1 to the list of copts.
+    - Both deps and cuda_deps are used as dependencies.
+    - The cuda runtime is added as a dependency (if necessary).
+    - The library additionally passes -DGOOGLE_CUDA=1 to the list of copts.
+    - In addition, when the library is also built with TensorRT enabled, it
+        additionally passes -DGOOGLE_TENSORRT=1 to the list of copts.
 
-      Args:
-      - cuda_deps: BUILD dependencies which will be linked if and only if:
-          '--config=cuda' is passed to the bazel command line.
-      - deps: dependencies which will always be linked.
-      - copts: copts always passed to the cc_library.
-      - kwargs: Any other argument to cc_library.
-      """
+    Args:
+      cuda_deps: BUILD dependencies which will be linked if and only if:
+        '--config=cuda' is passed to the bazel command line.
+      deps: dependencies which will always be linked.
+      copts: copts always passed to the cc_library.
+      **kwargs: Any other argument to cc_library.
+    """
     if not deps:
         deps = []
     if not cuda_deps:
         cuda_deps = []
 
     kwargs["features"] = kwargs.get("features", []) + ["-use_header_modules"]
+    deps = deps + if_cuda_or_rocm(cuda_deps)
     cc_library(
-        deps = deps + if_cuda_is_configured_compat(cuda_deps + [
+        deps = deps + if_cuda([
             clean_dep("//tensorflow/stream_executor/cuda:cudart_stub"),
             "@local_config_cuda//cuda:cuda_headers",
-        ]) + if_rocm_is_configured(cuda_deps + [
+        ]) + if_rocm_is_configured([
             "@local_config_rocm//rocm:rocm_headers",
         ]),
-        copts = (copts + if_cuda(["-DGOOGLE_CUDA=1"]) + if_rocm(["-DTENSORFLOW_USE_ROCM=1"]) + if_xla_available(["-DTENSORFLOW_USE_XLA=1"]) + if_mkl(["-DINTEL_MKL=1"]) + if_mkl_open_source_only(["-DINTEL_MKL_DNN_ONLY"]) + if_enable_mkl(["-DENABLE_MKL"]) + if_tensorrt(["-DGOOGLE_TENSORRT=1"])),
+        copts = (copts + if_cuda(["-DGOOGLE_CUDA=1", "-DNV_CUDNN_DISABLE_EXCEPTION"]) + if_rocm(["-DTENSORFLOW_USE_ROCM=1"]) + if_xla_available(["-DTENSORFLOW_USE_XLA=1"]) + if_mkl(["-DINTEL_MKL=1"]) + if_enable_mkl(["-DENABLE_MKL"]) + if_tensorrt(["-DGOOGLE_TENSORRT=1"])),
         **kwargs
     )
 
@@ -1522,7 +1550,7 @@ def tf_kernel_library(
     if not gpu_copts:
         gpu_copts = []
     textual_hdrs = []
-    copts = copts + tf_copts(is_external = is_external)
+    copts = copts + tf_copts(is_external = is_external) + if_cuda(["-DNV_CUDNN_DISABLE_EXCEPTION"])
 
     # Override EIGEN_STRONG_INLINE to inline when
     # --define=override_eigen_strong_inline=true to avoid long compiling time.
@@ -1598,7 +1626,8 @@ def tf_mkl_kernel_library(
         alwayslink = 1,
         # Adding an explicit `-fexceptions` because `allow_exceptions = True`
         # in `tf_copts` doesn't work internally.
-        copts = tf_copts() + ["-fexceptions"] + tf_openmp_copts()):
+        copts = tf_copts() + ["-fexceptions"] + tf_openmp_copts(),
+        linkopts = tf_openmp_lopts()):
     """A rule to build MKL-based TensorFlow kernel libraries."""
 
     if not bool(srcs):
@@ -1624,6 +1653,7 @@ def tf_mkl_kernel_library(
         srcs = if_mkl(srcs),
         hdrs = hdrs,
         deps = deps,
+        linkopts = linkopts,
         alwayslink = alwayslink,
         copts = copts + if_override_eigen_strong_inline(["/DEIGEN_STRONG_INLINE=inline"]),
         features = disable_header_modules,
@@ -1862,15 +1892,12 @@ check_deps = rule(
 def tf_custom_op_library(name, srcs = [], gpu_srcs = [], deps = [], linkopts = [], copts = [], **kwargs):
     """Helper to build a dynamic library (.so) from the sources containing implementations of custom ops and kernels.
       """
-    cuda_deps = [
+    deps = deps + if_cuda_or_rocm([
         clean_dep("//tensorflow/core:stream_executor_headers_lib"),
+    ]) + if_cuda([
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cudart_static",
-    ]
-    rocm_deps = [
-        clean_dep("//tensorflow/core:stream_executor_headers_lib"),
-    ]
-    deps = deps + tf_custom_op_library_additional_deps()
+    ]) + tf_custom_op_library_additional_deps()
 
     # Override EIGEN_STRONG_INLINE to inline when
     # --define=override_eigen_strong_inline=true to avoid long compiling time.
@@ -1884,11 +1911,10 @@ def tf_custom_op_library(name, srcs = [], gpu_srcs = [], deps = [], linkopts = [
             srcs = gpu_srcs,
             copts = copts + tf_copts() + _cuda_copts() + rocm_copts() +
                     if_tensorrt(["-DGOOGLE_TENSORRT=1"]),
-            deps = deps + if_cuda_is_configured_compat(cuda_deps) + if_rocm_is_configured(rocm_deps),
+            deps = deps,
             **kwargs
         )
-        cuda_deps.extend([":" + basename + "_gpu"])
-        rocm_deps.extend([":" + basename + "_gpu"])
+        deps = deps + [":" + basename + "_gpu"]
 
     check_deps(
         name = name + "_check_deps",
@@ -1896,12 +1922,12 @@ def tf_custom_op_library(name, srcs = [], gpu_srcs = [], deps = [], linkopts = [
             clean_dep("//tensorflow/core:framework"),
             clean_dep("//tensorflow/core:lib"),
         ],
-        deps = deps + if_cuda_is_configured_compat(cuda_deps) + if_rocm_is_configured(rocm_deps),
+        deps = deps,
     )
     tf_cc_shared_object(
         name = name,
         srcs = srcs,
-        deps = deps + if_cuda_is_configured_compat(cuda_deps) + if_rocm_is_configured(rocm_deps),
+        deps = deps,
         data = if_static([name + "_check_deps"]),
         copts = copts + tf_copts(is_external = True),
         features = ["windows_export_all_symbols"],
@@ -2236,7 +2262,7 @@ def tf_py_test(
     # kernels compiled with XLA.
     if xla_enable_strict_auto_jit:
         xla_enabled = True
-        xla_test_true_list += ["//tensorflow/python:is_xla_test_true"]
+        xla_test_true_list.append("//tensorflow/python/framework:is_xla_test_true")
     if xla_enabled:
         deps = deps + tf_additional_xla_deps_py()
     if grpc_enabled:
@@ -2641,7 +2667,9 @@ def pybind_extension(
         compatible_with = None,
         restricted_to = None,
         deprecation = None,
-        link_in_framework = False):
+        link_in_framework = False,
+        pytype_deps = [],
+        pytype_srcs = []):
     """Builds a generic Python extension module."""
     _ignore = [module_name]
     p = name.rfind("/")
@@ -2745,7 +2773,8 @@ def pybind_extension(
         data = select({
             "@org_tensorflow//tensorflow:windows": [pyd_file],
             "//conditions:default": [so_file],
-        }),
+        }) + pytype_srcs,
+        deps = pytype_deps,
         srcs_version = srcs_version,
         licenses = licenses,
         testonly = testonly,
@@ -3002,3 +3031,10 @@ tf_gen_options_header = rule(
         dependencies (if 'F' is undefined, '#if F()' results in an error).
     """,
 )
+
+# These flags are used selectively to disable benign ptxas warnings for some
+# build targets.  On clang "-Xcuda-ptxas --disable-warnings" is sufficient, but
+# that does not work on some versions of GCC.  So for now this is empty in the
+# open source build.
+def tf_disable_ptxas_warning_flags():
+    return []

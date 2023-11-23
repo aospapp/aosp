@@ -19,7 +19,7 @@
 pip3 install .
 
 # Build fuzzers in $OUT.
-for fuzzer in $(find $SRC -name '*_fuzzer.py'); do
+for fuzzer in $(find $SRC -name 'fuzz_*.py'); do
   fuzzer_basename=$(basename -s .py $fuzzer)
   fuzzer_package=${fuzzer_basename}.pkg
   pyinstaller --distpath $OUT --onefile --name $fuzzer_package $fuzzer
@@ -30,7 +30,7 @@ for fuzzer in $(find $SRC -name '*_fuzzer.py'); do
 this_dir=\$(dirname \"\$0\")
 ASAN_OPTIONS=\$ASAN_OPTIONS:symbolize=1:external_symbolizer_path=\$this_dir/llvm-symbolizer:detect_leaks=0 \
 \$this_dir/$fuzzer_package \$@" > $OUT/$fuzzer_basename
-  chmod u+x $OUT/$fuzzer_basename
+  chmod +x $OUT/$fuzzer_basename
 done
 
 zip -j $OUT/files_fuzzer_seed_corpus.zip tests/examplefiles/*

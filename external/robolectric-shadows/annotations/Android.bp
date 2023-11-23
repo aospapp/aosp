@@ -19,4 +19,5 @@ java_library_host {
     ],
     libs: ["robolectric-host-android_all"],
     srcs: ["src/main/java/**/*.java"],
+    visibility: ["//visibility:public"],
 }

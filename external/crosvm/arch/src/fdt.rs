@@ -11,28 +11,30 @@ use std::ffi::CString;
 use std::io;
 use std::mem::size_of;
 
+use remain::sorted;
 use thiserror::Error as ThisError;
 
+#[sorted]
 #[derive(ThisError, Debug)]
 pub enum Error {
+    #[error("Parse error reading FDT parameters")]
+    FdtFileParseError,
+    #[error("Error writing FDT to guest memory")]
+    FdtGuestMemoryWriteError,
+    #[error("I/O error reading FDT parameters code={0}")]
+    FdtIoError(io::Error),
+    #[error("Strings cannot contain NUL")]
+    InvalidString,
+    #[error("Attempted to end a node that was not the most recent")]
+    OutOfOrderEndNode,
     #[error("Properties may not be added after a node has been ended")]
     PropertyAfterEndNode,
     #[error("Property value size must fit in 32 bits")]
     PropertyValueTooLarge,
     #[error("Total size must fit in 32 bits")]
     TotalSizeTooLarge,
-    #[error("Strings cannot contain NUL")]
-    InvalidString,
-    #[error("Attempted to end a node that was not the most recent")]
-    OutOfOrderEndNode,
     #[error("Attempted to call finish without ending all nodes")]
     UnclosedNode,
-    #[error("Error writing FDT to guest memory")]
-    FdtGuestMemoryWriteError,
-    #[error("Parse error reading FDT parameters")]
-    FdtFileParseError,
-    #[error("I/O error reading FDT parameters code={0}")]
-    FdtIoError(io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -257,11 +259,11 @@ impl FdtWriter {
     }
 
     /// Write a stringlist property.
-    pub fn property_string_list(&mut self, name: &str, values: Vec<String>) -> Result<()> {
+    pub fn property_string_list(&mut self, name: &str, values: &[&str]) -> Result<()> {
         let mut bytes = Vec::new();
-        for s in values {
+        for &s in values {
             let cstr = CString::new(s).map_err(|_| Error::InvalidString)?;
-            bytes.extend_from_slice(&cstr.to_bytes_with_nul());
+            bytes.extend_from_slice(cstr.to_bytes_with_nul());
         }
         self.property(name, &bytes)
     }
@@ -511,8 +513,7 @@ mod tests {
         fdt.property_u32("u32", 0x12345678).unwrap();
         fdt.property_u64("u64", 0x1234567887654321).unwrap();
         fdt.property_string("str", "hello").unwrap();
-        fdt.property_string_list("strlst", vec!["hi".into(), "bye".into()])
-            .unwrap();
+        fdt.property_string_list("strlst", &["hi", "bye"]).unwrap();
         fdt.property_array_u32("arru32", &[0x12345678, 0xAABBCCDD])
             .unwrap();
         fdt.property_array_u64("arru64", &[0x1234567887654321])
@@ -707,8 +708,8 @@ mod tests {
     #[test]
     fn invalid_prop_string_list_value_nul() {
         let mut fdt = FdtWriter::new(&[]);
-        let strs = vec!["test".into(), "abc\0def".into()];
-        fdt.property_string_list("mystr", strs)
+        let strs = ["test", "abc\0def"];
+        fdt.property_string_list("mystr", &strs)
             .expect_err("stringlist property value with embedded NUL");
     }
 

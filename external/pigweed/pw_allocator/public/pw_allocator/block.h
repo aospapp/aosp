@@ -18,7 +18,6 @@
 
 #include <span>
 
-#include "pw_assert/assert.h"
 #include "pw_status/status.h"
 
 namespace pw::allocator {
@@ -99,7 +98,7 @@ class Block final {
   // reality, this method just subtracts the appropriate amount from
   // usable_space to point to the start of the owning block.
   //
-  // Be aware that this method does not do any sanity checking; passing a random
+  // Be aware that this method does not do any checking; passing a random
   // pointer will return a non-null pointer.
   static Block* FromUsableSpace(std::byte* usable_space) {
     return reinterpret_cast<Block*>(usable_space - sizeof(Block) -
@@ -211,7 +210,7 @@ class Block final {
   // return false to indicate this block is corrupted.
   bool IsValid() const { return CheckStatus() == BlockStatus::VALID; }
 
-  // Uses PW_DCHECK to log information about the reason if a blcok is invalid.
+  // Uses PW_DCHECK to log information about the reason if a block is invalid.
   // This function will do nothing if the block is valid.
   void CrashIfInvalid();
 

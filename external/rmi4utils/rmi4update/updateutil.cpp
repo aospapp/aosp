@@ -57,29 +57,3 @@ const char * update_err_to_string(int err)
 {
 	return update_error_str[err];
 }
-
-unsigned long extract_long(const unsigned char *data)
-{
-	return (unsigned long)data [0]
-		+ (unsigned long)data [1] * 0x100
-		+ (unsigned long)data [2] * 0x10000
-		+ (unsigned long)data [3] * 0x1000000;
-}
-
-unsigned short extract_short(const unsigned char *data)
-{
-	return (unsigned long)data [0]
-		+ (unsigned long)data [1] * 0x100;
-}
-
-const char * StripPath(const char * path, ssize_t size)
-{
-	int i;
-	const char * str;
-
-	for (i = size - 1, str = &path[size - 1]; i > 0; --i, --str)
-		if (path[i - 1] == '/')
-			break;
-
-	return str;
-}

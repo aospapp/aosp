@@ -342,6 +342,11 @@ bool IsPixel4()
     return IsAndroidDevice("Pixel 4");
 }
 
+bool IsPixel4XL()
+{
+    return IsAndroidDevice("Pixel 4 XL");
+}
+
 bool IsNVIDIAShield()
 {
     return IsAndroidDevice("SHIELD Android TV");
@@ -357,9 +362,19 @@ bool IsIntelUHD630Mobile()
     return HasSystemDeviceID(kVendorID_Intel, kDeviceID_UHD630Mobile);
 }
 
+bool IsIntelHD630Mobile()
+{
+    return HasSystemDeviceID(kVendorID_Intel, kDeviceID_HD630Mobile);
+}
+
 bool IsAMD()
 {
     return HasSystemVendorID(kVendorID_AMD);
+}
+
+bool IsApple()
+{
+    return HasSystemVendorID(kVendorID_Apple);
 }
 
 bool IsARM()
@@ -386,7 +401,17 @@ bool IsNVIDIA()
 
 bool IsQualcomm()
 {
-    return IsNexus5X() || IsNexus9() || IsPixelXL() || IsPixel2() || IsPixel2XL();
+    return IsNexus5X() || IsNexus9() || IsPixelXL() || IsPixel2() || IsPixel2XL() || IsPixel4() ||
+           IsPixel4XL();
+}
+
+bool Is64Bit()
+{
+#if defined(ANGLE_IS_64_BIT_CPU)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_IS_64_BIT_CPU)
 }
 
 bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters &param)
@@ -552,7 +577,8 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
                 return true;
             case EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE:
                 // http://issuetracker.google.com/173004081
-                return !IsIntel() || param.eglParameters.asyncCommandQueueFeatureVulkan != EGL_TRUE;
+                return !IsIntel() || !param.isEnabled(Feature::AsyncCommandQueue) ||
+                       param.isDisabled(Feature::AsyncCommandQueue);
             default:
                 return false;
         }
@@ -586,7 +612,7 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
                 {
                     return false;
                 }
-                if (param.eglParameters.supportsVulkanViewportFlip == EGL_FALSE)
+                if (param.isDisabled(Feature::SupportsNegativeViewport))
                 {
                     return false;
                 }

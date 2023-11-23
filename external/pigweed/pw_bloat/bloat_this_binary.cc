@@ -17,7 +17,7 @@
 #include <cstring>
 
 #include "pw_assert/assert.h"
-#include "pw_assert/light.h"
+#include "pw_assert/check.h"
 #include "pw_log/log.h"
 
 namespace pw::bloat {
@@ -25,7 +25,7 @@ namespace pw::bloat {
 char* volatile non_optimizable_pointer;
 
 void BloatThisBinary() {
-  volatile unsigned counter = 0;
+  [[maybe_unused]] volatile unsigned counter = 0;
 
   // In case someone accidentally ends up flashing and running a bloat
   // executable on their device, loop forever instead of running this code.

@@ -645,6 +645,12 @@ struct wpa_driver_scan_params {
 	 */
 	unsigned int oce_scan:1;
 
+	/**
+	 * p2p_include_6ghz - Include 6 GHz channels for P2P full scan
+	 *
+	 */
+	unsigned int p2p_include_6ghz:1;
+
 	/*
 	 * NOTE: Whenever adding new parameters here, please make sure
 	 * wpa_scan_clone_params() and wpa_scan_free_params() get updated with
@@ -1197,6 +1203,12 @@ struct wpa_driver_associate_params {
 	 * 2 = both hunting-and-pecking loop and hash-to-element enabled
 	 */
 	int sae_pwe;
+#ifdef CONFIG_DRIVER_NL80211_BRCM
+	/**
+	 * td_policy - Transition Disable Policy
+	 */
+	u32 td_policy;
+#endif /* CONFIG_DRIVER_NL80211_BRCM */
 };
 
 enum hide_ssid {
@@ -1584,6 +1596,7 @@ struct wpa_driver_mesh_bss_params {
 #define WPA_DRIVER_MESH_CONF_FLAG_MAX_PEER_LINKS	0x00000004
 #define WPA_DRIVER_MESH_CONF_FLAG_HT_OP_MODE		0x00000008
 #define WPA_DRIVER_MESH_CONF_FLAG_RSSI_THRESHOLD	0x00000010
+#define WPA_DRIVER_MESH_CONF_FLAG_FORWARDING		0x00000020
 	/*
 	 * TODO: Other mesh configuration parameters would go here.
 	 * See NL80211_MESHCONF_* for all the mesh config parameters.
@@ -1593,6 +1606,7 @@ struct wpa_driver_mesh_bss_params {
 	int peer_link_timeout;
 	int max_peer_links;
 	int rssi_threshold;
+	int forwarding;
 	u16 ht_opmode;
 };
 
@@ -1888,11 +1902,11 @@ struct wpa_driver_capa {
  */
 #define WPA_DRIVER_FLAGS_P2P_MGMT_AND_NON_P2P		0x00002000
 /**
- * Driver is known to use sane error codes, i.e., when it indicates that
+ * Driver is known to use valid error codes, i.e., when it indicates that
  * something (e.g., association) fails, there was indeed a failure and the
  * operation does not end up getting completed successfully later.
  */
-#define WPA_DRIVER_FLAGS_SANE_ERROR_CODES		0x00004000
+#define WPA_DRIVER_FLAGS_VALID_ERROR_CODES		0x00004000
 /** Driver supports off-channel TX */
 #define WPA_DRIVER_FLAGS_OFFCHANNEL_TX			0x00008000
 /** Driver indicates TX status events for EAPOL Data frames */
@@ -2145,6 +2159,7 @@ struct hostapd_data;
 #define STA_DRV_DATA_TX_SHORT_GI BIT(6)
 #define STA_DRV_DATA_RX_SHORT_GI BIT(7)
 #define STA_DRV_DATA_LAST_ACK_RSSI BIT(8)
+#define STA_DRV_DATA_CONN_TIME BIT(9)
 
 struct hostap_sta_driver_data {
 	unsigned long rx_packets, tx_packets;
@@ -2154,6 +2169,7 @@ struct hostap_sta_driver_data {
 	unsigned long current_tx_rate;
 	unsigned long current_rx_rate;
 	unsigned long inactive_msec;
+	unsigned long connected_sec;
 	unsigned long flags; /* bitfield of STA_DRV_DATA_* */
 	unsigned long num_ps_buf_frames;
 	unsigned long tx_retry_failed;
@@ -2392,6 +2408,7 @@ enum tdls_peer_capability {
 	TDLS_PEER_HT = BIT(0),
 	TDLS_PEER_VHT = BIT(1),
 	TDLS_PEER_WMM = BIT(2),
+	TDLS_PEER_HE = BIT(3),
 };
 
 /* valid info in the wmm_params struct */
@@ -2484,6 +2501,9 @@ enum wpa_drv_update_connect_params_mask {
 	WPA_DRV_UPDATE_ASSOC_IES	= BIT(0),
 	WPA_DRV_UPDATE_FILS_ERP_INFO	= BIT(1),
 	WPA_DRV_UPDATE_AUTH_TYPE	= BIT(2),
+#ifdef CONFIG_DRIVER_NL80211_BRCM
+	WPA_DRV_UPDATE_TD_POLICY	= BIT(3),
+#endif /* CONFIG_DRIVER_NL80211_BRCM */
 };
 
 /**
@@ -4553,6 +4573,12 @@ struct wpa_driver_ops {
 	 * explicitly allow reception of broadcast Public Action frames.
 	 */
 	int (*dpp_listen)(void *priv, bool enable);
+
+#ifdef CONFIG_TESTING_OPTIONS
+	int (*register_frame)(void *priv, u16 type,
+			      const u8 *match, size_t match_len,
+			      bool multicast);
+#endif /* CONFIG_TESTING_OPTIONS */
 };
 
 /**
@@ -5112,6 +5138,15 @@ enum wpa_event_type {
 	 * is required to provide more details of the frame.
 	 */
 	EVENT_UNPROT_BEACON,
+
+	/**
+	 * EVENT_TX_WAIT_EXPIRE - TX wait timed out
+	 *
+	 * This event is used to indicate when the driver has completed
+	 * wait for a response frame based on a TX request that specified a
+	 * non-zero wait time and that has not been explicitly cancelled.
+	 */
+	EVENT_TX_WAIT_EXPIRE,
 };
 
 

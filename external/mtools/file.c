@@ -23,19 +23,25 @@
 #include "file.h"
 #include "htable.h"
 #include "dirCache.h"
+#include "buffer.h"
 
 typedef struct File_t {
-	Class_t *Class;
-	int refs;
-	struct Fs_t *Fs;	/* Filesystem that this fat file belongs to */
-	Stream_t *Buffer;
+	struct Stream_t head;
 
-	int (*map)(struct File_t *this, off_t where, size_t *len, int mode,
+	struct Stream_t *Buffer;
+	
+	int (*map)(struct File_t *this, uint32_t where, uint32_t *len, int mode,
 			   mt_off_t *res);
-	size_t FileSize;
+	uint32_t FileSize;
 
-	size_t preallocatedSize;
-	int preallocatedClusters;
+	/* How many bytes do we project to need for this file
+	   (includes those already in FileSize) */
+	uint32_t preallocatedSize;
+
+	/* How many clusters we have asked the lower layer to reserve
+	   for us (only what we will need in the future, excluding already
+	   allocated clusters in FileSize) */
+	uint32_t preallocatedClusters;
 
 	/* Absolute position of first cluster of file */
 	unsigned int FirstAbsCluNr;
@@ -51,6 +57,8 @@ typedef struct File_t {
 
 	unsigned int loopDetectRel;
 	unsigned int loopDetectAbs;
+
+	uint32_t where;
 } File_t;
 
 static Class_t FileClass;
@@ -63,9 +71,14 @@ static File_t *getUnbufferedFile(Stream_t *Stream)
 	return (File_t *) Stream;
 }
 
+static inline Fs_t *_getFs(File_t *File)
+{
+	return (Fs_t *) File->head.Next;
+}
+
 Fs_t *getFs(Stream_t *Stream)
 {
-	return getUnbufferedFile(Stream)->Fs;
+	return (Fs_t *)getUnbufferedFile(Stream)->head.Next;
 }
 
 struct dirCache_t **getDirCacheP(Stream_t *Stream)
@@ -78,14 +91,22 @@ direntry_t *getDirentry(Stream_t *Stream)
 	return &getUnbufferedFile(Stream)->direntry;
 }
 
+/**
+ * Overflow-safe conversion of bytes to cluster
+ */
+static uint32_t filebytesToClusters(uint32_t bytes, uint32_t clus_size) {
+	uint32_t ret = bytes / clus_size;
+	if(bytes % clus_size)
+		ret++;
+	return ret;
+}
 
 static int recalcPreallocSize(File_t *This)
 {
-	size_t currentClusters, neededClusters;
+	uint32_t currentClusters, neededClusters;
 	unsigned int clus_size;
-	int neededPrealloc;
-	Fs_t *Fs = This->Fs;
-	int r;
+	uint32_t neededPrealloc;
+	Fs_t *Fs = _getFs(This);
 
 #if 0
 	if(This->FileSize & 0xc0000000) {
@@ -97,15 +118,21 @@ static int recalcPreallocSize(File_t *This)
 	}
 #endif
 	clus_size = Fs->cluster_size * Fs->sector_size;
-
-	currentClusters = (This->FileSize + clus_size - 1) / clus_size;
-	neededClusters = (This->preallocatedSize + clus_size - 1) / clus_size;
-	neededPrealloc = neededClusters - currentClusters;
-	if(neededPrealloc < 0)
+	currentClusters = filebytesToClusters(This->FileSize, clus_size);
+	neededClusters = filebytesToClusters(This->preallocatedSize, clus_size);
+	if(neededClusters < currentClusters)
 		neededPrealloc = 0;
-	r = fsPreallocateClusters(Fs, neededPrealloc - This->preallocatedClusters);
-	if(r)
-		return r;
+	else
+		neededPrealloc = neededClusters - currentClusters;
+	if(neededPrealloc > This->preallocatedClusters) {
+		int r = fsPreallocateClusters(Fs, neededPrealloc-
+					      This->preallocatedClusters);
+		if(r)
+			return r;
+	} else {
+		fsReleasePreallocateClusters(Fs, This->preallocatedClusters -
+					     neededPrealloc);
+	}
 	This->preallocatedClusters = neededPrealloc;
 	return 0;
 }
@@ -138,7 +165,7 @@ static unsigned int _countBlocks(Fs_t *This, unsigned int block)
 	unsigned int rel, oldabs, oldrel;
 
 	blocks = 0;
-	
+
 	oldabs = oldrel = rel = 0;
 
 	while (block <= This->last_fat && block != 1 && block) {
@@ -162,7 +189,7 @@ unsigned int countBlocks(Stream_t *Dir, unsigned int block)
 /* returns number of bytes in a directory.  Represents a file size, and
  * can hence be not bigger than 2^32
  */
-static size_t countBytes(Stream_t *Dir, unsigned int block)
+static uint32_t countBytes(Stream_t *Dir, unsigned int block)
 {
 	Stream_t *Stream = GetFs(Dir);
 	DeclareThis(Fs_t);
@@ -174,7 +201,7 @@ static size_t countBytes(Stream_t *Dir, unsigned int block)
 void printFat(Stream_t *Stream)
 {
 	File_t *This = getUnbufferedFile(Stream);
-	unsigned long n;
+	uint32_t n;
 	unsigned int rel;
 	unsigned long begin, end;
 	int first;
@@ -201,11 +228,11 @@ void printFat(Stream_t *Stream)
 			end++;
 		}
 		first = 0;
-		n = fatDecode(This->Fs, n);
+		n = fatDecode(_getFs(This), n);
 		rel++;
 		if(loopDetect(This, rel, n) < 0)
 			n = 1;
-	} while (n <= This->Fs->last_fat && n != 1);
+	} while (n <= _getFs(This)->last_fat && n != 1);
 	if(!first) {
 		if (begin != end)
 			printf("-%lu", end);
@@ -215,8 +242,8 @@ void printFat(Stream_t *Stream)
 
 void printFatWithOffset(Stream_t *Stream, off_t offset) {
 	File_t *This = getUnbufferedFile(Stream);
-	unsigned long n;
-	int rel;
+	uint32_t n;
+	unsigned int rel;
 	off_t clusSize;
 
 	n = This->FirstAbsCluNr;
@@ -225,34 +252,34 @@ void printFatWithOffset(Stream_t *Stream, off_t offset) {
 		return;
 	}
 
-	clusSize = This->Fs->cluster_size * This->Fs->sector_size;
+	clusSize = _getFs(This)->cluster_size * _getFs(This)->sector_size;
 
 	rel = 0;
 	while(offset >= clusSize) {
-		n = fatDecode(This->Fs, n);
+		n = fatDecode(_getFs(This), n);
 		rel++;
 		if(loopDetect(This, rel, n) < 0)
 			return;
-		if(n > This->Fs->last_fat)
+		if(n > _getFs(This)->last_fat)
 			return;
 		offset -= clusSize;
 	}
 
-	printf("%lu", n);
+	printf("%lu", (unsigned long) n);
 }
 
-static int normal_map(File_t *This, off_t where, size_t *len, int mode,
-						   mt_off_t *res)
+static int normal_map(File_t *This, uint32_t where, uint32_t *len, int mode,
+		      mt_off_t *res)
 {
 	unsigned int offset;
 	size_t end;
-	int NrClu; /* number of clusters to read */
-	unsigned int RelCluNr;
-	unsigned int CurCluNr;
-	unsigned int NewCluNr;
-	unsigned int AbsCluNr;
-	unsigned int clus_size;
-	Fs_t *Fs = This->Fs;
+	uint32_t NrClu; /* number of clusters to read */
+	uint32_t RelCluNr;
+	uint32_t CurCluNr;
+	uint32_t NewCluNr;
+	uint32_t AbsCluNr;
+	uint32_t clus_size;
+	Fs_t *Fs = _getFs(This);
 
 	*res = 0;
 	clus_size = Fs->cluster_size * Fs->sector_size;
@@ -268,7 +295,7 @@ static int normal_map(File_t *This, off_t where, size_t *len, int mode,
 			*len = 0;
 			return 0;
 		}
-		NewCluNr = get_next_free_cluster(This->Fs, 1);
+		NewCluNr = get_next_free_cluster(_getFs(This), 1);
 		if (NewCluNr == 1 ){
 			errno = ENOSPC;
 			return -2;
@@ -276,11 +303,11 @@ static int normal_map(File_t *This, off_t where, size_t *len, int mode,
 		hash_remove(filehash, (void *) This, This->hint);
 		This->FirstAbsCluNr = NewCluNr;
 		hash_add(filehash, (void *) This, &This->hint);
-		fatAllocate(This->Fs, NewCluNr, Fs->end_fat);
+		fatAllocate(_getFs(This), NewCluNr, Fs->end_fat);
 	}
 
 	RelCluNr = where / clus_size;
-	
+
 	if (RelCluNr >= This->PreviousRelCluNr){
 		CurCluNr = This->PreviousRelCluNr;
 		AbsCluNr = This->PreviousAbsCluNr;
@@ -298,22 +325,22 @@ static int normal_map(File_t *This, off_t where, size_t *len, int mode,
 			This->PreviousRelCluNr = RelCluNr;
 			This->PreviousAbsCluNr = AbsCluNr;
 		}
-		NewCluNr = fatDecode(This->Fs, AbsCluNr);
+		NewCluNr = fatDecode(_getFs(This), AbsCluNr);
 		if (NewCluNr == 1 || NewCluNr == 0){
 			fprintf(stderr,"Fat problem while decoding %d %x\n",
 				AbsCluNr, NewCluNr);
 			exit(1);
 		}
-		if(CurCluNr == RelCluNr + NrClu)			
+		if(CurCluNr == RelCluNr + NrClu)
 			break;
 		if (NewCluNr > Fs->last_fat && mode == MT_WRITE){
 			/* if at end, and writing, extend it */
-			NewCluNr = get_next_free_cluster(This->Fs, AbsCluNr);
+			NewCluNr = get_next_free_cluster(_getFs(This), AbsCluNr);
 			if (NewCluNr == 1 ){ /* no more space */
 				errno = ENOSPC;
 				return -2;
 			}
-			fatAppend(This->Fs, AbsCluNr, NewCluNr);
+			fatAppend(_getFs(This), AbsCluNr, NewCluNr);
 		}
 
 		if (CurCluNr < RelCluNr && NewCluNr > Fs->last_fat){
@@ -332,11 +359,14 @@ static int normal_map(File_t *This, off_t where, size_t *len, int mode,
 	}
 
 	maximize(*len, (1 + CurCluNr - RelCluNr) * clus_size - offset);
-	
+
 	end = where + *len;
 	if(batchmode &&
 	   mode == MT_WRITE &&
 	   end >= This->FileSize) {
+		/* In batch mode, when writing at end of file, "pad"
+		 * to nearest cluster boundary so that we don't have
+		 * to read that data back from disk. */
 		*len += ROUND_UP(end, clus_size) - end;
 	}
 
@@ -346,76 +376,108 @@ static int normal_map(File_t *This, off_t where, size_t *len, int mode,
 		exit(1);
 	}
 
-	*res = sectorsToBytes((Stream_t*)Fs,
-						  (This->PreviousAbsCluNr-2) * Fs->cluster_size +
-						  Fs->clus_start) + offset;
+	*res = sectorsToBytes(Fs,
+			      (This->PreviousAbsCluNr-2) * Fs->cluster_size +
+			      Fs->clus_start) + to_mt_off_t(offset);
 	return 1;
 }
 
 
-static int root_map(File_t *This, off_t where, size_t *len, int mode UNUSEDP,
-		    mt_off_t *res)
+static int root_map(File_t *This, uint32_t where, uint32_t *len,
+		    int mode UNUSEDP,  mt_off_t *res)
 {
-	Fs_t *Fs = This->Fs;
+	Fs_t *Fs = _getFs(This);
 
-	if(Fs->dir_len * Fs->sector_size < (size_t) where) {
+	if(Fs->dir_len * Fs->sector_size < where) {
 		*len = 0;
 		errno = ENOSPC;
 		return -2;
 	}
 
-	sizemaximize(*len, Fs->dir_len * Fs->sector_size - where);
+	maximize(*len, Fs->dir_len * Fs->sector_size - where);
         if (*len == 0)
             return 0;
-	
-	*res = sectorsToBytes((Stream_t*)Fs, Fs->dir_start) + where;
+
+	*res = sectorsToBytes(Fs, Fs->dir_start) +
+		to_mt_off_t(where);
 	return 1;
 }
-	
 
-static int read_file(Stream_t *Stream, char *buf, mt_off_t iwhere,
-					 size_t len)
+static ssize_t read_file(Stream_t *Stream, char *buf, size_t ilen)
 {
 	DeclareThis(File_t);
 	mt_off_t pos;
 	int err;
-	off_t where = truncBytes32(iwhere);
-
-	Stream_t *Disk = This->Fs->Next;
+	uint32_t len = truncSizeTo32u(ilen);
+	ssize_t ret;
 	
-	err = This->map(This, where, &len, MT_READ, &pos);
+	Stream_t *Disk = _getFs(This)->head.Next;
+
+	err = This->map(This, This->where, &len, MT_READ, &pos);
 	if(err <= 0)
 		return err;
-	return READS(Disk, buf, pos, len);
-}
-
-static int write_file(Stream_t *Stream, char *buf, mt_off_t iwhere, size_t len)
-{
-	DeclareThis(File_t);
-	mt_off_t pos;
-	int ret;
-	size_t requestedLen;
-	Stream_t *Disk = This->Fs->Next;
-	off_t where = truncBytes32(iwhere);
-	int err;
-
-	requestedLen = len;
-	err = This->map(This, where, &len, MT_WRITE, &pos);
-	if( err <= 0)
-		return err;
-	if(batchmode)
-		ret = force_write(Disk, buf, pos, len);
-	else
-		ret = WRITES(Disk, buf, pos, len);
-	if(ret > (signed int) requestedLen)
-		ret = requestedLen;
-	if (ret > 0 &&
-	    where + ret > (off_t) This->FileSize )
-		This->FileSize = where + ret;
-	recalcPreallocSize(This);
+	ret = PREADS(Disk, buf, pos, len);
+	if(ret < 0)
+		return ret;
+	This->where += (size_t) ret;
 	return ret;
 }
 
+static ssize_t write_file(Stream_t *Stream, char *buf, size_t ilen)
+{
+	DeclareThis(File_t);
+	mt_off_t pos;
+	ssize_t ret;
+	uint32_t requestedLen;
+	uint32_t bytesWritten;
+	Stream_t *Disk = _getFs(This)->head.Next;
+	uint32_t maxLen = UINT32_MAX-This->where;
+	uint32_t len;
+	int err;
+
+	if(ilen > maxLen) {
+		len = maxLen;
+	} else
+		len = (uint32_t) ilen;
+	requestedLen = len;
+	err = This->map(This, This->where, &len, MT_WRITE, &pos);
+	if( err <= 0)
+		return err;
+	if(batchmode)
+		ret = force_pwrite(Disk, buf, pos, len);
+	else
+		ret = PWRITES(Disk, buf, pos, len);
+	if(ret < 0)
+		/* Error occured */
+		return ret;
+	if((uint32_t)ret > requestedLen)
+		/* More data than requested may be written to lower
+		 * levels if batch mode is active, in order to "pad"
+		 * the last cluster of a file, so that we don't have
+		 * to read that back from disk */
+		bytesWritten = requestedLen;
+	else
+		bytesWritten = (uint32_t)ret;
+	This->where += bytesWritten;
+	if (This->where > This->FileSize )
+		This->FileSize = This->where;
+	recalcPreallocSize(This);
+	return (ssize_t) bytesWritten;
+}
+
+static ssize_t pread_file(Stream_t *Stream, char *buf, mt_off_t where,
+			  size_t ilen) {
+	DeclareThis(File_t);
+	This->where = truncMtOffTo32u(where);
+	return read_file(Stream, buf, ilen);
+}
+
+static ssize_t pwrite_file(Stream_t *Stream, char *buf, mt_off_t where,
+			  size_t ilen) {
+	DeclareThis(File_t);
+	This->where = truncMtOffTo32u(where);
+	return write_file(Stream, buf, ilen);
+}
 
 /*
  * Convert an MSDOS time & date stamp to the Unix time() format
@@ -449,7 +511,7 @@ static __inline__ time_t conv_stamp(struct directory *dir)
 	{
 		struct timeval tv;
 		struct timezone tz;
-		
+
 		gettimeofday(&tv, &tz);
 		tzone = tz.tz_minuteswest * 60L;
 	}
@@ -481,15 +543,15 @@ static __inline__ time_t conv_stamp(struct directory *dir)
 }
 
 
-static int get_file_data(Stream_t *Stream, time_t *date, mt_size_t *size,
-			 int *type, int *address)
+static int get_file_data(Stream_t *Stream, time_t *date, mt_off_t *size,
+			 int *type, uint32_t *address)
 {
 	DeclareThis(File_t);
 
 	if(date)
 		*date = conv_stamp(& This->direntry.dir);
 	if(size)
-		*size = (mt_size_t) This->FileSize;
+		*size = to_mt_off_t(This->FileSize);
 	if(type)
 		*type = This->direntry.dir.attr & ATTR_DIR;
 	if(address)
@@ -501,8 +563,8 @@ static int get_file_data(Stream_t *Stream, time_t *date, mt_size_t *size,
 static int free_file(Stream_t *Stream)
 {
 	DeclareThis(File_t);
-	Fs_t *Fs = This->Fs;
-	fsPreallocateClusters(Fs, -This->preallocatedClusters);
+	Fs_t *Fs = _getFs(This);
+	fsReleasePreallocateClusters(Fs, This->preallocatedClusters);
 	FREE(&This->direntry.Dir);
 	freeDirCache(Stream);
 	return hash_remove(filehash, (void *) Stream, This->hint);
@@ -527,11 +589,11 @@ static int flush_file(Stream_t *Stream)
 }
 
 
-static int pre_allocate_file(Stream_t *Stream, mt_size_t isize)
+static int pre_allocate_file(Stream_t *Stream, mt_off_t isize)
 {
 	DeclareThis(File_t);
 
-	size_t size = truncBytes32(isize);
+	uint32_t size = truncMtOffTo32u(isize);
 
 	if(size > This->FileSize &&
 	   size > This->preallocatedSize) {
@@ -544,6 +606,8 @@ static int pre_allocate_file(Stream_t *Stream, mt_size_t isize)
 static Class_t FileClass = {
 	read_file,
 	write_file,
+	pread_file,
+	pwrite_file,
 	flush_file, /* flush */
 	free_file, /* free */
 	0, /* get_geom */
@@ -562,14 +626,14 @@ static unsigned int getAbsCluNr(File_t *This)
 	return 1;
 }
 
-static size_t func1(void *Stream)
+static uint32_t func1(void *Stream)
 {
 	DeclareThis(File_t);
 
-	return getAbsCluNr(This) ^ (long) This->Fs;
+	return getAbsCluNr(This) ^ (uint32_t) (unsigned long) This->head.Next;
 }
 
-static size_t func2(void *Stream)
+static uint32_t func2(void *Stream)
 {
 	DeclareThis(File_t);
 
@@ -582,14 +646,14 @@ static int comp(void *Stream, void *Stream2)
 
 	File_t *This2 = (File_t *) Stream2;
 
-	return This->Fs != This2->Fs ||
+	return _getFs(This) != _getFs(This2) ||
 		getAbsCluNr(This) != getAbsCluNr(This2);
 }
 
 static void init_hash(void)
 {
 	static int is_initialised=0;
-	
+
 	if(!is_initialised){
 		make_ht(func1, func2, comp, 20, &filehash);
 		is_initialised = 1;
@@ -598,7 +662,7 @@ static void init_hash(void)
 
 
 static Stream_t *_internalFileOpen(Stream_t *Dir, unsigned int first,
-				   size_t size, direntry_t *entry)
+				   uint32_t size, direntry_t *entry)
 {
 	Stream_t *Stream = GetFs(Dir);
 	DeclareThis(Fs_t);
@@ -606,13 +670,12 @@ static Stream_t *_internalFileOpen(Stream_t *Dir, unsigned int first,
 	File_t *File;
 
 	init_hash();
-	This->refs++;
+	This->head.refs++;
 
 	if(first != 1){
 		/* we use the illegal cluster 1 to mark newly created files.
 		 * do not manage those by hashtable */
-		Pattern.Fs = This;
-		Pattern.Class = &FileClass;
+		init_head(&Pattern.head, &FileClass, &This->head);
 		if(first || (entry && !IS_DIR(entry)))
 			Pattern.map = normal_map;
 		else
@@ -622,8 +685,8 @@ static Stream_t *_internalFileOpen(Stream_t *Dir, unsigned int first,
 		Pattern.loopDetectAbs = first;
 		if(!hash_lookup(filehash, (T_HashTableEl) &Pattern,
 				(T_HashTableEl **)&File, 0)){
-			File->refs++;
-			This->refs--;
+			File->head.refs++;
+			This->head.refs--;
 			return (Stream_t *) File;
 		}
 	}
@@ -631,6 +694,8 @@ static Stream_t *_internalFileOpen(Stream_t *Dir, unsigned int first,
 	File = New(File_t);
 	if (!File)
 		return NULL;
+	init_head(&File->head, &FileClass, &This->head);
+	File->Buffer = NULL;
 	File->dcp = 0;
 	File->preallocatedClusters = 0;
 	File->preallocatedSize = 0;
@@ -640,9 +705,7 @@ static Stream_t *_internalFileOpen(Stream_t *Dir, unsigned int first,
 		File->direntry.Dir = (Stream_t *) File; /* root directory */
 	else
 		COPY(File->direntry.Dir);
-
-	File->Class = &FileClass;
-	File->Fs = This;
+	File->where = 0;
 	if(first || (entry && !IS_DIR(entry)))
 		File->map = normal_map;
 	else
@@ -657,17 +720,41 @@ static Stream_t *_internalFileOpen(Stream_t *Dir, unsigned int first,
 
 	File->PreviousRelCluNr = 0xffff;
 	File->FileSize = size;
-	File->refs = 1;
-	File->Buffer = 0;
 	hash_add(filehash, (void *) File, &File->hint);
 	return (Stream_t *) File;
 }
+
+static void bufferize(Stream_t **Dir)
+{
+	Stream_t *BDir;
+	File_t *file = (File_t *) *Dir;
+	
+	if(!*Dir)
+		return;
+
+	if(file->Buffer){
+		(*Dir)->refs--;
+		file->Buffer->refs++;
+		*Dir = file->Buffer;
+		return;
+	}
+	
+	BDir = buf_init(*Dir, 64*16384, 512, MDIR_SIZE);
+	if(!BDir){
+		FREE(Dir);
+		*Dir = NULL;
+	} else {
+		file->Buffer = BDir;
+		*Dir = BDir;
+	}
+}
+
 
 Stream_t *OpenRoot(Stream_t *Dir)
 {
 	unsigned int num;
 	direntry_t entry;
-	size_t size;
+	uint32_t size;
 	Stream_t *file;
 
 	memset(&entry, 0, sizeof(direntry_t));
@@ -695,7 +782,7 @@ Stream_t *OpenFileByDirentry(direntry_t *entry)
 {
 	Stream_t *file;
 	unsigned int first;
-	size_t size;
+	uint32_t size;
 
 	first = getStart(entry->Dir, &entry->dir);
 

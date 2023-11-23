@@ -32,8 +32,8 @@ static long strtol_with_range(const char *nptr, char **endptr, int base,
     return l;
 }
 
-static long strtoul_with_range(const char *nptr, char **endptr, int base,
-			      unsigned long max) {
+static unsigned long strtoul_with_range(const char *nptr, char **endptr,
+					int base, unsigned long max) {
     unsigned long l = strtoul(nptr, endptr, base);
     if(l > max) {
 	errno = ERANGE;
@@ -84,4 +84,47 @@ uint32_t strtou32(const char *nptr, char **endptr, int base) {
 
 uint32_t atou32(const char *str) {
     return strtou32(str, 0, 0);
+}
+
+static void checkOverflow(uint32_t tot_sectors, int bits) {
+	if(tot_sectors > UINT32_MAX >> bits) {
+		fprintf(stderr, "Too many sectors\n");
+		exit(1);
+	}
+}
+
+uint32_t parseSize(char *sizeStr) {
+	char *eptr;
+	uint32_t tot_sectors = strtou32(sizeStr, &eptr, 10);
+	if(eptr == sizeStr) {
+		fprintf(stderr, "Bad size %s\n", sizeStr);
+		exit(1);
+	}
+	switch(toupper(*eptr)) {
+	case 'T':
+		checkOverflow(tot_sectors, 10);
+		tot_sectors *= 1024;
+		/* FALL THROUGH */
+	case 'G':
+		checkOverflow(tot_sectors, 10);
+		tot_sectors *= 1024;
+		/* FALL THROUGH */
+	case 'M':
+		checkOverflow(tot_sectors, 10);
+		tot_sectors *= 1024;
+		/* FALL THROUGH */
+	case 'K':
+		checkOverflow(tot_sectors, 1);
+		tot_sectors *= 2;
+		eptr++;
+		break;
+	case '\0':
+		/* By default, assume sectors */
+		break;
+	}
+	if(*eptr) {
+		fprintf(stderr, "Bad suffix %s\n", eptr);
+		exit(1);
+	}
+	return tot_sectors;
 }

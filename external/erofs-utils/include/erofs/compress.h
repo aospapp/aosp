@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * erofs-utils/include/erofs/compress.h
- *
  * Copyright (C) 2019 HUAWEI, Inc.
  *             http://www.huawei.com/
  * Created by Gao Xiang <gaoxiang25@huawei.com>
  */
 #ifndef __EROFS_COMPRESS_H
 #define __EROFS_COMPRESS_H
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #include "internal.h"
 
@@ -18,10 +21,13 @@
 
 int erofs_write_compressed_file(struct erofs_inode *inode);
 
-int z_erofs_compress_init(void);
+int z_erofs_compress_init(struct erofs_buffer_head *bh);
 int z_erofs_compress_exit(void);
 
 const char *z_erofs_list_available_compressors(unsigned int i);
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif

@@ -115,3 +115,60 @@ fn issue_359() {
         Opt::from_iter(&["test", "only_one_arg"])
     );
 }
+
+#[test]
+fn issue_418() {
+    use structopt::StructOpt;
+
+    #[derive(Debug, StructOpt)]
+    struct Opts {
+        #[structopt(subcommand)]
+        /// The command to run
+        command: Command,
+    }
+
+    #[derive(Debug, StructOpt)]
+    enum Command {
+        /// Reticulate the splines
+        #[structopt(visible_alias = "ret")]
+        Reticulate {
+            /// How many splines
+            num_splines: u8,
+        },
+        /// Frobnicate the rest
+        #[structopt(visible_alias = "frob")]
+        Frobnicate,
+    }
+
+    let help = get_long_help::<Opts>();
+    assert!(help.contains("Reticulate the splines [aliases: ret]"));
+}
+
+#[test]
+fn issue_490() {
+    use std::iter::FromIterator;
+    use std::str::FromStr;
+    use structopt::StructOpt;
+
+    struct U16ish;
+    impl FromStr for U16ish {
+        type Err = ();
+        fn from_str(_: &str) -> Result<Self, Self::Err> {
+            unimplemented!()
+        }
+    }
+    impl<'a> FromIterator<&'a U16ish> for Vec<u16> {
+        fn from_iter<T: IntoIterator<Item = &'a U16ish>>(_: T) -> Self {
+            unimplemented!()
+        }
+    }
+
+    #[derive(StructOpt, Debug)]
+    struct Opt {
+        opt_vec: Vec<u16>,
+        #[structopt(long)]
+        opt_opt_vec: Option<Vec<u16>>,
+    }
+
+    // Assert that it compiles
+}

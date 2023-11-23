@@ -20,12 +20,12 @@ import contextlib
 import multiprocessing
 import os
 import re
-import shutil
 import subprocess
 import stat
 import sys
+import tempfile
 
-TMP_FUZZER_DIR = '/tmp/not-out'
+BASE_TMP_FUZZER_DIR = '/tmp/not-out'
 
 EXECUTABLE = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
 
@@ -35,14 +35,6 @@ IGNORED_TARGETS = [
 ]
 
 IGNORED_TARGETS_RE = re.compile('^' + r'$|^'.join(IGNORED_TARGETS) + '$')
-
-
-def recreate_directory(directory):
-  """Creates |directory|. If it already exists than deletes it first before
-  creating."""
-  if os.path.exists(directory):
-    shutil.rmtree(directory)
-  os.mkdir(directory)
 
 
 def move_directory_contents(src_directory, dst_directory):
@@ -67,7 +59,15 @@ def is_elf(filepath):
   return b'ELF' in result.stdout
 
 
-def find_fuzz_targets(directory, fuzzing_language):
+def is_shell_script(filepath):
+  """Returns True if |filepath| is a shell script."""
+  result = subprocess.run(['file', filepath],
+                          stdout=subprocess.PIPE,
+                          check=False)
+  return b'shell script' in result.stdout
+
+
+def find_fuzz_targets(directory):
   """Returns paths to fuzz targets in |directory|."""
   # TODO(https://github.com/google/oss-fuzz/issues/4585): Use libClusterFuzz for
   # this.
@@ -84,10 +84,10 @@ def find_fuzz_targets(directory, fuzzing_language):
       continue
     if not os.stat(path).st_mode & EXECUTABLE:
       continue
-    # Fuzz targets are expected to be ELF binaries for languages other than
-    # Python and Java.
-    if (fuzzing_language != 'python' and fuzzing_language != 'jvm' and
-        not is_elf(path)):
+    # Fuzz targets can either be ELF binaries or shell scripts (e.g. wrapper
+    # scripts for Python and JVM targets or rules_fuzzing builds with runfiles
+    # trees).
+    if not is_elf(path) and not is_shell_script(path):
       continue
     if os.getenv('FUZZING_ENGINE') != 'none':
       with open(path, 'rb') as file_handle:
@@ -132,47 +132,62 @@ def has_ignored_targets(out_dir):
 
 @contextlib.contextmanager
 def use_different_out_dir():
-  """Context manager that moves OUT to TMP_FUZZER_DIR. This is useful for
-  catching hardcoding. Note that this sets the environment variable OUT and
-  therefore must be run before multiprocessing.Pool is created. Resets OUT at
-  the end."""
+  """Context manager that moves OUT to subdirectory of BASE_TMP_FUZZER_DIR. This
+  is useful for catching hardcoding. Note that this sets the environment
+  variable OUT and therefore must be run before multiprocessing.Pool is created.
+  Resets OUT at the end."""
   # Use a fake OUT directory to catch path hardcoding that breaks on
   # ClusterFuzz.
-  out = os.getenv('OUT')
-  initial_out = out
-  recreate_directory(TMP_FUZZER_DIR)
-  out = TMP_FUZZER_DIR
-  # Set this so that run_fuzzer which is called by bad_build_check works
-  # properly.
-  os.environ['OUT'] = out
-  # We move the contents of the directory because we can't move the
-  # directory itself because it is a mount.
-  move_directory_contents(initial_out, out)
-  try:
-    yield out
-  finally:
-    move_directory_contents(out, initial_out)
-    shutil.rmtree(out)
-    os.environ['OUT'] = initial_out
+  initial_out = os.getenv('OUT')
+  os.makedirs(BASE_TMP_FUZZER_DIR, exist_ok=True)
+  # Use a random subdirectory of BASE_TMP_FUZZER_DIR to allow running multiple
+  # instances of test_all in parallel (useful for integration testing).
+  with tempfile.TemporaryDirectory(dir=BASE_TMP_FUZZER_DIR) as out:
+    # Set this so that run_fuzzer which is called by bad_build_check works
+    # properly.
+    os.environ['OUT'] = out
+    # We move the contents of the directory because we can't move the
+    # directory itself because it is a mount.
+    move_directory_contents(initial_out, out)
+    try:
+      yield out
+    finally:
+      move_directory_contents(out, initial_out)
+      os.environ['OUT'] = initial_out
 
 
-def test_all_outside_out(fuzzing_language, allowed_broken_targets_percentage):
+def test_all_outside_out(allowed_broken_targets_percentage):
   """Wrapper around test_all that changes OUT and returns the result."""
   with use_different_out_dir() as out:
-    return test_all(out, fuzzing_language, allowed_broken_targets_percentage)
+    return test_all(out, allowed_broken_targets_percentage)
 
 
-def test_all(out, fuzzing_language, allowed_broken_targets_percentage):
+def test_all(out, allowed_broken_targets_percentage):
   """Do bad_build_check on all fuzz targets."""
   # TODO(metzman): Refactor so that we can convert test_one to python.
-  fuzz_targets = find_fuzz_targets(out, fuzzing_language)
+  fuzz_targets = find_fuzz_targets(out)
   if not fuzz_targets:
     print('ERROR: No fuzz targets found.')
     return False
 
   pool = multiprocessing.Pool()
   bad_build_results = pool.map(do_bad_build_check, fuzz_targets)
+  pool.close()
+  pool.join()
   broken_targets = get_broken_fuzz_targets(bad_build_results, fuzz_targets)
+  broken_targets_count = len(broken_targets)
+  if not broken_targets_count:
+    return True
+
+  print('Retrying failed fuzz targets sequentially', broken_targets_count)
+  pool = multiprocessing.Pool(1)
+  retry_targets = []
+  for broken_target, result in broken_targets:
+    retry_targets.append(broken_target)
+  bad_build_results = pool.map(do_bad_build_check, retry_targets)
+  pool.close()
+  pool.join()
+  broken_targets = get_broken_fuzz_targets(bad_build_results, broken_targets)
   broken_targets_count = len(broken_targets)
   if not broken_targets_count:
     return True
@@ -211,11 +226,8 @@ def get_allowed_broken_targets_percentage():
 def main():
   """Does bad_build_check on all fuzz targets in parallel. Returns 0 on success.
   Returns 1 on failure."""
-  # Set these environment variables here so that stdout
-  fuzzing_language = os.getenv('FUZZING_LANGUAGE')
   allowed_broken_targets_percentage = get_allowed_broken_targets_percentage()
-  if not test_all_outside_out(fuzzing_language,
-                              allowed_broken_targets_percentage):
+  if not test_all_outside_out(allowed_broken_targets_percentage):
     return 1
   return 0
 

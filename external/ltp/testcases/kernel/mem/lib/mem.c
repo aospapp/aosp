@@ -52,7 +52,7 @@ static int alloc_mem(long int length, int testcase)
 		}
 	}
 
-#ifdef HAVE_MADV_MERGEABLE
+#ifdef HAVE_DECL_MADV_MERGEABLE
 	if (testcase == KSM && madvise(s, length, MADV_MERGEABLE) == -1)
 		return errno;
 #endif
@@ -312,13 +312,6 @@ void check_hugepage(void)
 		tst_brk(TCONF, "Huge page is not supported.");
 }
 
-void write_memcg(void)
-{
-	SAFE_FILE_PRINTF(MEMCG_LIMIT, "%ld", TESTMEM);
-
-	SAFE_FILE_PRINTF(MEMCG_PATH_NEW "/tasks", "%d", getpid());
-}
-
 struct ksm_merge_data {
 	char data;
 	unsigned int mergeable_size;
@@ -368,7 +361,7 @@ static void create_ksm_child(int child_num, int size, int unit,
 	for (j = 0; j < total_unit; j++) {
 		memory[j] = SAFE_MMAP(NULL, unit * MB, PROT_READ|PROT_WRITE,
 			MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-#ifdef HAVE_MADV_MERGEABLE
+#ifdef HAVE_DECL_MADV_MERGEABLE
 		if (madvise(memory[j], unit * MB, MADV_MERGEABLE) == -1)
 			tst_brk(TBROK|TERRNO, "madvise");
 #endif
@@ -551,7 +544,7 @@ void test_ksm_merge_across_nodes(unsigned long nr_pages)
 	for (i = 0; i < num_nodes; i++) {
 		memory[i] = SAFE_MMAP(NULL, length, PROT_READ|PROT_WRITE,
 			    MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-#ifdef HAVE_MADV_MERGEABLE
+#ifdef HAVE_DECL_MADV_MERGEABLE
 		if (madvise(memory[i], length, MADV_MERGEABLE) == -1)
 			tst_brk(TBROK|TERRNO, "madvise");
 #endif
@@ -603,7 +596,6 @@ void test_ksm_merge_across_nodes(unsigned long nr_pages)
 /* THP */
 
 /* cpuset/memcg */
-
 static void gather_node_cpus(char *cpus, long nd)
 {
 	int ncpus = 0;
@@ -637,62 +629,11 @@ static void gather_node_cpus(char *cpus, long nd)
 	cpus[strlen(cpus) - 1] = '\0';
 }
 
-void read_cpuset_files(char *prefix, char *filename, char *retbuf)
+void write_cpusets(const struct tst_cgroup_group *cg, long nd)
 {
-	int fd;
-	char path[BUFSIZ];
-
-	/*
-	 * try either '/dev/cpuset/XXXX' or '/dev/cpuset/cpuset.XXXX'
-	 * please see Documentation/cgroups/cpusets.txt from kernel src
-	 * for details
-	 */
-	snprintf(path, BUFSIZ, "%s/%s", prefix, filename);
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		if (errno == ENOENT) {
-			snprintf(path, BUFSIZ, "%s/cpuset.%s",
-				 prefix, filename);
-			fd = SAFE_OPEN(path, O_RDONLY);
-		} else
-			tst_brk(TBROK | TERRNO, "open %s", path);
-	}
-	if (read(fd, retbuf, BUFSIZ) < 0)
-		tst_brk(TBROK | TERRNO, "read %s", path);
-	close(fd);
-}
-
-void write_cpuset_files(char *prefix, char *filename, char *buf)
-{
-	int fd;
-	char path[BUFSIZ];
-
-	/*
-	 * try either '/dev/cpuset/XXXX' or '/dev/cpuset/cpuset.XXXX'
-	 * please see Documentation/cgroups/cpusets.txt from kernel src
-	 * for details
-	 */
-	snprintf(path, BUFSIZ, "%s/%s", prefix, filename);
-	fd = open(path, O_WRONLY);
-	if (fd == -1) {
-		if (errno == ENOENT) {
-			snprintf(path, BUFSIZ, "%s/cpuset.%s",
-				 prefix, filename);
-			fd = SAFE_OPEN(path, O_WRONLY);
-		} else
-			tst_brk(TBROK | TERRNO, "open %s", path);
-	}
-	SAFE_WRITE(1, fd, buf, strlen(buf));
-	close(fd);
-}
-
-void write_cpusets(long nd)
-{
-	char buf[BUFSIZ];
 	char cpus[BUFSIZ] = "";
 
-	snprintf(buf, BUFSIZ, "%ld", nd);
-	write_cpuset_files(CPATH_NEW, "mems", buf);
+	SAFE_CGROUP_PRINTF(cg, "cpuset.mems", "%ld", nd);
 
 	gather_node_cpus(cpus, nd);
 	/*
@@ -701,65 +642,12 @@ void write_cpusets(long nd)
 	 * the value of cpuset.cpus.
 	 */
 	if (strlen(cpus) != 0) {
-		write_cpuset_files(CPATH_NEW, "cpus", cpus);
+		SAFE_CGROUP_PRINT(cg, "cpuset.cpus", cpus);
 	} else {
 		tst_res(TINFO, "No CPUs in the node%ld; "
 				"using only CPU0", nd);
-		write_cpuset_files(CPATH_NEW, "cpus", "0");
+		SAFE_CGROUP_PRINT(cg, "cpuset.cpus", "0");
 	}
-
-	SAFE_FILE_PRINTF(CPATH_NEW "/tasks", "%d", getpid());
-}
-
-void umount_mem(char *path, char *path_new)
-{
-	FILE *fp;
-	int fd;
-	char s_new[BUFSIZ], s[BUFSIZ], value[BUFSIZ];
-
-	/* Move all processes in task to its parent node. */
-	sprintf(s, "%s/tasks", path);
-	fd = open(s, O_WRONLY);
-	if (fd == -1)
-		tst_res(TWARN | TERRNO, "open %s", s);
-
-	snprintf(s_new, BUFSIZ, "%s/tasks", path_new);
-	fp = fopen(s_new, "r");
-	if (fp == NULL)
-		tst_res(TWARN | TERRNO, "fopen %s", s_new);
-	if ((fd != -1) && (fp != NULL)) {
-		while (fgets(value, BUFSIZ, fp) != NULL)
-			if (write(fd, value, strlen(value) - 1)
-			    != (ssize_t)strlen(value) - 1)
-				tst_res(TWARN | TERRNO, "write %s", s);
-	}
-	if (fd != -1)
-		close(fd);
-	if (fp != NULL)
-		fclose(fp);
-	if (rmdir(path_new) == -1)
-		tst_res(TWARN | TERRNO, "rmdir %s", path_new);
-	if (umount(path) == -1)
-		tst_res(TWARN | TERRNO, "umount %s", path);
-	if (rmdir(path) == -1)
-		tst_res(TWARN | TERRNO, "rmdir %s", path);
-}
-
-void mount_mem(char *name, char *fs, char *options, char *path, char *path_new)
-{
-	SAFE_MKDIR(path, 0777);
-	if (mount(name, path, fs, 0, options) == -1) {
-		if (errno == ENODEV) {
-			if (rmdir(path) == -1)
-				tst_res(TWARN | TERRNO, "rmdir %s failed",
-					 path);
-			tst_brk(TCONF,
-				 "file system %s is not configured in kernel",
-				 fs);
-		}
-		tst_brk(TBROK | TERRNO, "mount %s", path);
-	}
-	SAFE_MKDIR(path_new, 0777);
 }
 
 /* shared */

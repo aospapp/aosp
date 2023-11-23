@@ -1,9 +1,16 @@
+//! A naïve spinning mutex.
+//!
+//! Waiting threads hammer an atomic variable until it becomes available. Best-case latency is low, but worst-case
+//! latency is theoretically infinite.
+
 use core::{
     cell::UnsafeCell,
     fmt,
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
+    marker::PhantomData,
 };
+use crate::{RelaxStrategy, Spin};
 
 /// A [spin lock](https://en.m.wikipedia.org/wiki/Spinlock) providing mutually exclusive access to data.
 ///
@@ -12,7 +19,7 @@ use core::{
 /// ```
 /// use spin;
 ///
-/// let lock = spin::mutex::SpinMutex::new(0);
+/// let lock = spin::mutex::SpinMutex::<_>::new(0);
 ///
 /// // Modify the data
 /// *lock.lock() = 2;
@@ -29,7 +36,7 @@ use core::{
 /// use std::sync::{Arc, Barrier};
 ///
 /// let thread_count = 1000;
-/// let spin_mutex = Arc::new(spin::mutex::SpinMutex::new(0));
+/// let spin_mutex = Arc::new(spin::mutex::SpinMutex::<_>::new(0));
 ///
 /// // We use a barrier to ensure the readout happens after all writing
 /// let barrier = Arc::new(Barrier::new(thread_count + 1));
@@ -52,7 +59,8 @@ use core::{
 /// let answer = { *spin_mutex.lock() };
 /// assert_eq!(answer, thread_count);
 /// ```
-pub struct SpinMutex<T: ?Sized> {
+pub struct SpinMutex<T: ?Sized, R = Spin> {
+    phantom: PhantomData<R>,
     pub(crate) lock: AtomicBool,
     data: UnsafeCell<T>,
 }
@@ -69,7 +77,7 @@ pub struct SpinMutexGuard<'a, T: ?Sized + 'a> {
 unsafe impl<T: ?Sized + Send> Sync for SpinMutex<T> {}
 unsafe impl<T: ?Sized + Send> Send for SpinMutex<T> {}
 
-impl<T> SpinMutex<T> {
+impl<T, R> SpinMutex<T, R> {
     /// Creates a new [`SpinMutex`] wrapping the supplied data.
     ///
     /// # Example
@@ -77,7 +85,7 @@ impl<T> SpinMutex<T> {
     /// ```
     /// use spin::mutex::SpinMutex;
     ///
-    /// static MUTEX: SpinMutex<()> = SpinMutex::new(());
+    /// static MUTEX: SpinMutex<()> = SpinMutex::<_>::new(());
     ///
     /// fn demo() {
     ///     let lock = MUTEX.lock();
@@ -86,10 +94,11 @@ impl<T> SpinMutex<T> {
     /// }
     /// ```
     #[inline(always)]
-    pub const fn new(user_data: T) -> SpinMutex<T> {
+    pub const fn new(data: T) -> Self {
         SpinMutex {
             lock: AtomicBool::new(false),
-            data: UnsafeCell::new(user_data),
+            data: UnsafeCell::new(data),
+            phantom: PhantomData,
         }
     }
 
@@ -98,7 +107,7 @@ impl<T> SpinMutex<T> {
     /// # Example
     ///
     /// ```
-    /// let lock = spin::mutex::SpinMutex::new(42);
+    /// let lock = spin::mutex::SpinMutex::<_>::new(42);
     /// assert_eq!(42, lock.into_inner());
     /// ```
     #[inline(always)]
@@ -108,27 +117,42 @@ impl<T> SpinMutex<T> {
         let SpinMutex { data, .. } = self;
         data.into_inner()
     }
+
+    /// Returns a mutable pointer to the underlying data.
+    ///
+    /// This is mostly meant to be used for applications which require manual unlocking, but where
+    /// storing both the lock and the pointer to the inner data gets inefficient.
+    ///
+    /// # Example
+    /// ```
+    /// let lock = spin::mutex::SpinMutex::<_>::new(42);
+    ///
+    /// unsafe {
+    ///     core::mem::forget(lock.lock());
+    ///     
+    ///     assert_eq!(lock.as_mut_ptr().read(), 42);
+    ///     lock.as_mut_ptr().write(58);
+    ///
+    ///     lock.force_unlock();
+    /// }
+    ///
+    /// assert_eq!(*lock.lock(), 58);
+    ///
+    /// ```
+    #[inline(always)]
+    pub fn as_mut_ptr(&self) -> *mut T {
+        self.data.get()
+    }
 }
 
-impl<T: ?Sized> SpinMutex<T> {
-    /// Returns `true` if the lock is currently held.
-    ///
-    /// # Safety
-    ///
-    /// This function provides no synchronization guarantees and so its result should be considered 'out of date'
-    /// the instant it is called. Do not use it for synchronization purposes. However, it may be useful as a heuristic.
-    #[inline(always)]
-    pub fn is_locked(&self) -> bool {
-        self.lock.load(Ordering::Relaxed)
-    }
-
+impl<T: ?Sized, R: RelaxStrategy> SpinMutex<T, R> {
     /// Locks the [`SpinMutex`] and returns a guard that permits access to the inner data.
     ///
     /// The returned value may be dereferenced for data access
     /// and the lock will be dropped when the guard falls out of scope.
     ///
     /// ```
-    /// let lock = spin::mutex::SpinMutex::new(0);
+    /// let lock = spin::mutex::SpinMutex::<_>::new(0);
     /// {
     ///     let mut data = lock.lock();
     ///     // The lock is now locked and the data can be accessed
@@ -143,7 +167,7 @@ impl<T: ?Sized> SpinMutex<T> {
         while self.lock.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
             // Wait until the lock looks unlocked before retrying
             while self.is_locked() {
-                crate::relax();
+                R::relax();
             }
         }
 
@@ -151,6 +175,19 @@ impl<T: ?Sized> SpinMutex<T> {
             lock: &self.lock,
             data: unsafe { &mut *self.data.get() },
         }
+    }
+}
+
+impl<T: ?Sized, R> SpinMutex<T, R> {
+    /// Returns `true` if the lock is currently held.
+    ///
+    /// # Safety
+    ///
+    /// This function provides no synchronization guarantees and so its result should be considered 'out of date'
+    /// the instant it is called. Do not use it for synchronization purposes. However, it may be useful as a heuristic.
+    #[inline(always)]
+    pub fn is_locked(&self) -> bool {
+        self.lock.load(Ordering::Relaxed)
     }
 
     /// Force unlock this [`SpinMutex`].
@@ -170,7 +207,7 @@ impl<T: ?Sized> SpinMutex<T> {
     /// # Example
     ///
     /// ```
-    /// let lock = spin::mutex::SpinMutex::new(42);
+    /// let lock = spin::mutex::SpinMutex::<_>::new(42);
     ///
     /// let maybe_guard = lock.try_lock();
     /// assert!(maybe_guard.is_some());
@@ -202,7 +239,7 @@ impl<T: ?Sized> SpinMutex<T> {
     /// # Example
     ///
     /// ```
-    /// let mut lock = spin::mutex::SpinMutex::new(0);
+    /// let mut lock = spin::mutex::SpinMutex::<_>::new(0);
     /// *lock.get_mut() = 10;
     /// assert_eq!(*lock.lock(), 10);
     /// ```
@@ -214,7 +251,7 @@ impl<T: ?Sized> SpinMutex<T> {
     }
 }
 
-impl<T: ?Sized + fmt::Debug> fmt::Debug for SpinMutex<T> {
+impl<T: ?Sized + fmt::Debug, R> fmt::Debug for SpinMutex<T, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.try_lock() {
             Some(guard) => write!(f, "Mutex {{ data: ")
@@ -225,13 +262,13 @@ impl<T: ?Sized + fmt::Debug> fmt::Debug for SpinMutex<T> {
     }
 }
 
-impl<T: ?Sized + Default> Default for SpinMutex<T> {
-    fn default() -> SpinMutex<T> {
-        SpinMutex::new(Default::default())
+impl<T: ?Sized + Default, R> Default for SpinMutex<T, R> {
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }
 
-impl<T> From<T> for SpinMutex<T> {
+impl<T, R> From<T> for SpinMutex<T, R> {
     fn from(data: T) -> Self {
         Self::new(data)
     }
@@ -243,7 +280,7 @@ impl<'a, T: ?Sized> SpinMutexGuard<'a, T> {
     /// Note that this function will permanently lock the original [`SpinMutex`].
     ///
     /// ```
-    /// let mylock = spin::mutex::SpinMutex::new(0);
+    /// let mylock = spin::mutex::SpinMutex::<_>::new(0);
     ///
     /// let data: &mut i32 = spin::mutex::SpinMutexGuard::leak(mylock.lock());
     ///
@@ -290,9 +327,9 @@ impl<'a, T: ?Sized> Drop for SpinMutexGuard<'a, T> {
     }
 }
 
-#[cfg(feature = "lock_api1")]
-unsafe impl lock_api::RawMutex for SpinMutex<()> {
-    type GuardMarker = lock_api::GuardSend;
+#[cfg(feature = "lock_api")]
+unsafe impl<R: RelaxStrategy> lock_api_crate::RawMutex for SpinMutex<(), R> {
+    type GuardMarker = lock_api_crate::GuardSend;
 
     const INIT: Self = Self::new(());
 
@@ -324,21 +361,21 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
 
-    use super::*;
+    type SpinMutex<T> = super::SpinMutex<T>;
 
     #[derive(Eq, PartialEq, Debug)]
     struct NonCopy(i32);
 
     #[test]
     fn smoke() {
-        let m = SpinMutex::new(());
+        let m = SpinMutex::<_>::new(());
         drop(m.lock());
         drop(m.lock());
     }
 
     #[test]
     fn lots_and_lots() {
-        static M: SpinMutex<()> = SpinMutex::new(());
+        static M: SpinMutex<()> = SpinMutex::<_>::new(());
         static mut CNT: u32 = 0;
         const J: u32 = 1000;
         const K: u32 = 3;
@@ -375,7 +412,7 @@ mod tests {
 
     #[test]
     fn try_lock() {
-        let mutex = SpinMutex::new(42);
+        let mutex = SpinMutex::<_>::new(42);
 
         // First lock succeeds
         let a = mutex.try_lock();
@@ -393,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_into_inner() {
-        let m = SpinMutex::new(NonCopy(10));
+        let m = SpinMutex::<_>::new(NonCopy(10));
         assert_eq!(m.into_inner(), NonCopy(10));
     }
 
@@ -406,7 +443,7 @@ mod tests {
             }
         }
         let num_drops = Arc::new(AtomicUsize::new(0));
-        let m = SpinMutex::new(Foo(num_drops.clone()));
+        let m = SpinMutex::<_>::new(Foo(num_drops.clone()));
         assert_eq!(num_drops.load(Ordering::SeqCst), 0);
         {
             let _inner = m.into_inner();
@@ -419,8 +456,8 @@ mod tests {
     fn test_mutex_arc_nested() {
         // Tests nested mutexes and access
         // to underlying data.
-        let arc = Arc::new(SpinMutex::new(1));
-        let arc2 = Arc::new(SpinMutex::new(arc));
+        let arc = Arc::new(SpinMutex::<_>::new(1));
+        let arc2 = Arc::new(SpinMutex::<_>::new(arc));
         let (tx, rx) = channel();
         let _t = thread::spawn(move || {
             let lock = arc2.lock();
@@ -434,7 +471,7 @@ mod tests {
     #[test]
     #[ignore = "Android uses panic_abort"]
     fn test_mutex_arc_access_in_unwind() {
-        let arc = Arc::new(SpinMutex::new(1));
+        let arc = Arc::new(SpinMutex::<_>::new(1));
         let arc2 = arc.clone();
         let _ = thread::spawn(move || -> () {
             struct Unwinder {
@@ -455,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_mutex_unsized() {
-        let mutex: &SpinMutex<[i32]> = &SpinMutex::new([1, 2, 3]);
+        let mutex: &SpinMutex<[i32]> = &SpinMutex::<_>::new([1, 2, 3]);
         {
             let b = &mut *mutex.lock();
             b[0] = 4;
@@ -467,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_mutex_force_lock() {
-        let lock = SpinMutex::new(());
+        let lock = SpinMutex::<_>::new(());
         ::std::mem::forget(lock.lock());
         unsafe {
             lock.force_unlock();

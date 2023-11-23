@@ -1,3 +1,160 @@
+2.0
+===
+
+Ben Woodard via Libabigail (5):
+      Fix declaratons of conditionally defined functions
+      Fix declaratons of conditionally defined functions
+      Bug 27512 - Remove broken zip-archive support
+      Fix trivial typo when printing version string
+      Fix trivial typo when printing version string
+
+Dodji Seketeli (90):
+      configure: add --enable-rpm415 option
+      Add check-self-compare to release regression testing
+      Bump version number to 2.0
+      Add missing SPDX headers to source files not specifying any license
+      Add has-spdx-header.sh script
+      Add replace-spdx-license.sh script
+      Add helper files to perform the re-licensing
+      Re-license the project to Apache v2 With LLVM Exception
+      Add the LICENSE.txt file
+      Delete COPYING* files
+      Add a license-change-2020.txt file
+      Teach Automake that COPYING* files are gone from sources
+      CONTRIBUTING: Update instructions about regression tests
+      Use C++11 for the code base
+      ir: Add better comments to types_have_similar_structure
+      mainpage: Update web page for 1.8 release
+      Bug 26992 - Try harder to resolve declaration-only classes
+      Bug 27204 -  potential loss of some aliased ELF function symbols
+      Ignore duplicated functions and those not associated with ELF symbols
+      Bug 27236 - Pointer comparison wrongly fails because of typedef change
+      Bug 27233 - fedabipkgdiff fails on package gnupg2 from Fedora 33
+      Bug 27232 - fedabipkgdiff fails on gawk from Fedora 33
+      dwarf-reader: Support fast DW_FORM_line_strp string comparison
+      Bug 27255 - fedabipkgdiff fails on nfs-utils on Fedora 33
+      Bug 26684 - Support DW_AT_data_bit_offset attribute
+      Bump ABIXML format version to 2.0
+      Bug 27165 - Better support multi-language binaries
+      Bug 27331 - Data member offset change not considered local
+      Bug 27267 - Better support for opaque enum types
+      dwarf-reader: Use DW_FORM_line_strp only if it's present
+      Use generic internal type name to canonicalize anonymous enums
+      Don't consider type name when comparing typedefs
+      tests: Update to catch.hpp v2.13.4 and fix #2178
+      Better sorting of (anonymous) types in ABIXML files
+      dwarf-reader: Keep stable order when de-duplicating class definitions
+      tests/catch.hpp: Add SPDX header back
+      Revert "Fix declaratons of conditionally defined functions"
+      dwarf-reader: Support more DWARF-5 type DIEs
+      Bug 27569 - abidiff misses a function parameter addition
+      Bug 27598 - abidiff mishandles union member functions
+      dwarf-reader: Canonicalize opaque enums and classes
+      dwarf-reader: properly set artificial-ness in opaque types
+      reader: Handle 'abi-corpus' element being possibly empty
+      reader: Use xmlFirstElementChild and xmlNextElementSibling rather than xml::advance_to_next_sibling_element
+      reader: Use xmlFirstElementChild/xmlNextElementSibling to iterate over children elements
+      Fix thinko in configure.ac
+      Miscellaneous indentation and comments cleanups
+      Fix DWARF type DIE canonicalization
+      Peel array types when peeling pointers from a type
+      Add primitives callable from the command line of the debugger
+      Detect failed self comparison in type canonicalization of abixml
+      Detect abixml canonical type instability during abidw --debug-abidiff
+      Introduce artificial locations
+      abixml reader: Fix recursive type definition handling
+      xml reader: Fix recursive qualified & reference type definition
+      ir: Enable setting breakpoint on first type inequality
+      Add environment::{get_type_id_from_pointer,get_canonical_type_from_type_id}
+      location:expand() shouldn't crash when no location manager available
+      ir: make 'debug(artefact)' support showing enums
+      reader: Canonicalizing a type once is enough
+      rhbz1951526 - SELF CHECK FAILED for 'gimp-2.10'
+      Fix recursive array type definition
+      abidw: Remove temporary .typeid files when using --debug-abidiff
+      abg-reader: Fix typo
+      doc: Fix typo
+      Revert "Fix trivial typo when printing version string"
+      Bug 27980 - Fix updating of type scope upon type canonicalization
+      ir: Improve the debugging facilities
+      ir: Tighten the test for anonymous data member
+      ir: Tighten type comparison optimization for Linux kernel binaries
+      Bug 27995 - Self comparison error from abixml file
+      Bug 27236 - Fix the canonical type propagation optimization
+      Bug 27236 - Allow updating classes from abixml
+      Bug 27236 - Don't forget to emit some referenced types
+      RHBZ 1925886 - Compare anonymous types without qualified names
+      Bug 27985 - abidiff: bad array types in report
+      RHBZ-1944096 - assertion failure during self comparison of systemd
+      writer: escape enum linkage name in abixml
+      ir: Avoid infinite loop during type canonicalization
+      ir: Fix canonical type propagation cancelling
+      xml-reader: Get back to original way of building qualified types
+      writer: Avoid sigsev on types with no translation unit
+      RHBZ1951496 - ir: Acknowledge that "void type" is not canonicalized
+      RHBZ1944102 - self comparing ABI of protobuf-3.14.0-2.el9 failed
+      abipkgdiff: Fix showing added/removed files
+      Bug 28316 - Failure to represent typedef named anonymous enums
+      abipkgdiff: Do not erase working dirs before we are done using them
+      Bug 27970 - Duplicated member functions cause spurious self comparison changes
+      dwarf-reader: Indent
+      Bug 27086 - Consider all C++ virtual destructors when there are many
+
+Giuliano Procida (17):
+      abidiff: support --dump-diff-tree with --leaf-changes-only
+      ir: Arrays are indirect types for type structure similarity purposes
+      Add qualifier / typedef / array / pointer test
+      Refresh ABI cross check test files
+      abidiff: do not qualify member names in diff report
+      abg-dwarf-reader: Fix typo in compare_dies_string_attribute_value
+      DWARF reader: Interpret ARM32 ELF addresses correctly
+      DWARF reader: Comment ARM32 ELF address interpretation
+      dwarf-reader: Treat union members as public by default.
+      abg-writer.cc: fix write_elf_symbol_reference loop
+      dwarf-reader: Create new corpus unconditionally
+      abg-reader: Ensure corpus always has a symtab reader
+      abg-reader: Create a fresh corpus object per corpus
+      ir: remove "is Linux string constant" property from elf_symbol
+      abg-ir.h: add declaration of operator<< for elf_symbol::visibility
+      PR28060 - Invalid offset for bitfields
+      abg-writer: faster referenced type emission tests
+
+Matthias Maennich (34):
+      Replace individual license references with SPDX Identifiers
+      Drop C++03 compatibility layer
+      Remove <functional> usages from abg_compat
+      Remove <memory> usages from abg_compat
+      Remove <unordered_map> usages from abg_compat
+      Remove <unordered_set> usages from abg_compat
+      Drop unneccessary includes of abg-cxx-compat.h
+      clang-format: define C++ standard to improve formatting
+      Update catch2 testing framework: v1.12.2 -> v2.13.3
+      abg-ir: Optimize calls to std::string::find() for a single char.
+      abipkgdiff: Address operator precedence warning
+      abg-cxx-compat: add simplified version of std::optional
+      abg-ir: elf_symbol: add is_in_ksymtab field
+      abg-ir: elf_symbol: add is_suppressed field
+      dwarf-reader split: create abg-symtab-reader.{h,cc} and test case
+      clang-format: Minor correction to not break parameters on the first line
+      Refactor ELF symbol table reading by adding a new symtab reader
+      Integrate new symtab reader into corpus and read_context
+      corpus: make get_(undefined_)?_(var|fun)_symbols use the new symtab
+      corpus: make get_unreferenced_(function|variable)_symbols use the new symtab
+      abg-reader: avoid using the (var|function)_symbol_map
+      dwarf-reader: read_context: use new symtab in *_symbols_is_exported
+      Switch kernel stuff over to new symtab and drop unused code
+      abg-elf-helpers: migrate ppc64 specific helpers
+      symtab_reader: add support for ppc64 ELFv1 binaries
+      abg-corpus: remove symbol maps and their setters
+      dwarf reader: drop (now) unused code related to symbol table reading
+      test-symtab: add tests for whitelisted functions
+      symtab/dwarf-reader: allow hinting of main symbols for aliases
+      dwarf-reader/writer: consider aliases when dealing with suppressions
+      symtab: Add support for MODVERSIONS (CRC checksums)
+      elf-helpers: refactor find_symbol_table_section
+      symtab-reader: add support for binaries compiled with CFI
+      Consistently use std::unique_ptr for private implementations (pimpl)
+
 1.8
 ===
 Dodji Seketeli (62):

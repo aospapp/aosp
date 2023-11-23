@@ -30,12 +30,10 @@ std::vector<unwindstack::FrameData> stack() {
 
   unwindstack::FrameData data{};
   data.function_name = "fun1";
-  data.map_name = "map1";
   data.pc = 1;
   res.emplace_back(std::move(data));
   data = {};
   data.function_name = "fun2";
-  data.map_name = "map2";
   data.pc = 2;
   res.emplace_back(std::move(data));
   return res;
@@ -45,12 +43,10 @@ std::vector<unwindstack::FrameData> stack2() {
   std::vector<unwindstack::FrameData> res;
   unwindstack::FrameData data{};
   data.function_name = "fun1";
-  data.map_name = "map1";
   data.pc = 1;
   res.emplace_back(std::move(data));
   data = {};
   data.function_name = "fun3";
-  data.map_name = "map3";
   data.pc = 3;
   res.emplace_back(std::move(data));
   return res;
@@ -60,12 +56,10 @@ std::vector<unwindstack::FrameData> stack3() {
   std::vector<unwindstack::FrameData> res;
   unwindstack::FrameData data{};
   data.function_name = "fun1";
-  data.map_name = "map1";
   data.pc = 1;
   res.emplace_back(std::move(data));
   data = {};
   data.function_name = "fun4";
-  data.map_name = "map4";
   data.pc = 4;
   res.emplace_back(std::move(data));
   return res;
@@ -145,7 +139,7 @@ TEST(BookkeepingTest, Max) {
   sequence_number++;
   hd.RecordMalloc(stack2(), DummyBuildIds(stack2().size()), 0x2, 1, 2,
                   sequence_number, 100 * sequence_number);
-  ASSERT_EQ(hd.max_timestamp(), 200u);
+  ASSERT_EQ(hd.dump_timestamp(), 200u);
   ASSERT_EQ(hd.GetMaxForTesting(stack(), DummyBuildIds(stack().size())), 5u);
   ASSERT_EQ(hd.GetMaxForTesting(stack2(), DummyBuildIds(stack2().size())), 2u);
   ASSERT_EQ(hd.GetMaxCountForTesting(stack(), DummyBuildIds(stack().size())),
@@ -171,7 +165,7 @@ TEST(BookkeepingTest, Max2) {
                   sequence_number, 100 * sequence_number);
   sequence_number++;
   hd.RecordFree(0x2, sequence_number, 100 * sequence_number);
-  EXPECT_EQ(hd.max_timestamp(), 400u);
+  EXPECT_EQ(hd.dump_timestamp(), 400u);
   EXPECT_EQ(hd.GetMaxForTesting(stack(), DummyBuildIds(stack().size())), 0u);
   EXPECT_EQ(hd.GetMaxForTesting(stack2(), DummyBuildIds(stack2().size())), 15u);
   EXPECT_EQ(hd.GetMaxForTesting(stack3(), DummyBuildIds(stack3().size())), 15u);

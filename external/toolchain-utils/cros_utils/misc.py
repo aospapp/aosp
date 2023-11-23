@@ -15,7 +15,6 @@ import os
 import re
 import shutil
 import sys
-import traceback
 
 from cros_utils import command_executer
 from cros_utils import logger
@@ -23,8 +22,6 @@ from cros_utils import logger
 CHROMEOS_SCRIPTS_DIR = '/mnt/host/source/src/scripts'
 TOOLCHAIN_UTILS_PATH = ('/mnt/host/source/src/third_party/toolchain-utils/'
                         'cros_utils/toolchain_utils.sh')
-
-CROS_MAIN_BRANCH = 'cros/master'
 
 
 def GetChromeOSVersionFromLSBVersion(lsb_version):
@@ -112,8 +109,8 @@ def FormatQuotedCommand(command):
 
 
 def FormatCommands(commands):
-  return ApplySubs(
-      str(commands), ('&&', '&&\n'), (';', ';\n'), (r'\n+\s*', '\n'))
+  return ApplySubs(str(commands), ('&&', '&&\n'), (';', ';\n'),
+                   (r'\n+\s*', '\n'))
 
 
 def GetImageDir(chromeos_root, board):
@@ -155,16 +152,16 @@ def GetBuildPackagesCommand(board, usepkg=False, debug=False):
     withdebug_flag = '--nowithdebug'
   return ('%s/build_packages %s --withdev --withtest --withautotest '
           '--skip_toolchain_update %s --board=%s '
-          '--accept_licenses=@CHROMEOS' % (CHROMEOS_SCRIPTS_DIR, usepkg_flag,
-                                           withdebug_flag, board))
+          '--accept_licenses=@CHROMEOS' %
+          (CHROMEOS_SCRIPTS_DIR, usepkg_flag, withdebug_flag, board))
 
 
 def GetBuildImageCommand(board, dev=False):
   dev_args = ''
   if dev:
     dev_args = '--noenable_rootfs_verification --disk_layout=2gb-rootfs'
-  return ('%s/build_image --board=%s %s test' % (CHROMEOS_SCRIPTS_DIR, board,
-                                                 dev_args))
+  return ('%s/build_image --board=%s %s test' %
+          (CHROMEOS_SCRIPTS_DIR, board, dev_args))
 
 
 def GetSetupBoardCommand(board, usepkg=None, force=None):
@@ -193,8 +190,8 @@ def CanonicalizePath(path):
 def GetCtargetFromBoard(board, chromeos_root):
   """Get Ctarget from board."""
   base_board = board.split('_')[0]
-  command = ('source %s; get_ctarget_from_board %s' % (TOOLCHAIN_UTILS_PATH,
-                                                       base_board))
+  command = ('source %s; get_ctarget_from_board %s' %
+             (TOOLCHAIN_UTILS_PATH, base_board))
   ce = command_executer.GetCommandExecuter()
   ret, out, _ = ce.ChrootRunCommandWOutput(chromeos_root, command)
   if ret != 0:
@@ -207,8 +204,8 @@ def GetCtargetFromBoard(board, chromeos_root):
 def GetArchFromBoard(board, chromeos_root):
   """Get Arch from board."""
   base_board = board.split('_')[0]
-  command = (
-      'source %s; get_board_arch %s' % (TOOLCHAIN_UTILS_PATH, base_board))
+  command = ('source %s; get_board_arch %s' %
+             (TOOLCHAIN_UTILS_PATH, base_board))
   ce = command_executer.GetCommandExecuter()
   ret, out, _ = ce.ChrootRunCommandWOutput(chromeos_root, command)
   if ret != 0:
@@ -316,23 +313,22 @@ def WorkingDirectory(new_dir):
 
 def HasGitStagedChanges(git_dir):
   """Return True if git repository has staged changes."""
-  command = 'cd {0} && git diff --quiet --cached --exit-code HEAD'.format(
-      git_dir)
+  command = f'cd {git_dir} && git diff --quiet --cached --exit-code HEAD'
   return command_executer.GetCommandExecuter().RunCommand(
       command, print_to_console=False)
 
 
 def HasGitUnstagedChanges(git_dir):
   """Return True if git repository has un-staged changes."""
-  command = 'cd {0} && git diff --quiet --exit-code HEAD'.format(git_dir)
+  command = f'cd {git_dir} && git diff --quiet --exit-code HEAD'
   return command_executer.GetCommandExecuter().RunCommand(
       command, print_to_console=False)
 
 
 def HasGitUntrackedChanges(git_dir):
   """Return True if git repository has un-tracked changes."""
-  command = ('cd {0} && test -z '
-             '$(git ls-files --exclude-standard --others)').format(git_dir)
+  command = (f'cd {git_dir} && test -z '
+             '$(git ls-files --exclude-standard --others)')
   return command_executer.GetCommandExecuter().RunCommand(
       command, print_to_console=False)
 
@@ -352,8 +348,8 @@ def GitGetCommitHash(git_dir, commit_symbolic_name):
     The git hash for the symbolic name or None if fails.
   """
 
-  command = ('cd {0} && git log -n 1 --pretty="format:%H" {1}').format(
-      git_dir, commit_symbolic_name)
+  command = (f'cd {git_dir} && git log -n 1'
+             f' --pretty="format:%H" {commit_symbolic_name}')
   rv, out, _ = command_executer.GetCommandExecuter().RunCommandWOutput(
       command, print_to_console=False)
   if rv == 0:
@@ -393,7 +389,7 @@ def GetGitChangesAsList(git_dir, path=None, staged=False):
   Returns:
     A list containing all the changed files.
   """
-  command = 'cd {0} && git diff --name-only'.format(git_dir)
+  command = f'cd {git_dir} && git diff --name-only'
   if staged:
     command += ' --cached'
   if path:
@@ -408,8 +404,8 @@ def GetGitChangesAsList(git_dir, path=None, staged=False):
 
 def IsChromeOsTree(chromeos_root):
   return (os.path.isdir(
-      os.path.join(chromeos_root, 'src/third_party/chromiumos-overlay')) and
-          os.path.isdir(os.path.join(chromeos_root, 'manifest')))
+      os.path.join(chromeos_root, 'src/third_party/chromiumos-overlay'))
+          and os.path.isdir(os.path.join(chromeos_root, 'manifest')))
 
 
 def DeleteChromeOsTree(chromeos_root, dry_run=False):
@@ -423,11 +419,10 @@ def DeleteChromeOsTree(chromeos_root, dry_run=False):
     True if everything is ok.
   """
   if not IsChromeOsTree(chromeos_root):
-    logger.GetLogger().LogWarning(
-        '"{0}" does not seem to be a valid chromeos tree, do nothing.'.format(
-            chromeos_root))
+    logger.GetLogger().LogWarning(f'"{chromeos_root}" does not seem to be a'
+                                  ' valid chromeos tree, do nothing.')
     return False
-  cmd0 = 'cd {0} && cros_sdk --delete'.format(chromeos_root)
+  cmd0 = f'cd {chromeos_root} && cros_sdk --delete'
   if dry_run:
     print(cmd0)
   else:
@@ -435,64 +430,16 @@ def DeleteChromeOsTree(chromeos_root, dry_run=False):
         cmd0, print_to_console=True) != 0:
       return False
 
-  cmd1 = ('export CHROMEOSDIRNAME="$(dirname $(cd {0} && pwd))" && '
-          'export CHROMEOSBASENAME="$(basename $(cd {0} && pwd))" && '
-          'cd $CHROMEOSDIRNAME && sudo rm -fr $CHROMEOSBASENAME'
-         ).format(chromeos_root)
+  cmd1 = (
+      f'export CHROMEOSDIRNAME="$(dirname $(cd {chromeos_root} && pwd))" && '
+      f'export CHROMEOSBASENAME="$(basename $(cd {chromeos_root} && pwd))" && '
+      'cd $CHROMEOSDIRNAME && sudo rm -fr $CHROMEOSBASENAME')
   if dry_run:
     print(cmd1)
     return True
 
   return command_executer.GetCommandExecuter().RunCommand(
       cmd1, print_to_console=True) == 0
-
-
-def ApplyGerritPatches(chromeos_root,
-                       gerrit_patch_string,
-                       branch=CROS_MAIN_BRANCH):
-  """Apply gerrit patches on a chromeos tree.
-
-  Args:
-    chromeos_root: chromeos tree path
-    gerrit_patch_string: a patch string just like the one gives to cbuildbot,
-    'id1 id2 *id3 ... idn'. A prefix of '* means this is an internal patch.
-    branch: the tree based on which to apply the patches.
-
-  Returns:
-    True if success.
-  """
-
-  ### First of all, we need chromite libs
-  sys.path.append(os.path.join(chromeos_root, 'chromite'))
-  # Imports below are ok after modifying path to add chromite.
-  # Pylint cannot detect that and complains.
-  # pylint: disable=import-error, import-outside-toplevel
-  from lib import git
-  from lib import gerrit
-  manifest = git.ManifestCheckout(chromeos_root)
-  patch_list = gerrit_patch_string.split(' ')
-  ### This takes time, print log information.
-  logger.GetLogger().LogOutput('Retrieving patch information from server ...')
-  patch_info_list = gerrit.GetGerritPatchInfo(patch_list)
-  for pi in patch_info_list:
-    project_checkout = manifest.FindCheckout(pi.project, strict=False)
-    if not project_checkout:
-      logger.GetLogger().LogError(
-          'Failed to find patch project "{project}" in manifest.'.format(
-              project=pi.project))
-      return False
-
-    pi_str = '{project}:{ref}'.format(project=pi.project, ref=pi.ref)
-    try:
-      project_git_path = project_checkout.GetPath(absolute=True)
-      logger.GetLogger().LogOutput('Applying patch "{0}" in "{1}" ...'.format(
-          pi_str, project_git_path))
-      pi.Apply(project_git_path, branch, trivial=False)
-    except Exception:
-      traceback.print_exc(file=sys.stdout)
-      logger.GetLogger().LogError('Failed to apply patch "{0}"'.format(pi_str))
-      return False
-  return True
 
 
 def BooleanPrompt(prompt='Do you want to continue?',
@@ -515,8 +462,8 @@ def BooleanPrompt(prompt='Do you want to continue?',
   true_value, false_value = true_value.lower(), false_value.lower()
   true_text, false_text = true_value, false_value
   if true_value == false_value:
-    raise ValueError(
-        'true_value and false_value must differ: got %r' % true_value)
+    raise ValueError('true_value and false_value must differ: got %r' %
+                     true_value)
 
   if default:
     true_text = true_text[0].upper() + true_text[1:]

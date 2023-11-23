@@ -16,11 +16,11 @@
 use alloc::collections::BTreeSet;
 #[cfg(feature = "std")] use std::collections::HashSet;
 
-#[cfg(feature = "alloc")]
-use crate::distributions::{uniform::SampleUniform, Distribution, Uniform};
 #[cfg(feature = "std")]
 use crate::distributions::WeightedError;
-use crate::Rng;
+
+#[cfg(feature = "alloc")]
+use crate::{Rng, distributions::{uniform::SampleUniform, Distribution, Uniform}};
 
 #[cfg(feature = "serde1")]
 use serde::{Serialize, Deserialize};
@@ -380,7 +380,7 @@ where
 
     #[cfg(not(feature = "nightly"))]
     {
-        use std::collections::BinaryHeap;
+        use alloc::collections::BinaryHeap;
 
         // Partially sort the array such that the `amount` elements with the largest
         // keys are first using a binary max heap.
@@ -630,7 +630,7 @@ mod test {
             match v {
                 IndexVec::U32(mut indices) => {
                     assert_eq!(indices.len(), amount);
-                    indices.sort();
+                    indices.sort_unstable();
                     indices.dedup();
                     assert_eq!(indices.len(), amount);
                     for &i in &indices {
@@ -668,10 +668,10 @@ mod test {
         do_test(300, 80, &[31, 289, 248, 154, 5, 78, 19, 286]); // inplace
         do_test(300, 180, &[31, 289, 248, 154, 5, 78, 19, 286]); // inplace
 
-        do_test(1000_000, 8, &[
+        do_test(1_000_000, 8, &[
             103717, 963485, 826422, 509101, 736394, 807035, 5327, 632573,
         ]); // floyd
-        do_test(1000_000, 180, &[
+        do_test(1_000_000, 180, &[
             103718, 963490, 826426, 509103, 736396, 807036, 5327, 632573,
         ]); // rejection
     }

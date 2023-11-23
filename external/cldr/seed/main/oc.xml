@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2020 Unicode, Inc.
+<!-- Copyright © 1991-2021 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
-Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
+SPDX-License-Identifier: Unicode-DFS-2016
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
@@ -472,16 +472,16 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		</codePatterns>
 	</localeDisplayNames>
 	<characters>
-		<exemplarCharacters draft="unconfirmed">[a á à b c d e é è f g h i í ï j k l m n o ó ò p q r s t u ú ü v w x y z]</exemplarCharacters>
+		<exemplarCharacters draft="unconfirmed">[a á à b c ç d e é è f g h i í ï j k l m n o ó ò p q r s t u ú ü v w x y z]</exemplarCharacters>
 		<exemplarCharacters type="auxiliary" draft="unconfirmed">[ă â å ä ã ā æ ĕ ê ë ē ì ĭ î ī ñ ŏ ô ö ø ō œ ù ŭ û ū ÿ]</exemplarCharacters>
-		<exemplarCharacters type="index" draft="unconfirmed">[A Á À B C Ç D E É È Ë F G H I Í Ï J K L M N O Ó Ò P Q R S T U V W X Y Z]</exemplarCharacters>
+		<exemplarCharacters type="index" draft="unconfirmed">[A Á À B C Ç D E É È F G H I Í Ï J K L M N O Ó Ò P Q R S T U V W X Y Z]</exemplarCharacters>
 		<exemplarCharacters type="numbers" draft="unconfirmed">[\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]</exemplarCharacters>
 		<exemplarCharacters type="punctuation" draft="unconfirmed">[\- ‐ ‑ – — , ; \: ! ? . … ’ &quot; “ ” « » ( ) \[ \] § @ * / \&amp; # † ‡ ⋅]</exemplarCharacters>
 		<ellipsis type="final" draft="unconfirmed">{0}…</ellipsis>
 		<ellipsis type="initial" draft="unconfirmed">↑↑↑</ellipsis>
 		<ellipsis type="medial" draft="unconfirmed">↑↑↑</ellipsis>
 		<ellipsis type="word-final" draft="unconfirmed">{0}…</ellipsis>
-		<ellipsis type="word-initial" draft="unconfirmed">… {0}</ellipsis>
+		<ellipsis type="word-initial" draft="unconfirmed">…{0}</ellipsis>
 		<ellipsis type="word-medial" draft="unconfirmed">{0}… {1}</ellipsis>
 		<moreInformation draft="unconfirmed">?</moreInformation>
 		<parseLenients scope="date" level="lenient">
@@ -522,21 +522,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 					<dateFormatLength type="full">
 						<dateFormat>
 							<pattern draft="unconfirmed">EEEE d MMMM 'de' y G</pattern>
+							<datetimeSkeleton draft="unconfirmed">GyMMMMEEEEd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="long">
 						<dateFormat>
 							<pattern draft="unconfirmed">↑↑↑</pattern>
+							<datetimeSkeleton draft="unconfirmed">↑↑↑</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="medium">
 						<dateFormat>
 							<pattern draft="unconfirmed">↑↑↑</pattern>
+							<datetimeSkeleton draft="unconfirmed">↑↑↑</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="short">
 						<dateFormat>
 							<pattern draft="unconfirmed">↑↑↑</pattern>
+							<datetimeSkeleton draft="unconfirmed">↑↑↑</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 				</dateFormats>
@@ -961,21 +965,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 					<dateFormatLength type="full">
 						<dateFormat>
 							<pattern draft="unconfirmed">EEEE d MMMM 'de' y</pattern>
+							<datetimeSkeleton draft="unconfirmed">yMMMMEEEEd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="long">
 						<dateFormat>
 							<pattern draft="unconfirmed">d MMMM 'de' y</pattern>
+							<datetimeSkeleton draft="unconfirmed">yMMMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="medium">
 						<dateFormat>
 							<pattern draft="unconfirmed">d MMM y</pattern>
+							<datetimeSkeleton draft="unconfirmed">yMMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 					<dateFormatLength type="short">
 						<dateFormat>
 							<pattern draft="unconfirmed">d/MM/yy</pattern>
+							<datetimeSkeleton draft="unconfirmed">yyMMd</datetimeSkeleton>
 						</dateFormat>
 					</dateFormatLength>
 				</dateFormats>
@@ -983,21 +991,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 					<timeFormatLength type="full">
 						<timeFormat>
 							<pattern draft="unconfirmed">H'h'mm:ss a zzzz</pattern>
+							<datetimeSkeleton draft="unconfirmed">Hmmsszzzz</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="long">
 						<timeFormat>
 							<pattern draft="unconfirmed">H'h'mm:ss z</pattern>
+							<datetimeSkeleton draft="unconfirmed">Hmmssz</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="medium">
 						<timeFormat>
 							<pattern draft="unconfirmed">H'h'mm:ss</pattern>
+							<datetimeSkeleton draft="unconfirmed">Hmmss</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="short">
 						<timeFormat>
 							<pattern draft="unconfirmed">H'h'mm</pattern>
+							<datetimeSkeleton draft="unconfirmed">Hmm</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 				</timeFormats>
@@ -1067,7 +1079,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 						<dateFormatItem id="yMMMEd" draft="unconfirmed">E d MMM y</dateFormatItem>
 						<dateFormatItem id="yMMMM" draft="unconfirmed">LLLL 'de' y</dateFormatItem>
 						<dateFormatItem id="yQQQ" draft="unconfirmed">QQQ y</dateFormatItem>
-						<dateFormatItem id="yQQQQ" draft="unconfirmed">QQQQ y</dateFormatItem>
+						<dateFormatItem id="yQQQQ" draft="unconfirmed">QQQQ 'de' y</dateFormatItem>
 						<dateFormatItem id="yw" count="other" draft="unconfirmed">'setmana' w 'de' Y</dateFormatItem>
 					</availableFormats>
 					<appendItems>
@@ -1292,13 +1304,13 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 				<relative type="1" draft="unconfirmed">deman</relative>
 			</field>
 			<field type="day-short">
-				<displayName draft="unconfirmed">jn.</displayName>
+				<displayName draft="unconfirmed">↑↑↑</displayName>
 				<relative type="-1" draft="unconfirmed">↑↑↑</relative>
 				<relative type="0" draft="unconfirmed">↑↑↑</relative>
 				<relative type="1" draft="unconfirmed">↑↑↑</relative>
 			</field>
 			<field type="day-narrow">
-				<displayName draft="unconfirmed">jn.</displayName>
+				<displayName draft="unconfirmed">jorn</displayName>
 				<relative type="-1" draft="unconfirmed">↑↑↑</relative>
 				<relative type="0" draft="unconfirmed">↑↑↑</relative>
 				<relative type="1" draft="unconfirmed">↑↑↑</relative>
@@ -1422,14 +1434,14 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<metazone type="Europe_Eastern">
 				<long>
 					<generic draft="unconfirmed">ora d’Euròpa de l’èst</generic>
-					<standard draft="unconfirmed">ora d’Euròpa de l’èst estandard</standard>
+					<standard draft="unconfirmed">ora d’Euròpa de l’èst estandarda</standard>
 					<daylight draft="unconfirmed">ora d’estiu, Euròpa de l’èst</daylight>
 				</long>
 			</metazone>
 			<metazone type="Europe_Western">
 				<long>
 					<generic draft="unconfirmed">ora d’Euròpa de l’oèst</generic>
-					<standard draft="unconfirmed">ora d’Euròpa de l’oèst estandard</standard>
+					<standard draft="unconfirmed">ora d’Euròpa de l’oèst estandarda</standard>
 					<daylight draft="unconfirmed">ora d’estiu, Euròpa de l’oèst</daylight>
 				</long>
 			</metazone>
@@ -1477,7 +1489,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<percentFormats numberSystem="latn">
 			<percentFormatLength>
 				<percentFormat>
-					<pattern draft="unconfirmed">↑↑↑</pattern>
+					<pattern draft="unconfirmed">#,##0 %</pattern>
 				</percentFormat>
 			</percentFormatLength>
 		</percentFormats>
@@ -1505,6 +1517,8 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<currency type="BRL">
 				<displayName draft="unconfirmed">real bresilian</displayName>
 				<displayName count="other" draft="unconfirmed">reals brasilians</displayName>
+				<symbol draft="unconfirmed">↑↑↑</symbol>
+				<symbol alt="narrow" draft="unconfirmed">↑↑↑</symbol>
 			</currency>
 			<currency type="CAD">
 				<symbol draft="unconfirmed">$CA</symbol>
@@ -1518,6 +1532,8 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<currency type="CNY">
 				<displayName draft="unconfirmed">iuan chinés</displayName>
 				<displayName count="other" draft="unconfirmed">iuans chineses</displayName>
+				<symbol draft="unconfirmed">↑↑↑</symbol>
+				<symbol alt="narrow" draft="unconfirmed">↑↑↑</symbol>
 			</currency>
 			<currency type="EUR">
 				<displayName draft="unconfirmed">euro</displayName>
@@ -1534,10 +1550,16 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<currency type="INR">
 				<displayName draft="unconfirmed">ropia indiana</displayName>
 				<displayName count="other" draft="unconfirmed">ropias indianas</displayName>
+				<symbol draft="unconfirmed">↑↑↑</symbol>
+				<symbol alt="narrow" draft="unconfirmed">↑↑↑</symbol>
+			</currency>
+			<currency type="JPY">
+				<symbol alt="narrow" draft="unconfirmed">↑↑↑</symbol>
 			</currency>
 			<currency type="RUB">
 				<displayName draft="unconfirmed">roble rus</displayName>
 				<displayName count="other" draft="unconfirmed">robles russes</displayName>
+				<symbol draft="unconfirmed">↑↑↑</symbol>
 				<symbol alt="narrow" draft="unconfirmed">↑↑↑</symbol>
 			</currency>
 			<currency type="USD">
@@ -1552,7 +1574,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			</currency>
 		</currencies>
 		<miscPatterns numberSystem="latn">
-			<pattern type="approximately" draft="unconfirmed">↑↑↑</pattern>
+			<pattern type="approximately" draft="unconfirmed">~ {0}</pattern>
 			<pattern type="atLeast" draft="unconfirmed">↑↑↑</pattern>
 			<pattern type="atMost" draft="unconfirmed">↑↑↑</pattern>
 			<pattern type="range" draft="unconfirmed">↑↑↑</pattern>
@@ -1737,7 +1759,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 				<displayName draft="unconfirmed">↑↑↑</displayName>
 				<unitPattern count="other" draft="unconfirmed">↑↑↑</unitPattern>
 			</unit>
-			<unit type="concentr-milligram-per-deciliter">
+			<unit type="concentr-milligram-ofglucose-per-deciliter">
 				<displayName draft="unconfirmed">miligramas per decilitre</displayName>
 				<unitPattern count="other" draft="unconfirmed">{0} miligramas per decilitre</unitPattern>
 			</unit>
@@ -2572,7 +2594,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 				<displayName draft="unconfirmed">↑↑↑</displayName>
 				<unitPattern count="other" draft="unconfirmed">↑↑↑</unitPattern>
 			</unit>
-			<unit type="concentr-milligram-per-deciliter">
+			<unit type="concentr-milligram-ofglucose-per-deciliter">
 				<displayName draft="unconfirmed">↑↑↑</displayName>
 				<unitPattern count="other" draft="unconfirmed">↑↑↑</unitPattern>
 			</unit>

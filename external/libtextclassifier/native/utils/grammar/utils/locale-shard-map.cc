@@ -28,6 +28,11 @@
 namespace libtextclassifier3::grammar {
 namespace {
 
+// For latency we put sub-rules on the first shard which must be any match
+// i.e. '*' rules are always included while parsing the tree as it is only
+// on shard one hence will be deduped correctly.
+const char kAnyMatchLanguageTag[] = "*";
+
 std::vector<Locale> LocaleTagsToLocaleList(const std::string& locale_tags) {
   std::vector<Locale> locale_list;
   for (const Locale& locale : LocaleList::ParseFrom(locale_tags).GetLocales()) {
@@ -35,16 +40,23 @@ std::vector<Locale> LocaleTagsToLocaleList(const std::string& locale_tags) {
       locale_list.emplace_back(locale);
     }
   }
-  std::sort(locale_list.begin(), locale_list.end(),
-            [](const Locale& a, const Locale& b) { return a < b; });
+  std::stable_sort(locale_list.begin(), locale_list.end(),
+                   [](const Locale& a, const Locale& b) { return a < b; });
   return locale_list;
 }
 
 }  // namespace
 
 LocaleShardMap LocaleShardMap::CreateLocaleShardMap(
-    const std::vector<std::string>& locale_tags) {
+    const std::vector<std::string>& locale_tags,
+    const bool include_any_match_language_tag_shard) {
   LocaleShardMap locale_shard_map;
+
+  if (include_any_match_language_tag_shard) {
+    // Make sure "*" [AnyMatch] is at shard 0.
+    locale_shard_map.AddLocalTags(kAnyMatchLanguageTag);
+  }
+
   for (const std::string& locale_tag : locale_tags) {
     locale_shard_map.AddLocalTags(locale_tag);
   }

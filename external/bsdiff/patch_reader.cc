@@ -32,7 +32,7 @@ bool BsdiffPatchReader::Init(const uint8_t* patch_data, size_t patch_size) {
   // extra block; seek forwards in oldfile by z bytes".
 
   if (patch_size < 32) {
-    LOG(ERROR) << "Too small to be a bspatch.";
+    LOG(ERROR) << "Too small to be a bspatch. " << patch_size;
     return false;
   }
   // Check for appropriate magic.

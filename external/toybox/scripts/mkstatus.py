@@ -21,15 +21,15 @@ def readit(args, shell=False):
 
 print "Collecting data..."
 
-stuff,blah=readit(["sed","-n", 's/<span id=\\([a-z_]*\\)>/\\1 /;t good;d;:good;h;:loop;n;s@</span>@@;t out;H;b loop;:out;g;s/\\n/ /g;p', "www/roadmap.html", "www/status.html"])
+stuff,blah=readit(["sed","-n", 's/<span id=\\([a-z_]*\\)>/\\1 /;t good;d;:good;h;:loop;n;s@</span>@@;t out;H;b loop;:out;g;s/\\n/ /g;p', "www/roadmap.html"])
 blah,toystuff=readit(["./toybox"])
-blah,pending=readit(["sed -n 's/[^ \\t].*TOY(\\([^,]*\\),.*/\\1/p' toys/pending/*.c"], 1)
-blah,version=readit(["git","describe","--tags"])
+blah,stuff["shell"]=readit(["sed", "-n", "s/.*NEWTOY[(]\\([^,]*\\).*TOYFLAG_NOFORK.*/\\1/p", "toys/pending/sh.c"])
+blah,pending=readit(["/bin/bash", "-c", "sed -n 's/[^ \\t].*TOY(\\([^,]*\\),.*/\\1/p' toys/pending/*.c"])
+version=readit(["./toybox","--version"])[-1][-1]
 
 print "Analyzing..."
 
 # Create reverse mappings: reverse["command"] gives list of categories it's in
-
 reverse={}
 for i in stuff:
   for j in stuff[i]:
@@ -50,13 +50,13 @@ if unknowns: print "uncategorized: %s" % " ".join(unknowns)
 
 conv = [("posix", '<a href="http://pubs.opengroup.org/onlinepubs/9699919799/utilities/%s.html">%%s</a>', "[%s]"),
         ("lsb", '<a href="http://refspecs.linuxfoundation.org/LSB_4.1.0/LSB-Core-generic/LSB-Core-generic/%s.html">%%s</a>', '&lt;%s&gt;'),
-        ("development", '<a href="http://linux.die.net/man/1/%s">%%s</a>', '(%s)'),
+        ("development", '<a href="https://man7.org/linux/man-pages/man1/%s.1.html">%%s</a>', '(%s)'),
         ("toolbox", "", '{%s}'), ("klibc_cmd", "", '=%s='),
         ("sash_cmd", "", '#%s#'), ("sbase_cmd", "", '@%s@'),
-        ("beastiebox_cmd", "", '*%s*'), ("tizen", "", '$%s$'),
+        ("beastiebox_cmd", "", '*%s*'), ("tizen_cmd", "", '$%s$'),
+        ("fhs_cmd", "", '-%s-'), ("yocto_cmd", "", ".%s."),
         ("shell", "", "%%%s%%"),
-        ("request", '<a href="http://linux.die.net/man/1/%s">%%s</a>', '+%s+')]
-
+        ("request", '<a href="https://man7.org/linux/man-pages/man1/%s.1.html">%%s</a>', '+%s+')]
 
 def categorize(reverse, i, skippy=""):
   linky = "%s"
@@ -96,22 +96,25 @@ print "implemented=%s" % len(toystuff)
 
 # Write data to output file
 
-outfile=open("www/status.gen", "w")
-outfile.write("<h1>Status of toybox %s</h1>\n" % version[0]);
-outfile.write("<h3>Legend: [posix] &lt;lsb&gt; (development) {android}\n")
-outfile.write("=klibc= #sash# @sbase@ *beastiebox* $tizen$ %shell% +request+ other\n")
-outfile.write("<strike>pending</strike></h3>\n");
+outfile=open("www/status.html", "w")
+outfile.write("""<html><head><title>toybox current status</title>
+<!--#include file="header.html" -->
+<title>Toybox Status</title>
+""");
+outfile.write("<h1>Status of toybox %s</h1>\n" % version);
+outfile.write("<h3>Legend: %s <strike>pending</strike></h3>\n"%" ".join(map(lambda i: i[2]%(i[0].split("_")[0]), conv)))
 
 outfile.write("<a name=done><h2><a href=#done>Completed</a></h2><blockquote><p>%s</p></blockquote>\n" % "\n".join(done))
-outfile.write("<a name=part><h2><a href=#part>Partially implemented</a></h2><blockquote><p>%s</p></blockquote>\n" % "\n".join(pend))
+outfile.write("<a name=part><h2><a href=#part>Partially implemented (in toys/pending)</a></h2><blockquote><p>%s</p></blockquote>\n" % "\n".join(pend))
 outfile.write("<a name=todo><h2><a href=#todo>Not started yet</a></h2><blockquote><p>%s</p></blockquote>\n" % "\n".join(todo))
 
 # Output unfinished commands by category
 
 outfile.write("<hr><h2>Categories of remaining todo items</h2>")
 
-for i in stuff:
+for i in conv:
   todo = []
+  i=i[0]
 
   for j in stuff[i]:
     if j in toystuff: continue
@@ -122,10 +125,15 @@ for i in stuff:
     k = i
     for j in conv:
       if j[0] == i:
-        k = j[2] % i
+        k = j[2] % i.split("_")[0]
 
     outfile.write("<a name=%s><h2><a href=#%s>%s<a></h2><blockquote><p>" % (i,i,k))
     outfile.write(" ".join(todo))
     outfile.write("</p></blockquote>\n")
 
 outfile.write("<hr><a name=all><h2><a href=#all>All commands together in one big list</a></h2><blockquote><p>%s</p></blockquote>\n" % "\n".join(allcmd))
+
+outfile.write("""
+<p>See the <a href=roadmap.html>Roadmap page</a> for more information.</p>
+
+<!-- #include "footer.html" -->""")

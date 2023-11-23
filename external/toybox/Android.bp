@@ -57,13 +57,12 @@ all_srcs = [
     "lib/commas.c",
     "lib/dirtree.c",
     "lib/env.c",
-    "lib/help.c",
     "lib/lib.c",
-    "lib/linestack.c",
     "lib/llist.c",
     "lib/net.c",
     "lib/portability.c",
     "lib/tty.c",
+    "lib/utf8.c",
     "lib/xwrap.c",
     "main.c",
     "toys/lsb/gzip.c",
@@ -182,7 +181,6 @@ device_srcs = [
     "toys/other/losetup.c",
     "toys/other/lsattr.c",
     "toys/other/lsmod.c",
-    "toys/other/lspci.c",
     "toys/other/lsusb.c",
     "toys/other/makedevs.c",
     "toys/other/mkswap.c",
@@ -195,6 +193,7 @@ device_srcs = [
     "toys/other/pmap.c",
     "toys/other/printenv.c",
     "toys/other/pwdx.c",
+    "toys/other/readelf.c",
     "toys/other/rev.c",
     "toys/other/rmmod.c",
     "toys/other/rtcwake.c",
@@ -203,6 +202,7 @@ device_srcs = [
     "toys/other/swapon.c",
     "toys/other/sysctl.c",
     "toys/other/tac.c",
+    "toys/other/uclampset.c",
     "toys/other/uptime.c",
     "toys/other/usleep.c",
     "toys/other/uuidgen.c",
@@ -213,7 +213,6 @@ device_srcs = [
     "toys/pending/lsof.c",
     "toys/pending/modprobe.c",
     "toys/pending/more.c",
-    "toys/pending/readelf.c",
     "toys/pending/stty.c",
     "toys/pending/traceroute.c",
     "toys/pending/vi.c",
@@ -394,6 +393,7 @@ toybox_symlinks = [
     "true",
     "truncate",
     "tty",
+    "uclampset",
     "ulimit",
     "umount",
     "uname",
@@ -441,11 +441,7 @@ cc_defaults {
     ],
 
     target: {
-        linux_glibc: {
-            local_include_dirs: ["android/linux"],
-        },
-
-        linux_bionic: {
+        host_linux: {
             local_include_dirs: ["android/linux"],
         },
 
@@ -461,6 +457,9 @@ cc_defaults {
                 // diff.c defines MIN and MAX which (only on macOS) we're
                 // also getting from <sys/param.h>.
                 "-Wno-macro-redefined",
+            ],
+            ldflags: [
+                "-Wl,-dead_strip",
             ],
         },
 

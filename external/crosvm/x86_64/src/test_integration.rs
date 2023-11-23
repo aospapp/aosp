@@ -5,8 +5,9 @@
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
 use arch::LinuxArch;
-use devices::{IrqChipX86_64, ProtectionType};
-use hypervisor::{HypervisorX86_64, VcpuExit, VcpuX86_64, VmX86_64};
+use devices::IrqChipX86_64;
+use hypervisor::{HypervisorX86_64, ProtectionType, VcpuExit, VcpuX86_64, VmX86_64};
+use resources::SystemAllocator;
 use vm_memory::{GuestAddress, GuestMemory};
 
 use super::cpuid::setup_cpuid;
@@ -16,7 +17,7 @@ use super::X8664arch;
 use super::{acpi, arch_memory_regions, bootparam, mptable, smbios};
 use super::{
     BOOT_STACK_POINTER, END_ADDR_BEFORE_32BITS, KERNEL_64BIT_ENTRY_OFFSET, KERNEL_START_OFFSET,
-    X86_64_SCI_IRQ, ZERO_PAGE_OFFSET,
+    PCIE_CFG_MMIO_SIZE, PCIE_CFG_MMIO_START, X86_64_SCI_IRQ, ZERO_PAGE_OFFSET,
 };
 
 use base::{Event, Tube};
@@ -41,7 +42,8 @@ fn simple_kvm_kernel_irqchip_test() {
     simple_vm_test::<_, _, KvmVcpu, _, _, _>(
         |guest_mem| {
             let kvm = Kvm::new().expect("failed to create kvm");
-            let vm = KvmVm::new(&kvm, guest_mem).expect("failed to create kvm vm");
+            let vm = KvmVm::new(&kvm, guest_mem, ProtectionType::Unprotected)
+                .expect("failed to create kvm vm");
             (kvm, vm)
         },
         |vm, vcpu_count, _| {
@@ -57,7 +59,8 @@ fn simple_kvm_split_irqchip_test() {
     simple_vm_test::<_, _, KvmVcpu, _, _, _>(
         |guest_mem| {
             let kvm = Kvm::new().expect("failed to create kvm");
-            let vm = KvmVm::new(&kvm, guest_mem).expect("failed to create kvm vm");
+            let vm = KvmVm::new(&kvm, guest_mem, ProtectionType::Unprotected)
+                .expect("failed to create kvm vm");
             (kvm, vm)
         },
         |vm, vcpu_count, device_tube| {
@@ -99,15 +102,16 @@ where
     let arch_mem_regions = arch_memory_regions(memory_size, None);
     let guest_mem = GuestMemory::new(&arch_mem_regions).unwrap();
 
-    let mut resources = X8664arch::create_system_allocator(&guest_mem);
-
     let (hyp, mut vm) = create_vm(guest_mem.clone());
+    let mut resources =
+        SystemAllocator::new(X8664arch::get_system_allocator_config(&vm), None, &[])
+            .expect("failed to create system allocator");
     let (irqchip_tube, device_tube) = Tube::pair().expect("failed to create irq tube");
 
     let mut irq_chip = create_irq_chip(vm.try_clone().expect("failed to clone vm"), 1, device_tube);
 
-    let mut mmio_bus = devices::Bus::new();
-    let mut io_bus = devices::Bus::new();
+    let mmio_bus = Arc::new(devices::Bus::new());
+    let io_bus = Arc::new(devices::Bus::new());
     let exit_evt = Event::new().unwrap();
 
     let mut control_tubes = vec![TaggedControlTube::VmIrq(irqchip_tube)];
@@ -129,18 +133,19 @@ where
     let (pci, pci_irqs, _pid_debug_label_map) = arch::generate_pci_root(
         devices,
         &mut irq_chip,
-        &mut mmio_bus,
-        &mut io_bus,
+        mmio_bus.clone(),
+        io_bus.clone(),
         &mut resources,
         &mut vm,
         4,
     )
     .unwrap();
-    let pci_bus = Arc::new(Mutex::new(PciConfigIo::new(pci)));
+    let pci = Arc::new(Mutex::new(pci));
+    let pci_bus = Arc::new(Mutex::new(PciConfigIo::new(pci, Event::new().unwrap())));
     io_bus.insert(pci_bus, 0xcf8, 0x8).unwrap();
 
     X8664arch::setup_legacy_devices(
-        &mut io_bus,
+        &io_bus,
         irq_chip.pit_uses_speaker_port(),
         exit_evt.try_clone().unwrap(),
         memory_size,
@@ -149,12 +154,12 @@ where
 
     let mut serial_params = BTreeMap::new();
 
-    arch::set_default_serial_parameters(&mut serial_params);
+    arch::set_default_serial_parameters(&mut serial_params, false);
 
     X8664arch::setup_serial_devices(
         ProtectionType::Unprotected,
         &mut irq_chip,
-        &mut io_bus,
+        &io_bus,
         &serial_params,
         None,
     )
@@ -177,11 +182,12 @@ where
     // let mut kernel_image = File::open("/mnt/host/source/src/avd/vmlinux.uncompressed").expect("failed to open kernel");
     // let (params, kernel_end) = X8664arch::load_kernel(&guest_mem, &mut kernel_image).expect("failed to load kernel");
 
+    let max_bus = (PCIE_CFG_MMIO_SIZE / 0x100000 - 1) as u8;
     let suspend_evt = Event::new().unwrap();
     let mut resume_notify_devices = Vec::new();
     let acpi_dev_resource = X8664arch::setup_acpi_devices(
         &guest_mem,
-        &mut io_bus,
+        &io_bus,
         &mut resources,
         suspend_evt
             .try_clone()
@@ -189,15 +195,16 @@ where
         exit_evt.try_clone().expect("unable to clone exit_evt"),
         Default::default(),
         &mut irq_chip,
+        X86_64_SCI_IRQ,
         (&None, None),
-        &mut mmio_bus,
+        &mmio_bus,
+        max_bus,
         &mut resume_notify_devices,
     )
     .unwrap();
 
     X8664arch::setup_system_memory(
         &guest_mem,
-        memory_size,
         &CString::new(cmdline).expect("failed to create cmdline"),
         initrd_image,
         None,
@@ -207,10 +214,24 @@ where
     .expect("failed to setup system_memory");
 
     // Note that this puts the mptable at 0x9FC00 in guest physical memory.
-    mptable::setup_mptable(&guest_mem, 1, pci_irqs).expect("failed to setup mptable");
+    mptable::setup_mptable(&guest_mem, 1, &pci_irqs).expect("failed to setup mptable");
     smbios::setup_smbios(&guest_mem, None).expect("failed to setup smbios");
 
-    acpi::create_acpi_tables(&guest_mem, 1, X86_64_SCI_IRQ, acpi_dev_resource.0);
+    let mut apic_ids = Vec::new();
+    acpi::create_acpi_tables(
+        &guest_mem,
+        1,
+        X86_64_SCI_IRQ,
+        0xcf9,
+        6,
+        &acpi_dev_resource.0,
+        None,
+        &mut apic_ids,
+        &pci_irqs,
+        PCIE_CFG_MMIO_START,
+        max_bus,
+        false,
+    );
 
     let guest_mem2 = guest_mem.clone();
 
@@ -228,8 +249,8 @@ where
                 .add_vcpu(0, &vcpu)
                 .expect("failed to add vcpu to irqchip");
 
-            setup_cpuid(&hyp, &irq_chip, &vcpu, 0, 1, false).unwrap();
-            setup_msrs(&vcpu, END_ADDR_BEFORE_32BITS).unwrap();
+            setup_cpuid(&hyp, &irq_chip, &vcpu, 0, 1, false, false).unwrap();
+            setup_msrs(&vm, &vcpu, END_ADDR_BEFORE_32BITS).unwrap();
 
             setup_regs(
                 &vcpu,

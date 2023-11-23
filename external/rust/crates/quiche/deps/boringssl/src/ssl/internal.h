@@ -345,6 +345,9 @@ class Array {
     if (new_size > size_) {
       abort();
     }
+    for (size_t i = new_size; i < size_; i++) {
+      data_[i].~T();
+    }
     size_ = new_size;
   }
 
@@ -385,6 +388,11 @@ class GrowableArray {
   const T *cbegin() const { return array_.data(); }
   T *end() { return array_.data() + size_; }
   const T *cend() const { return array_.data() + size_; }
+
+  void clear() {
+    size_ = 0;
+    array_.Reset();
+  }
 
   // Push adds |elem| at the end of the internal array, growing if necessary. It
   // returns false when allocation fails.
@@ -630,9 +638,6 @@ const EVP_MD *ssl_get_handshake_digest(uint16_t version,
 // considered an error regardless of |strict|.
 bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
                             const char *rule_str, bool strict);
-
-// ssl_cipher_get_value returns the cipher suite id of |cipher|.
-uint16_t ssl_cipher_get_value(const SSL_CIPHER *cipher);
 
 // ssl_cipher_auth_mask_for_key returns the mask of cipher |algorithm_auth|
 // values suitable for use with |key| in TLS 1.2 and below.
@@ -1414,6 +1419,15 @@ bool tls13_verify_psk_binder(SSL_HANDSHAKE *hs, SSL_SESSION *session,
                              const SSLMessage &msg, CBS *binders);
 
 
+// Encrypted Client Hello.
+
+// tls13_ech_accept_confirmation computes the server's ECH acceptance signal,
+// writing it to |out|. It returns true on success, and false on failure.
+bool tls13_ech_accept_confirmation(
+    SSL_HANDSHAKE *hs, bssl::Span<uint8_t> out,
+    bssl::Span<const uint8_t> server_hello_ech_conf);
+
+
 // Handshake functions.
 
 enum ssl_hs_wait_t {
@@ -1482,6 +1496,7 @@ enum tls13_server_hs_state_t {
   state13_send_half_rtt_ticket,
   state13_read_second_client_flight,
   state13_process_end_of_early_data,
+  state13_read_client_encrypted_extensions,
   state13_read_client_certificate,
   state13_read_client_certificate_verify,
   state13_read_channel_id,
@@ -1632,6 +1647,10 @@ struct SSL_HANDSHAKE {
   // cookie is the value of the cookie received from the server, if any.
   Array<uint8_t> cookie;
 
+  // ech_grease contains the bytes of the GREASE ECH extension that was sent in
+  // the first ClientHello.
+  Array<uint8_t> ech_grease;
+
   // key_share_bytes is the value of the previously sent KeyShare extension by
   // the client in TLS 1.3.
   Array<uint8_t> key_share_bytes;
@@ -1649,6 +1668,10 @@ struct SSL_HANDSHAKE {
   // the peer. This is only set on the server's end. The server does not
   // advertise this extension to the client.
   Array<uint16_t> peer_supported_group_list;
+
+  // peer_delegated_credential_sigalgs are the signature algorithms the peer
+  // supports with delegated credentials.
+  Array<uint16_t> peer_delegated_credential_sigalgs;
 
   // peer_key is the peer's ECDH key for a TLS 1.2 client.
   Array<uint8_t> peer_key;
@@ -1705,6 +1728,14 @@ struct SSL_HANDSHAKE {
 
   // key_block is the record-layer key block for TLS 1.2 and earlier.
   Array<uint8_t> key_block;
+
+  // ech_present, on the server, indicates whether the ClientHello contained an
+  // encrypted_client_hello extension.
+  bool ech_present : 1;
+
+  // ech_is_inner_present, on the server, indicates whether the ClientHello
+  // contained an ech_is_inner extension.
+  bool ech_is_inner_present : 1;
 
   // scts_requested is true if the SCT extension is in the ClientHello.
   bool scts_requested : 1;
@@ -1872,7 +1903,8 @@ bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
 bool ssl_ext_key_share_parse_clienthello(SSL_HANDSHAKE *hs, bool *out_found,
                                          Array<uint8_t> *out_secret,
                                          uint8_t *out_alert, CBS *contents);
-bool ssl_ext_key_share_add_serverhello(SSL_HANDSHAKE *hs, CBB *out);
+bool ssl_ext_key_share_add_serverhello(SSL_HANDSHAKE *hs, CBB *out,
+                                       bool dry_run);
 
 bool ssl_ext_pre_shared_key_parse_serverhello(SSL_HANDSHAKE *hs,
                                               uint8_t *out_alert,
@@ -1914,6 +1946,12 @@ bool ssl_is_alpn_protocol_allowed(const SSL_HANDSHAKE *hs,
 bool ssl_negotiate_alpn(SSL_HANDSHAKE *hs, uint8_t *out_alert,
                         const SSL_CLIENT_HELLO *client_hello);
 
+// ssl_negotiate_alps negotiates the ALPS extension, if applicable. It returns
+// true on successful negotiation or if nothing was negotiated. It returns false
+// and sets |*out_alert| to an alert on error.
+bool ssl_negotiate_alps(SSL_HANDSHAKE *hs, uint8_t *out_alert,
+                        const SSL_CLIENT_HELLO *client_hello);
+
 struct SSL_EXTENSION_TYPE {
   uint16_t type;
   bool *out_present;
@@ -1922,12 +1960,12 @@ struct SSL_EXTENSION_TYPE {
 
 // ssl_parse_extensions parses a TLS extensions block out of |cbs| and advances
 // it. It writes the parsed extensions to pointers denoted by |ext_types|. On
-// success, it fills in the |out_present| and |out_data| fields and returns one.
-// Otherwise, it sets |*out_alert| to an alert to send and returns zero. Unknown
-// extensions are rejected unless |ignore_unknown| is 1.
-int ssl_parse_extensions(const CBS *cbs, uint8_t *out_alert,
-                         const SSL_EXTENSION_TYPE *ext_types,
-                         size_t num_ext_types, int ignore_unknown);
+// success, it fills in the |out_present| and |out_data| fields and returns
+// true. Otherwise, it sets |*out_alert| to an alert to send and returns false.
+// Unknown extensions are rejected unless |ignore_unknown| is true.
+bool ssl_parse_extensions(const CBS *cbs, uint8_t *out_alert,
+                          Span<const SSL_EXTENSION_TYPE> ext_types,
+                          bool ignore_unknown);
 
 // ssl_verify_peer_cert verifies the peer certificate for |hs|.
 enum ssl_verify_result_t ssl_verify_peer_cert(SSL_HANDSHAKE *hs);
@@ -1939,6 +1977,11 @@ enum ssl_verify_result_t ssl_reverify_peer_cert(SSL_HANDSHAKE *hs,
 enum ssl_hs_wait_t ssl_get_finished(SSL_HANDSHAKE *hs);
 bool ssl_send_finished(SSL_HANDSHAKE *hs);
 bool ssl_output_cert_chain(SSL_HANDSHAKE *hs);
+
+// ssl_handshake_session returns the |SSL_SESSION| corresponding to the current
+// handshake. Note, in TLS 1.2 resumptions, this session is immutable.
+const SSL_SESSION *ssl_handshake_session(const SSL_HANDSHAKE *hs);
+
 
 // SSLKEYLOGFILE functions.
 
@@ -2392,9 +2435,6 @@ struct SSL3_STATE {
   // early_data_accepted is true if early data was accepted by the server.
   bool early_data_accepted : 1;
 
-  // tls13_downgrade is whether the TLS 1.3 anti-downgrade logic fired.
-  bool tls13_downgrade : 1;
-
   // token_binding_negotiated is set if Token Binding was negotiated.
   bool token_binding_negotiated : 1;
 
@@ -2615,6 +2655,12 @@ struct DTLS1_STATE {
   unsigned timeout_duration_ms = 0;
 };
 
+// An ALPSConfig is a pair of ALPN protocol and settings value to use with ALPS.
+struct ALPSConfig {
+  Array<uint8_t> protocol;
+  Array<uint8_t> settings;
+};
+
 // SSL_CONFIG contains configuration bits that can be shed after the handshake
 // completes.  Objects of this type are not shared; they are unique to a
 // particular |SSL|.
@@ -2681,6 +2727,10 @@ struct SSL_CONFIG {
   // format.
   Array<uint8_t> alpn_client_proto_list;
 
+  // alps_configs contains the list of supported protocols to use with ALPS,
+  // along with their corresponding ALPS values.
+  GrowableArray<ALPSConfig> alps_configs;
+
   // Contains a list of supported Token Binding key parameters.
   Array<uint8_t> token_binding_params;
 
@@ -2700,6 +2750,10 @@ struct SSL_CONFIG {
 
   // verify_mode is a bitmask of |SSL_VERIFY_*| values.
   uint8_t verify_mode = SSL_VERIFY_NONE;
+
+  // ech_grease_enabled controls whether ECH GREASE may be sent in the
+  // ClientHello.
+  bool ech_grease_enabled : 1;
 
   // Enable signed certificate time stamps. Currently client only.
   bool signed_cert_timestamps_enabled : 1;
@@ -2733,13 +2787,13 @@ struct SSL_CONFIG {
   // should be freed after the handshake completes.
   bool shed_handshake_config : 1;
 
-  // ignore_tls13_downgrade is whether the connection should continue when the
-  // server random signals a downgrade.
-  bool ignore_tls13_downgrade : 1;
-
   // jdk11_workaround is whether to disable TLS 1.3 for JDK 11 clients, as a
   // workaround for https://bugs.openjdk.java.net/browse/JDK-8211806.
   bool jdk11_workaround : 1;
+
+  // QUIC drafts up to and including 32 used a different TLS extension
+  // codepoint to convey QUIC's transport parameters.
+  bool quic_use_legacy_codepoint : 1;
 };
 
 // From RFC 8446, used in determining PSK modes.
@@ -2921,13 +2975,14 @@ int dtls1_dispatch_alert(SSL *ssl);
 // determined by |direction|) using the keys generated by the TLS KDF. The
 // |key_block_cache| argument is used to store the generated key block, if
 // empty. Otherwise it's assumed that the key block is already contained within
-// it. Returns one on success or zero on error.
-int tls1_configure_aead(SSL *ssl, evp_aead_direction_t direction,
-                        Array<uint8_t> *key_block_cache,
-                        const SSL_CIPHER *cipher,
-                        Span<const uint8_t> iv_override);
+// it. It returns true on success or false on error.
+bool tls1_configure_aead(SSL *ssl, evp_aead_direction_t direction,
+                         Array<uint8_t> *key_block_cache,
+                         const SSL_SESSION *session,
+                         Span<const uint8_t> iv_override);
 
-int tls1_change_cipher_state(SSL_HANDSHAKE *hs, evp_aead_direction_t direction);
+bool tls1_change_cipher_state(SSL_HANDSHAKE *hs,
+                              evp_aead_direction_t direction);
 int tls1_generate_master_secret(SSL_HANDSHAKE *hs, uint8_t *out,
                                 Span<const uint8_t> premaster);
 
@@ -3321,10 +3376,6 @@ struct ssl_ctx_st {
   // |SSL_MODE_ENABLE_FALSE_START| is enabled) is allowed without ALPN.
   bool false_start_allowed_without_alpn : 1;
 
-  // ignore_tls13_downgrade is whether a connection should continue when the
-  // server random signals a downgrade.
-  bool ignore_tls13_downgrade:1;
-
   // handoff indicates that a server should stop after receiving the
   // ClientHello and pause the handshake in such a way that |SSL_get_error|
   // returns |SSL_ERROR_HANDOFF|.
@@ -3445,10 +3496,12 @@ struct ssl_session_st {
   // the peer, or zero if not applicable or unknown.
   uint16_t peer_signature_algorithm = 0;
 
-  // master_key, in TLS 1.2 and below, is the master secret associated with the
-  // session. In TLS 1.3 and up, it is the resumption secret.
-  int master_key_length = 0;
-  uint8_t master_key[SSL_MAX_MASTER_KEY_LENGTH] = {0};
+  // secret, in TLS 1.2 and below, is the master secret associated with the
+  // session. In TLS 1.3 and up, it is the resumption PSK for sessions handed to
+  // the caller, but it stores the resumption secret when stored on |SSL|
+  // objects.
+  int secret_length = 0;
+  uint8_t secret[SSL_MAX_MASTER_KEY_LENGTH] = {0};
 
   // session_id - valid?
   unsigned session_id_length = 0;
@@ -3533,8 +3586,17 @@ struct ssl_session_st {
 
   // early_alpn is the ALPN protocol from the initial handshake. This is only
   // stored for TLS 1.3 and above in order to enforce ALPN matching for 0-RTT
-  // resumptions.
+  // resumptions. For the current connection's ALPN protocol, see
+  // |alpn_selected| on |SSL3_STATE|.
   bssl::Array<uint8_t> early_alpn;
+
+  // local_application_settings, if |has_application_settings| is true, is the
+  // local ALPS value for this connection.
+  bssl::Array<uint8_t> local_application_settings;
+
+  // peer_application_settings, if |has_application_settings| is true, is the
+  // peer ALPS value for this connection.
+  bssl::Array<uint8_t> peer_application_settings;
 
   // extended_master_secret is whether the master secret in this session was
   // generated using EMS and thus isn't vulnerable to the Triple Handshake
@@ -3555,6 +3617,10 @@ struct ssl_session_st {
 
   // is_quic indicates whether this session was created using QUIC.
   bool is_quic : 1;
+
+  // has_application_settings indicates whether ALPS was negotiated in this
+  // session.
+  bool has_application_settings : 1;
 
   // quic_early_data_context is used to determine whether early data must be
   // rejected when performing a QUIC handshake.

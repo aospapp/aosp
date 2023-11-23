@@ -28,6 +28,7 @@ import com.android.internal.os.StatsdConfigProto.EventMetric;
 import com.android.internal.os.StatsdConfigProto.SimpleAtomMatcher;
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.os.AtomsProto.Atom;
+import com.android.os.StatsLog.AggregatedAtomInfo;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.EventMetricData;
@@ -85,6 +86,8 @@ public class StatsdTestUtils {
     return ImmutableList.copyOf(
         metricsList.stream()
             .flatMap(statsLogReport -> statsLogReport.getEventMetrics().getDataList().stream())
+            .flatMap(
+                eventMetricData -> backfillAggregatedAtomsinEventMetric(eventMetricData).stream())
             .sorted(Comparator.comparing(EventMetricData::getElapsedTimestampNanos))
             .map(EventMetricData::getAtom)
             .collect(Collectors.toList()));
@@ -130,5 +133,21 @@ public class StatsdTestUtils {
             String.format("cmd stats dump-report %d --include_current_bucket --proto", configId),
             /*input=*/ null);
     return ConfigMetricsReportList.parser().parseFrom(new ByteArrayInputStream(output));
+  }
+
+  private static ImmutableList<EventMetricData> backfillAggregatedAtomsinEventMetric(
+      EventMetricData metricData) {
+    if (metricData.hasAtom()) {
+      return ImmutableList.of(metricData);
+    }
+    ImmutableList.Builder<EventMetricData> data = ImmutableList.builder();
+    AggregatedAtomInfo atomInfo = metricData.getAggregatedAtomInfo();
+    for (long timestamp : atomInfo.getElapsedTimestampNanosList()) {
+      EventMetricData.Builder newMetricData = EventMetricData.newBuilder();
+      newMetricData.setAtom(atomInfo.getAtom());
+      newMetricData.setElapsedTimestampNanos(timestamp);
+      data.add(newMetricData.build());
+    }
+    return data.build();
   }
 }

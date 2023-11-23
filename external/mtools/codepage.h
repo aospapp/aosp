@@ -16,7 +16,7 @@
  */
 
 typedef struct Codepage_l {
-	int nr;   
+	int nr;
 	unsigned char tounix[128];
 } Codepage_t;
 

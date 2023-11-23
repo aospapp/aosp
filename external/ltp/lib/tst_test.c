@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2015-2016 Cyril Hrubis <chrubis@suse.cz>
+ * Copyright (c) Linux Test Project, 2016-2021
  */
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -31,7 +33,15 @@
 #include "old_device.h"
 #include "old_tmpdir.h"
 
+/*
+ * Hack to get TCID defined in newlib tests
+ */
+const char *TCID __attribute__((weak));
+
+/* update also docparse/testinfo.pl */
 #define LINUX_GIT_URL "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id="
+#define LINUX_STABLE_GIT_URL "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/?id="
+#define GLIBC_GIT_URL "https://sourceware.org/git/?p=glibc.git;a=commit;h="
 #define CVE_DB_URL "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-"
 
 struct tst_test *tst_test;
@@ -50,6 +60,7 @@ struct results {
 	int skipped;
 	int failed;
 	int warnings;
+	int broken;
 	unsigned int timeout;
 };
 
@@ -62,12 +73,13 @@ extern unsigned int tst_max_futexes;
 
 #define IPC_ENV_VAR "LTP_IPC_PATH"
 
-static char ipc_path[1024];
+static char ipc_path[1064];
 const char *tst_ipc_path = ipc_path;
 
 static char shm_path[1024];
 
 int TST_ERR;
+int TST_PASS;
 long TST_RET;
 
 static void do_cleanup(void);
@@ -173,6 +185,9 @@ static void update_results(int ttype)
 	case TFAIL:
 		tst_atomic_inc(&results->failed);
 	break;
+	case TBROK:
+		tst_atomic_inc(&results->broken);
+	break;
 	}
 }
 
@@ -181,28 +196,28 @@ static void print_result(const char *file, const int lineno, int ttype,
 {
 	char buf[1024];
 	char *str = buf;
-	int ret, size = sizeof(buf), ssize, int_errno;
+	int ret, size = sizeof(buf), ssize, int_errno, buflen;
 	const char *str_errno = NULL;
 	const char *res;
 
 	switch (TTYPE_RESULT(ttype)) {
 	case TPASS:
-		res = "PASS";
+		res = "TPASS";
 	break;
 	case TFAIL:
-		res = "FAIL";
+		res = "TFAIL";
 	break;
 	case TBROK:
-		res = "BROK";
+		res = "TBROK";
 	break;
 	case TCONF:
-		res = "CONF";
+		res = "TCONF";
 	break;
 	case TWARN:
-		res = "WARN";
+		res = "TWARN";
 	break;
 	case TINFO:
-		res = "INFO";
+		res = "TINFO";
 	break;
 	default:
 		tst_brk(TBROK, "Invalid ttype value %i", ttype);
@@ -255,7 +270,17 @@ static void print_result(const char *file, const int lineno, int ttype,
 
 	snprintf(str, size, "\n");
 
-	fputs(buf, stderr);
+	/* we might be called from signal handler, so use write() */
+	buflen = str - buf + 1;
+	str = buf;
+	while (buflen) {
+		ret = write(STDERR_FILENO, str, buflen);
+		if (ret <= 0)
+			break;
+
+		str += ret;
+		buflen -= ret;
+	}
 }
 
 void tst_vres_(const char *file, const int lineno, int ttype,
@@ -300,6 +325,7 @@ void tst_vbrk_(const char *file, const int lineno, int ttype,
                const char *fmt, va_list va)
 {
 	print_result(file, lineno, ttype, fmt, va);
+	update_results(TTYPE_RESULT(ttype));
 
 	/*
 	 * The getpid implementation in some C library versions may cause cloned
@@ -346,15 +372,13 @@ static void check_child_status(pid_t pid, int status)
 	}
 
 	if (!(WIFEXITED(status)))
-		tst_brk(TBROK, "Child (%i) exited abnormaly", pid);
+		tst_brk(TBROK, "Child (%i) exited abnormally", pid);
 
 	ret = WEXITSTATUS(status);
 	switch (ret) {
 	case TPASS:
-	break;
 	case TBROK:
 	case TCONF:
-		tst_brk(ret, "Reported by child (%i)", pid);
 	break;
 	default:
 		tst_brk(TBROK, "Invalid child (%i) exit value %i", pid, ret);
@@ -404,6 +428,31 @@ pid_t safe_fork(const char *filename, unsigned int lineno)
 	return pid;
 }
 
+pid_t safe_clone(const char *file, const int lineno,
+		 const struct tst_clone_args *args)
+{
+	pid_t pid;
+
+	if (!tst_test->forks_child)
+		tst_brk(TBROK, "test.forks_child must be set!");
+
+	pid = tst_clone(args);
+
+	switch (pid) {
+	case -1:
+		tst_brk_(file, lineno, TBROK | TERRNO, "clone3 failed");
+		break;
+	case -2:
+		tst_brk_(file, lineno, TBROK | TERRNO, "clone failed");
+		return -1;
+	}
+
+	if (!pid)
+		atexit(tst_free_all);
+
+	return pid;
+}
+
 static struct option {
 	char *optstr;
 	char *help;
@@ -436,18 +485,23 @@ static void print_test_tags(void)
 	unsigned int i;
 	const struct tst_tag *tags = tst_test->tags;
 
+	if (!tags)
+		return;
+
 	printf("\nTags\n");
 	printf("----\n");
 
-	if (tags) {
-		for (i = 0; tags[i].name; i++) {
-			if (!strcmp(tags[i].name, "CVE"))
-				printf(CVE_DB_URL "%s\n", tags[i].value);
-			else if (!strcmp(tags[i].name, "linux-git"))
-				printf(LINUX_GIT_URL "%s\n", tags[i].value);
-			else
-				printf("%s: %s\n", tags[i].name, tags[i].value);
-		}
+	for (i = 0; tags[i].name; i++) {
+		if (!strcmp(tags[i].name, "CVE"))
+			printf(CVE_DB_URL "%s\n", tags[i].value);
+		else if (!strcmp(tags[i].name, "linux-git"))
+			printf(LINUX_GIT_URL "%s\n", tags[i].value);
+		else if (!strcmp(tags[i].name, "linux-stable-git"))
+			printf(LINUX_STABLE_GIT_URL "%s\n", tags[i].value);
+		else if (!strcmp(tags[i].name, "glibc-git"))
+			printf(GLIBC_GIT_URL "%s\n", tags[i].value);
+		else
+			printf("%s: %s\n", tags[i].name, tags[i].value);
 	}
 
 	printf("\n");
@@ -625,42 +679,39 @@ static void print_colored(const char *str)
 		printf("%s", str);
 }
 
-static void print_failure_hints(void)
+static void print_failure_hint(const char *tag, const char *hint,
+			       const char *url)
 {
-	unsigned int i;
 	const struct tst_tag *tags = tst_test->tags;
 
 	if (!tags)
 		return;
 
+	unsigned int i;
 	int hint_printed = 0;
+
 	for (i = 0; tags[i].name; i++) {
-		if (!strcmp(tags[i].name, "linux-git")) {
+		if (!strcmp(tags[i].name, tag)) {
 			if (!hint_printed) {
 				hint_printed = 1;
 				printf("\n");
 				print_colored("HINT: ");
-				printf("You _MAY_ be missing kernel fixes, see:\n\n");
+				printf("You _MAY_ be %s, see:\n\n", hint);
 			}
 
-			printf(LINUX_GIT_URL "%s\n", tags[i].value);
-		}
-
-	}
-
-	hint_printed = 0;
-	for (i = 0; tags[i].name; i++) {
-		if (!strcmp(tags[i].name, "CVE")) {
-			if (!hint_printed) {
-				hint_printed = 1;
-				printf("\n");
-				print_colored("HINT: ");
-				printf("You _MAY_ be vunerable to CVE(s), see:\n\n");
-			}
-
-			printf(CVE_DB_URL "%s\n", tags[i].value);
+			printf("%s%s\n", url, tags[i].value);
 		}
 	}
+}
+
+/* update also docparse/testinfo.pl */
+static void print_failure_hints(void)
+{
+	print_failure_hint("linux-git", "missing kernel fixes", LINUX_GIT_URL);
+	print_failure_hint("linux-stable-git", "missing stable kernel fixes",
+					   LINUX_STABLE_GIT_URL);
+	print_failure_hint("glibc-git", "missing glibc fixes", GLIBC_GIT_URL);
+	print_failure_hint("CVE", "vulnerable to CVE(s)", CVE_DB_URL);
 }
 
 static void do_exit(int ret)
@@ -680,9 +731,13 @@ static void do_exit(int ret)
 		if (results->warnings)
 			ret |= TWARN;
 
+		if (results->broken)
+			ret |= TBROK;
+
 		printf("\nSummary:\n");
 		printf("passed   %d\n", results->passed);
 		printf("failed   %d\n", results->failed);
+		printf("broken   %d\n", results->broken);
 		printf("skipped  %d\n", results->skipped);
 		printf("warnings %d\n", results->warnings);
 	}
@@ -717,6 +772,9 @@ static int results_equal(struct results *a, struct results *b)
 		return 0;
 
 	if (a->skipped != b->skipped)
+		return 0;
+
+	if (a->broken != b->broken)
 		return 0;
 
 	return 1;
@@ -772,7 +830,7 @@ static void assert_test_fn(void)
 		cnt++;
 
 	if (!cnt)
-		tst_brk(TBROK, "No test function speficied");
+		tst_brk(TBROK, "No test function specified");
 
 	if (cnt != 1)
 		tst_brk(TBROK, "You can define only one test function");
@@ -857,7 +915,7 @@ static void do_setup(int argc, char *argv[])
 
 	assert_test_fn();
 
-	tid = get_tid(argv);
+	TCID = tid = get_tid(argv);
 
 	if (tst_test->sample)
 		tst_test = tst_timer_test_setup(tst_test);
@@ -870,6 +928,16 @@ static void do_setup(int argc, char *argv[])
 	if (tst_test->min_kver)
 		check_kver();
 
+	if (tst_test->needs_cmds) {
+		const char *cmd;
+		char path[PATH_MAX];
+		int i;
+
+		for (i = 0; (cmd = tst_test->needs_cmds[i]); ++i)
+			if (tst_get_path(cmd, path, sizeof(path)))
+				tst_brk(TCONF, "Couldn't find '%s' in $PATH", cmd);
+	}
+
 	if (tst_test->needs_drivers) {
 		const char *name;
 		int i;
@@ -879,16 +947,20 @@ static void do_setup(int argc, char *argv[])
 				tst_brk(TCONF, "%s driver not available", name);
 	}
 
+	if (tst_test->mount_device)
+		tst_test->format_device = 1;
+
 	if (tst_test->format_device)
 		tst_test->needs_device = 1;
 
-	if (tst_test->mount_device) {
-		tst_test->needs_device = 1;
-		tst_test->format_device = 1;
-	}
-
 	if (tst_test->all_filesystems)
 		tst_test->needs_device = 1;
+
+	if (tst_test->min_cpus > (unsigned long)tst_ncpus())
+		tst_brk(TCONF, "Test needs at least %lu CPUs online", tst_test->min_cpus);
+
+	if (tst_test->request_hugepages)
+		tst_request_hugepages(tst_test->request_hugepages);
 
 	setup_ipc();
 
@@ -970,11 +1042,26 @@ static void do_setup(int argc, char *argv[])
 
 	if (tst_test->restore_wallclock)
 		tst_wallclock_save();
+
+	if (tst_test->taint_check)
+		tst_taint_init(tst_test->taint_check);
 }
 
 static void do_test_setup(void)
 {
 	main_pid = getpid();
+
+	if (!tst_test->all_filesystems && tst_test->skip_filesystems) {
+		long fs_type = tst_fs_type(".");
+		const char *fs_name = tst_fs_type_name(fs_type);
+
+		if (tst_fs_in_skiplist(fs_name, tst_test->skip_filesystems)) {
+			tst_brk(TCONF, "%s is not supported by the test",
+				fs_name);
+		}
+
+		tst_res(TINFO, "%s is supported by the test", fs_name);
+	}
 
 	if (tst_test->caps)
 		tst_cap_setup(tst_test->caps, TST_CAP_REQ);
@@ -1006,8 +1093,7 @@ static void do_cleanup(void)
 		tst_rmdir();
 	}
 
-	if (tst_test->save_restore)
-		tst_sys_conf_restore(0);
+	tst_sys_conf_restore(0);
 
 	if (tst_test->restore_wallclock)
 		tst_wallclock_restore();
@@ -1082,6 +1168,16 @@ static void heartbeat(void)
 	if (tst_clock_gettime(CLOCK_MONOTONIC, &tst_start_time))
 		tst_res(TWARN | TERRNO, "tst_clock_gettime() failed");
 
+	if (getppid() == 1) {
+		tst_res(TFAIL, "Main test process might have exit!");
+		/*
+		 * We need kill the task group immediately since the
+		 * main process has exit.
+		 */
+		kill(0, SIGKILL);
+		exit(TBROK);
+	}
+
 	kill(getppid(), SIGUSR1);
 }
 
@@ -1140,7 +1236,7 @@ static void alarm_handler(int sig LTP_ATTRIBUTE_UNUSED)
 	if (++sigkill_retries > 10) {
 		WRITE_MSG("Cannot kill test processes!\n");
 		WRITE_MSG("Congratulation, likely test hit a kernel bug.\n");
-		WRITE_MSG("Exitting uncleanly...\n");
+		WRITE_MSG("Exiting uncleanly...\n");
 		_exit(TFAIL);
 	}
 }
@@ -1249,6 +1345,11 @@ static int fork_testrun(void)
 	alarm(0);
 	SAFE_SIGNAL(SIGINT, SIG_DFL);
 
+	if (tst_test->taint_check && tst_taint_check()) {
+		tst_res(TFAIL, "Kernel is now tainted.");
+		return TFAIL;
+	}
+
 	if (WIFEXITED(status) && WEXITSTATUS(status))
 		return WEXITSTATUS(status);
 
@@ -1268,7 +1369,7 @@ static int run_tcases_per_fs(void)
 {
 	int ret = 0;
 	unsigned int i;
-	const char *const *filesystems = tst_get_supported_fs_types(tst_test->dev_fs_flags);
+	const char *const *filesystems = tst_get_supported_fs_types(tst_test->skip_filesystems);
 
 	if (!filesystems[0])
 		tst_brk(TCONF, "There are no supported filesystems");
@@ -1287,10 +1388,8 @@ static int run_tcases_per_fs(void)
 			mntpoint_mounted = 0;
 		}
 
-		if (ret == TCONF) {
-			update_results(ret);
+		if (ret == TCONF)
 			continue;
-		}
 
 		if (ret == 0)
 			continue;
@@ -1312,8 +1411,6 @@ void tst_run_tcases(int argc, char *argv[], struct tst_test *self)
 	tst_test = self;
 
 	do_setup(argc, argv);
-
-	TCID = tid;
 
 	SAFE_SIGNAL(SIGALRM, alarm_handler);
 	SAFE_SIGNAL(SIGUSR1, heartbeat_handler);
@@ -1344,7 +1441,7 @@ void tst_flush(void)
 	if (rval != 0)
 		tst_brk(TBROK | TERRNO, "fflush(stderr) failed");
 
-	rval = fflush(stderr);
+	rval = fflush(stdout);
 	if (rval != 0)
 		tst_brk(TBROK | TERRNO, "fflush(stdout) failed");
 

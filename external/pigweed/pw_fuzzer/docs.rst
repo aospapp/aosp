@@ -37,7 +37,7 @@ Writing fuzzers
 To write a fuzzer, a developer needs to write a fuzz target function follwing
 the `fuzz target function`__ guidelines given by libFuzzer:
 
-.. code::
+.. code:: cpp
 
   extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     DoSomethingInterestingWithMyAPI(data, size);
@@ -48,7 +48,7 @@ the `fuzz target function`__ guidelines given by libFuzzer:
 
 When writing you fuzz target function, you may want to consider:
 
-- It is acceptable to return early if the input doesn't mean some constraints,
+- It is acceptable to return early if the input doesn't meet some constraints,
   e.g. it is too short.
 - If your fuzzer accepts data with a well-defined format, you can bootstrap
   coverage by crafting examples and adding them to a `corpus`_.
@@ -63,8 +63,8 @@ When writing you fuzz target function, you may want to consider:
 
 .. _build:
 
-Building fuzzers
-================
+Building fuzzers with GN
+========================
 
 To build a fuzzer, do the following:
 
@@ -98,6 +98,49 @@ To build a fuzzer, do the following:
 3. Build normally, e.g. using ``pw watch``.
 
 .. _run:
+
+Building and running fuzzers with Bazel
+=======================================
+To build a fuzzer, do the following:
+
+1. Add the Bazel target using ``pw_cc_fuzz_test`` macro.
+
+.. code:: py
+
+  load("@pigweed//pw_fuzzer:fuzzer.bzl", "pw_cc_fuzz_test")
+
+  pw_cc_fuzz_test(
+    name = "my_fuzz_test",
+    srcs = ["my_fuzzer.cc"],
+    deps = [
+      "@pigweed//pw_fuzzer",
+      ":my_lib",
+    ],
+  )
+
+2. Build and run the fuzzer.
+
+.. code:: sh
+
+  bazel test //my_module:my_fuzz_test
+
+3. Swap fuzzer backend to use ASAN fuzzing engine.
+
+.. code::
+
+  # .bazelrc
+  # Define the --config=asan-libfuzzer configuration.
+  build:asan-libfuzzer \
+    --@rules_fuzzing//fuzzing:cc_engine=@rules_fuzzing//fuzzing/engines:libfuzzer
+  build:asan-libfuzzer \
+    --@rules_fuzzing//fuzzing:cc_engine_instrumentation=libfuzzer
+  build:asan-libfuzzer --@rules_fuzzing//fuzzing:cc_engine_sanitizer=asan
+
+4. Re-run fuzz tests.
+
+.. code::
+
+  bazel test //my_module:my_fuzz_test --config asan-libfuzzer
 
 Running fuzzers locally
 =======================
@@ -221,7 +264,7 @@ You can even verify fixes in your local source checkout:
 .. _compiler_rt: https://compiler-rt.llvm.org/
 .. _corpus: https://llvm.org/docs/LibFuzzer.html#corpus
 .. _FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION: https://llvm.org/docs/LibFuzzer.html#fuzzer-friendly-build-mode
-.. _FuzzedDataProvider: https://github.com/llvm/llvm-project/blob/master/compiler-rt/include/fuzzer/FuzzedDataProvider.h
+.. _FuzzedDataProvider: https://github.com/llvm/llvm-project/blob/HEAD/compiler-rt/include/fuzzer/FuzzedDataProvider.h
 .. _libFuzzer: https://llvm.org/docs/LibFuzzer.html
 .. _libFuzzer options: https://llvm.org/docs/LibFuzzer.html#options
 .. _LLVMFuzzerTestOneInput: https://llvm.org/docs/LibFuzzer.html#fuzz-target
@@ -230,7 +273,7 @@ You can even verify fixes in your local source checkout:
 .. _reproducing: https://google.github.io/oss-fuzz/advanced-topics/reproducing/
 .. _running a fuzzer: https://llvm.org/docs/LibFuzzer.html#running
 .. _sanitizer runtime flags: https://github.com/google/sanitizers/wiki/SanitizerCommonFlags
-.. _split a fuzzing input: https://github.com/google/fuzzing/blob/master/docs/split-inputs.md
+.. _split a fuzzing input: https://github.com/google/fuzzing/blob/HEAD/docs/split-inputs.md
 .. _startup initialization: https://llvm.org/docs/LibFuzzer.html#startup-initialization
-.. _structure aware fuzzing: https://github.com/google/fuzzing/blob/master/docs/structure-aware_fuzzing.md
+.. _structure aware fuzzing: https://github.com/google/fuzzing/blob/HEAD/docs/structure-aware-fuzzing.md
 .. _valid options: https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html

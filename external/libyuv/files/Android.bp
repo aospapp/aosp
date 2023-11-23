@@ -86,6 +86,12 @@ cc_library {
         "-DHAVE_JPEG",
     ],
 
+    arch: {
+        arm: {
+            cflags: ["-mfpu=neon"],
+        },
+    },
+
     shared_libs: ["libjpeg"],
 
     export_include_dirs: ["include"],

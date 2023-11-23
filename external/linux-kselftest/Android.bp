@@ -76,7 +76,6 @@ cc_defaults {
         "-Wno-parentheses-equality",
         "-Wno-pointer-arith",
         "-Wno-sign-compare",
-        "-Wno-unused-parameter",
         "-Wno-shift-negative-value",
         "-Wno-switch",
         "-Wno-absolute-value",
@@ -94,6 +93,14 @@ cc_defaults {
     no_named_install_directory: true,
 
     test_per_src: true,
+}
+
+// binderfs test
+cc_test {
+    name: "kselftest_binderfs_tests",
+    relative_install_path: "linux-kselftest/filesystems/binderfs",
+    srcs: ["tools/testing/selftests/filesystems/binderfs/binderfs_test.c"],
+    defaults: ["kselftest_defaults"],
 }
 
 // breakpoints test
@@ -114,6 +121,11 @@ cc_test {
             ],
         },
         x86: {
+            srcs: [
+                "tools/testing/selftests/breakpoints/breakpoint_test.c",
+            ],
+        },
+        x86_64: {
             srcs: [
                 "tools/testing/selftests/breakpoints/breakpoint_test.c",
             ],
@@ -329,6 +341,21 @@ cc_test {
     name: "kselftest_kcmp_tests",
     relative_install_path: "linux-kselftest/kcmp",
     srcs: ["tools/testing/selftests/kcmp/kcmp_test.c"],
+    defaults: ["kselftest_defaults"],
+}
+
+// KVM test
+cc_test {
+    name: "kselftest_kvm_arm64_tests",
+    relative_install_path: "linux-kselftest/kvm/aarch64",
+    local_include_dirs: [ "tools/testing/selftests"],
+    enabled: false,
+    arch: {
+        arm64: {
+            enabled: true,
+            srcs: ["tools/testing/selftests/kvm/aarch64/pvm_wipe_mem.c"],
+        },
+    },
     defaults: ["kselftest_defaults"],
 }
 
@@ -575,6 +602,7 @@ cc_test {
         "tools/testing/selftests/vm/mlock-random-test.c",
         "tools/testing/selftests/vm/mlock2-tests.c",
         "tools/testing/selftests/vm/on-fault-limit.c",
+        "tools/testing/selftests/vm/userfaultfd.c",
         "tools/testing/selftests/vm/thuge-gen.c",
         "tools/testing/selftests/vm/transhuge-stress.c",
     ],

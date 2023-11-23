@@ -30,8 +30,8 @@
 static void _label_name(doscp_t *cp, const char *filename, int verbose UNUSEDP,
 			int *mangled, dos_name_t *ans, int preserve_case)
 {
-	int len;
-	int i;
+	size_t len;
+	size_t i;
 	int have_lower, have_upper;
 	wchar_t wbuffer[12];
 
@@ -159,7 +159,7 @@ void mlabel(int argc, char **argv, int type UNUSEDP)
 			case 'n':
 				set_serial = SER_RANDOM;
 				init_random();
-				serial=random();
+				serial=(uint32_t) random();
 				break;
 			case 'N':
 				set_serial = SER_SET;
@@ -171,7 +171,7 @@ void mlabel(int argc, char **argv, int type UNUSEDP)
 						optarg);
 					exit(1);
 				}
-				check_number_parse_errno(c, optarg, eptr);
+				check_number_parse_errno((char)c, optarg, eptr);
 				break;
 			case 'h':
 				usage(0);
@@ -208,12 +208,12 @@ void mlabel(int argc, char **argv, int type UNUSEDP)
 		fprintf(stderr, "Both clear and new label specified\n");
 		FREE(&RootDir);
 		exit(1);
-	}		
+	}
 	RootDir = open_root_dir(drive, isRop ? 0 : O_RDWR, isRop);
 	if(isRo) {
 		show = 1;
 		interactive = 0;
-	}	
+	}
 	if(!RootDir) {
 		fprintf(stderr, "%s: Cannot initialize drive\n", argv[0]);
 		exit(1);
@@ -241,7 +241,7 @@ void mlabel(int argc, char **argv, int type UNUSEDP)
 
 	/* ask for new label */
 	if(interactive){
-		saved_sig_state ss; 
+		saved_sig_state ss;
 		newLabel = longname;
 		allow_interrupts(&ss);
 		fprintf(stderr,"Enter the new volume label : ");
@@ -283,7 +283,7 @@ void mlabel(int argc, char **argv, int type UNUSEDP)
 	have_boot = 0;
 	if( (!show || newLabel[0]) || set_serial != SER_NONE) {
 		Fs = GetFs(RootDir);
-		have_boot = (force_read(Fs,boot.characters,0,sizeof(boot)) ==
+		have_boot = (force_pread(Fs,boot.characters,0,sizeof(boot)) ==
 			     sizeof(boot));
 	}
 
@@ -314,19 +314,19 @@ void mlabel(int argc, char **argv, int type UNUSEDP)
 
 	if((set_serial != SER_NONE) & have_boot) {
 		if(have_boot && boot.boot.descr >= 0xf0 && has_BPB4) {
-			set_dword(labelBlock->serial, serial);	
+			set_dword(labelBlock->serial, serial);
 			need_write_boot = 1;
 		}
 	}
 
 	if(need_write_boot) {
-		force_write(Fs, (char *)&boot, 0, sizeof(boot));
+		force_pwrite(Fs, (char *)&boot, 0, sizeof(boot));
 		/* If this is fat 32, write backup boot sector too */
 		if(!WORD_S(fatlen)) {
 			int backupBoot = WORD_S(ext.fat32.backupBoot);
-			force_write(Fs, (char *)&boot, 
-				    backupBoot * WORD_S(secsiz),
-				    sizeof(boot));
+			force_pwrite(Fs, (char *)&boot,
+				     backupBoot * WORD_S(secsiz),
+				     sizeof(boot));
 		}
 	}
 

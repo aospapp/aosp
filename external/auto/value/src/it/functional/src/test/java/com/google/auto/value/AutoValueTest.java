@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Ordering;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.SerializableTester;
 import java.io.ObjectStreamClass;
@@ -52,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,6 +62,7 @@ import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -70,6 +73,7 @@ import org.junit.runners.JUnit4;
 
 /** @author emcmanus@google.com (Éamonn McManus) */
 @RunWith(JUnit4.class)
+@SuppressWarnings({"AutoValueImmutableFields", "AutoValueFinalMethods", "TypeNameShadowing"})
 public class AutoValueTest {
   private static boolean omitIdentifiers;
 
@@ -180,12 +184,15 @@ public class AutoValueTest {
   @AutoValue
   abstract static class StrangeGetters {
     abstract int get1st();
+
     abstract int get_1st(); // by default we'll use _1st where identifiers are needed, so foil that.
 
     @AutoValue.Builder
     abstract static class Builder {
       abstract Builder set1st(int x);
+
       abstract Builder set_1st(int x);
+
       abstract StrangeGetters build();
     }
 
@@ -284,6 +291,8 @@ public class AutoValueTest {
 
   @AutoValue
   public abstract static class Serialize implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     public abstract int integer();
 
     public abstract String string();
@@ -845,6 +854,8 @@ public class AutoValueTest {
   @Test
   public void testGenericClassWithHairyBounds() throws Exception {
     class ComparableList<E> extends ArrayList<E> implements Comparable<ComparableList<E>> {
+      private static final long serialVersionUID = 1L;
+
       @Override
       public int compareTo(ComparableList<E> list) {
         throw new UnsupportedOperationException();
@@ -1262,7 +1273,7 @@ public class AutoValueTest {
   }
 
   @AutoValue
-  public abstract static class ComplexInheritance extends AbstractBase implements A, B {
+  public abstract static class ComplexInheritance extends AbstractBase implements IntfA, IntfB {
     public static ComplexInheritance create(String name) {
       return new AutoValue_AutoValueTest_ComplexInheritance(name);
     }
@@ -1277,9 +1288,9 @@ public class AutoValueTest {
     }
   }
 
-  interface A extends Base {}
+  interface IntfA extends Base {}
 
-  interface B extends Base {}
+  interface IntfB extends Base {}
 
   interface Base {
     int answer();
@@ -1352,7 +1363,7 @@ public class AutoValueTest {
   }
 
   @AutoValue
-  public abstract static class InheritTwice implements A, B {
+  public abstract static class InheritTwice implements IntfA, IntfB {
     public static InheritTwice create(int answer) {
       return new AutoValue_AutoValueTest_InheritTwice(answer);
     }
@@ -1664,6 +1675,13 @@ public class AutoValueTest {
             .build();
     assertThat(suppliedDirectly.optionalString()).hasValue("foo");
     assertThat(suppliedDirectly.optionalInteger()).hasValue(23);
+
+    try {
+      // The parameter is not marked @Nullable so this should fail.
+      OptionalPropertiesWithBuilder.builder().setOptionalString((String) null);
+      fail();
+    } catch (NullPointerException expected) {
+    }
   }
 
   @AutoValue
@@ -1872,6 +1890,40 @@ public class AutoValueTest {
     GenericsWithBuilder<Integer, Integer> instance3 = instance.toBuilderGenerated().u(17).build();
     assertEquals(integers, instance3.list());
     assertEquals((Integer) 17, instance3.u());
+  }
+
+  public interface ToBuilder<BuilderT> {
+    BuilderT toBuilder();
+  }
+
+  @AutoValue
+  public abstract static class InheritedToBuilder<T, U>
+      implements ToBuilder<InheritedToBuilder.Builder<T, U>> {
+
+    public abstract T t();
+
+    public abstract U u();
+
+    public static <T, U> Builder<T, U> builder() {
+      return new AutoValue_AutoValueTest_InheritedToBuilder.Builder<T, U>();
+    }
+
+    @AutoValue.Builder
+    public abstract static class Builder<T, U> {
+      public abstract Builder<T, U> setT(T t);
+
+      public abstract Builder<T, U> setU(U u);
+
+      public abstract InheritedToBuilder<T, U> build();
+    }
+  }
+
+  @Test
+  public void testInheritedToBuilder() {
+    InheritedToBuilder<Integer, String> x =
+        InheritedToBuilder.<Integer, String>builder().setT(17).setU("wibble").build();
+    InheritedToBuilder<Integer, String> y = x.toBuilder().setT(23).build();
+    assertThat(y.u()).isEqualTo("wibble");
   }
 
   @AutoValue
@@ -2115,6 +2167,37 @@ public class AutoValueTest {
   }
 
   @AutoValue
+  public abstract static class BuilderWithPrefixedGettersAndUnprefixedSetters {
+    public abstract String getOAuth();
+
+    public abstract String getOBrien();
+
+    public static Builder builder() {
+      return new AutoValue_AutoValueTest_BuilderWithPrefixedGettersAndUnprefixedSetters.Builder();
+    }
+
+    @AutoValue.Builder
+    public abstract static class Builder {
+      public abstract Builder oAuth(String x);
+
+      public abstract Builder OBrien(String x);
+
+      public abstract BuilderWithPrefixedGettersAndUnprefixedSetters build();
+    }
+  }
+
+  @Test
+  public void testBuilderWithPrefixedGetterAndUnprefixedSetter() {
+    BuilderWithPrefixedGettersAndUnprefixedSetters x =
+        BuilderWithPrefixedGettersAndUnprefixedSetters.builder()
+            .oAuth("OAuth")
+            .OBrien("Flann")
+            .build();
+    assertThat(x.getOAuth()).isEqualTo("OAuth");
+    assertThat(x.getOBrien()).isEqualTo("Flann");
+  }
+
+  @AutoValue
   public abstract static class BuilderWithPropertyBuilders<FooT extends Comparable<FooT>> {
     public abstract ImmutableList<FooT> getFoos();
 
@@ -2223,6 +2306,7 @@ public class AutoValueTest {
     @AutoValue.Builder
     abstract static class Builder {
       abstract ImmutableList.Builder<String> listBuilder();
+
       abstract PropertyBuilderInheritsType build();
     }
   }
@@ -2820,6 +2904,8 @@ public class AutoValueTest {
   }
 
   public static class MyMap<K, V> extends HashMap<K, V> {
+    private static final long serialVersionUID = 1L;
+
     public MyMap() {}
 
     public MyMap(Map<K, V> map) {
@@ -2828,6 +2914,8 @@ public class AutoValueTest {
   }
 
   public static class MyMapBuilder<K, V> extends LinkedHashMap<K, V> {
+    private static final long serialVersionUID = 1L;
+
     public MyMapBuilder() {}
 
     public MyMapBuilder(Map<K, V> map) {
@@ -2873,6 +2961,8 @@ public class AutoValueTest {
   }
 
   public static class MyStringMap<V> extends MyMap<String, V> {
+    private static final long serialVersionUID = 1L;
+
     public MyStringMap() {}
 
     public MyStringMap(Map<String, V> map) {
@@ -2885,6 +2975,8 @@ public class AutoValueTest {
   }
 
   public static class MyStringMapBuilder<V> extends MyMapBuilder<String, V> {
+    private static final long serialVersionUID = 1L;
+
     public MyStringMapBuilder() {}
 
     public MyStringMapBuilder(Map<String, V> map) {
@@ -3258,6 +3350,7 @@ public class AutoValueTest {
     @AutoValue.Builder
     abstract static class Builder {
       abstract Builder setMetrics(ImmutableSet<? extends Number> metrics);
+
       abstract GenericExtends build();
     }
   }
@@ -3282,6 +3375,7 @@ public class AutoValueTest {
     @AutoValue.Builder
     abstract static class Builder {
       abstract Builder setList(List<String> list);
+
       abstract Child build();
     }
   }
@@ -3325,14 +3419,18 @@ public class AutoValueTest {
   @SuppressWarnings("ClassCanBeStatic")
   static class OuterWithTypeParam<T extends Number> {
     class InnerWithTypeParam<U> {}
+
     class InnerWithoutTypeParam {}
+
     static class Nested {}
   }
 
   @AutoValue
   abstract static class Nesty {
     abstract OuterWithTypeParam<Double>.InnerWithTypeParam<String> innerWithTypeParam();
+
     abstract OuterWithTypeParam<Double>.InnerWithoutTypeParam innerWithoutTypeParam();
+
     abstract OuterWithTypeParam.Nested nested();
 
     static Builder builder() {
@@ -3343,8 +3441,11 @@ public class AutoValueTest {
     abstract static class Builder {
       abstract Builder setInnerWithTypeParam(
           OuterWithTypeParam<Double>.InnerWithTypeParam<String> x);
+
       abstract Builder setInnerWithoutTypeParam(OuterWithTypeParam<Double>.InnerWithoutTypeParam x);
+
       abstract Builder setNested(OuterWithTypeParam.Nested x);
+
       abstract Nesty build();
     }
   }
@@ -3353,11 +3454,12 @@ public class AutoValueTest {
   public void outerWithTypeParam() throws ReflectiveOperationException {
     @SuppressWarnings("UseDiamond") // Currently we compile this with -source 6 in the Eclipse test.
     OuterWithTypeParam<Double> outer = new OuterWithTypeParam<Double>();
-    Nesty nesty = Nesty.builder()
-        .setInnerWithTypeParam(outer.new InnerWithTypeParam<String>())
-        .setInnerWithoutTypeParam(outer.new InnerWithoutTypeParam())
-        .setNested(new OuterWithTypeParam.Nested())
-        .build();
+    Nesty nesty =
+        Nesty.builder()
+            .setInnerWithTypeParam(outer.new InnerWithTypeParam<String>())
+            .setInnerWithoutTypeParam(outer.new InnerWithoutTypeParam())
+            .setNested(new OuterWithTypeParam.Nested())
+            .build();
     Type originalReturnType =
         Nesty.class.getDeclaredMethod("innerWithTypeParam").getGenericReturnType();
     Type generatedReturnType =
@@ -3383,6 +3485,7 @@ public class AutoValueTest {
     @MyAnnotation("thing")
     abstract static class Builder {
       abstract Builder setFoo(String x);
+
       abstract BuilderAnnotationsNotCopied build();
     }
   }
@@ -3407,6 +3510,7 @@ public class AutoValueTest {
     @MyAnnotation("thing")
     abstract static class Builder {
       abstract Builder setFoo(String x);
+
       abstract BuilderAnnotationsCopied build();
     }
   }
@@ -3416,5 +3520,107 @@ public class AutoValueTest {
     BuilderAnnotationsCopied.Builder builder = BuilderAnnotationsCopied.builder();
     assertThat(builder.getClass().getAnnotations()).asList().containsExactly(myAnnotation("thing"));
     assertThat(builder.setFoo("foo").build().foo()).isEqualTo("foo");
+  }
+
+  @AutoValue
+  @AutoValue.CopyAnnotations
+  @SuppressWarnings({"rawtypes", "unchecked"}) // deliberately checking handling of raw types
+  abstract static class DataWithSortedCollectionBuilders<K, V> {
+    abstract ImmutableSortedMap<K, V> anImmutableSortedMap();
+
+    abstract ImmutableSortedSet<V> anImmutableSortedSet();
+
+    abstract ImmutableSortedMap<Integer, V> nonGenericImmutableSortedMap();
+
+    abstract ImmutableSortedSet rawImmutableSortedSet();
+
+    abstract DataWithSortedCollectionBuilders.Builder<K, V> toBuilder();
+
+    static <K, V> DataWithSortedCollectionBuilders.Builder<K, V> builder() {
+      return new AutoValue_AutoValueTest_DataWithSortedCollectionBuilders.Builder<K, V>();
+    }
+
+    @AutoValue.Builder
+    abstract static class Builder<K, V> {
+      abstract DataWithSortedCollectionBuilders.Builder<K, V> anImmutableSortedMap(
+          SortedMap<K, V> anImmutableSortedMap);
+
+      abstract ImmutableSortedMap.Builder<K, V> anImmutableSortedMapBuilder(
+          Comparator<K> keyComparator);
+
+      abstract DataWithSortedCollectionBuilders.Builder<K, V> anImmutableSortedSet(
+          SortedSet<V> anImmutableSortedSet);
+
+      abstract ImmutableSortedSet.Builder<V> anImmutableSortedSetBuilder(Comparator<V> comparator);
+
+      abstract ImmutableSortedMap.Builder<Integer, V> nonGenericImmutableSortedMapBuilder(
+          Comparator<Integer> keyComparator);
+
+      abstract ImmutableSortedSet.Builder rawImmutableSortedSetBuilder(Comparator comparator);
+
+      abstract DataWithSortedCollectionBuilders<K, V> build();
+    }
+  }
+
+  @Test
+  @SuppressWarnings({"rawtypes", "unchecked"}) // deliberately checking handling of raw types
+  public void shouldGenerateBuildersWithComparators() {
+    Comparator<String> stringComparator =
+        new Comparator<String>() {
+          @Override
+          public int compare(String left, String right) {
+            return left.compareTo(right);
+          }
+        };
+
+    Comparator<Integer> intComparator =
+        new Comparator<Integer>() {
+          @Override
+          public int compare(Integer o1, Integer o2) {
+            return o1 - o2;
+          }
+        };
+
+    Comparator comparator =
+        new Comparator() {
+          @Override
+          public int compare(Object left, Object right) {
+            return String.valueOf(left).compareTo(String.valueOf(right));
+          }
+        };
+
+    AutoValueTest.DataWithSortedCollectionBuilders.Builder<String, Integer> builder =
+        AutoValueTest.DataWithSortedCollectionBuilders.builder();
+
+    builder
+        .anImmutableSortedMapBuilder(stringComparator)
+        .put("Charlie", 1)
+        .put("Alfa", 2)
+        .put("Bravo", 3);
+    builder.anImmutableSortedSetBuilder(intComparator).add(1, 5, 9, 3);
+    builder.nonGenericImmutableSortedMapBuilder(intComparator).put(9, 99).put(1, 11).put(3, 33);
+    builder.rawImmutableSortedSetBuilder(comparator).add("Bravo", "Charlie", "Alfa");
+
+    AutoValueTest.DataWithSortedCollectionBuilders<String, Integer> data = builder.build();
+
+    AutoValueTest.DataWithSortedCollectionBuilders.Builder<String, Integer> copiedBuilder =
+        data.toBuilder();
+    AutoValueTest.DataWithSortedCollectionBuilders<String, Integer> copiedData =
+        copiedBuilder.build();
+
+    assertThat(data.anImmutableSortedMap().keySet())
+        .containsExactly("Alfa", "Bravo", "Charlie")
+        .inOrder();
+    assertThat(data.anImmutableSortedSet()).containsExactly(1, 3, 5, 9).inOrder();
+    assertThat(data.nonGenericImmutableSortedMap().keySet()).containsExactly(1, 3, 9).inOrder();
+    assertThat(data.rawImmutableSortedSet()).containsExactly("Alfa", "Bravo", "Charlie").inOrder();
+
+    assertThat(copiedData).isEqualTo(data);
+
+    try {
+      builder.anImmutableSortedMapBuilder(Ordering.from(stringComparator).reverse());
+      fail("Calling property builder method a second time should have failed");
+    } catch (IllegalStateException expected) {
+    }
   }
 }

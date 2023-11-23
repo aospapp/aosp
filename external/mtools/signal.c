@@ -64,7 +64,7 @@ static void _allow_interrupt(saved_sig_state *ss, int sig, int slot)
 {
   struct sigaction new;
 
-  bzero(&new, sizeof(new));
+  memset(&new, 0, sizeof(new));
   new.sa_handler = signal_handler;
   new.sa_flags &= ~SA_RESTART;
 

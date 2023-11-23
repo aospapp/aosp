@@ -142,7 +142,7 @@ public abstract class UCharacterIterator implements Cloneable, UForwardCharacter
      */
     public int currentCodePoint() {
         int ch = current();
-        if (UTF16.isLeadSurrogate((char) ch)) {
+        if (UTF16.isLeadSurrogate(ch)) {
             // advance the index to get the
             // next code point
             next();
@@ -154,7 +154,7 @@ public abstract class UCharacterIterator implements Cloneable, UForwardCharacter
             // the current index so back off
             previous();
 
-            if (UTF16.isTrailSurrogate((char) ch2)) {
+            if (UTF16.isTrailSurrogate(ch2)) {
                 // we found a surrogate pair
                 // return the codepoint
                 return Character.toCodePoint((char) ch, (char) ch2);
@@ -196,9 +196,9 @@ public abstract class UCharacterIterator implements Cloneable, UForwardCharacter
     @Override
     public int nextCodePoint() {
         int ch1 = next();
-        if (UTF16.isLeadSurrogate((char) ch1)) {
+        if (UTF16.isLeadSurrogate(ch1)) {
             int ch2 = next();
-            if (UTF16.isTrailSurrogate((char) ch2)) {
+            if (UTF16.isTrailSurrogate(ch2)) {
                 return Character.toCodePoint((char) ch1, (char) ch2);
             } else if (ch2 != DONE) {
                 // unmatched surrogate so back out
@@ -218,7 +218,7 @@ public abstract class UCharacterIterator implements Cloneable, UForwardCharacter
 
     /**
      * Retreat to the start of the previous code point in the text, and return it (pre-decrement semantics). If the
-     * index is not preceeded by a valid surrogate pair, the behavior is the same as <code>previous()</code>. Otherwise
+     * index is not preceded by a valid surrogate pair, the behavior is the same as <code>previous()</code>. Otherwise
      * the iterator is decremented to the start of the surrogate pair, and the code point represented by the pair is
      * returned.
      *
@@ -226,9 +226,9 @@ public abstract class UCharacterIterator implements Cloneable, UForwardCharacter
      */
     public int previousCodePoint() {
         int ch1 = previous();
-        if (UTF16.isTrailSurrogate((char) ch1)) {
+        if (UTF16.isTrailSurrogate(ch1)) {
             int ch2 = previous();
-            if (UTF16.isLeadSurrogate((char) ch2)) {
+            if (UTF16.isLeadSurrogate(ch2)) {
                 return Character.toCodePoint((char) ch2, (char) ch1);
             } else if (ch2 != DONE) {
                 // unmatched trail surrogate so back out

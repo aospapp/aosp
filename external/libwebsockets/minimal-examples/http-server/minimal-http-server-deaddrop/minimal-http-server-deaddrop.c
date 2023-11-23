@@ -1,7 +1,7 @@
 /*
  * lws-minimal-http-server-deaddrop
  *
- * Written in 2010-2019 by Andy Green <andy@warmcat.com>
+ * Written in 2010-2020 by Andy Green <andy@warmcat.com>
  *
  * This file is made available under the Creative Commons CC0 1.0
  * Universal Public Domain Dedication.
@@ -23,7 +23,7 @@
 
 static struct lws_protocols protocols[] = {
        LWS_PLUGIN_PROTOCOL_DEADDROP,
-       { NULL, NULL, 0, 0 } /* terminator */
+       LWS_PROTOCOL_LIST_TERM
 };
 
 
@@ -153,8 +153,10 @@ int main(int argc, const char **argv)
 	info.error_document_404 = "/404.html";
 	info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT |
 		LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
+#if defined(LWS_WITH_TLS)
 	info.ssl_cert_filepath = "localhost-100y.cert";
 	info.ssl_private_key_filepath = "localhost-100y.key";
+#endif
 
 	context = lws_create_context(&info);
 	if (!context) {

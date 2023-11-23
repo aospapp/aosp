@@ -72,6 +72,14 @@ extern uint8_t* chunkunroll_sse2(uint8_t *out, unsigned *dist, unsigned *len);
 extern uint8_t* chunkmemset_sse2(uint8_t *out, unsigned dist, unsigned len);
 extern uint8_t* chunkmemset_safe_sse2(uint8_t *out, unsigned dist, unsigned len, unsigned left);
 #endif
+#ifdef X86_AVX_CHUNKSET
+extern uint32_t chunksize_avx(void);
+extern uint8_t* chunkcopy_avx(uint8_t *out, uint8_t const *from, unsigned len);
+extern uint8_t* chunkcopy_safe_avx(uint8_t *out, uint8_t const *from, unsigned len, uint8_t *safe);
+extern uint8_t* chunkunroll_avx(uint8_t *out, unsigned *dist, unsigned *len);
+extern uint8_t* chunkmemset_avx(uint8_t *out, unsigned dist, unsigned len);
+extern uint8_t* chunkmemset_safe_avx(uint8_t *out, unsigned dist, unsigned len, unsigned left);
+#endif
 #ifdef ARM_NEON_CHUNKSET
 extern uint32_t chunksize_neon(void);
 extern uint8_t* chunkcopy_neon(uint8_t *out, uint8_t const *from, unsigned len);
@@ -240,6 +248,10 @@ Z_INTERNAL uint32_t chunksize_stub(void) {
 # endif
         functable.chunksize = &chunksize_sse2;
 #endif
+#ifdef X86_AVX_CHUNKSET
+    if (x86_cpu_has_avx2)
+        functable.chunksize = &chunksize_avx;
+#endif
 #ifdef ARM_NEON_CHUNKSET
     if (arm_cpu_has_neon)
         functable.chunksize = &chunksize_neon;
@@ -257,6 +269,10 @@ Z_INTERNAL uint8_t* chunkcopy_stub(uint8_t *out, uint8_t const *from, unsigned l
     if (x86_cpu_has_sse2)
 # endif
         functable.chunkcopy = &chunkcopy_sse2;
+#endif
+#ifdef X86_AVX_CHUNKSET
+    if (x86_cpu_has_avx2)
+        functable.chunkcopy = &chunkcopy_avx;
 #endif
 #ifdef ARM_NEON_CHUNKSET
     if (arm_cpu_has_neon)
@@ -276,6 +292,10 @@ Z_INTERNAL uint8_t* chunkcopy_safe_stub(uint8_t *out, uint8_t const *from, unsig
 # endif
         functable.chunkcopy_safe = &chunkcopy_safe_sse2;
 #endif
+#ifdef X86_AVX_CHUNKSET
+    if (x86_cpu_has_avx2)
+        functable.chunkcopy_safe = &chunkcopy_safe_avx;
+#endif
 #ifdef ARM_NEON_CHUNKSET
     if (arm_cpu_has_neon)
         functable.chunkcopy_safe = &chunkcopy_safe_neon;
@@ -293,6 +313,10 @@ Z_INTERNAL uint8_t* chunkunroll_stub(uint8_t *out, unsigned *dist, unsigned *len
     if (x86_cpu_has_sse2)
 # endif
         functable.chunkunroll = &chunkunroll_sse2;
+#endif
+#ifdef X86_AVX_CHUNKSET
+    if (x86_cpu_has_avx2)
+        functable.chunkunroll = &chunkunroll_avx;
 #endif
 #ifdef ARM_NEON_CHUNKSET
     if (arm_cpu_has_neon)
@@ -312,6 +336,10 @@ Z_INTERNAL uint8_t* chunkmemset_stub(uint8_t *out, unsigned dist, unsigned len) 
 # endif
         functable.chunkmemset = &chunkmemset_sse2;
 #endif
+#ifdef X86_AVX_CHUNKSET
+    if (x86_cpu_has_avx2)
+        functable.chunkmemset = &chunkmemset_avx;
+#endif
 #ifdef ARM_NEON_CHUNKSET
     if (arm_cpu_has_neon)
         functable.chunkmemset = &chunkmemset_neon;
@@ -330,6 +358,10 @@ Z_INTERNAL uint8_t* chunkmemset_safe_stub(uint8_t *out, unsigned dist, unsigned 
 # endif
         functable.chunkmemset_safe = &chunkmemset_safe_sse2;
 #endif
+#ifdef X86_AVX_CHUNKSET
+    if (x86_cpu_has_avx2)
+        functable.chunkmemset_safe = &chunkmemset_safe_avx;
+#endif
 #ifdef ARM_NEON_CHUNKSET
     if (arm_cpu_has_neon)
         functable.chunkmemset_safe = &chunkmemset_safe_neon;
@@ -339,6 +371,7 @@ Z_INTERNAL uint8_t* chunkmemset_safe_stub(uint8_t *out, unsigned dist, unsigned 
 }
 
 Z_INTERNAL uint32_t crc32_stub(uint32_t crc, const unsigned char *buf, uint64_t len) {
+    int32_t use_byfour = sizeof(void *) == sizeof(ptrdiff_t);
 
     Assert(sizeof(uint64_t) >= sizeof(size_t),
            "crc32_z takes size_t but internally we have a uint64_t len");
@@ -346,7 +379,7 @@ Z_INTERNAL uint32_t crc32_stub(uint32_t crc, const unsigned char *buf, uint64_t 
 
     cpu_check_features();
 
-    if (sizeof(void *) == sizeof(ptrdiff_t)) {
+    if (use_byfour) {
 #if BYTE_ORDER == LITTLE_ENDIAN
         functable.crc32 = crc32_little;
 #  if defined(ARM_ACLE_CRC_HASH)

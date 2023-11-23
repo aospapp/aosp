@@ -13,26 +13,26 @@
 // the License.
 #pragma once
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+#include <type_traits>
+#else
 #include <stddef.h>
 #endif  // __cplusplus
 
 // Note: This file depends on the backend header already being included.
 
-#include "pw_assert/options.h"
-#include "pw_preprocessor/arguments.h"
+#include "pw_assert/config.h"
 #include "pw_preprocessor/compiler.h"
 
 // PW_CRASH - Crash the system, with a message.
 #define PW_CRASH PW_HANDLE_CRASH
 
 // PW_CHECK - If condition evaluates to false, crash. Message optional.
-#define PW_CHECK(condition, ...)                              \
-  do {                                                        \
-    if (!(condition)) {                                       \
-      _PW_CHECK_SELECT_MACRO(                                 \
-          #condition, PW_HAS_ARGS(__VA_ARGS__), __VA_ARGS__); \
-    }                                                         \
+#define PW_CHECK(condition, ...)                            \
+  do {                                                      \
+    if (!(condition)) {                                     \
+      PW_HANDLE_ASSERT_FAILURE(#condition, "" __VA_ARGS__); \
+    }                                                       \
   } while (0)
 
 #define PW_DCHECK(...)            \
@@ -132,114 +132,61 @@
 
 // clang-format on
 
-// PW_CHECK - If condition evaluates to false, crash. Message optional.
-#define PW_CHECK_OK(status, ...)                          \
-  do {                                                    \
-    if (status != PW_STATUS_OK) {                         \
-      _PW_CHECK_OK_SELECT_MACRO(#status,                  \
-                                pw_StatusString(status),  \
-                                PW_HAS_ARGS(__VA_ARGS__), \
-                                __VA_ARGS__);             \
-    }                                                     \
+// PW_CHECK_OK - If condition does not evaluate to PW_STATUS_OK, crash. Message
+// optional.
+#define PW_CHECK_OK(expression, ...)                                     \
+  do {                                                                   \
+    const _PW_CHECK_OK_STATUS _pw_assert_check_ok_status = (expression); \
+    if (_pw_assert_check_ok_status != PW_STATUS_OK) {                    \
+      _PW_CHECK_BINARY_ARG_HANDLER(                                      \
+          #expression,                                                   \
+          pw_StatusString(_pw_assert_check_ok_status),                   \
+          "==",                                                          \
+          "OkStatus()",                                                  \
+          "OK",                                                          \
+          "%s",                                                          \
+          "" __VA_ARGS__);                                               \
+    }                                                                    \
   } while (0)
+
+#ifdef __cplusplus
+#define _PW_CHECK_OK_STATUS ::pw::Status
+#else
+#define _PW_CHECK_OK_STATUS pw_Status
+#endif  // __cplusplus
 
 #define PW_DCHECK_OK(...)          \
   if (!(PW_ASSERT_ENABLE_DEBUG)) { \
   } else                           \
     PW_CHECK_OK(__VA_ARGS__)
 
-// =========================================================================
-// Implementation for PW_CHECK
+// Use a static_cast in C++ to avoid accidental comparisons between e.g. an
+// integer and the CHECK message const char*.
+#if defined(__cplusplus) && __cplusplus >= 201703L
 
-// Two layers of select macros are used to enable the preprocessor to expand
-// macros in the arguments to ultimately token paste the final macro name based
-// on whether there are printf-style arguments.
-#define _PW_CHECK_SELECT_MACRO(condition, has_args, ...) \
-  _PW_CHECK_SELECT_MACRO_EXPANDED(condition, has_args, __VA_ARGS__)
+namespace pw::assert::internal {
 
-// Delegate to the macro
-#define _PW_CHECK_SELECT_MACRO_EXPANDED(condition, has_args, ...) \
-  _PW_CHECK_HAS_MSG_##has_args(condition, __VA_ARGS__)
+template <typename T, typename U>
+constexpr const void* ConvertToType(U* value) {
+  if constexpr (std::is_function<U>()) {
+    return reinterpret_cast<const void*>(value);
+  } else {
+    return static_cast<const void*>(value);
+  }
+}
 
-// PW_CHECK version 1: No message or args
-#define _PW_CHECK_HAS_MSG_0(condition, ignored_arg) \
-  PW_HANDLE_ASSERT_FAILURE(condition, "")
+template <typename T, typename U>
+constexpr T ConvertToType(const U& value) {
+  return static_cast<T>(value);
+}
 
-// PW_CHECK version 2: With message (and maybe args)
-#define _PW_CHECK_HAS_MSG_1(condition, ...) \
-  PW_HANDLE_ASSERT_FAILURE(condition, __VA_ARGS__)
+}  // namespace pw::assert::internal
 
-// =========================================================================
-// Implementation for PW_CHECK_<type>_<comparison>
-
-// Two layers of select macros are used to enable the preprocessor to expand
-// macros in the arguments to ultimately token paste the final macro name based
-// on whether there are printf-style arguments.
-#define _PW_CHECK_BINARY_COMPARISON_SELECT_MACRO(argument_a_str,       \
-                                                 argument_a_val,       \
-                                                 comparison_op_str,    \
-                                                 argument_b_str,       \
-                                                 argument_b_val,       \
-                                                 type_fmt,             \
-                                                 has_args,             \
-                                                 ...)                  \
-  _PW_CHECK_SELECT_BINARY_COMPARISON_MACRO_EXPANDED(argument_a_str,    \
-                                                    argument_a_val,    \
-                                                    comparison_op_str, \
-                                                    argument_b_str,    \
-                                                    argument_b_val,    \
-                                                    type_fmt,          \
-                                                    has_args,          \
-                                                    __VA_ARGS__)
-
-// Delegate to the macro
-#define _PW_CHECK_SELECT_BINARY_COMPARISON_MACRO_EXPANDED(argument_a_str,    \
-                                                          argument_a_val,    \
-                                                          comparison_op_str, \
-                                                          argument_b_str,    \
-                                                          argument_b_val,    \
-                                                          type_fmt,          \
-                                                          has_args,          \
-                                                          ...)               \
-  _PW_CHECK_BINARY_COMPARISON_HAS_MSG_##has_args(argument_a_str,             \
-                                                 argument_a_val,             \
-                                                 comparison_op_str,          \
-                                                 argument_b_str,             \
-                                                 argument_b_val,             \
-                                                 type_fmt,                   \
-                                                 __VA_ARGS__)
-
-// PW_CHECK_BINARY_COMPARISON version 1: No message or args
-#define _PW_CHECK_BINARY_COMPARISON_HAS_MSG_0(argument_a_str,    \
-                                              argument_a_val,    \
-                                              comparison_op_str, \
-                                              argument_b_str,    \
-                                              argument_b_val,    \
-                                              type_fmt,          \
-                                              ignored_arg)       \
-  PW_HANDLE_ASSERT_BINARY_COMPARE_FAILURE(argument_a_str,        \
-                                          argument_a_val,        \
-                                          comparison_op_str,     \
-                                          argument_b_str,        \
-                                          argument_b_val,        \
-                                          type_fmt,              \
-                                          "")
-
-// PW_CHECK_BINARY_COMPARISON version 2: With message (and maybe args)
-#define _PW_CHECK_BINARY_COMPARISON_HAS_MSG_1(argument_a_str,    \
-                                              argument_a_val,    \
-                                              comparison_op_str, \
-                                              argument_b_str,    \
-                                              argument_b_val,    \
-                                              type_fmt,          \
-                                              ...)               \
-  PW_HANDLE_ASSERT_BINARY_COMPARE_FAILURE(argument_a_str,        \
-                                          argument_a_val,        \
-                                          comparison_op_str,     \
-                                          argument_b_str,        \
-                                          argument_b_val,        \
-                                          type_fmt,              \
-                                          __VA_ARGS__)
+#define _PW_CHECK_CONVERT(type, name, arg) \
+  type name = ::pw::assert::internal::ConvertToType<type>(arg)
+#else
+#define _PW_CHECK_CONVERT(type, name, arg) type name = (type)(arg)
+#endif  // __cplusplus
 
 // For the binary assertions, this private macro is re-used for almost all of
 // the variants. Due to limitations of C formatting, it is necessary to have
@@ -247,81 +194,79 @@
 //
 // The macro avoids evaluating the arguments multiple times at the cost of some
 // macro complexity.
-#define _PW_CHECK_BINARY_CMP_IMPL(                                       \
-    argument_a, comparison_op, argument_b, type_decl, type_fmt, ...)     \
-  do {                                                                   \
-    type_decl evaluated_argument_a = (type_decl)(argument_a);            \
-    type_decl evaluated_argument_b = (type_decl)(argument_b);            \
-    if (!(evaluated_argument_a comparison_op evaluated_argument_b)) {    \
-      _PW_CHECK_BINARY_COMPARISON_SELECT_MACRO(#argument_a,              \
-                                               evaluated_argument_a,     \
-                                               #comparison_op,           \
-                                               #argument_b,              \
-                                               evaluated_argument_b,     \
-                                               type_fmt,                 \
-                                               PW_HAS_ARGS(__VA_ARGS__), \
-                                               __VA_ARGS__);             \
-    }                                                                    \
+#define _PW_CHECK_BINARY_CMP_IMPL(                                    \
+    arg_a, comparison_op, arg_b, type_decl, type_fmt, ...)            \
+  do {                                                                \
+    _PW_CHECK_CONVERT(type_decl, evaluated_argument_a, arg_a);        \
+    _PW_CHECK_CONVERT(type_decl, evaluated_argument_b, arg_b);        \
+    if (!(evaluated_argument_a comparison_op evaluated_argument_b)) { \
+      _PW_CHECK_BINARY_ARG_HANDLER(#arg_a,                            \
+                                   evaluated_argument_a,              \
+                                   #comparison_op,                    \
+                                   #arg_b,                            \
+                                   evaluated_argument_b,              \
+                                   type_fmt,                          \
+                                   "" __VA_ARGS__);                   \
+    }                                                                 \
   } while (0)
+
+// All binary comparison CHECK macros are directed to this handler before
+// hitting the CHECK backend. This controls whether evaluated values are
+// captured.
+#if PW_ASSERT_CAPTURE_VALUES
+#define _PW_CHECK_BINARY_ARG_HANDLER(arg_a_str,              \
+                                     arg_a_val,              \
+                                     comparison_op_str,      \
+                                     arg_b_str,              \
+                                     arg_b_val,              \
+                                     type_fmt,               \
+                                     message,                \
+                                     ...)                    \
+  PW_HANDLE_ASSERT_BINARY_COMPARE_FAILURE(arg_a_str,         \
+                                          arg_a_val,         \
+                                          comparison_op_str, \
+                                          arg_b_str,         \
+                                          arg_b_val,         \
+                                          type_fmt,          \
+                                          message,           \
+                                          __VA_ARGS__)
+#else
+#define _PW_CHECK_BINARY_ARG_HANDLER(arg_a_str,         \
+                                     arg_a_val,         \
+                                     comparison_op_str, \
+                                     arg_b_str,         \
+                                     arg_b_val,         \
+                                     type_fmt,          \
+                                     message,           \
+                                     ...)               \
+  PW_HANDLE_ASSERT_FAILURE(                             \
+      arg_a_str " " comparison_op_str " " arg_b_str, message, __VA_ARGS__)
+#endif  // PW_ASSERT_CAPTURE_VALUES
 
 // Custom implementation for FLOAT_NEAR which is implemented through two
 // underlying checks which are not trivially replaced through the use of
 // FLOAT_EXACT_LE & FLOAT_EXACT_GE.
-#define _PW_CHECK_FLOAT_NEAR(argument_a, argument_b, abs_tolerance, ...)       \
-  do {                                                                         \
-    PW_CHECK_FLOAT_EXACT_GE(abs_tolerance, 0.0f);                              \
-    float evaluated_argument_a = (float)(argument_a);                          \
-    float evaluated_argument_b_min = (float)(argument_b)-abs_tolerance;        \
-    float evaluated_argument_b_max = (float)(argument_b) + abs_tolerance;      \
-    if (!(evaluated_argument_a >= evaluated_argument_b_min)) {                 \
-      _PW_CHECK_BINARY_COMPARISON_SELECT_MACRO(#argument_a,                    \
-                                               evaluated_argument_a,           \
-                                               ">=",                           \
-                                               #argument_b " - abs_tolerance", \
-                                               evaluated_argument_b_min,       \
-                                               "%f",                           \
-                                               PW_HAS_ARGS(__VA_ARGS__),       \
-                                               __VA_ARGS__);                   \
-    } else if (!(evaluated_argument_a <= evaluated_argument_b_max)) {          \
-      _PW_CHECK_BINARY_COMPARISON_SELECT_MACRO(#argument_a,                    \
-                                               evaluated_argument_a,           \
-                                               "<=",                           \
-                                               #argument_b " + abs_tolerance", \
-                                               evaluated_argument_b_max,       \
-                                               "%f",                           \
-                                               PW_HAS_ARGS(__VA_ARGS__),       \
-                                               __VA_ARGS__);                   \
-    }                                                                          \
+#define _PW_CHECK_FLOAT_NEAR(argument_a, argument_b, abs_tolerance, ...)  \
+  do {                                                                    \
+    PW_CHECK_FLOAT_EXACT_GE(abs_tolerance, 0.0f);                         \
+    float evaluated_argument_a = (float)(argument_a);                     \
+    float evaluated_argument_b_min = (float)(argument_b)-abs_tolerance;   \
+    float evaluated_argument_b_max = (float)(argument_b) + abs_tolerance; \
+    if (!(evaluated_argument_a >= evaluated_argument_b_min)) {            \
+      _PW_CHECK_BINARY_ARG_HANDLER(#argument_a,                           \
+                                   evaluated_argument_a,                  \
+                                   ">=",                                  \
+                                   #argument_b " - abs_tolerance",        \
+                                   evaluated_argument_b_min,              \
+                                   "%f",                                  \
+                                   "" __VA_ARGS__);                       \
+    } else if (!(evaluated_argument_a <= evaluated_argument_b_max)) {     \
+      _PW_CHECK_BINARY_ARG_HANDLER(#argument_a,                           \
+                                   evaluated_argument_a,                  \
+                                   "<=",                                  \
+                                   #argument_b " + abs_tolerance",        \
+                                   evaluated_argument_b_max,              \
+                                   "%f",                                  \
+                                   "" __VA_ARGS__);                       \
+    }                                                                     \
   } while (0)
-
-// =========================================================================
-// Implementation for PW_CHECK_OK
-
-// Two layers of select macros are used to enable the preprocessor to expand
-// macros in the arguments to ultimately token paste the final macro name based
-// on whether there are printf-style arguments.
-#define _PW_CHECK_OK_SELECT_MACRO(                    \
-    status_expr_str, status_value_str, has_args, ...) \
-  _PW_CHECK_OK_SELECT_MACRO_EXPANDED(                 \
-      status_expr_str, status_value_str, has_args, __VA_ARGS__)
-
-// Delegate to the macro
-#define _PW_CHECK_OK_SELECT_MACRO_EXPANDED(           \
-    status_expr_str, status_value_str, has_args, ...) \
-  _PW_CHECK_OK_HAS_MSG_##has_args(                    \
-      status_expr_str, status_value_str, __VA_ARGS__)
-
-// PW_CHECK_OK version 1: No message or args
-#define _PW_CHECK_OK_HAS_MSG_0(status_expr_str, status_value_str, ignored_arg) \
-  PW_HANDLE_ASSERT_BINARY_COMPARE_FAILURE(                                     \
-      status_expr_str, status_value_str, "==", "OkStatus()", "OK", "%s", "")
-
-// PW_CHECK_OK version 2: With message (and maybe args)
-#define _PW_CHECK_OK_HAS_MSG_1(status_expr_str, status_value_str, ...) \
-  PW_HANDLE_ASSERT_BINARY_COMPARE_FAILURE(status_expr_str,             \
-                                          status_value_str,            \
-                                          "==",                        \
-                                          "OkStatus()",                \
-                                          "OK",                        \
-                                          "%s",                        \
-                                          __VA_ARGS__)

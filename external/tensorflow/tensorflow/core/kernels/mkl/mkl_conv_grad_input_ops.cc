@@ -106,7 +106,7 @@ class MklConvBwdInputPrimitive : public MklPrimitive {
   void Execute(const T* diff_src_data, const T* filter_data,
                const T* diff_dst_data,
                std::shared_ptr<stream> bwd_input_stream) {
-#ifdef ENABLE_MKLDNN_THREADPOOL
+#ifndef ENABLE_ONEDNN_OPENMP
     // TODO: Create a common function and avoid the duplicate code
     context_.diff_src_mem->set_data_handle(
         static_cast<T*>(const_cast<T*>(diff_src_data)), *bwd_input_stream);
@@ -121,7 +121,7 @@ class MklConvBwdInputPrimitive : public MklPrimitive {
         static_cast<T*>(const_cast<T*>(filter_data)));
     context_.diff_dst_mem->set_data_handle(
         static_cast<T*>(const_cast<T*>(diff_dst_data)));
-#endif  // ENABLE_MKLDNN_THREADPOOL
+#endif  // !ENABLE_ONEDNN_OPENMP
     execute_primitives(context_.bwd_input_primitives, bwd_input_stream,
                        context_.bwd_input_primitives_args);
 
@@ -372,12 +372,14 @@ class MklConvCustomBackpropInputOp
       memory::dims fwd_output_dims, fwd_output_dims_tf_order;
 
       // Get conv fwd parameters.
+      bool is_grouped_convolution = false;
       MklDnnConvUtil conv_util(context, this->strides_, this->padding_,
                                this->data_format_, this->dilations_);
       conv_util.GetConvFwdSizesInMklOrder(
           src_tf_shape, filter_tf_shape, &fwd_src_dims, &fwd_filter_dims,
           &strides, &dilations, &fwd_output_dims_tf_order, &fwd_output_dims,
-          &padding_left, &padding_right, false, is_depthwise);
+          &padding_left, &padding_right, &is_grouped_convolution, false,
+          is_depthwise);
       if (!context->status().ok()) return;
 
       bool is_conv2d = (this->strides_.size() == 4);
@@ -400,7 +402,7 @@ class MklConvCustomBackpropInputOp
           filter_mkl_shape.IsMklTensor()
               ? filter_mkl_shape.GetMklLayout()
               : memory::desc(fwd_filter_dims, MklDnnType<T>(),
-                             is_depthwise
+                             (is_depthwise || is_grouped_convolution)
                                  ? memory::format_tag::hwigo
                                  : (is_conv2d ? memory::format_tag::hwio
                                               : memory::format_tag::dhwio));
@@ -482,7 +484,9 @@ class MklConvCustomBackpropInputOp
       }
 
       std::shared_ptr<stream> bwd_cpu_stream;
-      bwd_cpu_stream.reset(CreateStream(context, conv_bwd_input->GetEngine()));
+      MklDnnThreadPool eigen_tp(context);
+      bwd_cpu_stream.reset(
+          CreateStream(&eigen_tp, conv_bwd_input->GetEngine()));
       // Execute conv bwd input primitive.
       conv_bwd_input->Execute(diff_src_data, filter_data, diff_dst_data,
                               bwd_cpu_stream);

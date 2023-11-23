@@ -20,6 +20,7 @@ import android.icu.impl.DateNumberFormat;
 import android.icu.impl.TZDBTimeZoneNames;
 import android.icu.impl.TimeZoneGenericNames;
 import android.icu.impl.TimeZoneGenericNames.GenericNameType;
+import android.icu.number.NumberRangeFormatter;
 import android.icu.text.ChineseDateFormat;
 import android.icu.text.ChineseDateFormatSymbols;
 import android.icu.text.CompactDecimalFormat;
@@ -1080,7 +1081,7 @@ public class FormatHandler
             ULocale uloc = ULocale.forLocale(Locale.US);
             NumberFormat formats[] = {
                 /*
-                 * The code below was used to genereate the
+                 * The code below was used to generate the
                  * serialized NumberFormat objects in ICU 3.6:
                  *
                  *    NumberFormat.getInstance(Locale.US)
@@ -1205,7 +1206,7 @@ public class FormatHandler
                    // beginning at 20, we use the >> to mark the position where
                    // the result of formatting the number's ones digit.  Thus,
                    // we only need a new rule at every multiple of 10.  Text in
-                   // backets is omitted if the value being formatted is an
+                   // brackets is omitted if the value being formatted is an
                    // even multiple of 10.
                 "20: twenty[->>];\n" +
                 "30: thirty[->>];\n" +
@@ -1362,7 +1363,7 @@ public class FormatHandler
                 "40: quarante[->%%alt-ones>];\n" +
                 "50: cinquante[->%%alt-ones>];\n" +
                    // rule for 60.  The /20 causes this rule's multiplier to be
-                   // 20 rather than 10, allowinhg us to recurse for all values
+                   // 20 rather than 10, allowing us to recurse for all values
                    // from 60 to 79...
                 "60/20: soixante[->%%alt-ones>];\n" +
                    // ...except for 71, which must be special-cased
@@ -1385,7 +1386,7 @@ public class FormatHandler
                    // of 1,000.  This prevents us from getting "onze cents cent
                    // vingt-deux" ("eleven hundred one hundred twenty-two").
                 "1100>: onze cents[ >>];\n" +
-                   // at 1,200, we go back to formating in thousands, so we
+                   // at 1,200, we go back to formatting in thousands, so we
                    // repeat the rule for 1,000
                 "1200: mille >>;\n" +
                    // at 2,000, the multiplier is added
@@ -1856,6 +1857,21 @@ public class FormatHandler
         public Object[] getTestObjects()
         {
             return new Object[] {ListFormatter.SpanField.LIST_SPAN};
+        }
+
+        @Override
+        public boolean hasSameBehavior(Object a, Object b)
+        {
+            return (a == b);
+        }
+    }
+
+    public static class NumberRangeFormatterSpanFieldHandler implements SerializableTestUtility.Handler
+    {
+        @Override
+        public Object[] getTestObjects()
+        {
+            return new Object[] {NumberRangeFormatter.SpanField.NUMBER_RANGE_SPAN};
         }
 
         @Override

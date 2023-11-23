@@ -150,6 +150,12 @@ def prepend_header_to_file(file_path, header_path):
             original_file.seek(0)
             original_file.write(copyright_file.read() + "\n" + original_content)
 
+def is_ri(codepoint):
+  return 0x1F1E6 <= codepoint and codepoint <= 0x1F1FF
+
+def is_flag_seq(codepoints):
+  return all(is_ri(x) for x in codepoints)
+
 
 def update_flatbuffer_java_files(flatbuffer_java_dir, header_dir, target_dir):
     """Prepends headers to flatbuffer java files and copies to the final destination"""
@@ -347,7 +353,7 @@ def read_emoji_intervals(emoji_data_map, file_path, emoji_style_exceptions):
                 emoji_data_map[key] = emoji_data
 
 
-def read_emoji_sequences(emoji_data_map, file_path, optional=False):
+def read_emoji_sequences(emoji_data_map, file_path, optional=False, filter=None):
     """Reads the content of the file which contains emoji sequences. Creates EmojiData for each
     line and puts into emoji_data_map."""
     lines = read_emoji_lines(file_path, optional)
@@ -360,22 +366,29 @@ def read_emoji_sequences(emoji_data_map, file_path, optional=False):
             continue
         codepoints = [hex_str_to_int(x) for x in line.split(';')[0].strip().split(' ')]
         codepoints = [x for x in codepoints if x != EMOJI_STYLE_VS]
+        if filter:
+          if filter(codepoints):
+            continue
         key = codepoint_to_string(codepoints)
         if not key in emoji_data_map:
             emoji_data = _EmojiData(codepoints, False)
             emoji_data_map[key] = emoji_data
 
 
-def load_emoji_data_map(unicode_path):
+def load_emoji_data_map(unicode_path, without_flags):
     """Reads the emoji data files, constructs a map of space separated codepoints to EmojiData.
     :return: map of space separated codepoints to EmojiData
     """
+    if without_flags:
+      filter = lambda x: is_flag_seq(x)
+    else:
+      filter = None
     emoji_data_map = {}
     emoji_style_exceptions = get_emoji_style_exceptions(unicode_path)
     read_emoji_intervals(emoji_data_map, os.path.join(unicode_path, EMOJI_DATA_FILE),
                          emoji_style_exceptions)
     read_emoji_sequences(emoji_data_map, os.path.join(unicode_path, EMOJI_ZWJ_FILE))
-    read_emoji_sequences(emoji_data_map, os.path.join(unicode_path, EMOJI_SEQ_FILE))
+    read_emoji_sequences(emoji_data_map, os.path.join(unicode_path, EMOJI_SEQ_FILE), filter=filter)
 
     # Add the optional ANDROID_EMOJI_ZWJ_SEQ_FILE if it exists.
     read_emoji_sequences(emoji_data_map, os.path.join(unicode_path, ANDROID_EMOJI_ZWJ_SEQ_FILE),
@@ -481,11 +494,12 @@ def create_sha_from_source_files(font_paths):
 class EmojiFontCreator(object):
     """Creates the EmojiCompat font"""
 
-    def __init__(self, font_path, unicode_path):
+    def __init__(self, font_path, unicode_path, without_flags):
         validate_input_files(font_path, unicode_path, FLATBUFFER_MODULE_DIR)
 
         self.font_path = font_path
         self.unicode_path = unicode_path
+        self.without_flags = without_flags
         self.emoji_data_map = {}
         self.remapped_codepoints = {}
         self.glyph_to_image_metrics_map = {}
@@ -603,6 +617,8 @@ class EmojiFontCreator(object):
 
         total_emoji_count = 0
         for emoji_data in emoji_data_list:
+            if self.without_flags and is_flag_seq(emoji_data.codepoints):
+                continue  # Do not add flags emoji data if this is for subset font.
             element = emoji_data.create_json_element()
             output_json['list'].append(element)
             total_emoji_count = total_emoji_count + 1
@@ -672,7 +688,7 @@ class EmojiFontCreator(object):
         tmp_dir = tempfile.mkdtemp()
 
         # create emoji codepoints to EmojiData map
-        self.emoji_data_map = load_emoji_data_map(self.unicode_path)
+        self.emoji_data_map = load_emoji_data_map(self.unicode_path, self.without_flags)
 
         # read previous metadata file to update id, sdkAdded and compatAdded. emoji id that is
         # returned is either default or 1 greater than the largest id in previous data
@@ -750,14 +766,19 @@ def print_usage():
 
 def parse_args(argv):
     # parse manually to avoid any extra dependencies
+    if len(argv) == 4:
+      without_flags = argv[3] == '--without-flags'
+    else:
+      without_flags = False
+
     if len(argv) < 3:
         print_usage()
         sys.exit(1)
-    return (sys.argv[1], sys.argv[2])
+    return (sys.argv[1], sys.argv[2], without_flags)
 
 def main():
-    font_file, unicode_dir = parse_args(sys.argv)
-    EmojiFontCreator(font_file, unicode_dir).create_font()
+    font_file, unicode_dir, without_flags = parse_args(sys.argv)
+    EmojiFontCreator(font_file, unicode_dir, without_flags).create_font()
 
 
 if __name__ == '__main__':

@@ -66,8 +66,8 @@ public final class ResultIdUtils {
   }
 
   /** Returns if the result id was generated from the default text classifier. */
-  public static boolean isFromDefaultTextClassifier(String resultId) {
-    return resultId.startsWith(CLASSIFIER_ID + '|');
+  public static boolean isFromDefaultTextClassifier(@Nullable String resultId) {
+    return resultId != null && resultId.startsWith(CLASSIFIER_ID + '|');
   }
 
   /** Returns all the model names encoded in the signature. */

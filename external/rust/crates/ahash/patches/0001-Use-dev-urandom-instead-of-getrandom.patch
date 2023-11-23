@@ -17,12 +17,12 @@ Bug: 185934601
 Change-Id: Ie81a1f3a893d578348db11aee114d1a8f2d9fac5
 ---
 diff --git a/src/random_state.rs b/src/random_state.rs
-index 501e3eb..9b3b3d0 100644
+index c3628bf..835467c 100644
 --- a/src/random_state.rs
 +++ b/src/random_state.rs
-@@ -10,11 +10,22 @@ use core::hash::Hasher;
- use lazy_static::*;
- use core::sync::atomic::{AtomicUsize, Ordering};
+@@ -48,6 +48,15 @@ use crate::fallback_hash::*;
+ #[cfg(not(all(target_arch = "arm", target_os = "none")))]
+ static RAND_SOURCE: OnceBox<Box<dyn RandomSource + Send + Sync>> = OnceBox::new();
  
 +#[cfg(all(feature = "runtime-rng", not(all(feature = "compile-time-rng", test))))]
 +fn read_urandom(dest: &mut [u8]) -> Result<(), std::io::Error> {
@@ -33,17 +33,17 @@ index 501e3eb..9b3b3d0 100644
 +    f.read_exact(dest)
 +}
 +
- #[cfg(all(feature = "runtime-rng", not(all(feature = "compile-time-rng", test))))]
- lazy_static! {
-     static ref SEEDS: [[u64; 4]; 2] = {
-         let mut result: [u8; 64] = [0; 64];
--        getrandom::getrandom(&mut result).expect("getrandom::getrandom() failed.");
-+        if read_urandom(&mut result).is_err() {
-+            getrandom::getrandom(&mut result).expect("getrandom::getrandom() failed.")
-+        }
-         result.convert()
-     };
- }
--- 
-2.31.1.498.g6c1eba8ee3d-goog
-
+ /// A supplier of Randomness used for different hashers.
+ /// See [RandomState.set_random_source].
+ pub trait RandomSource {
+@@ -98,7 +107,9 @@ impl RandomSource for DefaultRandomSource {
+ 
+         SEEDS.get_or_init(|| {
+             let mut result: [u8; 64] = [0; 64];
+-            getrandom::getrandom(&mut result).expect("getrandom::getrandom() failed.");
++            if read_urandom(&mut result).is_err() {
++                getrandom::getrandom(&mut result).expect("getrandom::getrandom() failed.");
++            }
+             Box::new(result.convert())
+         })
+     }

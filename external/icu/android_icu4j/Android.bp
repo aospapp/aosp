@@ -129,7 +129,9 @@ java_library {
     permitted_packages: [
         "android.icu",
         "com.android.icu",
+        "com.android.i18n.system",
         "com.android.i18n.timezone",
+        "com.android.i18n.util",
     ],
     installable: true,
     hostdex: false,
@@ -168,9 +170,9 @@ platform_compat_config {
 java_sdk_library {
     name: "i18n.module.public.api",
     visibility: [
+        "//build/soong/java/core-libraries",
         "//frameworks/base",
         "//frameworks/base/api",
-        "//libcore",
         "//packages/modules/RuntimeI18n/apex",
         // Visibility for prebuilt i18n-module-sdk from the prebuilt of
         // this module.
@@ -189,8 +191,23 @@ java_sdk_library {
             "-Xep:MissingOverride:OFF",
         ],
     },
+
+    public: {
+        enabled: true,
+    },
+    system: {
+        enabled: true,
+    },
+    module_lib: {
+        enabled: true,
+    },
+
     api_dir: "api/public",
     api_only: true,
+
+    // Emit nullability annotations from the source to the stub files.
+    annotations_enabled: true,
+
     sdk_version: "none",
     system_modules: "art-module-public-api-stubs-system-modules",
 
@@ -233,7 +250,6 @@ java_sdk_library {
     droiddoc_options: [
         "--hide-annotation libcore.api.Hide ",
         "--show-single-annotation libcore.api.IntraCoreApi ",
-        "--skip-annotation-instance-methods=false ",
     ],
 
     // Don't copy any output files to the dist.
@@ -329,7 +345,7 @@ java_sdk_library {
         ":android_icu4j_repackaged_src_files",
     ],
     visibility: [
-        "//libcore:__subpackages__",
+        "//build/soong/java/core-libraries",
         "//packages/modules/RuntimeI18n/apex",
         // Visibility for prebuilt i18n-module-sdk from the prebuilt of
         // this module.
@@ -346,7 +362,6 @@ java_sdk_library {
     droiddoc_options: [
         "--hide-annotation libcore.api.Hide ",
         "--show-single-annotation libcore.api.CorePlatformApi ",
-        "--skip-annotation-instance-methods=false ",
     ],
 
     // Don't copy any output files to the dist.
@@ -360,7 +375,7 @@ java_sdk_library {
         ":android_icu4j_repackaged_src_files",
     ],
     visibility: [
-        "//libcore:__subpackages__",
+        "//build/soong/java/core-libraries",
         "//packages/modules/RuntimeI18n/apex",
         // Visibility for prebuilt i18n-module-sdk from the prebuilt of
         // this module.
@@ -377,7 +392,6 @@ java_sdk_library {
     droiddoc_options: [
         "--hide-annotation libcore.api.Hide ",
         "--show-single-annotation libcore.api.CorePlatformApi\\(status=libcore.api.CorePlatformApi.Status.STABLE\\)",
-        "--skip-annotation-instance-methods=false ",
     ],
 
     // Don't copy any output files to the dist.
@@ -417,4 +431,8 @@ java_test {
     patch_module: "java.base",
     sdk_version: "none",
     system_modules: "art-module-intra-core-api-stubs-system-modules",
+
+    errorprone: {
+        javacflags: ["-Xep:EqualsNull:WARN"],
+    },
 }

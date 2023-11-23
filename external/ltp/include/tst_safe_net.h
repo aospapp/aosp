@@ -1,18 +1,5 @@
-/*
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright (c) 2016 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TST_SAFE_NET_H__
@@ -25,6 +12,7 @@
 #include <sys/un.h>
 
 #include "safe_net_fn.h"
+#include "tst_net.h"
 
 #define SAFE_SOCKET(domain, type, protocol) \
 	safe_socket(__FILE__, __LINE__, NULL, domain, type, protocol)
@@ -54,6 +42,9 @@
 #define SAFE_SENDMSG(msg_len, fd, msg, flags) \
 	safe_sendmsg(__FILE__, __LINE__, msg_len, fd, msg, flags)
 
+#define SAFE_RECV(msg_len, fd, buf, size, flags)		\
+	safe_recv(__FILE__, __LINE__, (msg_len), (fd), (buf), (size), (flags))
+
 #define SAFE_RECVMSG(msg_len, fd, msg, flags)		\
 	safe_recvmsg(__FILE__, __LINE__, msg_len, fd, msg, flags)
 
@@ -82,5 +73,10 @@
 
 #define TST_GET_UNUSED_PORT(family, type) \
 	tst_get_unused_port(__FILE__, __LINE__, NULL, family, type)
+
+/* new API only */
+
+#define SAFE_GETADDRINFO(src_addr, port, hints, addr_info) \
+	safe_getaddrinfo(__FILE__, __LINE__, src_addr, port, hints, addr_info)
 
 #endif /* TST_SAFE_NET_H__ */

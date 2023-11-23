@@ -16,10 +16,8 @@
 #include "common/wpa_common.h"
 #include "common/qca-vendor.h"
 #include "common/qca-vendor-attr.h"
-#include "driver_nl80211.h"
-#ifdef CONFIG_DRIVER_NL80211_BRCM
 #include "common/brcm_vendor.h"
-#endif /* CONFIG_DRIVER_NL80211_BRCM */
+#include "driver_nl80211.h"
 
 static int protocol_feature_handler(struct nl_msg *msg, void *arg)
 {
@@ -892,7 +890,7 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 
 	if (tb[NL80211_ATTR_MAC_ACL_MAX])
 		capa->max_acl_mac_addrs =
-			nla_get_u8(tb[NL80211_ATTR_MAC_ACL_MAX]);
+			nla_get_u32(tb[NL80211_ATTR_MAC_ACL_MAX]);
 
 	wiphy_info_supported_iftypes(info, tb[NL80211_ATTR_SUPPORTED_IFTYPES]);
 	wiphy_info_iface_comb(info, tb[NL80211_ATTR_INTERFACE_COMBINATIONS]);
@@ -997,6 +995,7 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 				case QCA_NL80211_VENDOR_SUBCMD_DO_ACS:
 					drv->capa.flags |=
 						WPA_DRIVER_FLAGS_ACS_OFFLOAD;
+					drv->qca_do_acs = 1;
 					break;
 				case QCA_NL80211_VENDOR_SUBCMD_SETBAND:
 					drv->setband_vendor_cmd_avail = 1;
@@ -1021,25 +1020,26 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 					break;
 #endif /* CONFIG_DRIVER_NL80211_QCA */
 				}
-			}
 #ifdef CONFIG_DRIVER_NL80211_BRCM
-			if (vinfo->vendor_id == OUI_BRCM) {
-				wpa_printf(MSG_MSGDUMP, "vendor:%x cmd:0x%x\n",
-						vinfo->vendor_id, vinfo->subcmd);
+			} else if (vinfo->vendor_id == OUI_BRCM) {
 				switch (vinfo->subcmd) {
-					case BRCM_VENDOR_SCMD_ACS:
-						drv->capa.flags |= WPA_DRIVER_FLAGS_ACS_OFFLOAD;
-						drv->capa.flags |=
-							WPA_DRIVER_FLAGS_SUPPORT_HW_MODE_ANY;
-						break;
-					case BRCM_VENDOR_SUBCMD_SET_PMK:
-						drv->vendor_set_pmk = 1;
-						break;
-					default:
-						break;
+				case BRCM_VENDOR_SCMD_ACS:
+					drv->capa.flags |=
+						WPA_DRIVER_FLAGS_ACS_OFFLOAD;
+				    drv->capa.flags |=
+						WPA_DRIVER_FLAGS_SUPPORT_HW_MODE_ANY;
+					wpa_printf(MSG_DEBUG,
+						   "Enabled BRCM ACS");
+					drv->brcm_do_acs = 1;
+					break;
+				case BRCM_VENDOR_SCMD_SET_PMK:
+					drv->vendor_set_pmk = 1;
+					break;
+				default:
+					break;
 				}
-			}
 #endif /* CONFIG_DRIVER_NL80211_BRCM */
+			}
 			wpa_printf(MSG_DEBUG, "nl80211: Supported vendor command: vendor_id=0x%x subcmd=%u",
 				   vinfo->vendor_id, vinfo->subcmd);
 		}
@@ -1394,7 +1394,7 @@ int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
 		WPA_DRIVER_AUTH_SHARED |
 		WPA_DRIVER_AUTH_LEAP;
 
-	drv->capa.flags |= WPA_DRIVER_FLAGS_SANE_ERROR_CODES;
+	drv->capa.flags |= WPA_DRIVER_FLAGS_VALID_ERROR_CODES;
 	drv->capa.flags |= WPA_DRIVER_FLAGS_SET_KEYS_AFTER_ASSOC_DONE;
 	drv->capa.flags |= WPA_DRIVER_FLAGS_EAPOL_TX_STATUS;
 

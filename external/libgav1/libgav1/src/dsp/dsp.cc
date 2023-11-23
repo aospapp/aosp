@@ -155,7 +155,9 @@ void DspInit() {
     WarpInit_NEON();
     WeightMaskInit_NEON();
 #if LIBGAV1_MAX_BITDEPTH >= 10
+    ConvolveInit10bpp_NEON();
     InverseTransformInit10bpp_NEON();
+    LoopRestorationInit10bpp_NEON();
 #endif  // LIBGAV1_MAX_BITDEPTH >= 10
 #endif  // LIBGAV1_ENABLE_NEON
   });

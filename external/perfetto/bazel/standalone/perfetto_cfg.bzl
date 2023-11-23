@@ -49,7 +49,28 @@ PERFETTO_CONFIG = struct(
         protoc_lib = ["@com_google_protobuf//:protoc_lib"],
         protobuf_lite = ["@com_google_protobuf//:protobuf_lite"],
         protobuf_full = ["@com_google_protobuf//:protobuf"],
-        protobuf_descriptor_proto = ["@com_google_protobuf//:descriptor_proto"]
+        protobuf_descriptor_proto = ["@com_google_protobuf//:descriptor_proto"],
+
+        # The Python targets are empty on the standalone build because we assume
+        # any relevant deps are installed on the system or are not applicable.
+        protobuf_py = [],
+        pandas_py = [],
+        tp_vendor_py = [],
+
+        # There are multiple configurations for the function name demangling
+        # logic in trace processor:
+        # (1) The following defaults include a subset of demangling sources
+        #     from llvm-project. This is the most complete implementation.
+        # (2) You can avoid the llvm dependency by setting "llvm_demangle = []"
+        #     here and PERFETTO_LLVM_DEMANGLE to false in your
+        #     perfetto_build_flags.h. Then the implementation will use a
+        #     demangler from the c++ runtime, which will most likely handle
+        #     only itanium mangling, and is unavailable on some platforms (e.g.
+        #     Windows, where it becomes a nop).
+        # (3) You can override the whole demangle_wrapper below, and provide
+        #     your own demangling implementation.
+        demangle_wrapper = [ "//:src_trace_processor_demangle" ],
+        llvm_demangle = ["@perfetto_dep_llvm_demangle//:llvm_demangle"],
     ),
 
     # This struct allows embedders to customize the cc_opts for Perfetto
@@ -60,6 +81,7 @@ PERFETTO_CONFIG = struct(
         jsoncpp = [],
         linenoise = [],
         sqlite = [],
+        llvm_demangle = [],
     ),
 
     # Allow Bazel embedders to change the visibility of "public" targets.
@@ -81,6 +103,8 @@ PERFETTO_CONFIG = struct(
     # |rule_overrides| or invidivual keys. They are assigned to None or noop
     # actions here just for documentation purposes.
     rule_overrides = struct(
+        proto_library = None,
+
         cc_binary = None,
         cc_library = None,
         cc_proto_library = None,
@@ -90,9 +114,9 @@ PERFETTO_CONFIG = struct(
         java_proto_library = _noop_override,
         java_lite_proto_library = _noop_override,
 
-        proto_library = None,
         py_binary = None,
         py_library = None,
+        py_proto_library = None,
 
         # We only need this for internal binaries. No other embeedder should
         # care about this.

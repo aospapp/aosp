@@ -52,6 +52,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sctputil.h>
+#include "tst_kernel.h"
 
 char *TCID = __FILE__;
 int TST_TOTAL = 6;
@@ -60,7 +61,7 @@ int TST_CNT = 0;
 #define MAX_CLIENTS 10
 
 int
-main(int argc, char *argv[])
+main(void)
 {
 	int clnt_sk[MAX_CLIENTS], acpt_sk[MAX_CLIENTS],sk;
 	int lstn_sk;
@@ -72,6 +73,9 @@ main(int argc, char *argv[])
 	int pf_class;
 	int fd, err_no = 0;
 	char filename[21];
+
+	if (tst_check_driver("sctp"))
+		tst_brkm(TCONF, tst_exit, "sctp driver not available");
 
         /* Rather than fflush() throughout the code, set stdout to 
 	 * be unbuffered.  

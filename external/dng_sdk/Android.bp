@@ -133,7 +133,6 @@ cc_defaults {
     rtti: true,
     cppflags: ["-fexceptions"],
 
-    clang: true,
     sanitize: {
         misc_undefined: [
             "unsigned-integer-overflow",
@@ -142,7 +141,7 @@ cc_defaults {
     },
 }
 
-cc_library{
+cc_library {
     name: "libdng_sdk",
     host_supported: true,
     vendor_available: true,
@@ -156,7 +155,7 @@ cc_library{
     ],
 
     target: {
-        linux_glibc: {
+        host_linux: {
             static_libs: ["libcompiler_rt-extras"],
         },
         darwin: {

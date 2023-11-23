@@ -524,8 +524,8 @@ SpirvType SPIRVBuilder::getSpirvType(const TType &type, const SpirvTypeSpec &typ
 {
     SpirvType spirvType;
     spirvType.type                = type.getBasicType();
-    spirvType.primarySize         = static_cast<uint8_t>(type.getNominalSize());
-    spirvType.secondarySize       = static_cast<uint8_t>(type.getSecondarySize());
+    spirvType.primarySize         = type.getNominalSize();
+    spirvType.secondarySize       = type.getSecondarySize();
     spirvType.arraySizes          = type.getArraySizes();
     spirvType.imageInternalFormat = type.getLayoutQualifier().imageInternalFormat;
 
@@ -675,9 +675,36 @@ SpirvDecorations SPIRVBuilder::getDecorations(const TType &type)
     return decorations;
 }
 
-SpirvDecorations SPIRVBuilder::getArithmeticDecorations(const TType &type, bool isPrecise)
+SpirvDecorations SPIRVBuilder::getArithmeticDecorations(const TType &type,
+                                                        bool isPrecise,
+                                                        TOperator op)
 {
     SpirvDecorations decorations = getDecorations(type);
+
+    // In GLSL, findMsb operates on a highp operand, while returning a lowp result.  In SPIR-V,
+    // RelaxedPrecision cannot be applied on the Find*Msb instructions as that affects the operand
+    // as well:
+    //
+    // > The RelaxedPrecision Decoration can be applied to:
+    // > ...
+    // > The Result <id> of an instruction that operates on numerical types, meaning the instruction
+    // > is to operate at relaxed precision. The instruction's operands may also be truncated to the
+    // > relaxed precision.
+    // > ...
+    //
+    // Here, we remove RelaxedPrecision from such problematic instructions.
+    switch (op)
+    {
+        case EOpFindMSB:
+            // Currently getDecorations() only adds RelaxedPrecision, so removing the
+            // RelaxedPrecision decoration is simply done by clearing the vector.
+            ASSERT(decorations.empty() ||
+                   (decorations.size() == 1 && decorations[0] == spv::DecorationRelaxedPrecision));
+            decorations.clear();
+            break;
+        default:
+            break;
+    }
 
     // Handle |precise|.
     if (isPrecise)
@@ -2200,7 +2227,7 @@ void SPIRVBuilder::writeExecutionModes(spirv::Blob *blob)
     }
 
     // Add any execution modes that were added due to built-ins used in the shader.
-    for (uint32_t executionMode : mExecutionModes)
+    for (size_t executionMode : mExecutionModes)
     {
         spirv::WriteExecutionMode(blob, mEntryPointId,
                                   static_cast<spv::ExecutionMode>(executionMode), {});

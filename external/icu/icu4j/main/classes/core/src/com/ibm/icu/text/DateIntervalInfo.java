@@ -119,7 +119,7 @@ import com.ibm.icu.util.UResourceBundle;
  * the first date in the interval pattern for this locale is earlier date.
  * If the fallback format is "{1} - {0}", it means the first date is the
  * later date.
- * For a particular interval pattern, the default order can be overriden
+ * For a particular interval pattern, the default order can be overridden
  * by prefixing "latestFirst:" or "earliestFirst:" to the interval pattern.
  * For example, if the fallback format is "{0}-{1}",
  * but for skeleton "yMMMd", the interval pattern when day is different is
@@ -152,7 +152,7 @@ import com.ibm.icu.util.UResourceBundle;
  * <P>
  * DateIntervalInfo are not expected to be subclassed.
  * Data for a calendar is loaded out of resource bundles.
- * Through ICU 4.4, date interval patterns are only supported in the Gregoria
+ * Through ICU 4.4, date interval patterns are only supported in the Gregorian
  * calendar; non-Gregorian calendars are supported from ICU 4.4.1.
  *
  * @stable ICU 4.0
@@ -185,7 +185,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
          * Whether the first date in interval pattern is later date or not.
          * Fallback format set the default ordering.
          * And for a particular interval pattern, the order can be
-         * overriden by prefixing the interval pattern with "latestFirst:" or
+         * overridden by prefixing the interval pattern with "latestFirst:" or
          * "earliestFirst:"
          * For example, given 2 date, Jan 10, 2007 to Feb 10, 2007.
          * if the fallback format is "{0} - {1}",
@@ -1069,7 +1069,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
      * which has pre-defined interval pattern in resource file.
      *
      * TODO (xji): set field weight or
-     *             isolate the funtionality in DateTimePatternGenerator
+     *             isolate the functionality in DateTimePatternGenerator
      * @param  inputSkeleton        input skeleton
      * @return 0, if there is exact match for input skeleton
      *         1, if there is only field width difference between

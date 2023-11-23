@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -22,15 +22,21 @@
  * IN THE SOFTWARE.
  */
 
-#if defined(LWS_WITH_GLIB)
-#include <glib-2.0/glib.h>
-#endif /* LWS_WITH_GLIB */
+#include <glib.h>
+
+typedef struct lws_glib_tag {
+	GSource			*gs;
+	guint			tag;
+} lws_glib_tag_t;
 
 struct lws_pt_eventlibs_glib {
-	GMainLoop	*loop;
-	guint		hrtimer_tag;
-	guint		sigint_tag;
-	guint		idle_tag;
+	GMainLoop		*loop;
+
+	lws_glib_tag_t		hrtimer;
+	lws_glib_tag_t		sigint;
+	lws_glib_tag_t		idle;
+
+	//struct lws_signal_watcher_libuv w_sigint;
 };
 
 struct lws_io_watcher_glib_subclass {
@@ -45,10 +51,11 @@ struct lws_io_watcher_glib_subclass {
 
 struct lws_io_watcher_glib {
 	struct lws_io_watcher_glib_subclass *source;	/* these are created and destroyed by glib */
+	struct lws_context *context;
+	uint8_t actual_events;
 };
 
-struct lws_context_eventlibs_glib {
-	//int placeholder;
+struct lws_wsi_eventlibs_glib {
+	struct lws_io_watcher_glib w_read;
 };
 
-extern struct lws_event_loop_ops event_loop_ops_glib;

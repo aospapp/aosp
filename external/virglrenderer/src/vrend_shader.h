@@ -54,10 +54,10 @@ enum gl_advanced_blend_mode
 
 /* need to store patching info for interpolation */
 struct vrend_interp_info {
-   int semantic_name;
-   int semantic_index;
-   int interpolate;
-   unsigned location;
+   unsigned semantic_name : 6;
+   unsigned semantic_index : 16;
+   unsigned interpolate : 3;
+   unsigned location : 3;
 };
 
 struct vrend_array {
@@ -66,111 +66,135 @@ struct vrend_array {
 };
 
 struct vrend_layout_info {
-   unsigned name;
-   int sid;
-   int location;
-   int array_id;
-   int usage_mask;
+   unsigned name : 6;
+   unsigned sid : 16 ;
+   unsigned location : 16 ;
+   unsigned array_id : 16 ;
+   unsigned usage_mask : 5;
 };
 
+struct vrend_fs_shader_info {
+   int num_interps;
+   int glsl_ver;
+   bool has_sample_input;
+   struct vrend_interp_info interpinfo[PIPE_MAX_SHADER_INPUTS];
+};
+
+struct vrend_shader_info_out {
+   uint64_t num_indirect_generic : 8;
+   uint64_t num_indirect_patch : 8;
+   uint64_t num_generic_and_patch : 8;
+   uint64_t guest_sent_io_arrays : 1;
+};
+
+struct vrend_shader_info_in {
+   uint64_t generic_emitted_mask;
+   uint32_t num_indirect_generic : 8;
+   uint32_t num_indirect_patch : 8;
+   uint32_t use_pervertex : 1;
+};
+
+
 struct vrend_shader_info {
+   uint64_t invariant_outputs;
+   struct vrend_shader_info_out out;
+   struct vrend_shader_info_in in;
+
+   struct vrend_layout_info generic_outputs_layout[64];
+   struct vrend_array *sampler_arrays;
+   struct vrend_array *image_arrays;
+   char **so_names;
+   struct pipe_stream_output_info so_info;
+
    uint32_t samplers_used_mask;
    uint32_t images_used_mask;
    uint32_t ubo_used_mask;
    uint32_t ssbo_used_mask;
-   uint32_t num_generic_and_patch_outputs;
-   bool has_pervertex_in;
-   bool guest_sent_io_arrays;
-   struct vrend_layout_info generic_outputs_layout[64];
-   int num_consts;
-   int num_inputs;
-   int num_interps;
-   int num_outputs;
-   bool ubo_indirect;
-   uint8_t num_indirect_generic_outputs;
-   uint8_t num_indirect_patch_outputs;
-   uint8_t num_indirect_generic_inputs;
-   uint8_t num_indirect_patch_inputs;
-   uint32_t generic_inputs_emitted_mask;
-   int num_ucp;
-   int glsl_ver;
-   bool has_sample_input;
-   uint8_t num_clip_out;
-   uint8_t num_cull_out;
    uint32_t shadow_samp_mask;
-   int gs_out_prim;
-   int tes_prim;
-   bool tes_point_mode;
    uint32_t attrib_input_mask;
    uint32_t fs_blend_equation_advanced;
+   uint32_t fog_input_mask;
+   uint32_t fog_output_mask;
 
-   struct vrend_array *sampler_arrays;
+   int num_consts;
+   int num_inputs;
+   int num_outputs;
+   int gs_out_prim;
+   int tes_prim;
    int num_sampler_arrays;
-
-   struct vrend_array *image_arrays;
    int num_image_arrays;
 
-   struct pipe_stream_output_info so_info;
+   uint8_t ubo_indirect : 1;
+   uint8_t tes_point_mode : 1;
+   uint8_t gles_use_tex_query_level : 1;
+};
 
-   struct vrend_interp_info *interpinfo;
-   char **so_names;
-   uint64_t invariant_outputs;
+struct vrend_variable_shader_info {
+   struct vrend_fs_shader_info fs_info;
+   int num_ucp;
+   int num_clip;
+   int num_cull;
 };
 
 struct vrend_shader_key {
-   bool fs_prim_is_points;
-   uint32_t coord_replace;
-   bool invert_fs_origin;
-   bool pstipple_tex;
-   bool add_alpha_test;
-   bool color_two_side;
-   uint8_t alpha_test;
-   uint8_t clip_plane_enable;
-   bool gs_present;
-   bool tcs_present;
-   bool tes_present;
-   bool flatshade;
-   bool guest_sent_io_arrays;
-   bool fs_logicop_enabled;
-   bool fs_logicop_emulate_coherent;
-   enum pipe_logicop fs_logicop_func;
-   uint8_t surface_component_bits[PIPE_MAX_COLOR_BUFS];
-
-   uint32_t num_prev_generic_and_patch_outputs;
-   struct vrend_layout_info prev_stage_generic_and_patch_outputs_layout[64];
-
-   uint8_t prev_stage_num_clip_out;
-   uint8_t prev_stage_num_cull_out;
-   bool next_stage_pervertex_in;
-   uint32_t cbufs_are_a8_bitmask;
-   uint32_t cbufs_signed_int_bitmask;
-   uint32_t cbufs_unsigned_int_bitmask;
-   uint32_t attrib_signed_int_bitmask;
-   uint32_t attrib_unsigned_int_bitmask;
-   uint8_t num_indirect_generic_outputs;
-   uint8_t num_indirect_patch_outputs;
-   uint8_t num_indirect_generic_inputs;
-   uint8_t num_indirect_patch_inputs;
-   uint32_t generic_outputs_expected_mask;
-   uint8_t fs_swizzle_output_rgb_to_bgr;
    uint64_t force_invariant_inputs;
 
+   struct vrend_fs_shader_info *fs_info;
+   struct vrend_shader_info_out input;
+   struct vrend_shader_info_in output;
+   struct vrend_layout_info prev_stage_generic_and_patch_outputs_layout[64];
+
+   union {
+      struct {
+         uint8_t surface_component_bits[PIPE_MAX_COLOR_BUFS];
+         uint32_t coord_replace;
+         uint8_t swizzle_output_rgb_to_bgr;
+         uint8_t convert_linear_to_srgb_on_write;
+         uint8_t cbufs_are_a8_bitmask;
+         uint8_t cbufs_signed_int_bitmask;
+         uint8_t cbufs_unsigned_int_bitmask;
+         uint32_t logicop_func : 4;
+         uint32_t logicop_enabled : 1;
+         uint32_t prim_is_points : 1;
+         uint32_t invert_origin : 1;
+      } fs;
+
+      struct {
+         uint32_t attrib_signed_int_bitmask;
+         uint32_t attrib_unsigned_int_bitmask;
+         uint32_t fog_fixup_mask;
+      } vs;
+   };
+
    uint32_t compiled_fs_uid;
-   struct vrend_shader_info *fs_info;
+
+   uint8_t alpha_test;
+   uint8_t clip_plane_enable;
+   uint8_t num_cull : 4;
+   uint8_t num_clip : 4;
+   uint8_t pstipple_tex : 1;
+   uint8_t add_alpha_test : 1;
+   uint8_t color_two_side : 1;
+   uint8_t gs_present : 1;
+   uint8_t tcs_present : 1;
+   uint8_t tes_present : 1;
+   uint8_t flatshade : 1;
+
 };
 
 struct vrend_shader_cfg {
-   int glsl_version;
-   int max_draw_buffers;
-   bool use_gles;
-   bool use_core_profile;
-   bool use_explicit_locations;
-   bool has_arrays_of_arrays;
-   bool has_gpu_shader5;
-   bool has_es31_compat;
-   bool has_conservative_depth;
-   bool use_integer;
-   bool has_dual_src_blend;
+   uint32_t glsl_version : 12;
+   uint32_t max_draw_buffers : 4;
+   uint32_t use_gles : 1;
+   uint32_t use_core_profile : 1;
+   uint32_t use_explicit_locations : 1;
+   uint32_t has_arrays_of_arrays : 1;
+   uint32_t has_gpu_shader5 : 1;
+   uint32_t has_es31_compat : 1;
+   uint32_t has_conservative_depth : 1;
+   uint32_t use_integer : 1;
+   uint32_t has_dual_src_blend : 1;
+   uint32_t has_fbfetch_coherent : 1;
 };
 
 struct vrend_context;
@@ -185,6 +209,7 @@ bool vrend_convert_shader(const struct vrend_context *rctx,
                           uint32_t req_local_mem,
                           const struct vrend_shader_key *key,
                           struct vrend_shader_info *sinfo,
+                          struct vrend_variable_shader_info *var_sinfo,
                           struct vrend_strarray *shader);
 
 const char *vrend_shader_samplertypeconv(bool use_gles, int sampler_type);

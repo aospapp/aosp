@@ -26,9 +26,6 @@ CFLAGS="" CXXFLAGS="" ./bootstrap.sh
 CFLAGS="" CXXFLAGS="" ./b2 headers
 cp -R boost/ /usr/include/
 
-# Prevent Boost compilation error with -std=c++17
-export CXXFLAGS="$CXXFLAGS -D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR"
-
 # Build Relic
 cd $SRC/relic/
 mkdir build/
@@ -65,9 +62,10 @@ python gen_repository.py
 rm extra_options.h
 echo -n '"' >>extra_options.h
 echo -n '--force-module=relic ' >>extra_options.h
-echo -n '--operations=BignumCalc,ECC_PrivateToPublic,ECC_ValidatePubkey,ECDSA_Sign,ECDSA_Verify,Digest,HMAC,KDF_X963 ' >>extra_options.h
+echo -n '--operations=BignumCalc,ECC_PrivateToPublic,ECC_ValidatePubkey,ECDSA_Sign,ECDSA_Verify,Digest,HMAC,KDF_X963,SymmetricEncrypt,SymmetricDecrypt,ECC_Point_Add,ECC_Point_Mul ' >>extra_options.h
 echo -n '--curves=secp256k1,secp256r1 ' >>extra_options.h
 echo -n '--digests=NULL,SHA224,SHA256,SHA384,SHA512,BLAKE2S160,BLAKE2S256 ' >>extra_options.h
+echo -n '--ciphers=AES_128_CBC,AES_192_CBC,AES_256_CBC ' >>extra_options.h
 echo -n '--calcops=Abs,Add,Bit,ClearBit,Cmp,CmpAbs,Div,ExpMod,GCD,InvMod,IsEven,IsOdd,IsZero,Jacobi,LCM,LShift1,Mod,Mul,Neg,NumBits,RShift,SetBit,Sqr,Sqrt,Sub ' >>extra_options.h
 echo -n '"' >>extra_options.h
 cd modules/relic/

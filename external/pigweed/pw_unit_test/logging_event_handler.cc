@@ -31,6 +31,9 @@ void LoggingEventHandler::RunAllTestsEnd(
     const RunTestsSummary& run_tests_summary) {
   PW_LOG_INFO("[==========] Done running all tests.");
   PW_LOG_INFO("[  PASSED  ] %d test(s).", run_tests_summary.passed_tests);
+  if (run_tests_summary.skipped_tests) {
+    PW_LOG_WARN("[  SKIPPED ] %d test(s).", run_tests_summary.skipped_tests);
+  }
   if (run_tests_summary.failed_tests) {
     PW_LOG_ERROR("[  FAILED  ] %d test(s).", run_tests_summary.failed_tests);
   }
@@ -52,6 +55,10 @@ void LoggingEventHandler::TestCaseEnd(const TestCase& test_case,
       PW_LOG_ERROR(
           "[  FAILED  ] %s.%s", test_case.suite_name, test_case.test_name);
       break;
+    case TestResult::kSkipped:
+      PW_LOG_WARN(
+          "[  SKIPPED ] %s.%s", test_case.suite_name, test_case.test_name);
+      break;
   }
 }
 
@@ -64,17 +71,14 @@ void LoggingEventHandler::TestCaseExpect(const TestCase& test_case,
   const char* result = expectation.success ? "Success" : "Failure";
   uint32_t level = expectation.success ? PW_LOG_LEVEL_INFO : PW_LOG_LEVEL_ERROR;
   PW_LOG(level,
-         PW_LOG_DEFAULT_FLAGS,
+         PW_LOG_FLAGS,
          "%s:%d: %s",
          test_case.file_name,
          expectation.line_number,
          result);
+  PW_LOG(level, PW_LOG_FLAGS, "      Expected: %s", expectation.expression);
   PW_LOG(level,
-         PW_LOG_DEFAULT_FLAGS,
-         "      Expected: %s",
-         expectation.expression);
-  PW_LOG(level,
-         PW_LOG_DEFAULT_FLAGS,
+         PW_LOG_FLAGS,
          "        Actual: %s",
          expectation.evaluated_expression);
 }

@@ -100,7 +100,8 @@ set_ostream(write_context& ctxt, ostream& os);
 bool
 write_translation_unit(write_context&	       ctxt,
 		       const translation_unit& tu,
-		       const unsigned	       indent);
+		       const unsigned	       indent,
+		       bool		       last = true);
 
 bool
 write_corpus_to_archive(const corpus& corp,
@@ -127,6 +128,16 @@ write_corpus_group(write_context&	    ctx,
 		   unsigned		    indent);
 
 }// end namespace xml_writer
+
+#ifdef WITH_DEBUG_SELF_COMPARISON
+void
+write_canonical_type_ids(xml_writer::write_context&, ostream&);
+
+bool
+write_canonical_type_ids(xml_writer::write_context&,
+			const string &);
+#endif
+
 }// end namespace abigail
 
 #endif //  __ABG_WRITER_H__

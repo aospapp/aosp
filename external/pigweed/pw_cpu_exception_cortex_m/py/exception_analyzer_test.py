@@ -15,19 +15,9 @@
 """Tests dumped Cortex-M CPU state."""
 
 import unittest
-import os
-
-from pw_protobuf_compiler import python_protos
-from pw_cli import env
 from pw_cpu_exception_cortex_m import exception_analyzer, cortex_m_constants
-
-CPU_STATE_PROTO_PATH = os.path.join(
-    env.pigweed_environment().PW_ROOT,  #pylint: disable=no-member
-    'pw_cpu_exception_cortex_m',
-    'pw_cpu_exception_cortex_m_protos',
-    'cpu_state.proto')
-
-cpu_state_pb2 = python_protos.compile_and_import_file(CPU_STATE_PROTO_PATH)
+from pw_cpu_exception_cortex_m_protos import cpu_state_pb2
+import pw_symbolizer
 
 # pylint: disable=protected-access
 
@@ -174,6 +164,25 @@ class TextDumpTest(unittest.TestCase):
         ))
         self.assertEqual(cpu_state_info.dump_registers(), expected_dump)
 
+    def test_symbolization(self):
+        """Ensure certain registers are symbolized."""
+        cpu_state_proto = cpu_state_pb2.ArmV7mCpuState()
+        known_symbols = (
+            pw_symbolizer.Symbol(0x0800A200, 'foo()', 'src/foo.c', 41),
+            pw_symbolizer.Symbol(0x08000004, 'boot_entry()',
+                                 'src/vector_table.c', 5),
+        )
+        symbolizer = pw_symbolizer.FakeSymbolizer(known_symbols)
+        cpu_state_proto.pc = 0x0800A200
+        cpu_state_proto.lr = 0x08000004
+        cpu_state_info = exception_analyzer.CortexMExceptionAnalyzer(
+            cpu_state_proto, symbolizer)
+        expected_dump = '\n'.join((
+            'pc         0x0800a200 foo() (src/foo.c:41)',
+            'lr         0x08000004 boot_entry() (src/vector_table.c:5)',
+        ))
+        self.assertEqual(cpu_state_info.dump_registers(), expected_dump)
+
     def test_dump_no_cfsr(self):
         """Validate basic CPU state dump."""
         cpu_state_proto = cpu_state_pb2.ArmV7mCpuState()
@@ -210,7 +219,11 @@ class TextDumpTest(unittest.TestCase):
             'Exception caused by a bus fault at 0xdeadbeef.',
             '',
             'Active Crash Fault Status Register (CFSR) fields:',
-            'PRECISERR   Precise bus fault.',
+            'PRECISERR   Precise data bus error.',
+            '    A data bus error has occurred, and the PC value stacked for',
+            '    the exception return points to the instruction that caused',
+            '    the fault. When the processor sets this bit to 1, it writes',
+            '    the faulting address to the BFAR',
             'BFARVALID   BFAR is valid.',
             '',
             'All registers:',

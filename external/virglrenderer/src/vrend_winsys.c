@@ -72,6 +72,7 @@ int vrend_winsys_init(uint32_t flags, int preferred_fd)
 
       use_context = CONTEXT_EGL;
 #else
+      (void)preferred_fd;
       vrend_printf( "EGL is not supported on this platform\n");
       return -1;
 #endif
@@ -171,6 +172,10 @@ int vrend_winsys_get_fourcc_for_texture(uint32_t tex_id, uint32_t format, int *f
 #ifdef HAVE_EPOXY_EGL_H
    if (use_context == CONTEXT_EGL)
       return virgl_egl_get_fourcc_for_texture(egl, tex_id, format, fourcc);
+#else
+   (void)tex_id;
+   (void)format;
+   (void)fourcc;
 #endif
    return 0;
 }
@@ -183,6 +188,8 @@ int vrend_winsys_get_fd_for_texture(uint32_t tex_id, int *fd)
 
    return virgl_egl_get_fd_for_texture(egl, tex_id, fd);
 #else
+   (void)tex_id;
+   (void)fd;
    return -1;
 #endif
 }
@@ -195,6 +202,10 @@ int vrend_winsys_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int 
 
    return virgl_egl_get_fd_for_texture2(egl, tex_id, fd, stride, offset);
 #else
+   (void)tex_id;
+   (void)fd;
+   (void)stride;
+   (void)offset;
    return -1;
 #endif
 }
@@ -206,4 +217,17 @@ uint32_t vrend_winsys_query_video_memory(void)
 #else
    return 0;
 #endif
+}
+
+/* different_gpu means that GBM and GL renderer are on two different DRM devices.
+ * Linear buffers are used for scanouts to make them shareable.
+ * Advise the client to use drawable shadowing for performance.
+ */
+bool vrend_winsys_different_gpu(void)
+{
+#ifdef HAVE_EPOXY_EGL_H
+   if (egl)
+      return virgl_egl_different_gpu(egl);
+#endif
+   return false;
 }

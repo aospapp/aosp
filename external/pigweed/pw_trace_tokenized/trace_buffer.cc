@@ -27,9 +27,12 @@ namespace {
 class TraceBuffer {
  public:
   TraceBuffer() {
-    ring_buffer_.SetBuffer(raw_buffer_);
-    Callbacks::Instance().RegisterSink(
-        TraceSinkStartBlock, TraceSinkAddBytes, TraceSinkEndBlock, this);
+    ring_buffer_.SetBuffer(raw_buffer_)
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+    Callbacks::Instance()
+        .RegisterSink(
+            TraceSinkStartBlock, TraceSinkAddBytes, TraceSinkEndBlock, this)
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
   }
 
   static void TraceSinkStartBlock(void* user_data, size_t size) {
@@ -59,13 +62,21 @@ class TraceBuffer {
     if (buffer->block_idx_ != buffer->block_size_) {
       return;  // Block is too large, skipping.
     }
-    buffer->ring_buffer_.PushBack(std::span<const std::byte>(
-        &buffer->current_block_[0], buffer->block_size_));
+    buffer->ring_buffer_
+        .PushBack(std::span<const std::byte>(&buffer->current_block_[0],
+                                             buffer->block_size_))
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
   }
 
   pw::ring_buffer::PrefixedEntryRingBuffer& RingBuffer() {
     return ring_buffer_;
   };
+
+  ConstByteSpan DeringAndViewRawBuffer() {
+    ring_buffer_.Dering()
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+    return ByteSpan(raw_buffer_, ring_buffer_.TotalUsedBytes());
+  }
 
  private:
   uint16_t block_size_ = 0;
@@ -85,6 +96,10 @@ void ClearBuffer() { trace_buffer_instance.RingBuffer().Clear(); }
 
 pw::ring_buffer::PrefixedEntryRingBuffer* GetBuffer() {
   return &trace_buffer_instance.RingBuffer();
+}
+
+ConstByteSpan DeringAndViewRawBuffer() {
+  return trace_buffer_instance.DeringAndViewRawBuffer();
 }
 
 }  // namespace trace

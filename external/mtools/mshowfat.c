@@ -72,7 +72,7 @@ void mshowfat(int argc, char **argv, int mtype UNUSEDP)
 {
 	Arg_t arg;
 	int c, ret;
-	
+
 	/* get command line options */
 	if(helpFlag(argc, argv))
 		usage(0);

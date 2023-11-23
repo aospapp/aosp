@@ -12,14 +12,14 @@ sh_binary_host {
     name: "common_crosvm",
     filename: "crosvm",
     target: {
-        linux_glibc: {
+        host_linux: {
             src: "crosvm",
         },
         darwin: {
-           src: "crosvm",
+            src: "crosvm",
         },
         linux_bionic: {
-          src: "crosvm_bionic",
-       },
+            src: "crosvm_bionic",
+        },
     },
 }

@@ -4,7 +4,7 @@ use crate::syntax::Atom::{self, *};
 use crate::syntax::{Derive, Doc, ForeignName};
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::parse::{ParseStream, Parser as _};
+use syn::parse::{Nothing, Parse, ParseStream, Parser as _};
 use syn::{Attribute, Error, LitStr, Path, Result, Token};
 
 // Intended usage:
@@ -33,6 +33,7 @@ pub struct Parser<'a> {
     pub namespace: Option<&'a mut Namespace>,
     pub cxx_name: Option<&'a mut Option<ForeignName>>,
     pub rust_name: Option<&'a mut Option<Ident>>,
+    pub variants_from_header: Option<&'a mut Option<Attribute>>,
 
     // Suppress clippy needless_update lint ("struct update has no effect, all
     // the fields in the struct have already been specified") when preemptively
@@ -120,6 +121,14 @@ pub fn parse(cx: &mut Errors, attrs: Vec<Attribute>, mut parser: Parser) -> Othe
                     cx.push(err);
                     break;
                 }
+            }
+        } else if attr.path.is_ident("variants_from_header") && cfg!(feature = "experimental") {
+            if let Err(err) = Nothing::parse.parse2(attr.tokens.clone()) {
+                cx.push(err);
+            }
+            if let Some(variants_from_header) = &mut parser.variants_from_header {
+                **variants_from_header = Some(attr);
+                continue;
             }
         } else if attr.path.is_ident("allow")
             || attr.path.is_ident("warn")
@@ -224,7 +233,19 @@ impl OtherAttrs {
 impl ToTokens for OtherAttrs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for attr in &self.0 {
-            attr.to_tokens(tokens);
+            let Attribute {
+                pound_token,
+                style,
+                bracket_token,
+                path,
+                tokens: attr_tokens,
+            } = attr;
+            pound_token.to_tokens(tokens);
+            let _ = style; // ignore; render outer and inner attrs both as outer
+            bracket_token.surround(tokens, |tokens| {
+                path.to_tokens(tokens);
+                attr_tokens.to_tokens(tokens);
+            });
         }
     }
 }

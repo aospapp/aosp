@@ -23,7 +23,7 @@
 
 project(
    'virglrenderer', 'c',
-   version: '0.8.2',
+   version: '0.9.0',
    license : 'MIT',
    meson_version : '>= 0.46',
    default_options : ['buildtype=release', 'b_ndebug=if-release',
@@ -39,8 +39,8 @@ project(
 #    and set revision and interface_age to zero
 
 binary_age    = 1
-interface_age = 4
-revision      = 2
+interface_age = 5
+revision      = 3
 
 cc = meson.get_compiler('c')
 
@@ -128,6 +128,34 @@ if cc.has_header('sys/select.h')
   conf_data.set('HAVE_SYS_SELECT_H', 1)
 endif
 
+if host_machine.endian() == 'little'
+  conf_data.set('PIPE_ARCH_LITTLE_ENDIAN', true)
+elif host_machine.endian() == 'big'
+  conf_data.set('PIPE_ARCH_BIG_ENDIAN', true)
+else
+  error('It wasn\'t possible to figure out the endianess of the machine')  
+endif
+
+pipe_arch = host_machine.cpu_family()
+
+if pipe_arch == 'x86'
+  conf_data.set('PIPE_ARCH_X86', true)
+elif pipe_arch == 'x86_64'
+  conf_data.set('PIPE_ARCH_X86_64', true)
+elif pipe_arch == 'ppc'
+  conf_data.set('PIPE_ARCH_PPC', true)
+elif pipe_arch == 'ppc64'
+  conf_data.set('PIPE_ARCH_PPC_64', true)
+elif pipe_arch == 's390x'
+  conf_data.set('PIPE_ARCH_S390', true)
+elif pipe_arch == 'arm'
+  conf_data.set('PIPE_ARCH_ARM', true)
+elif pipe_arch == 'aarch64'
+  conf_data.set('PIPE_ARCH_AARCH64', true)
+else
+  warning('Arch used is not supported')
+endif
+
 if get_option('buildtype') == 'debug'
    add_global_arguments('-DDEBUG=1', language : 'c')
 endif
@@ -174,6 +202,17 @@ if with_glx
    endif
 endif
 
+with_venus = get_option('venus-experimental')
+with_venus_validate = get_option('venus-validate')
+if with_venus
+   venus_dep = dependency('vulkan')
+   conf_data.set('ENABLE_VENUS', 1)
+
+   if with_venus_validate
+      conf_data.set('ENABLE_VENUS_VALIDATE', 1)
+   endif
+endif
+
 if cc.compiles('void __attribute__((hidden)) func() {}')
    conf_data.set('HAVE_FUNC_ATTRIBUTE_VISIBILITY', 1)
 endif
@@ -196,7 +235,7 @@ pkg_config = configure_file(input : 'virglrenderer.pc.in',
 install_data(pkg_config,
              install_dir: get_option('libdir') + '/pkgconfig')
 
-inc_configuration = include_directories('.')
+inc_configuration = include_directories(['.', 'src'])
 
 with_fuzzer = get_option('fuzzer')
 with_tests = get_option('tests')
@@ -222,6 +261,8 @@ lines += 'egl:       ' + (have_egl ? 'yes' : 'no')
 lines += 'glx:       ' + (have_glx ? 'yes' : 'no')
 lines += ''
 lines += 'minigbm_alloc: ' + (with_minigbm_allocation ? 'yes' : 'no' )
+lines += ''
+lines += 'venus:     ' + (with_venus ? 'yes' : 'no' )
 lines += ''
 lines += 'tests:     ' + (with_tests ? 'yes' : 'no' )
 lines += 'fuzzer:    ' + (with_fuzzer ? 'yes' : 'no' )

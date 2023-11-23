@@ -10,8 +10,6 @@ gs://chromiumos-sdk/. The hope is that it'll help answer the question "when did
 the toolchain ebuild ${x} go live?"
 """
 
-# pylint: disable=cros-logging-import
-
 import argparse
 import json
 import logging

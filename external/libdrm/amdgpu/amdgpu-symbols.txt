@@ -53,6 +53,7 @@ amdgpu_cs_syncobj_wait
 amdgpu_cs_wait_fences
 amdgpu_cs_wait_semaphore
 amdgpu_device_deinitialize
+amdgpu_device_get_fd
 amdgpu_device_initialize
 amdgpu_find_bo_by_cpu_mapping
 amdgpu_get_marketing_name
@@ -66,6 +67,7 @@ amdgpu_query_hw_ip_count
 amdgpu_query_hw_ip_info
 amdgpu_query_info
 amdgpu_query_sensor_info
+amdgpu_query_video_caps_info
 amdgpu_read_mm_registers
 amdgpu_va_range_alloc
 amdgpu_va_range_free

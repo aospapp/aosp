@@ -1,5 +1,3 @@
-
-
 package {
     default_applicable_licenses: ["external_pcre_license"],
 }
@@ -33,51 +31,19 @@ license {
     ],
 }
 
-libpcre2_dist_prefix = "dist2"
-
-libpcre2_src_files = [
-    libpcre2_dist_prefix + "/src/pcre2_auto_possess.c",
-    libpcre2_dist_prefix + "/src/pcre2_compile.c",
-    libpcre2_dist_prefix + "/src/pcre2_config.c",
-    libpcre2_dist_prefix + "/src/pcre2_context.c",
-    libpcre2_dist_prefix + "/src/pcre2_convert.c",
-    libpcre2_dist_prefix + "/src/pcre2_dfa_match.c",
-    libpcre2_dist_prefix + "/src/pcre2_error.c",
-    libpcre2_dist_prefix + "/src/pcre2_extuni.c",
-    libpcre2_dist_prefix + "/src/pcre2_find_bracket.c",
-    libpcre2_dist_prefix + "/src/pcre2_maketables.c",
-    libpcre2_dist_prefix + "/src/pcre2_match.c",
-    libpcre2_dist_prefix + "/src/pcre2_match_data.c",
-    libpcre2_dist_prefix + "/src/pcre2_jit_compile.c",
-    libpcre2_dist_prefix + "/src/pcre2_newline.c",
-    libpcre2_dist_prefix + "/src/pcre2_ord2utf.c",
-    libpcre2_dist_prefix + "/src/pcre2_pattern_info.c",
-    libpcre2_dist_prefix + "/src/pcre2_script_run.c",
-    libpcre2_dist_prefix + "/src/pcre2_serialize.c",
-    libpcre2_dist_prefix + "/src/pcre2_string_utils.c",
-    libpcre2_dist_prefix + "/src/pcre2_study.c",
-    libpcre2_dist_prefix + "/src/pcre2_substitute.c",
-    libpcre2_dist_prefix + "/src/pcre2_substring.c",
-    libpcre2_dist_prefix + "/src/pcre2_tables.c",
-    libpcre2_dist_prefix + "/src/pcre2_ucd.c",
-    libpcre2_dist_prefix + "/src/pcre2_valid_utf.c",
-    libpcre2_dist_prefix + "/src/pcre2_xclass.c",
-    libpcre2_dist_prefix + "/src/pcre2_chartables.c",
-]
-
 cc_defaults {
     name: "pcre_defaults",
     cflags: [
         "-DHAVE_CONFIG_H",
         "-Wall",
         "-Werror",
+        "-DPCRE2_CODE_UNIT_WIDTH=8",
     ],
     tidy_checks: [
         "-google-build-using-namespace",
         "-google-global-names-in-headers",
     ],
     local_include_dirs: [
-        "include_internal",
         "include",
     ],
     export_include_dirs: ["include"],
@@ -100,10 +66,40 @@ cc_library {
     ramdisk_available: true,
     vendor_ramdisk_available: true,
     recovery_available: true,
-    srcs: libpcre2_src_files,
+    srcs: [
+        "src/pcre2_auto_possess.c",
+        "src/pcre2_compile.c",
+        "src/pcre2_config.c",
+        "src/pcre2_context.c",
+        "src/pcre2_convert.c",
+        "src/pcre2_dfa_match.c",
+        "src/pcre2_error.c",
+        "src/pcre2_extuni.c",
+        "src/pcre2_find_bracket.c",
+        "src/pcre2_maketables.c",
+        "src/pcre2_match.c",
+        "src/pcre2_match_data.c",
+        "src/pcre2_jit_compile.c",
+        "src/pcre2_newline.c",
+        "src/pcre2_ord2utf.c",
+        "src/pcre2_pattern_info.c",
+        "src/pcre2_script_run.c",
+        "src/pcre2_serialize.c",
+        "src/pcre2_string_utils.c",
+        "src/pcre2_study.c",
+        "src/pcre2_substitute.c",
+        "src/pcre2_substring.c",
+        "src/pcre2_tables.c",
+        "src/pcre2_ucd.c",
+        "src/pcre2_valid_utf.c",
+        "src/pcre2_xclass.c",
+        "src/pcre2_chartables.c",
+    ],
     stl: "none",
-    system_shared_libs: ["libc"],
     target: {
+        bionic: {
+            system_shared_libs: ["libc"],
+        },
         linux_bionic: {
             enabled: true,
         },

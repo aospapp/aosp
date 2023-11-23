@@ -153,16 +153,17 @@ java_library {
         ":okhttp_version.java",
     ],
 
-    target: {
-        host: {
-            libs: [
-                "okhttp-android-util-log",
-            ],
-        },
-    },
+    libs: [
+        // Building against "core_current" means that the android.util.Log API
+        // is not available. This provides stubs for it which allows the code to
+        // compile.
+        "okhttp-android-util-log",
+    ],
 
     installable: true,
-    sdk_version: "current",
+    // Build against a "core_current" as it cannot use "current" as it has to
+    // build in manifests without frameworks/base.
+    sdk_version: "core_current",
 }
 
 // Generate Version.java based on the version number from pom.xml.
@@ -182,9 +183,11 @@ genrule {
 
 // A library to provide a stub android.util.Log symbol for
 // okhttp/src/main/java/com/squareup/okhttp/internal/Platform.java
-java_library_host {
+java_library {
     name: "okhttp-android-util-log",
+    host_supported: true,
     srcs: ["okhttp-android-util-log/src/main/java/**/*.java"],
+    sdk_version: "core_current",
 }
 
 java_library {

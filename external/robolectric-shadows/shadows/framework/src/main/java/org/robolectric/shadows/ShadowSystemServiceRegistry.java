@@ -21,9 +21,10 @@ public class ShadowSystemServiceRegistry {
             classForName("android.app.SystemServiceRegistry"), "SYSTEM_SERVICE_FETCHERS");
 
     Class staticApplicationServiceFetcherClass = null;
-    if (RuntimeEnvironment.getApiLevel() >= Build.VERSION_CODES.N) {
-      staticApplicationServiceFetcherClass =
-          classForName("android.app.SystemServiceRegistry$StaticApplicationContextServiceFetcher");
+    if (RuntimeEnvironment.getApiLevel() >= Build.VERSION_CODES.N
+      && RuntimeEnvironment.getApiLevel() < Build.VERSION_CODES.S) {
+       staticApplicationServiceFetcherClass =
+           classForName("android.app.SystemServiceRegistry$StaticApplicationContextServiceFetcher");
     } else if (RuntimeEnvironment.getApiLevel() == Build.VERSION_CODES.M) {
       staticApplicationServiceFetcherClass =
           classForName("android.app.SystemServiceRegistry$StaticOuterContextServiceFetcher");
@@ -33,7 +34,8 @@ public class ShadowSystemServiceRegistry {
         classForName("android.app.SystemServiceRegistry$StaticServiceFetcher");
 
     for (Object o : fetchers.values()) {
-      if (staticApplicationServiceFetcherClass.isInstance(o)) {
+      if (staticApplicationServiceFetcherClass != null
+        && staticApplicationServiceFetcherClass.isInstance(o)) {
         ReflectionHelpers.setField(
             staticApplicationServiceFetcherClass, o, "mCachedInstance", null);
       } else if (staticServiceFetcherClass.isInstance(o)) {

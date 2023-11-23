@@ -36,9 +36,11 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <auto-service.version>1.0</auto-service.version>
+    <auto-value.version>1.8.1</auto-value.version>
     <java.version>1.8</java.version>
-    <guava.version>28.2-jre</guava.version>
-    <truth.version>1.0.1</truth.version>
+    <guava.version>30.1.1-jre</guava.version>
+    <truth.version>1.1.3</truth.version>
   </properties>
 
   <scm>
@@ -69,41 +71,23 @@
     <dependency>
       <groupId>com.google.auto</groupId>
       <artifactId>auto-common</artifactId>
-      <version>0.10</version>
+      <version>1.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value-annotations</artifactId>
-      <version>1.7</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.auto.value</groupId>
-      <artifactId>auto-value</artifactId>
-      <version>1.7</version>
-      <scope>provided</scope>
+      <version>${auto-value.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.auto.service</groupId>
-      <artifactId>auto-service</artifactId>
-      <version>1.0-rc6</version>
-      <scope>provided</scope>
+      <artifactId>auto-service-annotations</artifactId>
+      <version>${auto-service.version}</version>
     </dependency>
     <dependency>
       <groupId>net.ltgt.gradle.incap</groupId>
       <artifactId>incap</artifactId>
-      <version>0.2</version>
+      <version>0.3</version>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>net.ltgt.gradle.incap</groupId>
-      <artifactId>incap-processor</artifactId>
-      <version>0.2</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.google.googlejavaformat</groupId>
-      <artifactId>google-java-format</artifactId>
-      <version>1.7</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -113,7 +97,7 @@
     <dependency>
       <groupId>com.squareup</groupId>
       <artifactId>javapoet</artifactId>
-      <version>1.12.1</version>
+      <version>1.13.0</version>
     </dependency>
     <dependency>
       <groupId>javax.inject</groupId>
@@ -124,13 +108,13 @@
     <dependency>
       <groupId>com.google.testing.compile</groupId>
       <artifactId>compile-testing</artifactId>
-      <version>0.18</version>
+      <version>0.19</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13</version>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -157,29 +141,54 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.7.0</version>
+        <version>3.8.1</version>
         <configuration>
           <source>${java.version}</source>
           <target>${java.version}</target>
           <compilerArgument>-Xlint:all</compilerArgument>
           <showWarnings>true</showWarnings>
           <showDeprecation>true</showDeprecation>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.auto.service</groupId>
+              <artifactId>auto-service</artifactId>
+              <version>${auto-service.version}</version>
+            </path>
+            <path>
+              <groupId>com.google.auto.value</groupId>
+              <artifactId>auto-value</artifactId>
+              <version>${auto-value.version}</version>
+            </path>
+            <path>
+              <groupId>net.ltgt.gradle.incap</groupId>
+              <artifactId>incap-processor</artifactId>
+              <version>0.3</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
         <dependencies>
           <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-java</artifactId>
-            <version>0.9.4</version>
+            <version>1.0.7</version>
           </dependency>
         </dependencies>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.2</version>
+        <configuration>
+          <argLine>${test.jvm.flags}</argLine>
+        </configuration>
+      </plugin>
+      <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.0.2</version>
+        <version>3.2.0</version>
       </plugin>
       <plugin>
         <artifactId>maven-invoker-plugin</artifactId>
-        <version>3.0.1</version>
+        <version>3.2.2</version>
         <configuration>
           <addTestClassPath>true</addTestClassPath>
           <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
@@ -205,4 +214,15 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>open-modules</id>
+      <activation>
+        <jdk>[9,)</jdk>
+      </activation>
+      <properties>
+        <test.jvm.flags>--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</test.jvm.flags>
+      </properties>
+    </profile>
+  </profiles>
 </project>

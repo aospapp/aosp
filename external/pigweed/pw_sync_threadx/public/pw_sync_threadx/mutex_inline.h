@@ -13,7 +13,7 @@
 // the License.
 #pragma once
 
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_interrupt/context.h"
 #include "pw_sync/mutex.h"
 #include "tx_api.h"
@@ -22,6 +22,14 @@ namespace pw::sync {
 namespace backend {
 
 inline constexpr char kMutexName[] = "pw::Mutex";
+
+// Precondition: The mutex must be held when calling this!
+inline bool NotRecursivelyHeld(TX_MUTEX& mutex) {
+  // Don't use tx_mutex_info_get which goes into a critical section to read
+  // this count. Given that this is only called while the mutex is held, nothing
+  // can mutate this count and ergo we access the control block directly.
+  return mutex.tx_mutex_ownership_count == 1;
+}
 
 }  // namespace backend
 
@@ -37,24 +45,29 @@ inline Mutex::~Mutex() {
 
 inline void Mutex::lock() {
   // Enforce the pw::sync::Mutex IRQ contract.
-  PW_ASSERT(!interrupt::InInterruptContext());
+  PW_DASSERT(!interrupt::InInterruptContext());
   PW_ASSERT(tx_mutex_get(&native_type_, TX_WAIT_FOREVER) == TX_SUCCESS);
+
+  // Recursive locking is not supported.
+  PW_DASSERT(backend::NotRecursivelyHeld(native_type_));
 }
 
 inline bool Mutex::try_lock() {
   // Enforce the pw::sync::Mutex IRQ contract.
-  PW_ASSERT(!interrupt::InInterruptContext());
+  PW_DASSERT(!interrupt::InInterruptContext());
   const UINT result = tx_mutex_get(&native_type_, TX_NO_WAIT);
   if (result == TX_NOT_AVAILABLE) {
     return false;
   }
   PW_ASSERT(result == TX_SUCCESS);
+  // Recursive locking is not supported.
+  PW_DASSERT(backend::NotRecursivelyHeld(native_type_));
   return true;
 }
 
 inline void Mutex::unlock() {
   // Enforce the pw::sync::Mutex IRQ contract.
-  PW_ASSERT(!interrupt::InInterruptContext());
+  PW_DASSERT(!interrupt::InInterruptContext());
   PW_ASSERT(tx_mutex_put(&native_type_) == TX_SUCCESS);
 }
 

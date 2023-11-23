@@ -19,105 +19,105 @@ import android.icu.util.ULocale.Category;
 /**
  * Implement the Ethiopic calendar system.
  * <p>
- * EthiopicCalendar usually should be instantiated using 
+ * EthiopicCalendar usually should be instantiated using
  * {@link android.icu.util.Calendar#getInstance(ULocale)} passing in a <code>ULocale</code>
  * with the tag <code>"@calendar=ethiopic"</code>.</p>
  *
  * @see android.icu.util.Calendar
  */
-public final class EthiopicCalendar extends CECalendar 
+public final class EthiopicCalendar extends CECalendar
 {
     //jdk1.4.2 serialver
     private static final long serialVersionUID = -2438495771339315608L;
 
-    /** 
+    /**
      * Constant for መስከረም, the 1st month of the Ethiopic year.
      */
     public static final int MESKEREM = 0;
 
-    /** 
-     * Constant for ጥቅምት, the 2nd month of the Ethiopic year. 
+    /**
+     * Constant for ጥቅምት, the 2nd month of the Ethiopic year.
      */
     public static final int TEKEMT = 1;
 
-    /** 
-     * Constant for ኅዳር, the 3rd month of the Ethiopic year. 
+    /**
+     * Constant for ኅዳር, the 3rd month of the Ethiopic year.
      */
     public static final int HEDAR = 2;
 
-    /** 
-     * Constant for ታኅሣሥ, the 4th month of the Ethiopic year. 
+    /**
+     * Constant for ታኅሣሥ, the 4th month of the Ethiopic year.
      */
     public static final int TAHSAS = 3;
 
-    /** 
-     * Constant for ጥር, the 5th month of the Ethiopic year. 
+    /**
+     * Constant for ጥር, the 5th month of the Ethiopic year.
      */
     public static final int TER = 4;
 
-    /** 
-     * Constant for የካቲት, the 6th month of the Ethiopic year. 
+    /**
+     * Constant for የካቲት, the 6th month of the Ethiopic year.
      */
     public static final int YEKATIT = 5;
 
-    /** 
-     * Constant for መጋቢት, the 7th month of the Ethiopic year. 
+    /**
+     * Constant for መጋቢት, the 7th month of the Ethiopic year.
      */
     public static final int MEGABIT = 6;
 
-    /** 
-     * Constant for ሚያዝያ, the 8th month of the Ethiopic year. 
+    /**
+     * Constant for ሚያዝያ, the 8th month of the Ethiopic year.
      */
     public static final int MIAZIA = 7;
 
-    /** 
-     * Constant for ግንቦት, the 9th month of the Ethiopic year. 
+    /**
+     * Constant for ግንቦት, the 9th month of the Ethiopic year.
      */
     public static final int GENBOT = 8;
 
-    /** 
-     * Constant for ሰኔ, the 10th month of the Ethiopic year. 
+    /**
+     * Constant for ሰኔ, the 10th month of the Ethiopic year.
      */
     public static final int SENE = 9;
 
-    /** 
-     * Constant for ሐምሌ, the 11th month of the Ethiopic year. 
+    /**
+     * Constant for ሐምሌ, the 11th month of the Ethiopic year.
      */
     public static final int HAMLE = 10;
 
-    /** 
-     * Constant for ነሐሴ, the 12th month of the Ethiopic year. 
+    /**
+     * Constant for ነሐሴ, the 12th month of the Ethiopic year.
      */
     public static final int NEHASSE = 11;
 
-    /** 
-     * Constant for ጳጉሜን, the 13th month of the Ethiopic year. 
+    /**
+     * Constant for ጳጉሜን, the 13th month of the Ethiopic year.
      */
     public static final int PAGUMEN = 12;
- 
+
     // Up until the end of the 19th century the prevailant convention was to
-    // reference the Ethiopic Calendar from the creation of the world, 
+    // reference the Ethiopic Calendar from the creation of the world,
     // \u12d3\u1218\u1270\u1361\u12d3\u1208\u121d
     // (Amete Alem 5500 BC).  As Ethiopia modernized the reference epoch from
-    // the birth of Christ (\u12d3\u1218\u1270\u1361\u121d\u1215\u1228\u1275) 
+    // the birth of Christ (\u12d3\u1218\u1270\u1361\u121d\u1215\u1228\u1275)
     // began to displace the creation of the
     // world reference point.  However, years before the birth of Christ are
-    // still referenced in the creation of the world system.   
+    // still referenced in the creation of the world system.
     // Thus -100 \u12d3/\u121d
     // would be rendered as 5400  \u12d3/\u12d3.
     //
-    // The creation of the world in Ethiopic cannon was 
+    // The creation of the world in Ethiopic cannon was
     // Meskerem 1, -5500  \u12d3/\u121d 00:00:00
     // applying the birth of Christ reference and Ethiopian time conventions.  This is
     // 6 hours less than the Julian epoch reference point (noon).  In Gregorian
     // the date and time was July 18th -5493 BC 06:00 AM.
 
-    // Julian Days relative to the 
+    // Julian Days relative to the
     // \u12d3\u1218\u1270\u1361\u121d\u1215\u1228\u1275 epoch
     // Note: we no longer use this constant
     //private static final int JD_EPOCH_OFFSET_AMETE_ALEM = -285019;
 
-    // Julian Days relative to the 
+    // Julian Days relative to the
     // \u12d3\u1218\u1270\u1361\u12d3\u1208\u121d epoch
     private static final int JD_EPOCH_OFFSET_AMETE_MIHRET = 1723856;
 
@@ -184,7 +184,7 @@ public final class EthiopicCalendar extends CECalendar
     public EthiopicCalendar(TimeZone zone, Locale aLocale) {
         this(zone, ULocale.forLocale(aLocale));
     }
-    
+
     /**
      * Constructs a <code>EthiopicCalendar</code> based on the current time
      * in the given time zone with the given locale.
@@ -241,6 +241,7 @@ public final class EthiopicCalendar extends CECalendar
     /**
      * {@inheritDoc}
      */
+    @Override
     public String getType() {
         if (isAmeteAlemEra()) {
             return "ethiopic-amete-alem";
@@ -256,7 +257,7 @@ public final class EthiopicCalendar extends CECalendar
     public void setAmeteAlemEra(boolean onOff) {
         eraType = onOff ? AMETE_ALEM_ERA : AMETE_MIHRET_ERA;
     }
-    
+
     /**
      * Return true if this calendar is set to the Amete Alem era.
      *
@@ -271,6 +272,7 @@ public final class EthiopicCalendar extends CECalendar
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     protected int handleGetExtendedYear() {
         // Ethiopic calendar uses EXTENDED_YEAR aligned to
@@ -298,6 +300,7 @@ public final class EthiopicCalendar extends CECalendar
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     protected void handleComputeFields(int julianDay) {
         int era, year;
@@ -334,6 +337,7 @@ public final class EthiopicCalendar extends CECalendar
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     protected int handleGetLimit(int field, int limitType) {
         if (isAmeteAlemEra() && field == ERA) {
@@ -347,6 +351,7 @@ public final class EthiopicCalendar extends CECalendar
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     protected int getJDEpochOffset() {
         return JD_EPOCH_OFFSET_AMETE_MIHRET;
@@ -374,7 +379,7 @@ public final class EthiopicCalendar extends CECalendar
      */
     private void setCalcTypeForLocale(ULocale locale) {
         String localeCalType = CalendarUtil.getCalendarType(locale);
-        if("ethiopic-amete-alem".equals(localeCalType)) { 
+        if("ethiopic-amete-alem".equals(localeCalType)) {
             setAmeteAlemEra(true);
         } else {
             setAmeteAlemEra(false); // default - Amete Mihret

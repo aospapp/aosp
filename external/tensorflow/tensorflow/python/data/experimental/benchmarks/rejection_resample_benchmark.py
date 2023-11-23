@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import numpy as np
-from tensorflow.python.data.experimental.ops import resampling
+
 from tensorflow.python.data.benchmarks import benchmark_base
+from tensorflow.python.data.experimental.ops import resampling
 from tensorflow.python.data.ops import dataset_ops
+from tensorflow.python.data.ops import options as options_lib
 
 
 class RejectionResampleBenchmark(benchmark_base.DatasetBenchmarkBase):
@@ -43,17 +44,24 @@ class RejectionResampleBenchmark(benchmark_base.DatasetBenchmarkBase):
             target_dist=target_dist,
             initial_dist=init_dist,
             seed=142))
-    options = dataset_ops.Options()
+    options = options_lib.Options()
     options.experimental_optimization.apply_default_optimizations = False
     dataset = dataset.with_options(options)
 
     wall_time = self.run_benchmark(
-        dataset=dataset, num_elements=num_samples, iters=10, warmup=True)
+        dataset=dataset,
+        num_elements=num_samples,
+        iters=10,
+        warmup=True)
     resample_time = wall_time * num_samples
 
     self.report_benchmark(
         iters=10,
         wall_time=resample_time,
+        extras={
+            "model_name": "rejection_resample.benchmark.1",
+            "parameters": "%d" % num_samples,
+        },
         name="resample_{}".format(num_samples))
 
 

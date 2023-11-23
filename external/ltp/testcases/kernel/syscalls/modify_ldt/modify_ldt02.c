@@ -86,34 +86,24 @@ int read_segment(unsigned int);
 void cleanup(void);
 void setup(void);
 
-#define FAILED 1
-
 int main(int ac, char **av)
 {
 	int lc;
 
 	int val, pid, status;
 
-	int flag;
 	int seg[4];
 
 	tst_parse_opts(ac, av, NULL, NULL);
 
-	setup();		/* global setup */
+	setup();
 
-	/* The following loop checks looping state if -i option given */
 	for (lc = 0; TEST_LOOPING(lc); lc++) {
-
-		/* reset tst_count in case we are looping */
 		tst_count = 0;
-
-//block1:
-		tst_resm(TINFO, "Enter block 1");
-		flag = 0;
 
 		seg[0] = 12345;
 		if (create_segment(seg, sizeof(seg)) == -1) {
-			tst_brkm(TINFO, cleanup, "Creation of segment failed");
+			tst_brkm(TBROK, cleanup, "Creation of segment failed");
 		}
 
 		val = read_segment(0);
@@ -121,27 +111,16 @@ int main(int ac, char **av)
 		if (val != seg[0]) {
 			tst_resm(TFAIL, "Invalid value read %d, expected %d",
 				 val, seg[0]);
-			flag = FAILED;
-		}
-
-		if (flag) {
-			tst_resm(TINFO, "block 1 FAILED");
-		} else {
-			tst_resm(TINFO, "block 1 PASSED");
-		}
-
-		tst_resm(TINFO, "Exit block 1");
-
-//block2:
-		tst_resm(TINFO, "Enter block 2");
-		flag = 0;
+		} else
+			tst_resm(TPASS, "value read as expected");
 
 		if (create_segment(0, 10) == -1) {
-			tst_brkm(TINFO, cleanup, "Creation of segment failed");
+			tst_brkm(TBROK, cleanup, "Creation of segment failed");
 		}
 
 		tst_old_flush();
 		if ((pid = FORK_OR_VFORK()) == 0) {
+			signal(SIGSEGV, SIG_DFL);
 			val = read_segment(0);
 			exit(1);
 		}
@@ -149,15 +128,13 @@ int main(int ac, char **av)
 		(void)waitpid(pid, &status, 0);
 
 		if (WEXITSTATUS(status) != 0) {
-			flag = FAILED;
 			tst_resm(TFAIL, "Did not generate SEGV, child returned "
 				 "unexpected status");
-		}
-
-		if (flag) {
-			tst_resm(TINFO, "block 2 FAILED");
 		} else {
-			tst_resm(TINFO, "block 2 PASSED");
+			if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGSEGV))
+				tst_resm(TPASS, "generate SEGV as expected");
+			else
+				tst_resm(TFAIL, "Did not generate SEGV");
 		}
 	}
 	cleanup();
@@ -192,34 +169,13 @@ int read_segment(unsigned int index)
 	return res;
 }
 
-void sigsegv_handler(int sig)
-{
-	tst_resm(TINFO, "received signal: %d", sig);
-	exit(0);
-}
-
-/*
- * setup() - performs all ONE TIME setup for this test
- */
 void setup(void)
 {
-	struct sigaction act;
-
-	memset(&act, 0, sizeof(act));
-	sigemptyset(&act.sa_mask);
-
 	tst_sig(FORK, DEF_HANDLER, cleanup);
-
-	act.sa_handler = sigsegv_handler;
-	(void)sigaction(SIGSEGV, &act, NULL);
 
 	TEST_PAUSE;
 }
 
-/*
- * cleanup() - performs all the ONE TIME cleanup for this test at completion
- * or premature exit.
- */
 void cleanup(void)
 {
 

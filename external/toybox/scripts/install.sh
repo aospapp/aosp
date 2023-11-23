@@ -2,9 +2,9 @@
 
 # Grab default values for $CFLAGS and such.
 
-source ./configure
+source scripts/portability.sh
 
-[ -z "$PREFIX" ] && PREFIX="/usr/toybox"
+[ -z "$PREFIX" ] && PREFIX="$PWD/install"
 
 # Parse command line arguments.
 
@@ -32,8 +32,8 @@ done
 echo "Compile instlist..."
 
 NOBUILD=1 scripts/make.sh
-$DEBUG $HOSTCC -I . scripts/install.c -o generated/instlist || exit 1
-COMMANDS="$(generated/instlist $LONG_PATH)"
+$DEBUG $HOSTCC -I . scripts/install.c -o "$UNSTRIPPED"/instlist || exit 1
+COMMANDS="$("$UNSTRIPPED"/instlist $LONG_PATH)"
 
 echo "${UNINSTALL:-Install} commands..."
 
@@ -106,9 +106,10 @@ done
 # The following are commands toybox should provide, but doesn't yet.
 # For now symlink the host version. This list must go away by 1.0.
 
-PENDING="dd diff expr ftpd less tr vi wget awk sh sha512sum sha256sum unxz xzcat bc bison flex make nm ar gzip"
+PENDING="dd diff expr git tr vi wget bash sh xzcat bc ar gzip   ftpd less awk unxz bison flex make nm"
 
-# "gcc" should go away for llvm, but some things still hardwire it
+# "gcc" can go away if the kernel guys merge my patch:
+# http://lkml.iu.edu/hypermail/linux/kernel/2202.0/01505.html
 TOOLCHAIN="as cc ld gcc objdump"
 
 # Tools needed to build packages

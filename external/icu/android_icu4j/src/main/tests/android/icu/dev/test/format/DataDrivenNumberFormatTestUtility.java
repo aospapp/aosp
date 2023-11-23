@@ -320,7 +320,7 @@ public class DataDrivenNumberFormatTestUtility extends TestFmwk {
             tuple.clearField(name);
             return true;
         } catch (Exception e) {
-            showError("Field cannot be clared: " + name);
+            showError("Field cannot be cleared: " + name);
             return false;
         }
     }

@@ -1,15 +1,18 @@
 #include "android_common.h"
 #include <packagelistparser/packagelistparser.h>
 
-// For 'system', 'system_ext' (optional), 'product' (optional), 'vendor' (mandatory)
-// and/or 'odm' (optional).
-#define MAX_FILE_CONTEXT_SIZE 5
+// For 'system', 'system_ext' (optional), 'apex' (optional), 'product' (optional),
+// 'vendor' (mandatory) and/or 'odm' (optional) .
+#define MAX_FILE_CONTEXT_SIZE 6
 
 static const char *const sepolicy_file = "/sepolicy";
 
 static const struct selinux_opt seopts_file_plat[] = {
     { SELABEL_OPT_PATH, "/system/etc/selinux/plat_file_contexts" },
     { SELABEL_OPT_PATH, "/plat_file_contexts" }
+};
+static const struct selinux_opt seopts_file_apex[] = {
+    { SELABEL_OPT_PATH, "/dev/selinux/apex_file_contexts" }
 };
 static const struct selinux_opt seopts_file_system_ext[] = {
     { SELABEL_OPT_PATH, "/system_ext/etc/selinux/system_ext_file_contexts" },
@@ -21,10 +24,7 @@ static const struct selinux_opt seopts_file_product[] = {
 };
 static const struct selinux_opt seopts_file_vendor[] = {
     { SELABEL_OPT_PATH, "/vendor/etc/selinux/vendor_file_contexts" },
-    { SELABEL_OPT_PATH, "/vendor_file_contexts" },
-    // TODO: remove nonplat* when no need to retain backward compatibility.
-    { SELABEL_OPT_PATH, "/vendor/etc/selinux/nonplat_file_contexts" },
-    { SELABEL_OPT_PATH, "/nonplat_file_contexts" }
+    { SELABEL_OPT_PATH, "/vendor_file_contexts" }
 };
 static const struct selinux_opt seopts_file_odm[] = {
     { SELABEL_OPT_PATH, "/odm/etc/selinux/odm_file_contexts" },
@@ -41,6 +41,9 @@ static char const * const seapp_contexts_plat[] = {
 	"/system/etc/selinux/plat_seapp_contexts",
 	"/plat_seapp_contexts"
 };
+static char const * const seapp_contexts_apex[] = {
+	"/dev/selinux/apex_seapp_contexts"
+};
 static char const * const seapp_contexts_system_ext[] = {
 	"/system_ext/etc/selinux/system_ext_seapp_contexts",
 	"/system_ext_seapp_contexts"
@@ -51,10 +54,7 @@ static char const * const seapp_contexts_product[] = {
 };
 static char const * const seapp_contexts_vendor[] = {
 	"/vendor/etc/selinux/vendor_seapp_contexts",
-	"/vendor_seapp_contexts",
-        // TODO: remove nonplat* when no need to retain backward compatibility.
-	"/vendor/etc/selinux/nonplat_seapp_contexts",
-	"/nonplat_seapp_contexts"
+	"/vendor_seapp_contexts"
 };
 static char const * const seapp_contexts_odm[] = {
 	"/odm/etc/selinux/odm_seapp_contexts",
@@ -91,6 +91,12 @@ struct selabel_handle* selinux_android_file_context_handle(void)
     for (i = 0; i < ARRAY_SIZE(seopts_file_plat); i++) {
         if (access(seopts_file_plat[i].value, R_OK) != -1) {
             seopts_file[size++] = seopts_file_plat[i];
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(seopts_file_apex); i++) {
+        if (access(seopts_file_apex[i].value, R_OK) != -1) {
+            seopts_file[size++] = seopts_file_apex[i];
             break;
         }
     }
@@ -155,12 +161,9 @@ struct seapp_context {
 	bool isSystemServer;
 	bool isEphemeralAppSet;
 	bool isEphemeralApp;
-	bool isOwnerSet;
-	bool isOwner;
 	struct prefix_str user;
 	char *seinfo;
 	struct prefix_str name;
-	struct prefix_str path;
 	bool isPrivAppSet;
 	bool isPrivApp;
 	int32_t minTargetSdkVersion;
@@ -180,7 +183,6 @@ static void free_seapp_context(struct seapp_context *s)
 	free_prefix_str(&s->user);
 	free(s->seinfo);
 	free_prefix_str(&s->name);
-	free_prefix_str(&s->path);
 	free(s->domain);
 	free(s->type);
 	free(s->level);
@@ -203,10 +205,6 @@ static int seapp_context_cmp(const void *A, const void *B)
 	 * unspecified isEphemeral=. */
 	if (s1->isEphemeralAppSet != s2->isEphemeralAppSet)
 		return (s1->isEphemeralAppSet ? -1 : 1);
-
-	/* Give precedence to a specified isOwner= over an unspecified isOwner=. */
-	if (s1->isOwnerSet != s2->isOwnerSet)
-		return (s1->isOwnerSet ? -1 : 1);
 
 	/* Give precedence to a specified user= over an unspecified user=. */
 	if (s1->user.str && !s2->user.str)
@@ -246,22 +244,6 @@ static int seapp_context_cmp(const void *A, const void *B)
 			return (s1->name.len > s2->name.len) ? -1 : 1;
 	}
 
-	/* Give precedence to a specified path= over an unspecified path=. */
-	if (s1->path.str && !s2->path.str)
-		return -1;
-	if (!s1->path.str && s2->path.str)
-		return 1;
-
-	if (s1->path.str) {
-		/* Give precedence to a fixed path= string over a prefix. */
-		if (s1->path.is_prefix != s2->path.is_prefix)
-			return (s2->path.is_prefix ? -1 : 1);
-
-		/* Give precedence to a longer prefix over a shorter prefix. */
-		if (s1->path.is_prefix && s1->path.len != s2->path.len)
-			return (s1->path.len > s2->path.len) ? -1 : 1;
-	}
-
 	/* Give precedence to a specified isPrivApp= over an unspecified isPrivApp=. */
 	if (s1->isPrivAppSet != s2->isPrivAppSet)
 		return (s1->isPrivAppSet ? -1 : 1);
@@ -280,16 +262,14 @@ static int seapp_context_cmp(const void *A, const void *B)
 
 	/*
 	 * Check for a duplicated entry on the input selectors.
-	 * We already compared isSystemServer, isOwnerSet, and isOwner above.
+	 * We already compared isSystemServer above.
 	 * We also have already checked that both entries specify the same
 	 * string fields, so if s1 has a non-NULL string, then so does s2.
 	 */
 	dup = (!s1->user.str || !strcmp(s1->user.str, s2->user.str)) &&
 		(!s1->seinfo || !strcmp(s1->seinfo, s2->seinfo)) &&
 		(!s1->name.str || !strcmp(s1->name.str, s2->name.str)) &&
-		(!s1->path.str || !strcmp(s1->path.str, s2->path.str)) &&
 		(s1->isPrivAppSet && s1->isPrivApp == s2->isPrivApp) &&
-		(s1->isOwnerSet && s1->isOwner == s2->isOwner) &&
 		(s1->isSystemServer && s1->isSystemServer == s2->isSystemServer) &&
 		(s1->isEphemeralAppSet && s1->isEphemeralApp == s2->isEphemeralApp);
 
@@ -302,8 +282,6 @@ static int seapp_context_cmp(const void *A, const void *B)
 			selinux_log(SELINUX_ERROR, " seinfo=%s\n", s1->seinfo);
 		if (s1->name.str)
 			selinux_log(SELINUX_ERROR, " name=%s\n", s1->name.str);
-		if (s1->path.str)
-			selinux_log(SELINUX_ERROR, " path=%s\n", s1->path.str);
 	}
 
 	/* Anything else has equal precedence. */
@@ -354,6 +332,12 @@ int selinux_android_seapp_context_reload(void)
 	for (i = 0; i < ARRAY_SIZE(seapp_contexts_plat); i++) {
 		if (access(seapp_contexts_plat[i], R_OK) != -1) {
 			seapp_contexts_files[files_len++] = seapp_contexts_plat[i];
+			break;
+		}
+	}
+	for (i = 0; i < ARRAY_SIZE(seapp_contexts_apex); i++) {
+		if (access(seapp_contexts_apex[i], R_OK) != -1) {
+			seapp_contexts_files[files_len++] = seapp_contexts_apex[i];
 			break;
 		}
 	}
@@ -469,16 +453,6 @@ int selinux_android_seapp_context_reload(void)
 						free_seapp_context(cur);
 						goto err;
 					}
-				} else if (!strcasecmp(name, "isOwner")) {
-					cur->isOwnerSet = true;
-					if (!strcasecmp(value, "true"))
-						cur->isOwner = true;
-					else if (!strcasecmp(value, "false"))
-						cur->isOwner = false;
-					else {
-						free_seapp_context(cur);
-						goto err;
-					}
 				} else if (!strcasecmp(name, "user")) {
 					if (cur->user.str) {
 						free_seapp_context(cur);
@@ -579,19 +553,6 @@ int selinux_android_seapp_context_reload(void)
 						free_seapp_context(cur);
 						goto oom;
 					}
-				} else if (!strcasecmp(name, "path")) {
-					if (cur->path.str) {
-						free_seapp_context(cur);
-						goto err;
-					}
-					cur->path.str = strdup(value);
-					if (!cur->path.str) {
-						free_seapp_context(cur);
-					goto oom;
-					}
-					cur->path.len = strlen(cur->path.str);
-					if (cur->path.str[cur->path.len-1] == '*')
-						cur->path.is_prefix = 1;
 				} else if (!strcasecmp(name, "isPrivApp")) {
 					cur->isPrivAppSet = true;
 					if (!strcasecmp(value, "true"))
@@ -654,14 +615,13 @@ int selinux_android_seapp_context_reload(void)
 		int i;
 		for (i = 0; i < nspec; i++) {
 			cur = seapp_contexts[i];
-			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s  isEphemeralApp=%s isOwner=%s user=%s seinfo=%s "
-					"name=%s path=%s isPrivApp=%s minTargetSdkVersion=%d fromRunAs=%s -> domain=%s type=%s level=%s levelFrom=%s",
+			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s  isEphemeralApp=%s user=%s seinfo=%s "
+					"name=%s isPrivApp=%s minTargetSdkVersion=%d fromRunAs=%s -> domain=%s type=%s level=%s levelFrom=%s",
 				__FUNCTION__,
 				cur->isSystemServer ? "true" : "false",
 				cur->isEphemeralAppSet ? (cur->isEphemeralApp ? "true" : "false") : "null",
-				cur->isOwnerSet ? (cur->isOwner ? "true" : "false") : "null",
 				cur->user.str,
-				cur->seinfo, cur->name.str, cur->path.str,
+				cur->seinfo, cur->name.str,
 				cur->isPrivAppSet ? (cur->isPrivApp ? "true" : "false") : "null",
 				cur->minTargetSdkVersion,
 				cur->fromRunAs ? "true" : "false",
@@ -798,11 +758,9 @@ static int seapp_context_lookup(enum seapp_kind kind,
 				bool isSystemServer,
 				const char *seinfo,
 				const char *pkgname,
-				const char *path,
 				context_t ctx)
 {
 	struct passwd *pwd;
-	bool isOwner;
 	const char *username = NULL;
 	struct seapp_context *cur = NULL;
 	int i;
@@ -833,7 +791,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 	}
 
 	userid = uid / AID_USER;
-	isOwner = (userid == 0);
 	appid = uid % AID_USER;
 	if (appid < AID_APP) {
             /*
@@ -849,9 +806,12 @@ static int seapp_context_lookup(enum seapp_kind kind,
 
 		username = pwd->pw_name;
 
-	} else if (appid < AID_ISOLATED_START) {
+	} else if (appid < AID_SDK_SANDBOX_PROCESS_START) {
 		username = "_app";
 		appid -= AID_APP;
+	} else if (appid < AID_ISOLATED_START) {
+		username = "_sdksandbox";
+		appid -= AID_SDK_SANDBOX_PROCESS_START;
 	} else {
 		username = "_isolated";
 		appid -= AID_ISOLATED_START;
@@ -867,9 +827,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 			continue;
 
 		if (cur->isEphemeralAppSet && cur->isEphemeralApp != isEphemeralApp)
-			continue;
-
-		if (cur->isOwnerSet && cur->isOwner != isOwner)
 			continue;
 
 		if (cur->user.str) {
@@ -908,19 +865,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 
 		if (cur->fromRunAs != fromRunAs)
 			continue;
-
-		if (cur->path.str) {
-			if (!path)
-				continue;
-
-			if (cur->path.is_prefix) {
-				if (strncmp(path, cur->path.str, cur->path.len-1))
-					continue;
-			} else {
-				if (strcmp(path, cur->path.str))
-					continue;
-			}
-		}
 
 		if (kind == SEAPP_TYPE && !cur->type)
 			continue;
@@ -1045,7 +989,7 @@ int selinux_android_setcontext(uid_t uid,
 	if (!ctx)
 		goto oom;
 
-	rc = seapp_context_lookup(SEAPP_DOMAIN, uid, isSystemServer, seinfo, pkgname, NULL, ctx);
+	rc = seapp_context_lookup(SEAPP_DOMAIN, uid, isSystemServer, seinfo, pkgname, ctx);
 	if (rc == -1)
 		goto err;
 	else if (rc == -2)
@@ -1069,7 +1013,6 @@ int selinux_android_setcontext(uid_t uid,
 out:
 	freecon(orig_ctx_str);
 	context_free(ctx);
-	avc_netlink_close();
 	return rc;
 err:
 	if (isSystemServer)
@@ -1179,20 +1122,49 @@ struct pkg_info *package_info_lookup(const char *name)
  * credentials are presented (filenames inside are mangled), so we need
  * to delay restorecon of those until vold explicitly requests it. */
 // NOTE: these paths need to be kept in sync with vold
-#define DATA_SYSTEM_CE_PREFIX "/data/system_ce"
-#define DATA_VENDOR_CE_PREFIX "/data/vendor_ce"
-#define DATA_MISC_CE_PREFIX "/data/misc_ce"
+#define DATA_SYSTEM_CE_PATH "/data/system_ce"
+#define DATA_VENDOR_CE_PATH "/data/vendor_ce"
+#define DATA_MISC_CE_PATH "/data/misc_ce"
+#define DATA_MISC_DE_PATH "/data/misc_de"
 
 /* The path prefixes of package data directories. */
 #define DATA_DATA_PATH "/data/data"
 #define DATA_USER_PATH "/data/user"
 #define DATA_USER_DE_PATH "/data/user_de"
-#define EXPAND_USER_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user"
-#define EXPAND_USER_DE_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user_de"
 #define USER_PROFILE_PATH "/data/misc/profiles/cur/*"
+#define SDK_SANDBOX_DATA_CE_PATH "/data/misc_ce/*/sdksandbox"
+#define SDK_SANDBOX_DATA_DE_PATH "/data/misc_de/*/sdksandbox"
+
+#define EXPAND_MNT_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?"
+#define EXPAND_USER_PATH EXPAND_MNT_PATH "/user"
+#define EXPAND_USER_DE_PATH EXPAND_MNT_PATH "/user_de"
+#define EXPAND_SDK_CE_PATH EXPAND_MNT_PATH "/misc_ce/*/sdksandbox"
+#define EXPAND_SDK_DE_PATH EXPAND_MNT_PATH "/misc_de/*/sdksandbox"
+
 #define DATA_DATA_PREFIX DATA_DATA_PATH "/"
 #define DATA_USER_PREFIX DATA_USER_PATH "/"
 #define DATA_USER_DE_PREFIX DATA_USER_DE_PATH "/"
+#define DATA_MISC_CE_PREFIX DATA_MISC_CE_PATH "/"
+#define DATA_MISC_DE_PREFIX DATA_MISC_DE_PATH "/"
+#define EXPAND_MNT_PATH_PREFIX EXPAND_MNT_PATH "/"
+
+/*
+ * This method helps in identifying paths that refer to users' app data. Labeling for app data is
+ * based on seapp_contexts and seinfo assignments rather than file_contexts and is managed by
+ * installd rather than by init.
+ */
+static bool is_app_data_path(const char *pathname) {
+    int flags = FNM_LEADING_DIR|FNM_PATHNAME;
+    return (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
+        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
+        !strncmp(pathname, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
+        !fnmatch(EXPAND_USER_PATH, pathname, flags) ||
+        !fnmatch(EXPAND_USER_DE_PATH, pathname, flags) ||
+        !fnmatch(SDK_SANDBOX_DATA_CE_PATH, pathname, flags) ||
+        !fnmatch(SDK_SANDBOX_DATA_DE_PATH, pathname, flags) ||
+        !fnmatch(EXPAND_SDK_CE_PATH, pathname, flags) ||
+        !fnmatch(EXPAND_SDK_DE_PATH, pathname, flags));
+}
 
 static int pkgdir_selabel_lookup(const char *pathname,
                                  const char *seinfo,
@@ -1240,6 +1212,40 @@ static int pkgdir_selabel_lookup(const char *pathname,
             pathname++;
         else
             return 0;
+    } else if (!strncmp(pathname, DATA_MISC_CE_PREFIX, sizeof(DATA_MISC_CE_PREFIX)-1)) {
+        pathname += sizeof(DATA_MISC_CE_PREFIX) - 1;
+        while (isdigit(*pathname))
+            pathname++;
+        if (!strncmp(pathname, "/sdksandbox/", sizeof("/sdksandbox/")-1)) {
+            pathname += sizeof("/sdksandbox/") - 1;
+        } else
+            return 0;
+    } else if (!strncmp(pathname, DATA_MISC_DE_PREFIX, sizeof(DATA_MISC_DE_PREFIX)-1)) {
+        pathname += sizeof(DATA_MISC_DE_PREFIX) - 1;
+        while (isdigit(*pathname))
+            pathname++;
+        if (!strncmp(pathname, "/sdksandbox/", sizeof("/sdksandbox/")-1)) {
+            pathname += sizeof("/sdksandbox/") - 1;
+        } else
+            return 0;
+    } else if (!fnmatch(EXPAND_SDK_CE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
+        pathname += sizeof(EXPAND_MNT_PATH_PREFIX) - 1;
+        pathname += sizeof("misc_ce/") - 1;
+        while (isdigit(*pathname))
+            pathname++;
+        if (!strncmp(pathname, "/sdksandbox/", sizeof("/sdksandbox/")-1)) {
+            pathname += sizeof("/sdksandbox/") - 1;
+        } else
+            return 0;
+    } else if (!fnmatch(EXPAND_SDK_DE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
+        pathname += sizeof(EXPAND_MNT_PATH_PREFIX) - 1;
+        pathname += sizeof("misc_de/") - 1;
+        while (isdigit(*pathname))
+            pathname++;
+        if (!strncmp(pathname, "/sdksandbox/", sizeof("/sdksandbox/")-1)) {
+            pathname += sizeof("/sdksandbox/") - 1;
+        } else
+            return 0;
     } else
         return 0;
 
@@ -1272,7 +1278,7 @@ static int pkgdir_selabel_lookup(const char *pathname,
         goto err;
 
     rc = seapp_context_lookup(SEAPP_TYPE, info ? info->uid : uid, 0,
-                              info ? info->seinfo : seinfo, info ? info->name : pkgname, pathname, ctx);
+                              info ? info->seinfo : seinfo, info ? info->name : pkgname, ctx);
     if (rc < 0)
         goto err;
 
@@ -1300,7 +1306,8 @@ out:
     return rc;
 err:
     selinux_log(SELINUX_ERROR, "%s:  Error looking up context for path %s, pkgname %s, seinfo %s, uid %u: %s\n",
-                __FUNCTION__, pathname, pkgname, info->seinfo, info->uid, strerror(errno));
+                __FUNCTION__, pathname, pkgname, info ? info->seinfo : seinfo,
+                info ? info->uid : uid, strerror(errno));
     rc = -1;
     goto out;
 }
@@ -1327,11 +1334,7 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
      * have different labeling rules, based off of /seapp_contexts, and
      * installd is responsible for managing these labels instead of init.
      */
-    if (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
-        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
-        !strncmp(pathname, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
-        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME) ||
-        !fnmatch(EXPAND_USER_DE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
+    if (is_app_data_path(pathname)) {
         if (pkgdir_selabel_lookup(pathname, seinfo, uid, &secontext) < 0)
             goto err;
     }
@@ -1494,11 +1497,7 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
      * assignments rather than file_contexts and is managed by
      * installd rather than init.
      */
-    if (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
-        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
-        !strncmp(pathname, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
-        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME) ||
-        !fnmatch(EXPAND_USER_DE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME))
+    if (is_app_data_path(pathname))
         setrestoreconlast = false;
 
     /* Also ignore on /sys since it is regenerated on each boot regardless. */
@@ -1575,20 +1574,15 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
             }
 
             if (skipce &&
-                (!strncmp(ftsent->fts_path, DATA_SYSTEM_CE_PREFIX, sizeof(DATA_SYSTEM_CE_PREFIX)-1) ||
-                 !strncmp(ftsent->fts_path, DATA_MISC_CE_PREFIX, sizeof(DATA_MISC_CE_PREFIX)-1) ||
-                 !strncmp(ftsent->fts_path, DATA_VENDOR_CE_PREFIX, sizeof(DATA_VENDOR_CE_PREFIX)-1))) {
+                (!strncmp(ftsent->fts_path, DATA_SYSTEM_CE_PATH, sizeof(DATA_SYSTEM_CE_PATH)-1) ||
+                 !strncmp(ftsent->fts_path, DATA_MISC_CE_PATH, sizeof(DATA_MISC_CE_PATH)-1) ||
+                 !strncmp(ftsent->fts_path, DATA_VENDOR_CE_PATH, sizeof(DATA_VENDOR_CE_PATH)-1))) {
                 // Don't label anything below this directory.
                 fts_set(fts, ftsent, FTS_SKIP);
                 // but fall through and make sure we label the directory itself
             }
 
-            if (!datadata &&
-                (!strcmp(ftsent->fts_path, DATA_DATA_PATH) ||
-                 !strncmp(ftsent->fts_path, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
-                 !strncmp(ftsent->fts_path, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
-                 !fnmatch(EXPAND_USER_PATH, ftsent->fts_path, FNM_LEADING_DIR|FNM_PATHNAME) ||
-                 !fnmatch(EXPAND_USER_DE_PATH, ftsent->fts_path, FNM_LEADING_DIR|FNM_PATHNAME))) {
+            if (!datadata && is_app_data_path(ftsent->fts_path)) {
                 // Don't label anything below this directory.
                 fts_set(fts, ftsent, FTS_SKIP);
                 // but fall through and make sure we label the directory itself

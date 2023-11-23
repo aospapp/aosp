@@ -74,7 +74,7 @@ class CharsetRecog_UTF8 extends CharsetRecognizer {
             }
         }
 
-        // Cook up some sort of confidence score, based on presense of a BOM
+        // Cook up some sort of confidence score, based on presence of a BOM
         //    and the existence of valid and/or invalid multi-byte sequences.
         confidence = 0;
         if (hasBOM && numInvalid==0) {
@@ -91,7 +91,7 @@ class CharsetRecog_UTF8 extends CharsetRecognizer {
             // TODO: add plain ASCII as an explicitly detected type.
             confidence = 15;
         } else if (numValid > numInvalid*10) {
-            // Probably corruput utf-8 data.  Valid sequences aren't likely by chance.
+            // Probably corrupt utf-8 data.  Valid sequences aren't likely by chance.
             confidence = 25;
         }
         return confidence == 0 ? null : new CharsetMatch(det, this, confidence);

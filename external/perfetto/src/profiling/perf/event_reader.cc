@@ -68,13 +68,15 @@ base::ScopedFile PerfEventOpen(uint32_t cpu,
 
 // If counting tracepoints, set an event filter if requested.
 bool MaybeApplyTracepointFilter(int fd, const PerfCounter& event) {
-  if (event.type == PERF_TYPE_TRACEPOINT &&
-      !event.tracepoint.filter().empty()) {
-    if (ioctl(fd, PERF_EVENT_IOC_SET_FILTER,
-              event.tracepoint.filter().c_str()) != 0) {
-      PERFETTO_PLOG("Failed ioctl to set event filter");
-      return false;
-    }
+  if (event.type != PerfCounter::Type::kTracepoint ||
+      event.tracepoint_filter.empty()) {
+    return true;
+  }
+  PERFETTO_DCHECK(event.attr_type == PERF_TYPE_TRACEPOINT);
+
+  if (ioctl(fd, PERF_EVENT_IOC_SET_FILTER, event.tracepoint_filter.c_str())) {
+    PERFETTO_PLOG("Failed ioctl to set event filter");
+    return false;
   }
   return true;
 }
@@ -133,7 +135,9 @@ base::Optional<PerfRingBuffer> PerfRingBuffer::Allocate(
   ret.metadata_page_ = reinterpret_cast<perf_event_mmap_page*>(mmap_addr);
   ret.data_buf_ = reinterpret_cast<char*>(mmap_addr) + base::kPageSize;
   PERFETTO_CHECK(ret.metadata_page_->data_offset == base::kPageSize);
-  PERFETTO_CHECK(ret.metadata_page_->data_size = ret.data_buf_sz_);
+  PERFETTO_CHECK(ret.metadata_page_->data_size == ret.data_buf_sz_);
+
+  PERFETTO_DCHECK(IsPowerOfTwo(ret.data_buf_sz_));
 
   return base::make_optional(std::move(ret));
 }
@@ -176,8 +180,6 @@ char* PerfRingBuffer::ReadRecordNonconsuming() {
 
   // event wrapped - reconstruct it, and return a pointer to the buffer
   if (read_pos + evt_size > data_buf_sz_) {
-    PERFETTO_DCHECK(read_pos + evt_size !=
-                    ((read_pos + evt_size) & (data_buf_sz_ - 1)));
     PERFETTO_DLOG("PerfRingBuffer: returning reconstructed event");
 
     size_t prefix_sz = data_buf_sz_ - read_pos;
@@ -187,9 +189,6 @@ char* PerfRingBuffer::ReadRecordNonconsuming() {
     return &reconstructed_record_[0];
   } else {
     // usual case - contiguous sample
-    PERFETTO_DCHECK(read_pos + evt_size ==
-                    ((read_pos + evt_size) & (data_buf_sz_ - 1)));
-
     return data_buf_ + read_pos;
   }
 }

@@ -97,6 +97,10 @@ java_test {
         "icu4j-testdata",
         "junit-params",
     ],
+
+    errorprone: {
+        javacflags: ["-Xep:EqualsNull:WARN"],
+    },
 }
 
 java_import {

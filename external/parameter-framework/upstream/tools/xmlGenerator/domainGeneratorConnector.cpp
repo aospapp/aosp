@@ -136,7 +136,7 @@ void XmlGenerator::addCriteria(std::vector<string> &tokens)
     int index = 0;
     for (const auto &literalValue : tokens) {
         // inclusive criteria are bitfields
-        int numericalValue = inclusiveness ? 1 << index : index;
+        uint64_t numericalValue = inclusiveness ? 0x1ull << index : index;
         string error;
         bool success = criterionType->addValuePair(numericalValue, literalValue, error);
 

@@ -42,7 +42,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Turbine's implementation of {@link Messager}. */
 public class TurbineMessager implements Messager {
@@ -103,8 +103,7 @@ public class TurbineMessager implements Messager {
    * Returns the {@link SourceFile} that contains the declaration of the given {@link Symbol}, or
    * {@code null} if the symbol was not compiled from source.
    */
-  @Nullable
-  private SourceFile getSource(Symbol sym) {
+  private @Nullable SourceFile getSource(Symbol sym) {
     ClassSymbol encl = ModelFactory.enclosingClass(sym);
     TypeBoundClass info = factory.getSymbol(encl);
     if (!(info instanceof SourceTypeBoundClass)) {
@@ -129,6 +128,10 @@ public class TurbineMessager implements Messager {
         return fieldPosition((FieldSymbol) sym);
       case PARAMETER:
         return paramPosition((ParamSymbol) sym);
+      case RECORD_COMPONENT:
+        // javac doesn't seem to provide diagnostic positions for record components, so we don't
+        // either
+        return -1;
       case MODULE:
       case PACKAGE:
         break;

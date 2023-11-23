@@ -94,9 +94,23 @@ target_initrc = {
 
 target_host_supported = [
     '//:libperfetto',
+    '//:libperfetto_client_experimental',
     '//protos/perfetto/trace:perfetto_trace_protos',
+    '//src/trace_processor:demangle',
     '//src/trace_processor:trace_processor_shell',
 ]
+
+target_vendor_available = [
+    '//:libperfetto_client_experimental',
+]
+
+# Proto target groups which will be made public.
+proto_groups = {
+    'trace': [
+        '//protos/perfetto/trace:non_minimal_source_set',
+        '//protos/perfetto/trace:minimal_source_set'
+    ],
+}
 
 # All module names are prefixed with this string to avoid collisions.
 module_prefix = 'perfetto_'
@@ -106,6 +120,7 @@ shared_library_allowlist = [
     'android',
     'android.hardware.atrace@1.0',
     'android.hardware.health@2.0',
+    'android.hardware.health-V1-ndk',
     'android.hardware.power.stats@1.0',
     "android.hardware.power.stats-V1-cpp",
     'base',
@@ -147,12 +162,6 @@ cflag_allowlist = r'^-DPERFETTO.*$'
 # Compiler defines which are passed through to the blueprint.
 define_allowlist = r'^(GOOGLE_PROTO.*)|(ZLIB_.*)|(USE_MMAP)|(HAVE_HIDDEN)$'
 
-# Shared libraries which are not in PDK.
-library_not_in_pdk = {
-    'libandroid',
-    'libservices',
-}
-
 # The directory where the generated perfetto_build_flags.h will be copied into.
 buildflags_dir = 'include/perfetto/base/build_configs/android_tree'
 
@@ -163,11 +172,11 @@ def enumerate_data_deps():
   for line in (line.strip() for line in lines if not line.startswith('#')):
     assert os.path.exists(line), 'file %s should exist' % line
     if line.startswith('test/data/'):
-        # Skip test data files that require GCS. They are only for benchmarks.
-        # We don't run benchmarks in the android tree.
-        continue
-    if line.endswith('/'):
-      yield line + '**/*'
+      # Skip test data files that require GCS. They are only for benchmarks.
+      # We don't run benchmarks in the android tree.
+      continue
+    if line.endswith('/.'):
+      yield line[:-1] + '**/*'
     else:
       yield line
 
@@ -182,16 +191,16 @@ additional_args = {
         ('cflags', {'-Wglobal-constructors', '-Werror=global-constructors'}),
         ('version_script', 'src/profiling/memory/heapprofd_client_api.map.txt'),
         ('stubs', {
-          'versions': ['S'],
-          'symbol_file': 'src/profiling/memory/heapprofd_client_api.map.txt',
+            'versions': ['S'],
+            'symbol_file': 'src/profiling/memory/heapprofd_client_api.map.txt',
         }),
         ('export_include_dirs', {'src/profiling/memory/include'}),
     ],
     'heapprofd_api_noop': [
         ('version_script', 'src/profiling/memory/heapprofd_client_api.map.txt'),
         ('stubs', {
-          'versions': ['S'],
-          'symbol_file': 'src/profiling/memory/heapprofd_client_api.map.txt',
+            'versions': ['S'],
+            'symbol_file': 'src/profiling/memory/heapprofd_client_api.map.txt',
         }),
         ('export_include_dirs', {'src/profiling/memory/include'}),
     ],
@@ -210,42 +219,42 @@ additional_args = {
         ('include_dirs', {'bionic/libc/kernel'}),
     ],
     'perfetto_integrationtests': [
-      ('test_suites', {'general-tests'}),
-      ('test_config', 'PerfettoIntegrationTests.xml'),
+        ('test_suites', {'general-tests'}),
+        ('test_config', 'PerfettoIntegrationTests.xml'),
     ],
-    'traced_probes': [
-        ('required', {'libperfetto_android_internal',
-                      'trigger_perfetto',
-                      'traced_perf',
-                      'mm_events'}),
-    ],
+    'traced_probes': [('required', {
+        'libperfetto_android_internal', 'trigger_perfetto', 'traced_perf',
+        'mm_events'
+    }),],
     'libperfetto_android_internal': [('static_libs', {'libhealthhalutils'}),],
     'trace_processor_shell': [
-      ('strip', {'all': True}),
-      ('host', {
-        'stl': 'libc++_static',
-        'dist': {'targets': ['sdk_repo']},
-      }),
+        ('strip', {
+            'all': True
+        }),
+        ('host', {
+            'stl': 'libc++_static',
+            'dist': {
+                'targets': ['sdk_repo']
+            },
+        }),
     ],
     'libperfetto_client_experimental': [
-      ('apex_available', {
-        '//apex_available:platform',
-        'com.android.art',
-        'com.android.art.debug'}),
-      ('min_sdk_version', 'S'),
-      ('shared_libs', {'liblog'}),
-      ('export_include_dirs', {'include', buildflags_dir}),
+        ('apex_available', {
+            '//apex_available:platform', 'com.android.art',
+            'com.android.art.debug'
+        }),
+        ('min_sdk_version', 'S'),
+        ('shared_libs', {'liblog'}),
+        ('export_include_dirs', {'include', buildflags_dir}),
     ],
     'perfetto_trace_protos': [
-      ('apex_available', {
-        '//apex_available:platform',
-        'com.android.art',
-        'com.android.art.debug'}),
-      ('min_sdk_version', 'S'),
+        ('apex_available', {
+            '//apex_available:platform', 'com.android.art',
+            'com.android.art.debug'
+        }),
+        ('min_sdk_version', 'S'),
     ],
-    'libperfetto': [
-      ('export_include_dirs', {'include', buildflags_dir}),
-    ],
+    'libperfetto': [('export_include_dirs', {'include', buildflags_dir}),],
 }
 
 
@@ -288,6 +297,7 @@ def enable_libunwindstack(module):
     module.static_libs.add('libbase')
     module.static_libs.add('liblzma')
     module.static_libs.add('libdexfile_support')
+    module.runtime_libs.add('libdexfile')  # libdexfile_support dependency
 
 
 def enable_libunwind(module):
@@ -301,13 +311,13 @@ def enable_sqlite(module):
   elif module.host_supported:
     # Copy what the sqlite3 command line tool does.
     module.android.shared_libs.add('libsqlite')
-    module.android.shared_libs.add('libandroidicu')
+    module.android.shared_libs.add('libicu')
     module.android.shared_libs.add('liblog')
     module.android.shared_libs.add('libutils')
     module.host.static_libs.add('libsqlite')
   else:
     module.shared_libs.add('libsqlite')
-    module.shared_libs.add('libandroidicu')
+    module.shared_libs.add('libicu')
     module.shared_libs.add('liblog')
     module.shared_libs.add('libutils')
 
@@ -325,6 +335,7 @@ def enable_zlib(module):
 def enable_uapi_headers(module):
   module.include_dirs.add('bionic/libc/kernel')
 
+
 def enable_bionic_libc_platform_headers_on_android(module):
   module.header_libs.add('bionic_libc_platform_headers')
 
@@ -332,20 +343,32 @@ def enable_bionic_libc_platform_headers_on_android(module):
 # Android equivalents for third-party libraries that the upstream project
 # depends on.
 builtin_deps = {
-    '//gn:default_deps': lambda x: None,
-    '//gn:gtest_main': lambda x: None,
-    '//gn:protoc': lambda x: None,
-    '//gn:gtest_and_gmock': enable_gtest_and_gmock,
-    '//gn:libunwind': enable_libunwind,
-    '//gn:protobuf_full': enable_protobuf_full,
-    '//gn:protobuf_lite': enable_protobuf_lite,
-    '//gn:protoc_lib': enable_protoc_lib,
-    '//gn:libunwindstack': enable_libunwindstack,
-    '//gn:sqlite': enable_sqlite,
-    '//gn:zlib': enable_zlib,
-    '//gn:bionic_kernel_uapi_headers' : enable_uapi_headers,
+    '//gn:default_deps':
+        lambda x: None,
+    '//gn:gtest_main':
+        lambda x: None,
+    '//gn:protoc':
+        lambda x: None,
+    '//gn:gtest_and_gmock':
+        enable_gtest_and_gmock,
+    '//gn:libunwind':
+        enable_libunwind,
+    '//gn:protobuf_full':
+        enable_protobuf_full,
+    '//gn:protobuf_lite':
+        enable_protobuf_lite,
+    '//gn:protoc_lib':
+        enable_protoc_lib,
+    '//gn:libunwindstack':
+        enable_libunwindstack,
+    '//gn:sqlite':
+        enable_sqlite,
+    '//gn:zlib':
+        enable_zlib,
+    '//gn:bionic_kernel_uapi_headers':
+        enable_uapi_headers,
     '//src/profiling/memory:bionic_libc_platform_headers_on_android':
-      enable_bionic_libc_platform_headers_on_android,
+        enable_bionic_libc_platform_headers_on_android,
 }
 
 # ----------------------------------------------------------------------------
@@ -370,18 +393,21 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
 def write_blueprint_key_value(output, name, value, sort=True):
   """Writes a Blueprint key-value pair to the output"""
 
+  if isinstance(value, bool):
+    if value:
+      output.append('    %s: true,' % name)
+    else:
+      output.append('    %s: false,' % name)
+    return
   if not value:
     return
   if isinstance(value, set):
     value = sorted(value)
   if isinstance(value, list):
-    output.append('  %s: [' % name)
+    output.append('    %s: [' % name)
     for item in sorted(value) if sort else value:
-      output.append('    "%s",' % item)
-    output.append('  ],')
-    return
-  if isinstance(value, bool):
-    output.append('  %s: true,' % name)
+      output.append('        "%s",' % item)
+    output.append('    ],')
     return
   if isinstance(value, Target):
     value.to_string(output)
@@ -391,12 +417,12 @@ def write_blueprint_key_value(output, name, value, sort=True):
     for k, v in value.items():
       write_blueprint_key_value(kv_output, k, v)
 
-    output.append('  %s: {' % name)
+    output.append('    %s: {' % name)
     for line in kv_output:
-      output.append('  %s' % line)
-    output.append('  },')
+      output.append('    %s' % line)
+    output.append('    },')
     return
-  output.append('  %s: "%s",' % (name, value))
+  output.append('    %s: "%s",' % (name, value))
 
 
 class Target(object):
@@ -423,10 +449,10 @@ class Target(object):
     self._output_field(nested_out, 'strip')
 
     if nested_out:
-      output.append('  %s: {' % self.name)
+      output.append('    %s: {' % self.name)
       for line in nested_out:
-        output.append('  %s' % line)
-      output.append('  },')
+        output.append('    %s' % line)
+      output.append('    },')
 
   def _output_field(self, output, name, sort=True):
     value = getattr(self, name)
@@ -445,9 +471,11 @@ class Module(object):
     self.shared_libs = set()
     self.static_libs = set()
     self.whole_static_libs = set()
+    self.runtime_libs = set()
     self.tools = set()
     self.cmd = None
     self.host_supported = False
+    self.vendor_available = False
     self.init_rc = set()
     self.out = set()
     self.export_include_dirs = set()
@@ -469,6 +497,7 @@ class Module(object):
     self.data = set()
     self.apex_available = set()
     self.min_sdk_version = None
+    self.proto = dict()
     # The genrule_XXX below are properties that must to be propagated back
     # on the module(s) that depend on the genrule.
     self.genrule_headers = set()
@@ -488,9 +517,13 @@ class Module(object):
     self._output_field(output, 'shared_libs')
     self._output_field(output, 'static_libs')
     self._output_field(output, 'whole_static_libs')
+    self._output_field(output, 'runtime_libs')
     self._output_field(output, 'tools')
     self._output_field(output, 'cmd', sort=False)
-    self._output_field(output, 'host_supported')
+    if self.host_supported:
+      self._output_field(output, 'host_supported')
+    if self.vendor_available:
+      self._output_field(output, 'vendor_available')
     self._output_field(output, 'init_rc')
     self._output_field(output, 'out')
     self._output_field(output, 'export_include_dirs')
@@ -512,40 +545,35 @@ class Module(object):
     self._output_field(output, 'test_suites')
     self._output_field(output, 'test_config')
     self._output_field(output, 'stubs')
+    self._output_field(output, 'proto')
 
     target_out = []
     self._output_field(target_out, 'android')
     self._output_field(target_out, 'host')
     if target_out:
-      output.append('  target: {')
+      output.append('    target: {')
       for line in target_out:
-        output.append('  %s' % line)
-      output.append('  },')
-
-    disable_pdk = any(name in library_not_in_pdk for name in self.shared_libs)
-    if self.user_debug_flag or disable_pdk:
-      output.append('  product_variables: {')
-      if disable_pdk:
-        output.append('    pdk: {')
-        output.append('      enabled: false,')
-        output.append('    },')
-      if self.user_debug_flag:
-        output.append('    debuggable: {')
-        output.append(
-            '      cflags: ["-DPERFETTO_BUILD_WITH_ANDROID_USERDEBUG"],')
-        output.append('    },')
-      output.append('  },')
-    if self.lto is not None:
-      output.append('  target: {')
-      output.append('    android: {')
-      output.append('      lto: {')
-      output.append('        thin: %s,' % 'true' if self.lto else 'false')
-      output.append('      },')
+        output.append('    %s' % line)
       output.append('    },')
-      output.append('  },')
+
+    if self.user_debug_flag:
+      output.append('    product_variables: {')
+      output.append('        debuggable: {')
+      output.append(
+          '            cflags: ["-DPERFETTO_BUILD_WITH_ANDROID_USERDEBUG"],')
+      output.append('        },')
+      output.append('    },')
+    if self.lto is not None:
+      output.append('    target: {')
+      output.append('        android: {')
+      output.append('            lto: {')
+      output.append('                thin: %s,' %
+                    'true' if self.lto else 'false')
+      output.append('            },')
+      output.append('        },')
+      output.append('    },')
     output.append('}')
     output.append('')
-
 
   def add_android_static_lib(self, lib):
     if self.type == 'cc_binary_host':
@@ -555,7 +583,6 @@ class Module(object):
     else:
       self.static_libs.add(lib)
 
-
   def add_android_shared_lib(self, lib):
     if self.type == 'cc_binary_host':
       raise Exception('Adding Android shared lib for host tool is unsupported')
@@ -563,7 +590,6 @@ class Module(object):
       self.android.shared_libs.add(lib)
     else:
       self.shared_libs.add(lib)
-
 
   def _output_field(self, output, name, sort=True):
     value = getattr(self, name)
@@ -660,18 +686,12 @@ def create_proto_modules(blueprint, gn, target):
 
     # Recursively extract the .proto files of all the dependencies and
     # add them to srcs.
-    target_queue = collections.deque([target.name])
-    seen_targets = set()
-    while target_queue:
-      dep = target_queue.popleft()
-      if dep in seen_targets:
-        continue
-      seen_targets.add(dep)
-
+    descriptor_module.srcs.update(
+        gn_utils.label_to_path(src) for src in target.sources)
+    for dep in target.transitive_proto_deps:
       current_target = gn.get_target(dep)
       descriptor_module.srcs.update(
           gn_utils.label_to_path(src) for src in current_target.sources)
-      target_queue.extend(current_target.proto_deps)
 
     return descriptor_module
 
@@ -742,14 +762,14 @@ def create_proto_modules(blueprint, gn, target):
   return source_module
 
 
-def create_merged_sql_metrics_module(blueprint, target):
+def create_amalgamated_sql_metrics_module(blueprint, target):
   bp_module_name = label_to_module_name(target.name)
   module = Module('genrule', bp_module_name, target.name)
   module.tool_files = [
-      'tools/gen_merged_sql_metrics.py',
+      'tools/gen_amalgamated_sql_metrics.py',
   ]
   module.cmd = ' '.join([
-      '$(location tools/gen_merged_sql_metrics.py)',
+      '$(location tools/gen_amalgamated_sql_metrics.py)',
       '--cpp_out=$(out)',
       '$(in)',
   ])
@@ -767,10 +787,8 @@ def create_cc_proto_descriptor_module(blueprint, target):
       'tools/gen_cc_proto_descriptor.py',
   ]
   module.cmd = ' '.join([
-      '$(location tools/gen_cc_proto_descriptor.py)',
-      '--gen_dir=$(genDir)',
-      '--cpp_out=$(out)',
-      '$(in)'
+      '$(location tools/gen_cc_proto_descriptor.py)', '--gen_dir=$(genDir)',
+      '--cpp_out=$(out)', '$(in)'
   ])
   module.genrule_headers.add(module.name)
   module.srcs.update(
@@ -784,17 +802,34 @@ def create_gen_version_module(blueprint, target, bp_module_name):
   module = Module('genrule', bp_module_name, gn_utils.GEN_VERSION_TARGET)
   script_path = gn_utils.label_to_path(target.script)
   module.genrule_headers.add(bp_module_name)
-  module.tool_files = [ script_path ]
+  module.tool_files = [script_path]
   module.out.update(target.outputs)
   module.srcs.update(gn_utils.label_to_path(src) for src in target.inputs)
   module.cmd = ' '.join([
-        'python3 $(location %s)' % script_path,
-        '--no_git',
-        '--changelog=$(location CHANGELOG)',
-        '--cpp_out=$(out)'
+      'python3 $(location %s)' % script_path, '--no_git',
+      '--changelog=$(location CHANGELOG)', '--cpp_out=$(out)'
   ])
   blueprint.add_module(module)
   return module
+
+
+def create_proto_group_modules(blueprint, gn, module_name, target_names):
+  # TODO(lalitm): today, we're only adding a Java lite module because that's
+  # the only one used in practice. In the future, if we need other target types
+  # (e.g. C++, Java full etc.) add them here.
+  bp_module_name = label_to_module_name(module_name) + '_java_protos'
+  module = Module('java_library', bp_module_name, bp_module_name)
+  module.comment = f'''GN: [{', '.join(target_names)}]'''
+  module.proto = {'type': 'lite', 'canonical_path_from_root': False}
+
+  for name in target_names:
+    target = gn.get_target(name)
+    module.srcs.update(gn_utils.label_to_path(src) for src in target.sources)
+    for dep_label in target.transitive_proto_deps:
+      dep = gn.get_target(dep_label)
+      module.srcs.update(gn_utils.label_to_path(src) for src in dep.sources)
+
+  blueprint.add_module(module)
 
 
 def _get_cflags(target):
@@ -821,6 +856,7 @@ def create_modules_from_target(blueprint, gn, gn_target_name):
     return blueprint.modules[bp_module_name]
   target = gn.get_target(gn_target_name)
 
+  name_without_toolchain = gn_utils.label_without_toolchain(target.name)
   if target.type == 'executable':
     if target.toolchain == gn_utils.HOST_TOOLCHAIN:
       module_type = 'cc_binary_host'
@@ -844,12 +880,12 @@ def create_modules_from_target(blueprint, gn, gn_target_name):
     if module is None:
       return None
   elif target.type == 'action':
-    if 'gen_merged_sql_metrics' in target.name:
-      module = create_merged_sql_metrics_module(blueprint, target)
-    elif re.match('.*gen_cc_.*_descriptor$', target.name):
+    if 'gen_amalgamated_sql_metrics' in target.name:
+      module = create_amalgamated_sql_metrics_module(blueprint, target)
+    elif re.match('.*gen_cc_.*_descriptor$', name_without_toolchain):
       module = create_cc_proto_descriptor_module(blueprint, target)
-    elif target.type == 'action' and gn_utils.label_without_toolchain(
-        target.name) == gn_utils.GEN_VERSION_TARGET:
+    elif target.type == 'action' and \
+        name_without_toolchain == gn_utils.GEN_VERSION_TARGET:
       module = create_gen_version_module(blueprint, target, bp_module_name)
     else:
       raise Error('Unhandled action: {}'.format(target.name))
@@ -857,8 +893,8 @@ def create_modules_from_target(blueprint, gn, gn_target_name):
     raise Error('Unknown target %s (%s)' % (target.name, target.type))
 
   blueprint.add_module(module)
-  module.host_supported = (gn_utils.label_without_toolchain(target.name) in
-                           target_host_supported)
+  module.host_supported = (name_without_toolchain in target_host_supported)
+  module.vendor_available = (name_without_toolchain in target_vendor_available)
   module.init_rc = target_initrc.get(target.name, [])
   module.srcs.update(
       gn_utils.label_to_path(src)
@@ -875,9 +911,10 @@ def create_modules_from_target(blueprint, gn, gn_target_name):
     module.defaults = [defaults_module]
     for lib in target.libs:
       # Generally library names should be mangled as 'libXXX', unless they
-      # are HAL libraries (e.g., android.hardware.health@2.0) or AIDL c++
+      # are HAL libraries (e.g., android.hardware.health@2.0) or AIDL c++ / NDK
       # libraries (e.g. "android.hardware.power.stats-V1-cpp")
-      android_lib = lib if '@' in lib or "-cpp" in lib else 'lib' + lib
+      android_lib = lib if '@' in lib or "-cpp" in lib or "-ndk" in lib \
+        else 'lib' + lib
       if lib in shared_library_allowlist:
         module.add_android_shared_lib(android_lib)
       if lib in static_library_allowlist:
@@ -905,7 +942,8 @@ def create_modules_from_target(blueprint, gn, gn_target_name):
                   (type(add_val), key))
 
   # dep_name is an unmangled GN target name (e.g. //foo:bar(toolchain)).
-  for dep_name in target.deps | target.source_set_deps | target.proto_deps:
+  all_deps = target.deps | target.source_set_deps | target.transitive_proto_deps
+  for dep_name in all_deps:
     # If the dependency refers to a library which we can replace with an
     # Android equivalent, stop recursing and patch the dependency in.
     # Don't recurse into //buildtools, builtin_deps are intercepted at
@@ -984,7 +1022,6 @@ def create_blueprint_for_targets(gn, desc, targets):
   defaults.lto = True
 
   blueprint.add_module(defaults)
-  gn = gn_utils.GnParser(desc)
   for target in targets:
     create_modules_from_target(blueprint, gn, target)
   return blueprint
@@ -1033,7 +1070,11 @@ def main():
   # perfetto_component.gni is fixed.
   # Check for ODR violations
   # for target_name in default_targets:
-    # checker = gn_utils.ODRChecker(gn, target_name)
+  # checker = gn_utils.ODRChecker(gn, target_name)
+
+  # Add any proto groups to the blueprint.
+  for l_name, t_names in proto_groups.items():
+    create_proto_group_modules(blueprint, gn, l_name, t_names)
 
   output = [
       """// Copyright (C) 2017 The Android Open Source Project

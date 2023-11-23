@@ -54,7 +54,7 @@ static void alarm_handler()
 	flag = 0;
 }
 
-void *do_work(void *arg)
+static void *do_work(void *arg)
 {
 	(void) arg;
 
@@ -188,7 +188,7 @@ enum tprio {
 	MAX_1,
 };
 
-struct tcase tcases[] = {
+static struct tcase tcases[] = {
 	{SCHED_FIFO, MIN},
 	{SCHED_FIFO, HALF},
 	{SCHED_FIFO, MAX_1},

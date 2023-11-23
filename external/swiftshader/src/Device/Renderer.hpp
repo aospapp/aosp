@@ -15,7 +15,6 @@
 #ifndef sw_Renderer_hpp
 #define sw_Renderer_hpp
 
-#include "Blitter.hpp"
 #include "PixelProcessor.hpp"
 #include "Primitive.hpp"
 #include "SetupProcessor.hpp"
@@ -28,9 +27,6 @@
 #include "marl/ticket.h"
 
 #include <atomic>
-#include <list>
-#include <mutex>
-#include <thread>
 
 namespace vk {
 
@@ -61,8 +57,6 @@ using PrimitiveBatch = std::array<Primitive, MaxBatchSize>;
 
 struct DrawData
 {
-	const Constants *constants;
-
 	vk::DescriptorSet::Bindings descriptorSets = {};
 	vk::DescriptorSet::DynamicOffsets descriptorDynamicOffsets = {};
 
@@ -74,7 +68,7 @@ struct DrawData
 	int instanceID;
 	int baseVertex;
 	float lineWidth;
-	int viewID;
+	int layer;
 
 	PixelProcessor::Stencil stencil[2];  // clockwise, counterclockwise
 	PixelProcessor::Factor factor;
@@ -93,10 +87,11 @@ struct DrawData
 	float constantDepthBias;
 	float slopeDepthBias;
 	float depthBiasClamp;
+	bool depthClipEnable;
 
-	unsigned int *colorBuffer[RENDERTARGETS];
-	int colorPitchB[RENDERTARGETS];
-	int colorSliceB[RENDERTARGETS];
+	unsigned int *colorBuffer[MAX_COLOR_BUFFERS];
+	int colorPitchB[MAX_COLOR_BUFFERS];
+	int colorSliceB[MAX_COLOR_BUFFERS];
 	float *depthBuffer;
 	int depthPitchB;
 	int depthSliceB;
@@ -134,17 +129,17 @@ struct DrawCall
 	};
 
 	using Pool = marl::BoundedPool<DrawCall, MaxDrawCount, marl::PoolPolicy::Preserve>;
-	using SetupFunction = int (*)(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	using SetupFunction = int (*)(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
 
 	DrawCall();
 	~DrawCall();
 
-	static void run(const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount]);
-	static void processVertices(DrawCall *draw, BatchData *batch);
-	static void processPrimitives(DrawCall *draw, BatchData *batch);
-	static void processPixels(const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally);
+	static void run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount]);
+	static void processVertices(vk::Device *device, DrawCall *draw, BatchData *batch);
+	static void processPrimitives(vk::Device *device, DrawCall *draw, BatchData *batch);
+	static void processPixels(vk::Device *device, const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally);
 	void setup();
-	void teardown();
+	void teardown(vk::Device *device);
 
 	int id;
 
@@ -158,6 +153,8 @@ struct DrawCall
 	VkIndexType indexType;
 	VkLineRasterizationModeEXT lineRasterizationMode;
 
+	bool depthClipEnable;
+
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
@@ -166,8 +163,7 @@ struct DrawCall
 	SetupFunction setupPrimitives;
 	SetupProcessor::State setupState;
 
-	vk::Device *device;
-	vk::ImageView *renderTarget[RENDERTARGETS];
+	vk::ImageView *colorBuffer[MAX_COLOR_BUFFERS];
 	vk::ImageView *depthBuffer;
 	vk::ImageView *stencilBuffer;
 	vk::DescriptorSet::Array descriptorSetObjects;
@@ -187,14 +183,14 @@ struct DrawCall
 	    VkPrimitiveTopology topology,
 	    VkProvokingVertexModeEXT provokingVertexMode);
 
-	static int setupSolidTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupWireframeTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupPointTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupLines(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupPoints(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupWireframeTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupPointTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupLines(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupPoints(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
 
-	static bool setupLine(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
-	static bool setupPoint(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
+	static bool setupLine(vk::Device *device, Primitive &primitive, Triangle &triangle, const DrawCall &draw);
+	static bool setupPoint(vk::Device *device, Primitive &primitive, Triangle &triangle, const DrawCall &draw);
 };
 
 class alignas(16) Renderer
@@ -210,7 +206,7 @@ public:
 	bool hasOcclusionQuery() const { return occlusionQuery != nullptr; }
 
 	void draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState &dynamicState, unsigned int count, int baseVertex,
-	          CountedEvent *events, int instanceID, int viewID, void *indexBuffer, const VkExtent3D &framebufferExtent,
+	          CountedEvent *events, int instanceID, int layer, void *indexBuffer, const VkRect2D &renderArea,
 	          vk::Pipeline::PushConstantStorage const &pushConstants, bool update = true);
 
 	void addQuery(vk::Query *query);

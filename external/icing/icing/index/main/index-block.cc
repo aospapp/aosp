@@ -14,9 +14,8 @@
 
 #include "icing/index/main/index-block.h"
 
-#include <inttypes.h>
-
 #include <algorithm>
+#include <cinttypes>
 #include <limits>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"

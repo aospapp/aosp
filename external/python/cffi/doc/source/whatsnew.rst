@@ -2,15 +2,191 @@
 What's New
 ======================
 
+v1.15.0
+=======
+
+* Fixed MANIFEST.in to include missing file for Windows arm64 support
+
+* Fixed Linux wheel build to use gcc default ISA for libffi
+
+* Updated setup.py Python trove specifiers to currently-tested Python versions
+
+* CPython 3.10 support (including wheels)
+
+* MacOS arm64 support (including wheels)
+
+* Initial Windows arm64 support
+
+* Misc. doc and test updates
+
+v1.14.6
+=======
+
+* Test fixes for CPython 3.10.0b3
+
+* Support for `sys.unraisablehook()` on Python >= 3.8
+
+* Fix two minor memory leaks (thanks Sebastian!)
+
+* Like many projects that had an IRC channel on freenode, we moved it to
+  ``irc.libera.chat``.
+
+v1.14.5
+=======
+
+* Source fix for old gcc versions
+
+* This and future releases should include wheels on more platforms,
+  thanks to our new release managers Matt and Matt!
+
+v1.14.4
+=======
+
+Release done for pip reasons.
+
+v1.14.3
+=======
+
+Release done for pip reasons.
+
+v1.14.2
+=======
+
+* CPython 3 on Windows: we again try to compile with ``Py_LIMITED_API``
+  by default.  This flag is not added if you run the compilation with
+  CPython 3.4, as it only works with CPython >= 3.5, but by now this
+  version of Python is quite old (and we no longer distribute cffi
+  wheels for it).
+
+  This may require that you upgrade ``virtualenv`` (requires version 16
+  or newer) or at least copy manually ``python3.dll`` into your existing
+  virtualenvs.  For distributing wheels with your cffi modules, you may
+  also need to upgrade ``wheel`` to the just-released version 0.35.
+
+  You can manually disable ``Py_LIMITED_API`` by calling
+  ``ffi.set_source(..., py_limited_api=False)``.
+
+
+v1.14.1
+=======
+
+* CFFI source code is now `hosted on Heptapod`_.
+
+* Improved support for ``typedef int my_array_t[...];`` with an explicit
+  dot-dot-dot in API mode (`issue #453`_)
+
+* Windows (32 and 64 bits): multiple fixes for ABI-mode call to functions
+  that return a structure.
+
+* Experimental support for MacOS 11 on aarch64.
+
+* and a few other minor changes and bug fixes.
+
+.. _`hosted on Heptapod`: https://foss.heptapod.net/pypy/cffi/
+.. _`issue #453`: https://foss.heptapod.net/pypy/cffi/issues/453
+
+
+v1.14
+=====
+
+* ``ffi.dlopen()`` can now be called with a handle (as a ``void *``) to an
+  already-opened C library.
+
+* CPython only: fixed a stack overflow issue for calls like
+  ``lib.myfunc([large list])``.  If the function is declared as taking a
+  ``float *`` argument, for example, then the array is temporarily converted
+  into a C array of floats---however, the code used to use ``alloca()`` for
+  this temporary storage, no matter how large.  This is now fixed.
+
+  The fix concerns all modes: in-line/out-of-line API/ABI.  Also note that your
+  API-mode C extension modules need to be regenerated with cffi 1.14 in order
+  to get the fix; i.e. for API mode, the fix is in the generated C sources.
+  (The C sources generated from cffi 1.14 should also work when running in
+  a different environment in which we have an older version of cffi.  Also,
+  this change makes no difference on PyPy.)
+
+  As a workaround that works on all versions of cffi, you can write
+  ``lib.myfunc(ffi.new("float[]", [large list]))``, which is
+  equivalent but explicity builds the intermediate array as a regular
+  Python object on the heap.
+
+* fixed a memory leak inside ``ffi.getwinerror()`` on CPython 3.x.
+
+
+v1.13.2
+=======
+
+* re-release because the Linux wheels came with an attached version of libffi
+  that was very old and buggy (`issue #432`_).
+
+.. _`issue #432`: https://foss.heptapod.net/pypy/cffi/-/issues/432
+
+
+
+v1.13.1
+=======
+
+* deprecate the way to declare in ``cdef()`` a global variable with only
+  ``void *foo;``.  You should always use a storage class, like ``extern void
+  *foo;`` or maybe ``static void *foo;``.  These are all equivalent for
+  the purposes of ``cdef()``, but the reason for deprecating the bare version
+  is that (as far as I know) it would always be mistake in a real C header.
+
+* fix the regression ``RuntimeError: found a situation in which we try
+  to build a type recursively`` (`issue #429`_).
+
+* fixed `issue #427`_ where a multithreading mistake in the embedding logic
+  initialization code would cause deadlocks on CPython 3.7.
+
+.. _`issue #429`: https://foss.heptapod.net/pypy/cffi/-/issues/429
+.. _`issue #427`: https://foss.heptapod.net/pypy/cffi/-/issues/427
+
+
+v1.13
+=====
+
+* ``ffi.from_buffer("type *", ..)`` is now supported, in addition to
+  ``"type[]"``.  You can then write ``p.field`` to access the items, instead
+  of only ``p[0].field``.  Be careful that no bounds checking is performed, so
+  ``p[n]`` might access data out of bounds.
+
+* fix for structs containing unnamed bitfields like ``int : 1;``.
+
+* when calling cdata of "function pointer" type, give a RuntimeError instead
+  of a crash if the pointer happens to be NULL
+
+* support some more binary operations between constants in enum definitions
+  (PR #96)
+
+* silence a warning incorrectly emitted if you use a quote in a preprocessor
+  line
+
+* detect a corner case that would throw the C code into an infinite
+  recursion, with ``ffi.cdef("""struct X { void(*fnptr)(struct X); };""")``
+
+
+Older Versions
+==============
+
+v1.12.3
+-------
+
+* Fix for nested struct types that end in a var-sized array (#405).
+
+* Add support for using ``U`` and ``L`` characters at the end of integer
+  constants in ``ffi.cdef()`` (thanks Guillaume).
+
+* More 3.8 fixes.
+
 
 v1.12.2
-=======
+-------
 
 * Added temporary workaround to compile on CPython 3.8.0a2.
 
 
 v1.12.1
-=======
+-------
 
 * CPython 3 on Windows: we again no longer compile with ``Py_LIMITED_API``
   by default because such modules *still* cannot be used with virtualenv.
@@ -21,12 +197,12 @@ v1.12.1
   Like before, `Issue #350`_ mentions a workaround if you still want
   the ``Py_LIMITED_API`` flag and *either* you are not concerned about
   virtualenv *or* you are sure your module will not be used on CPython
-  <= 3.4: pass ``define_macros=[("Py_LIMITED_API", None)]`` to the
+  <= 3.4: pass ``define_macros=[("Py_LIMITED_API", None)]`` as a keyword to the
   ``ffibuilder.set_source()`` call.
 
 
 v1.12
-=====
+-----
 
 * `Direct support for pkg-config`__.
 
@@ -61,11 +237,8 @@ v1.12
   to 1 byte instead of 4).
 
 .. __: cdef.html#pkgconfig
-.. _`issue #362`: https://bitbucket.org/cffi/cffi/issues/362/
+.. _`issue #362`: https://foss.heptapod.net/pypy/cffi/-/issues/362
 
-
-Older Versions
-==============
 
 v1.11.5
 -------
@@ -93,13 +266,13 @@ v1.11.5
 * CPython 3 on Windows: we no longer compile with ``Py_LIMITED_API``
   by default because such modules cannot be used with virtualenv.
   `Issue #350`_ mentions a workaround if you still want that and are not
-  concerned about virtualenv: pass a ``define_macros=[("Py_LIMITED_API",
-  None)]`` to the ``ffibuilder.set_source()`` call.
+  concerned about virtualenv: pass ``define_macros=[("Py_LIMITED_API",
+  None)]`` as a keyword to the ``ffibuilder.set_source()`` call.
 
-.. _`Issue #345`: https://bitbucket.org/cffi/cffi/issues/345/
-.. _`Issue #350`: https://bitbucket.org/cffi/cffi/issues/350/
-.. _`Issue #358`: https://bitbucket.org/cffi/cffi/issues/358/
-.. _`Issue #357`: https://bitbucket.org/cffi/cffi/issues/357/
+.. _`Issue #345`: https://foss.heptapod.net/pypy/cffi/-/issues/345
+.. _`Issue #350`: https://foss.heptapod.net/pypy/cffi/-/issues/350
+.. _`Issue #358`: https://foss.heptapod.net/pypy/cffi/-/issues/358
+.. _`Issue #357`: https://foss.heptapod.net/pypy/cffi/-/issues/357
 
 
 v1.11.4
@@ -112,7 +285,7 @@ v1.11.4
   ``foo.cp36-win32.pyd``, to make it clear that they are regular
   CPython modules depending on ``python36.dll``.
 
-.. _`Issue #355`: https://bitbucket.org/cffi/cffi/issues/355/
+.. _`Issue #355`: https://foss.heptapod.net/pypy/cffi/-/issues/355
 
 
 v1.11.3
@@ -201,9 +374,9 @@ v1.11
   that are *slower* to call than the API mode does.  For some reason it
   is often thought to be faster.  It is not!
 
-.. __: https://bitbucket.org/cffi/cffi/issues/321/cffi-191-segmentation-fault-during-self
+.. __: https://foss.heptapod.net/pypy/cffi/-/issues/321
 .. __: ref.html#ffi-gc
-.. __: https://bitbucket.org/cffi/cffi/issues/320/improve-memory_pressure-management
+.. __: https://foss.heptapod.net/pypy/cffi/-/issues/320
 .. __: http://bugs.python.org/issue31105
 
 

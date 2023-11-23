@@ -22,38 +22,28 @@ python docs.
 
 import errno
 import os
+import pathlib
 import stat
 import sys
 import unittest
 
-from pyfakefs.extra_packages import pathlib, pathlib2
 from pyfakefs.fake_filesystem import is_root
 
 from pyfakefs import fake_pathlib, fake_filesystem
+from pyfakefs.helpers import IS_PYPY
 from pyfakefs.tests.test_utils import RealFsTestCase
 
 is_windows = sys.platform == 'win32'
 
 
-def skip_if_pathlib_36_not_available():
-    if sys.version_info < (3, 6) and not pathlib2:
-        raise unittest.SkipTest('Changed behavior in Python 3.6')
-
-
-def skip_if_pathlib_36_is_available():
-    if sys.version_info >= (3, 6) or pathlib2:
-        raise unittest.SkipTest('Changed behavior in Python 3.6')
-
-
-@unittest.skipIf(pathlib is None, 'Not running without pathlib')
 class RealPathlibTestCase(RealFsTestCase):
     def __init__(self, methodName='runTest'):
         super(RealPathlibTestCase, self).__init__(methodName)
-        self.pathlib = pathlib or pathlib2
+        self.pathlib = pathlib
         self.path = None
 
     def setUp(self):
-        super(RealPathlibTestCase, self).setUp()
+        super().setUp()
         if not self.use_real_fs():
             self.pathlib = fake_pathlib.FakePathlibModule(self.filesystem)
         self.path = self.pathlib.Path
@@ -67,13 +57,21 @@ class FakePathlibInitializationTest(RealPathlibTestCase):
             self.assertTrue(isinstance(path, self.pathlib.WindowsPath))
             self.assertTrue(isinstance(path, self.pathlib.PureWindowsPath))
             self.assertTrue(self.pathlib.PurePosixPath())
-            self.assertRaises(NotImplementedError, self.pathlib.PosixPath)
+            # in fake fs, we allow to use the other OS implementation
+            if self.use_real_fs():
+                with self.assertRaises(NotImplementedError):
+                    self.pathlib.PosixPath()
+            else:
+                self.assertTrue(self.pathlib.PosixPath())
         else:
             self.assertTrue(isinstance(path, self.pathlib.PosixPath))
             self.assertTrue(isinstance(path, self.pathlib.PurePosixPath))
             self.assertTrue(self.pathlib.PureWindowsPath())
-            self.assertRaises(NotImplementedError,
-                              self.pathlib.WindowsPath)
+            if self.use_real_fs():
+                with self.assertRaises(NotImplementedError):
+                    self.pathlib.WindowsPath()
+            else:
+                self.assertTrue(self.pathlib.WindowsPath())
 
     def test_init_with_segments(self):
         """Basic initialization tests - taken from pathlib.Path documentation
@@ -228,16 +226,23 @@ class FakePathlibPurePathTest(RealPathlibTestCase):
                          self.path('etc/passwd'))
         self.assertEqual(self.path('/etc/passwd').relative_to('/'),
                          self.path('etc/passwd'))
-        self.assertRaises(ValueError, self.path('passwd').relative_to,
-                          '/usr')
+        with self.assertRaises(ValueError):
+            self.path('passwd').relative_to('/usr')
+
+    @unittest.skipIf(sys.version_info < (3, 9),
+                     'is_relative_to new in Python 3.9')
+    def test_is_relative_to(self):
+        path = self.path('/etc/passwd')
+        self.assertTrue(path.is_relative_to('/etc'))
+        self.assertFalse(path.is_relative_to('/src'))
 
     def test_with_name(self):
         self.check_windows_only()
         self.assertEqual(
             self.path('c:/Downloads/pathlib.tar.gz').with_name('setup.py'),
             self.path('c:/Downloads/setup.py'))
-        self.assertRaises(ValueError, self.path('c:/').with_name,
-                          'setup.py')
+        with self.assertRaises(ValueError):
+            self.path('c:/').with_name('setup.py')
 
     def test_with_suffix(self):
         self.assertEqual(
@@ -374,41 +379,51 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
         # we get stat.S_IFLNK | 0o755 under MacOs
         self.assertEqual(link_stat.st_mode, stat.S_IFLNK | 0o777)
 
-    @unittest.skipIf(sys.platform == 'darwin',
-                     'Different behavior under MacOs')
     def test_lchmod(self):
         self.skip_if_symlink_not_supported()
         file_stat = self.os.stat(self.file_path)
         link_stat = self.os.lstat(self.file_link_path)
         if not hasattr(os, "lchmod"):
-            self.assertRaises(NotImplementedError,
-                              self.path(self.file_link_path).lchmod, 0o444)
+            with self.assertRaises(NotImplementedError):
+                self.path(self.file_link_path).lchmod(0o444)
         else:
             self.path(self.file_link_path).lchmod(0o444)
             self.assertEqual(file_stat.st_mode, stat.S_IFREG | 0o666)
-            # we get stat.S_IFLNK | 0o755 under MacOs
-            self.assertEqual(link_stat.st_mode, stat.S_IFLNK | 0o444)
+            # the exact mode depends on OS and Python version
+            self.assertEqual(link_stat.st_mode & 0o777700,
+                             stat.S_IFLNK | 0o700)
+
+    @unittest.skipIf(sys.version_info < (3, 10),
+                     "follow_symlinks argument new in Python 3.10")
+    def test_chmod_no_followsymlinks(self):
+        self.skip_if_symlink_not_supported()
+        file_stat = self.os.stat(self.file_path)
+        link_stat = self.os.lstat(self.file_link_path)
+        if os.chmod not in os.supports_follow_symlinks or IS_PYPY:
+            with self.assertRaises(NotImplementedError):
+                self.path(self.file_link_path).chmod(0o444,
+                                                     follow_symlinks=False)
+        else:
+            self.path(self.file_link_path).chmod(0o444, follow_symlinks=False)
+            self.assertEqual(file_stat.st_mode, stat.S_IFREG | 0o666)
+            # the exact mode depends on OS and Python version
+            self.assertEqual(link_stat.st_mode & 0o777700,
+                             stat.S_IFLNK | 0o700)
 
     def test_resolve(self):
         self.create_dir(self.make_path('antoine', 'docs'))
         self.create_file(self.make_path('antoine', 'setup.py'))
         self.os.chdir(self.make_path('antoine'))
         # use real path to handle symlink /var to /private/var in MacOs
-        self.assertEqual(self.path().resolve(),
-                         self.path(
-                             self.os.path.realpath(
-                                 self.make_path('antoine'))))
-        self.assertEqual(
+        self.assert_equal_paths(self.path().resolve(),
+                                self.path(self.os.path.realpath(
+                                    self.make_path('antoine'))))
+        self.assert_equal_paths(
             self.path(
                 self.os.path.join('docs', '..', 'setup.py')).resolve(),
             self.path(
                 self.os.path.realpath(
                     self.make_path('antoine', 'setup.py'))))
-
-    def test_resolve_nonexisting_file(self):
-        skip_if_pathlib_36_is_available()
-        path = self.path('/foo/bar')
-        self.assert_raises_os_error(errno.ENOENT, path.resolve)
 
     def test_stat_file_in_unreadable_dir(self):
         self.check_posix_only()
@@ -435,25 +450,7 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
             path = str(list(iter)[0])
             self.assertTrue(path.endswith('some_file'))
 
-    @unittest.skipIf(not is_windows, 'Windows specific behavior')
-    def test_resolve_file_as_parent_windows(self):
-        skip_if_pathlib_36_is_available()
-        self.check_windows_only()
-        self.create_file(self.make_path('a_file'))
-        path = self.path(self.make_path('a_file', 'this can not exist'))
-        self.assert_raises_os_error(errno.ENOENT, path.resolve)
-
-    @unittest.skipIf(is_windows, 'POSIX specific behavior')
-    def test_resolve_file_as_parent_posix(self):
-        skip_if_pathlib_36_is_available()
-        self.check_posix_only()
-        self.create_file(self.make_path('a_file'))
-        path = self.path(
-            self.make_path('', 'a_file', 'this can not exist'))
-        self.assert_raises_os_error(errno.ENOTDIR, path.resolve)
-
-    def test_resolve_nonexisting_file_after_36(self):
-        skip_if_pathlib_36_not_available()
+    def test_resolve_nonexisting_file(self):
         path = self.path(
             self.make_path('/path', 'to', 'file', 'this can not exist'))
         self.assertEqual(path, path.resolve())
@@ -462,8 +459,8 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
         dir_path = self.make_path('jane')
         self.create_dir(dir_path)
         self.os.chdir(dir_path)
-        self.assertEqual(self.path.cwd(),
-                         self.path(self.os.path.realpath(dir_path)))
+        self.assert_equal_paths(self.path.cwd(),
+                                self.path(self.os.path.realpath(dir_path)))
 
     def test_expanduser(self):
         if is_windows:
@@ -477,13 +474,12 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
 
     def test_home(self):
         if is_windows:
-            self.assertEqual(self.path.home(),
-                             self.path(
-                                 os.environ['USERPROFILE'].replace('\\',
-                                                                   '/')))
+            self.assertEqual(self.path(
+                os.environ['USERPROFILE'].replace('\\', '/')),
+                self.path.home())
         else:
-            self.assertEqual(self.path.home(),
-                             self.path(os.environ['HOME']))
+            self.assertEqual(self.path(os.environ['HOME']),
+                             self.path.home())
 
 
 class RealPathlibFileObjectPropertyTest(FakePathlibFileObjectPropertyTest):
@@ -513,8 +509,8 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
 
     def test_open(self):
         self.create_dir(self.make_path('foo'))
-        self.assertRaises(OSError,
-                          self.path(self.make_path('foo', 'bar.txt')).open)
+        with self.assertRaises(OSError):
+            self.path(self.make_path('foo', 'bar.txt')).open()
         self.path(self.make_path('foo', 'bar.txt')).open('w').close()
         self.assertTrue(
             self.os.path.exists(self.make_path('foo', 'bar.txt')))
@@ -544,6 +540,19 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         file_path.write_text('ανοησίες', encoding='greek')
         self.assertTrue(self.os.path.exists(path_name))
         self.check_contents(path_name, 'ανοησίες'.encode('greek'))
+
+    @unittest.skipIf(sys.version_info < (3, 10),
+                     "newline argument new in Python 3.10")
+    def test_write_with_newline_arg(self):
+        path = self.path(self.make_path('some_file'))
+        path.write_text('1\r\n2\n3\r4', newline='')
+        self.check_contents(path, b'1\r\n2\n3\r4')
+        path.write_text('1\r\n2\n3\r4', newline='\n')
+        self.check_contents(path, b'1\r\n2\n3\r4')
+        path.write_text('1\r\n2\n3\r4', newline='\r\n')
+        self.check_contents(path, b'1\r\r\n2\r\n3\r4')
+        path.write_text('1\r\n2\n3\r4', newline='\r')
+        self.check_contents(path, b'1\r\r2\r3\r4')
 
     def test_read_bytes(self):
         path_name = self.make_path('binary_file')
@@ -590,6 +599,7 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.check_contents(file_name, '')
         self.assertTrue(self.os.stat(file_name).st_mode,
                         stat.S_IFREG | 0o444)
+        self.os.chmod(file_name, mode=0o666)
 
     def test_touch_existing(self):
         file_name = self.make_path('foo', 'bar.txt')
@@ -605,14 +615,15 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.create_file(file_name)
         file_name2 = self.make_path('foo', 'baz.txt')
         self.create_file(file_name2)
-        self.assertRaises(OSError,
-                          self.path(
-                              self.make_path('foo', 'other')).samefile,
-                          self.make_path('foo', 'other.txt'))
+        with self.assertRaises(OSError):
+            self.path(self.make_path('foo', 'other')).samefile(
+                self.make_path('foo', 'other.txt'))
         path = self.path(file_name)
         other_name = self.make_path('foo', 'other.txt')
-        self.assertRaises(OSError, path.samefile, other_name)
-        self.assertRaises(OSError, path.samefile, self.path(other_name))
+        with self.assertRaises(OSError):
+            path.samefile(other_name)
+        with self.assertRaises(OSError):
+            path.samefile(self.path(other_name))
         self.assertFalse(path.samefile(file_name2))
         self.assertFalse(path.samefile(self.path(file_name2)))
         self.assertTrue(
@@ -628,11 +639,45 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         path = self.path(link_name)
         path.symlink_to(file_name)
         self.assertTrue(self.os.path.exists(link_name))
-        # file_obj = self.filesystem.ResolveObject(file_name)
-        # linked_file_obj = self.filesystem.ResolveObject(link_name)
-        # self.assertEqual(file_obj, linked_file_obj)
-        # link__obj = self.filesystem.LResolveObject(link_name)
         self.assertTrue(path.is_symlink())
+
+    @unittest.skipIf(sys.version_info < (3, 8),
+                     'link_to new in Python 3.8')
+    def test_link_to(self):
+        self.skip_if_symlink_not_supported()
+        file_name = self.make_path('foo', 'bar.txt')
+        self.create_file(file_name)
+        self.assertEqual(1, self.os.stat(file_name).st_nlink)
+        link_name = self.make_path('link_to_bar')
+        path = self.path(file_name)
+        path.link_to(link_name)
+        self.assertTrue(self.os.path.exists(link_name))
+        self.assertFalse(path.is_symlink())
+        self.assertEqual(2, self.os.stat(file_name).st_nlink)
+
+    @unittest.skipIf(sys.version_info < (3, 10),
+                     'hardlink_to new in Python 3.10')
+    def test_hardlink_to(self):
+        self.skip_if_symlink_not_supported()
+        file_name = self.make_path('foo', 'bar.txt')
+        self.create_file(file_name)
+        self.assertEqual(1, self.os.stat(file_name).st_nlink)
+        link_path = self.path(self.make_path('link_to_bar'))
+        path = self.path(file_name)
+        link_path.hardlink_to(path)
+        self.assertTrue(self.os.path.exists(link_path))
+        self.assertFalse(path.is_symlink())
+        self.assertEqual(2, self.os.stat(file_name).st_nlink)
+
+    @unittest.skipIf(sys.version_info < (3, 9),
+                     'readlink new in Python 3.9')
+    def test_readlink(self):
+        self.skip_if_symlink_not_supported()
+        link_path = self.make_path('foo', 'bar', 'baz')
+        target = self.make_path('tarJAY')
+        self.create_symlink(link_path, target)
+        path = self.path(link_path)
+        self.assert_equal_paths(path.readlink(), self.path(target))
 
     def test_mkdir(self):
         dir_name = self.make_path('foo', 'bar')
@@ -660,7 +705,8 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.assertFalse(self.os.path.exists(dir_name))
         self.assertTrue(self.os.path.exists(self.make_path('foo')))
         self.create_file(self.make_path('foo', 'baz'))
-        self.assertRaises(OSError, self.path(self.make_path('foo')).rmdir)
+        with self.assertRaises(OSError):
+            self.path(self.make_path('foo')).rmdir()
         self.assertTrue(self.os.path.exists(self.make_path('foo')))
 
     def test_iterdir(self):
@@ -831,6 +877,12 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.assertEqual(self.os.path.isfile(path),
                          self.os.path.isfile(self.path(path)))
 
+    def test_isfile_not_readable(self):
+        path = self.make_path('foo', 'bar', 'baz')
+        self.create_file(path, perm=0)
+        self.assertEqual(self.os.path.isfile(path),
+                         self.os.path.isfile(self.path(path)))
+
     def test_islink(self):
         path = self.make_path('foo', 'bar', 'baz')
         self.create_file(path)
@@ -859,7 +911,7 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.create_dir(path)
         self.os.chdir(self.path(path))
         # use real path to handle symlink /var to /private/var in MacOs
-        self.assertEqual(self.os.path.realpath(path), self.os.getcwd())
+        self.assert_equal_paths(self.os.path.realpath(path), self.os.getcwd())
 
     def test_chmod(self):
         path = self.make_path('some_file')
@@ -900,13 +952,25 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.os.makedirs(self.path(path))
         self.assertTrue(self.os.path.exists(path))
 
-    @unittest.skipIf(is_windows, 'os.readlink seems not to support '
-                                 'path-like objects under Windows')
+    @unittest.skipIf(is_windows and sys.version_info < (3, 8),
+                     'os.readlink does not to support path-like objects '
+                     'under Windows before Python 3.8')
     def test_readlink(self):
+        self.skip_if_symlink_not_supported()
         link_path = self.make_path('foo', 'bar', 'baz')
         target = self.make_path('tarJAY')
         self.create_symlink(link_path, target)
-        self.assertEqual(self.os.readlink(self.path(link_path)), target)
+        self.assert_equal_paths(self.os.readlink(self.path(link_path)), target)
+
+    @unittest.skipIf(is_windows and sys.version_info < (3, 8),
+                     'os.readlink does not to support path-like objects '
+                     'under Windows before Python 3.8')
+    def test_readlink_bytes(self):
+        self.skip_if_symlink_not_supported()
+        link_path = self.make_path(b'foo', b'bar', b'baz')
+        target = self.make_path(b'tarJAY')
+        self.create_symlink(link_path, target)
+        self.assert_equal_paths(self.os.readlink(self.path(link_path)), target)
 
     def test_remove(self):
         path = self.make_path('test.txt')
@@ -960,7 +1024,22 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
     def test_stat(self):
         path = self.make_path('foo', 'bar', 'baz')
         self.create_file(path, contents='1234567')
-        self.assertEqual(self.os.stat(path), self.os.stat(self.path(path)))
+        self.assertEqual(self.os.stat(path), self.path(path).stat())
+
+    @unittest.skipIf(sys.version_info < (3, 10), "New in Python 3.10")
+    def test_stat_follow_symlinks(self):
+        self.check_posix_only()
+        directory = self.make_path('foo')
+        base_name = 'bar'
+        file_path = self.path(self.os.path.join(directory, base_name))
+        link_path = self.path(self.os.path.join(directory, 'link'))
+        contents = "contents"
+        self.create_file(file_path, contents=contents)
+        self.create_symlink(link_path, base_name)
+        self.assertEqual(len(contents),
+                         link_path.stat(follow_symlinks=True)[stat.ST_SIZE])
+        self.assertEqual(len(base_name),
+                         link_path.stat(follow_symlinks=False)[stat.ST_SIZE])
 
     def test_utime(self):
         path = self.make_path('some_file')
@@ -969,6 +1048,31 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         st = self.os.stat(path)
         self.assertEqual(1, st.st_atime)
         self.assertEqual(2, st.st_mtime)
+
+    def test_truncate(self):
+        path = self.make_path('some_file')
+        self.create_file(path, contents='test_test')
+        self.os.truncate(self.path(path), length=4)
+        st = self.os.stat(path)
+        self.assertEqual(4, st.st_size)
+
+    @unittest.skipIf(sys.platform == 'win32',
+                     'no pwd and grp modules in Windows')
+    def test_owner_and_group_posix(self):
+        self.check_posix_only()
+        path = self.make_path('some_file')
+        self.create_file(path)
+        self.assertTrue(self.path(path).owner())
+        self.assertTrue(self.path(path).group())
+
+    def test_owner_and_group_windows(self):
+        self.check_windows_only()
+        path = self.make_path('some_file')
+        self.create_file(path)
+        with self.assertRaises(NotImplementedError):
+            self.path(path).owner()
+        with self.assertRaises(NotImplementedError):
+            self.path(path).group()
 
 
 class RealPathlibUsageInOsFunctionsTest(FakePathlibUsageInOsFunctionsTest):
@@ -1036,5 +1140,4 @@ class FakeFilesystemPathLikeObjectTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    if pathlib:
-        unittest.main()
+    unittest.main(verbosity=2)

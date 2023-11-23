@@ -18,7 +18,7 @@
  *
  *//*!
  * \file
- * \brief Null (dummy) Vulkan implementation.
+ * \brief Null (do-nothing) Vulkan implementation.
  *//*--------------------------------------------------------------------*/
 
 #include "vkNullDriver.hpp"
@@ -256,6 +256,20 @@ class DebugReportCallbackEXT
 public:
 										DebugReportCallbackEXT	(VkInstance, const VkDebugReportCallbackCreateInfoEXT*) {}
 										~DebugReportCallbackEXT	(void) {}
+};
+
+class CuModuleNVX
+{
+public:
+										CuModuleNVX	(VkDevice, const VkCuModuleCreateInfoNVX*) {}
+										~CuModuleNVX(void) {}
+};
+
+class CuFunctionNVX
+{
+public:
+										CuFunctionNVX(VkDevice, const VkCuFunctionCreateInfoNVX*) {}
+										~CuFunctionNVX(void) {}
 };
 
 class Device
@@ -580,10 +594,17 @@ public:
 						{}
 };
 
-class PrivateDataSlotEXT
+class PrivateDataSlot
 {
 public:
-						PrivateDataSlotEXT			(VkDevice, const VkPrivateDataSlotCreateInfoEXT*)
+						PrivateDataSlot				(VkDevice, const VkPrivateDataSlotCreateInfo*)
+						{}
+};
+
+class BufferCollectionFUCHSIA
+{
+public:
+						BufferCollectionFUCHSIA		(VkDevice, const VkBufferCollectionCreateInfoFUCHSIA*)
 						{}
 };
 

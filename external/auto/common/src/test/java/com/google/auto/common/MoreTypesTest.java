@@ -16,11 +16,12 @@
 package com.google.auto.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Objects.requireNonNull;
 import static javax.lang.model.type.TypeKind.NONE;
 import static javax.lang.model.type.TypeKind.VOID;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +50,7 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -90,48 +92,51 @@ public class MoreTypesTest {
     DeclaredType containerOfString = types.getDeclaredType(container, stringType);
     TypeMirror containedInObject = types.asMemberOf(containerOfObject, contained);
     TypeMirror containedInString = types.asMemberOf(containerOfString, contained);
-    EquivalenceTester<TypeMirror> tester = EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
-        .addEquivalenceGroup(types.getNullType())
-        .addEquivalenceGroup(types.getNoType(NONE))
-        .addEquivalenceGroup(types.getNoType(VOID))
-        .addEquivalenceGroup(objectType)
-        .addEquivalenceGroup(stringType)
-        .addEquivalenceGroup(containedInObject)
-        .addEquivalenceGroup(containedInString)
-        .addEquivalenceGroup(funkyBounds.asType())
-        .addEquivalenceGroup(funkyBounds2.asType())
-        .addEquivalenceGroup(funkierBounds.asType())
-        .addEquivalenceGroup(funkyBoundsVar, funkyBounds2Var)
-        .addEquivalenceGroup(funkierBoundsVar)
-        // Enum<E extends Enum<E>>
-        .addEquivalenceGroup(enumElement.asType())
-        // Map<K, V>
-        .addEquivalenceGroup(mapType)
-        .addEquivalenceGroup(mapOfObjectToObjectType)
-        // Map<?, ?>
-        .addEquivalenceGroup(types.getDeclaredType(mapElement, wildcard, wildcard))
-        // Map
-        .addEquivalenceGroup(types.erasure(mapType), types.erasure(mapOfObjectToObjectType))
-        .addEquivalenceGroup(types.getDeclaredType(mapElement, objectType, stringType))
-        .addEquivalenceGroup(types.getDeclaredType(mapElement, stringType, objectType))
-        .addEquivalenceGroup(types.getDeclaredType(mapElement, stringType, stringType))
-        .addEquivalenceGroup(setOfSetOfObject)
-        .addEquivalenceGroup(setOfSetOfString)
-        .addEquivalenceGroup(setOfSetOfSetOfObject)
-        .addEquivalenceGroup(setOfSetOfSetOfString)
-        .addEquivalenceGroup(wildcard)
-        // ? extends Object
-        .addEquivalenceGroup(types.getWildcardType(objectType, null))
-        // ? extends String
-        .addEquivalenceGroup(types.getWildcardType(stringType, null))
-        // ? super String
-        .addEquivalenceGroup(types.getWildcardType(null, stringType))
-        // Map<String, Map<String, Set<Object>>>
-        .addEquivalenceGroup(types.getDeclaredType(mapElement, stringType,
-            types.getDeclaredType(mapElement, stringType,
-                types.getDeclaredType(setElement, objectType))))
-        .addEquivalenceGroup(FAKE_ERROR_TYPE)
-        ;
+    EquivalenceTester<TypeMirror> tester =
+        EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
+            .addEquivalenceGroup(types.getNullType())
+            .addEquivalenceGroup(types.getNoType(NONE))
+            .addEquivalenceGroup(types.getNoType(VOID))
+            .addEquivalenceGroup(objectType)
+            .addEquivalenceGroup(stringType)
+            .addEquivalenceGroup(containedInObject)
+            .addEquivalenceGroup(containedInString)
+            .addEquivalenceGroup(funkyBounds.asType())
+            .addEquivalenceGroup(funkyBounds2.asType())
+            .addEquivalenceGroup(funkierBounds.asType())
+            .addEquivalenceGroup(funkyBoundsVar, funkyBounds2Var)
+            .addEquivalenceGroup(funkierBoundsVar)
+            // Enum<E extends Enum<E>>
+            .addEquivalenceGroup(enumElement.asType())
+            // Map<K, V>
+            .addEquivalenceGroup(mapType)
+            .addEquivalenceGroup(mapOfObjectToObjectType)
+            // Map<?, ?>
+            .addEquivalenceGroup(types.getDeclaredType(mapElement, wildcard, wildcard))
+            // Map
+            .addEquivalenceGroup(types.erasure(mapType), types.erasure(mapOfObjectToObjectType))
+            .addEquivalenceGroup(types.getDeclaredType(mapElement, objectType, stringType))
+            .addEquivalenceGroup(types.getDeclaredType(mapElement, stringType, objectType))
+            .addEquivalenceGroup(types.getDeclaredType(mapElement, stringType, stringType))
+            .addEquivalenceGroup(setOfSetOfObject)
+            .addEquivalenceGroup(setOfSetOfString)
+            .addEquivalenceGroup(setOfSetOfSetOfObject)
+            .addEquivalenceGroup(setOfSetOfSetOfString)
+            .addEquivalenceGroup(wildcard)
+            // ? extends Object
+            .addEquivalenceGroup(types.getWildcardType(objectType, null))
+            // ? extends String
+            .addEquivalenceGroup(types.getWildcardType(stringType, null))
+            // ? super String
+            .addEquivalenceGroup(types.getWildcardType(null, stringType))
+            // Map<String, Map<String, Set<Object>>>
+            .addEquivalenceGroup(
+                types.getDeclaredType(
+                    mapElement,
+                    stringType,
+                    types.getDeclaredType(
+                        mapElement, stringType, types.getDeclaredType(setElement, objectType))))
+            .addEquivalenceGroup(FAKE_ERROR_TYPE);
 
     for (TypeKind kind : TypeKind.values()) {
       if (kind.isPrimitive()) {
@@ -144,20 +149,18 @@ public class MoreTypesTest {
       }
     }
 
-    ImmutableSet<Class<?>> testClasses = ImmutableSet.of(
-        ExecutableElementsGroupA.class,
-        ExecutableElementsGroupB.class,
-        ExecutableElementsGroupC.class,
-        ExecutableElementsGroupD.class,
-        ExecutableElementsGroupE.class);
+    ImmutableSet<Class<?>> testClasses =
+        ImmutableSet.of(
+            ExecutableElementsGroupA.class,
+            ExecutableElementsGroupB.class,
+            ExecutableElementsGroupC.class,
+            ExecutableElementsGroupD.class,
+            ExecutableElementsGroupE.class);
     for (Class<?> testClass : testClasses) {
-      ImmutableList<TypeMirror> equivalenceGroup = FluentIterable.from(
-          elements.getTypeElement(testClass.getCanonicalName()).getEnclosedElements())
-              .transform(new Function<Element, TypeMirror>() {
-                @Override public TypeMirror apply(Element input) {
-                  return input.asType();
-                }
-              })
+      ImmutableList<TypeMirror> equivalenceGroup =
+          FluentIterable.from(
+                  elements.getTypeElement(testClass.getCanonicalName()).getEnclosedElements())
+              .transform(Element::asType)
               .toList();
       tester.addEquivalenceGroup(equivalenceGroup);
     }
@@ -168,35 +171,45 @@ public class MoreTypesTest {
   @SuppressWarnings("unused")
   private static final class ExecutableElementsGroupA {
     ExecutableElementsGroupA() {}
+
     void a() {}
+
     public static void b() {}
   }
 
   @SuppressWarnings("unused")
   private static final class ExecutableElementsGroupB {
     ExecutableElementsGroupB(String s) {}
+
     void a(String s) {}
+
     public static void b(String s) {}
   }
 
   @SuppressWarnings("unused")
   private static final class ExecutableElementsGroupC {
     ExecutableElementsGroupC() throws Exception {}
+
     void a() throws Exception {}
+
     public static void b() throws Exception {}
   }
 
   @SuppressWarnings("unused")
   private static final class ExecutableElementsGroupD {
     ExecutableElementsGroupD() throws RuntimeException {}
+
     void a() throws RuntimeException {}
+
     public static void b() throws RuntimeException {}
   }
 
   @SuppressWarnings("unused")
   private static final class ExecutableElementsGroupE {
     <T> ExecutableElementsGroupE() {}
+
     <T> void a() {}
+
     public static <T> void b() {}
   }
 
@@ -214,53 +227,44 @@ public class MoreTypesTest {
   @SuppressWarnings("unused")
   private static final class FunkierBounds<T extends Number & Comparable<T> & Cloneable> {}
 
-  @Test public void testReferencedTypes() {
+  @Test
+  public void testReferencedTypes() {
     Elements elements = compilationRule.getElements();
-    TypeElement testDataElement = elements
-        .getTypeElement(ReferencedTypesTestData.class.getCanonicalName());
+    TypeElement testDataElement =
+        elements.getTypeElement(ReferencedTypesTestData.class.getCanonicalName());
     ImmutableMap<String, VariableElement> fieldIndex =
         FluentIterable.from(ElementFilter.fieldsIn(testDataElement.getEnclosedElements()))
-            .uniqueIndex(new Function<VariableElement, String>() {
-              @Override public String apply(VariableElement input) {
-                return input.getSimpleName().toString();
-              }
-            });
+            .uniqueIndex(input -> input.getSimpleName().toString());
 
-    TypeElement objectElement =
-        elements.getTypeElement(Object.class.getCanonicalName());
-    TypeElement stringElement =
-        elements.getTypeElement(String.class.getCanonicalName());
-    TypeElement integerElement =
-        elements.getTypeElement(Integer.class.getCanonicalName());
-    TypeElement setElement =
-        elements.getTypeElement(Set.class.getCanonicalName());
-    TypeElement mapElement =
-        elements.getTypeElement(Map.class.getCanonicalName());
+    TypeElement objectElement = elements.getTypeElement(Object.class.getCanonicalName());
+    TypeElement stringElement = elements.getTypeElement(String.class.getCanonicalName());
+    TypeElement integerElement = elements.getTypeElement(Integer.class.getCanonicalName());
+    TypeElement setElement = elements.getTypeElement(Set.class.getCanonicalName());
+    TypeElement mapElement = elements.getTypeElement(Map.class.getCanonicalName());
     TypeElement charSequenceElement =
         elements.getTypeElement(CharSequence.class.getCanonicalName());
 
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f1").asType()))
-        .containsExactly(objectElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f2").asType()))
-        .containsExactly(setElement, stringElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f3").asType()))
+    assertThat(referencedTypes(fieldIndex, "f1")).containsExactly(objectElement);
+    assertThat(referencedTypes(fieldIndex, "f2")).containsExactly(setElement, stringElement);
+    assertThat(referencedTypes(fieldIndex, "f3"))
         .containsExactly(mapElement, stringElement, objectElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f4").asType()))
-        .containsExactly(integerElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f5").asType()))
-        .containsExactly(setElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f6").asType()))
-        .containsExactly(setElement, charSequenceElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f7").asType()))
+    assertThat(referencedTypes(fieldIndex, "f4")).containsExactly(integerElement);
+    assertThat(referencedTypes(fieldIndex, "f5")).containsExactly(setElement);
+    assertThat(referencedTypes(fieldIndex, "f6")).containsExactly(setElement, charSequenceElement);
+    assertThat(referencedTypes(fieldIndex, "f7"))
         .containsExactly(mapElement, stringElement, setElement, charSequenceElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f8").asType()))
-        .containsExactly(stringElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f9").asType()))
-        .containsExactly(stringElement);
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f10").asType())).isEmpty();
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f11").asType())).isEmpty();
-    assertThat(MoreTypes.referencedTypes(fieldIndex.get("f12").asType()))
-        .containsExactly(setElement, stringElement);
+    assertThat(referencedTypes(fieldIndex, "f8")).containsExactly(stringElement);
+    assertThat(referencedTypes(fieldIndex, "f9")).containsExactly(stringElement);
+    assertThat(referencedTypes(fieldIndex, "f10")).isEmpty();
+    assertThat(referencedTypes(fieldIndex, "f11")).isEmpty();
+    assertThat(referencedTypes(fieldIndex, "f12")).containsExactly(setElement, stringElement);
+  }
+
+  private static ImmutableSet<TypeElement> referencedTypes(
+      ImmutableMap<String, VariableElement> fieldIndex, String fieldName) {
+    VariableElement field = fieldIndex.get(fieldName);
+    requireNonNull(field, fieldName);
+    return MoreTypes.referencedTypes(field.asType());
   }
 
   @SuppressWarnings("unused") // types used in compiler tests
@@ -280,20 +284,23 @@ public class MoreTypesTest {
   }
 
   private static class Parent<T> {}
+
   private static class ChildA extends Parent<Number> {}
+
   private static class ChildB extends Parent<String> {}
+
   private static class GenericChild<T> extends Parent<T> {}
+
   private interface InterfaceType {}
 
   @Test
   public void asElement_throws() {
-    TypeMirror javaDotLang =
-        compilationRule.getElements().getPackageElement("java.lang").asType();
+    TypeMirror javaDotLang = compilationRule.getElements().getPackageElement("java.lang").asType();
     try {
       MoreTypes.asElement(javaDotLang);
       fail();
-    } catch (IllegalArgumentException expected) {}
-
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Test
@@ -301,8 +308,9 @@ public class MoreTypesTest {
     Elements elements = compilationRule.getElements();
     TypeElement stringElement = elements.getTypeElement("java.lang.String");
     assertThat(MoreTypes.asElement(stringElement.asType())).isEqualTo(stringElement);
-    TypeParameterElement setParameterElement = Iterables.getOnlyElement(
-        compilationRule.getElements().getTypeElement("java.util.Set").getTypeParameters());
+    TypeParameterElement setParameterElement =
+        Iterables.getOnlyElement(
+            compilationRule.getElements().getTypeElement("java.util.Set").getTypeParameters());
     assertThat(MoreTypes.asElement(setParameterElement.asType())).isEqualTo(setParameterElement);
     // we don't test error types because those are very hard to get predictably
   }
@@ -320,8 +328,7 @@ public class MoreTypesTest {
     TypeElement genericChild = elements.getTypeElement(GenericChild.class.getCanonicalName());
     TypeMirror genericChildOfNumber = types.getDeclaredType(genericChild, numberType);
     TypeMirror genericChildOfInteger = types.getDeclaredType(genericChild, integerType);
-    TypeMirror objectType =
-        elements.getTypeElement(Object.class.getCanonicalName()).asType();
+    TypeMirror objectType = elements.getTypeElement(Object.class.getCanonicalName()).asType();
     TypeMirror interfaceType =
         elements.getTypeElement(InterfaceType.class.getCanonicalName()).asType();
 
@@ -343,18 +350,20 @@ public class MoreTypesTest {
     Optional<DeclaredType> parentOfGenericChildOfInteger =
         MoreTypes.nonObjectSuperclass(types, elements, (DeclaredType) genericChildOfInteger);
 
-    EquivalenceTester<TypeMirror> tester = EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
-          .addEquivalenceGroup(parentOfChildA.get(),
-              types.getDeclaredType(parent, numberType),
-              parentOfGenericChildOfNumber.get())
-          .addEquivalenceGroup(parentOfChildB.get(), types.getDeclaredType(parent, stringType))
-          .addEquivalenceGroup(parentOfGenericChild.get(), parent.asType())
-          .addEquivalenceGroup(parentOfGenericChildOfInteger.get(),
-              types.getDeclaredType(parent, integerType));
+    EquivalenceTester<TypeMirror> tester =
+        EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
+            .addEquivalenceGroup(
+                parentOfChildA.get(),
+                types.getDeclaredType(parent, numberType),
+                parentOfGenericChildOfNumber.get())
+            .addEquivalenceGroup(parentOfChildB.get(), types.getDeclaredType(parent, stringType))
+            .addEquivalenceGroup(parentOfGenericChild.get(), parent.asType())
+            .addEquivalenceGroup(
+                parentOfGenericChildOfInteger.get(), types.getDeclaredType(parent, integerType));
 
     tester.test();
   }
-  
+
   @Test
   public void testAsMemberOf_variableElement() {
     Types types = compilationRule.getTypes();
@@ -364,11 +373,13 @@ public class MoreTypesTest {
     TypeMirror integerType = elements.getTypeElement(Integer.class.getCanonicalName()).asType();
 
     TypeElement paramsElement = elements.getTypeElement(Params.class.getCanonicalName());
-    VariableElement tParam = Iterables.getOnlyElement(Iterables.getOnlyElement(
-        ElementFilter.methodsIn(paramsElement.getEnclosedElements())).getParameters());
+    VariableElement tParam =
+        Iterables.getOnlyElement(
+            Iterables.getOnlyElement(ElementFilter.methodsIn(paramsElement.getEnclosedElements()))
+                .getParameters());
     VariableElement tField =
-        Iterables.getOnlyElement(ElementFilter.fieldsIn(paramsElement.getEnclosedElements())); 
-    
+        Iterables.getOnlyElement(ElementFilter.fieldsIn(paramsElement.getEnclosedElements()));
+
     DeclaredType numberParams =
         (DeclaredType) elements.getTypeElement(NumberParams.class.getCanonicalName()).asType();
     DeclaredType stringParams =
@@ -376,7 +387,7 @@ public class MoreTypesTest {
     TypeElement genericParams = elements.getTypeElement(GenericParams.class.getCanonicalName());
     DeclaredType genericParamsOfNumber = types.getDeclaredType(genericParams, numberType);
     DeclaredType genericParamsOfInteger = types.getDeclaredType(genericParams, integerType);
-    
+
     TypeMirror fieldOfNumberParams = MoreTypes.asMemberOf(types, numberParams, tField);
     TypeMirror paramOfNumberParams = MoreTypes.asMemberOf(types, numberParams, tParam);
     TypeMirror fieldOfStringParams = MoreTypes.asMemberOf(types, stringParams, tField);
@@ -388,62 +399,76 @@ public class MoreTypesTest {
     TypeMirror paramOfGenericOfInteger =
         MoreTypes.asMemberOf(types, genericParamsOfInteger, tParam);
 
-    EquivalenceTester<TypeMirror> tester = EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
-        .addEquivalenceGroup(fieldOfNumberParams, paramOfNumberParams, fieldOfGenericOfNumber,
-            paramOfGenericOfNumber, numberType)
-        .addEquivalenceGroup(fieldOfStringParams, paramOfStringParams, stringType)
-        .addEquivalenceGroup(fieldOfGenericOfInteger, paramOfGenericOfInteger, integerType);
+    EquivalenceTester<TypeMirror> tester =
+        EquivalenceTester.<TypeMirror>of(MoreTypes.equivalence())
+            .addEquivalenceGroup(
+                fieldOfNumberParams,
+                paramOfNumberParams,
+                fieldOfGenericOfNumber,
+                paramOfGenericOfNumber,
+                numberType)
+            .addEquivalenceGroup(fieldOfStringParams, paramOfStringParams, stringType)
+            .addEquivalenceGroup(fieldOfGenericOfInteger, paramOfGenericOfInteger, integerType);
     tester.test();
   }
-  
+
   private static class Params<T> {
-    @SuppressWarnings("unused") T t;
-    @SuppressWarnings("unused") void add(T t) {}
+    @SuppressWarnings("unused")
+    T t;
+
+    @SuppressWarnings("unused")
+    void add(T t) {}
   }
+
   private static class NumberParams extends Params<Number> {}
+
   private static class StringParams extends Params<String> {}
+
   private static class GenericParams<T> extends Params<T> {}
 
-  private static final ErrorType FAKE_ERROR_TYPE = new ErrorType() {
-    @Override
-    public TypeKind getKind() {
-      return TypeKind.ERROR;
-    }
+  private static final ErrorType FAKE_ERROR_TYPE =
+      new ErrorType() {
+        @Override
+        public TypeKind getKind() {
+          return TypeKind.ERROR;
+        }
 
-    @Override
-    public <R, P> R accept(TypeVisitor<R, P> v, P p) {
-      return v.visitError(this, p);
-    }
+        @Override
+        public <R, P> R accept(TypeVisitor<R, P> v, P p) {
+          return v.visitError(this, p);
+        }
 
-    @Override
-    public List<? extends TypeMirror> getTypeArguments() {
-      return ImmutableList.of();
-    }
+        @Override
+        public ImmutableList<? extends TypeMirror> getTypeArguments() {
+          return ImmutableList.of();
+        }
 
-    @Override
-    public TypeMirror getEnclosingType() {
-      return null;
-    }
+        @Override
+        public @Nullable TypeMirror getEnclosingType() {
+          return null;
+        }
 
-    @Override
-    public Element asElement() {
-      return null;
-    }
+        @Override
+        public @Nullable Element asElement() {
+          return null;
+        }
 
-    // JDK8 Compatibility:
+        @Override
+        public <A extends Annotation> A @Nullable [] getAnnotationsByType(Class<A> annotationType) {
+          return null;
+        }
 
-    public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationType) {
-      return null;
-    }
+        @Override
+        public <A extends Annotation> @Nullable A getAnnotation(Class<A> annotationType) {
+          return null;
+        }
 
-    public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
-      return null;
-    }
-
-    public List<? extends AnnotationMirror> getAnnotationMirrors() {
-      return null;
-    }
-  };
+        @Override
+        @SuppressWarnings("MutableMethodReturnType")
+        public List<? extends AnnotationMirror> getAnnotationMirrors() {
+          return ImmutableList.of();
+        }
+      };
 
   @Test
   public void testIsConversionFromObjectUnchecked_yes() {
@@ -469,6 +494,21 @@ public class MoreTypesTest {
           .that(MoreTypes.isConversionFromObjectUnchecked(type))
           .isFalse();
     }
+  }
+
+  @Test
+  public void testIsTypeOf() {
+    Types types = compilationRule.getTypes();
+    PrimitiveType intType = types.getPrimitiveType(TypeKind.INT);
+    TypeMirror integerType = types.boxedClass(intType).asType();
+    WildcardType wildcardType = types.getWildcardType(null, null);
+    expect.that(MoreTypes.isTypeOf(int.class, intType)).isTrue();
+    expect.that(MoreTypes.isTypeOf(Integer.class, integerType)).isTrue();
+    expect.that(MoreTypes.isTypeOf(Integer.class, intType)).isFalse();
+    expect.that(MoreTypes.isTypeOf(int.class, integerType)).isFalse();
+    expect.that(MoreTypes.isTypeOf(Integer.class, FAKE_ERROR_TYPE)).isFalse();
+    assertThrows(
+        IllegalArgumentException.class, () -> MoreTypes.isTypeOf(Integer.class, wildcardType));
   }
 
   // The type of every field here is such that casting to it provokes an "unchecked" warning.

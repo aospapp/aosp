@@ -11,9 +11,14 @@ import (
 
 func processSysrootFlag(builder *commandBuilder) {
 	fromUser := false
+	userSysroot := ""
 	for _, arg := range builder.args {
 		if arg.fromUser && strings.HasPrefix(arg.value, "--sysroot=") {
 			fromUser = true
+			sysrootArg := strings.Split(arg.value, "=")
+			if len(sysrootArg) == 2 {
+				userSysroot = sysrootArg[1]
+			}
 			break
 		}
 	}
@@ -27,5 +32,13 @@ func processSysrootFlag(builder *commandBuilder) {
 	}
 	if !fromUser {
 		builder.addPreUserArgs("--sysroot=" + sysroot)
+	} else {
+		sysroot = userSysroot
 	}
+
+	libdir := "-L" + sysroot + "/usr/lib"
+	if strings.Contains(builder.target.target, "64") {
+		libdir += "64"
+	}
+	builder.addPostUserArgs(libdir)
 }

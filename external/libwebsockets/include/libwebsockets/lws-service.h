@@ -59,7 +59,7 @@ lws_service(struct lws_context *context, int timeout_ms);
  * \param tsi:		Thread service index, starting at 0
  *
  * Same as lws_service(), but for a specific thread service index.  Only needed
- * if you are spawning multiple service threads.
+ * if you are spawning multiple service threads that operate on the same lws_context.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_service_tsi(struct lws_context *context, int timeout_ms, int tsi);
@@ -167,12 +167,13 @@ lws_handle_POLLOUT_event(struct lws *wsi, struct lws_pollfd *pollfd);
  * APIs specific to libuv event loop itegration
  */
 ///@{
-#ifdef LWS_WITH_LIBUV
+#if defined(LWS_WITH_LIBUV) && defined(UV_ERRNO_MAP)
+
 /*
  * Any direct libuv allocations in lws protocol handlers must participate in the
  * lws reference counting scheme.  Two apis are provided:
  *
- * - lws_libuv_static_refcount_add(handle, context) to mark the handle with
+ * - lws_libuv_static_refcount_add(handle, context, tsi) to mark the handle with
  *  a pointer to the context and increment the global uv object counter
  *
  * - lws_libuv_static_refcount_del() which should be used as the close callback
@@ -186,7 +187,8 @@ LWS_VISIBLE LWS_EXTERN uv_loop_t *
 lws_uv_getloop(struct lws_context *context, int tsi);
 
 LWS_VISIBLE LWS_EXTERN void
-lws_libuv_static_refcount_add(uv_handle_t *, struct lws_context *context);
+lws_libuv_static_refcount_add(uv_handle_t *, struct lws_context *context,
+				int tsi);
 
 LWS_VISIBLE LWS_EXTERN void
 lws_libuv_static_refcount_del(uv_handle_t *);
@@ -194,7 +196,7 @@ lws_libuv_static_refcount_del(uv_handle_t *);
 #endif /* LWS_WITH_LIBUV */
 
 #if defined(LWS_PLAT_FREERTOS)
-#define lws_libuv_static_refcount_add(_a, _b)
+#define lws_libuv_static_refcount_add(_a, _b, _c)
 #define lws_libuv_static_refcount_del NULL
 #endif
 ///@}

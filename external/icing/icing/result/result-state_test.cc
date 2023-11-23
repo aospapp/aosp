@@ -143,7 +143,7 @@ TEST_F(ResultStateTest, ShouldReturnSnippetContextAccordingToSpecs) {
   ResultSpecProto result_spec = CreateResultSpec(/*num_per_page=*/2);
   result_spec.mutable_snippet_spec()->set_num_to_snippet(5);
   result_spec.mutable_snippet_spec()->set_num_matches_per_property(5);
-  result_spec.mutable_snippet_spec()->set_max_window_bytes(5);
+  result_spec.mutable_snippet_spec()->set_max_window_utf32_length(5);
 
   SectionRestrictQueryTermsMap query_terms_map;
   query_terms_map.emplace("term1", std::unordered_set<std::string>());
@@ -178,7 +178,7 @@ TEST_F(ResultStateTest, NoSnippetingShouldReturnNull) {
   // stored.
   result_spec.mutable_snippet_spec()->set_num_to_snippet(0);
   result_spec.mutable_snippet_spec()->set_num_matches_per_property(5);
-  result_spec.mutable_snippet_spec()->set_max_window_bytes(5);
+  result_spec.mutable_snippet_spec()->set_max_window_utf32_length(5);
 
   SectionRestrictQueryTermsMap query_terms_map;
   query_terms_map.emplace("term1", std::unordered_set<std::string>());

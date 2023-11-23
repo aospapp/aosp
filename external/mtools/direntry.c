@@ -49,7 +49,7 @@ static size_t getPathLen(direntry_t *entry)
 	while(1) {
 		if(entry->entry == -3) /* rootDir */
 			return length + 3;
-		
+
 		length += 1 + wcslen(entry->name);
 		entry = getDirentry(entry->Dir);
 	}
@@ -171,5 +171,5 @@ int isSubdirOf(Stream_t *inside, Stream_t *outside)
 			return 0;
 		/* look further up */
 		inside = getDirentry(inside)->Dir;
-	}			
+	}
 }

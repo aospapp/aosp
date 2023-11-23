@@ -3,5 +3,10 @@
     {
       "name": "toybox-tests"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "toybox-tests"
+    }
   ]
 }

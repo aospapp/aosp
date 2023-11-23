@@ -15,39 +15,13 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "linux_input_sys",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libbase_rust",
         "libdata_model",
         "liblibc",
     ],
-}
-
-rust_defaults {
-    name: "linux_input_sys_test_defaults",
-    defaults: ["crosvm_defaults"],
-    crate_name: "linux_input_sys",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "libbase_rust",
-        "libdata_model",
-        "liblibc",
-    ],
-}
-
-rust_test_host {
-    name: "linux_input_sys_host_test_src_lib",
-    defaults: ["linux_input_sys_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "linux_input_sys_device_test_src_lib",
-    defaults: ["linux_input_sys_test_defaults"],
 }

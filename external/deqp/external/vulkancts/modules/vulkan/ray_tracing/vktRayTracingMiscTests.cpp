@@ -22,6 +22,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vktRayTracingMiscTests.hpp"
+#include "vktTestCaseUtil.hpp"
 
 #include "vkDefs.hpp"
 
@@ -39,6 +40,7 @@
 #include "deRandom.hpp"
 #include <algorithm>
 #include <memory>
+#include <sstream>
 
 namespace vkt
 {
@@ -1712,7 +1714,7 @@ public:
 
 		memBarrier.dstAccessMask	= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 		memBarrier.pNext			= nullptr;
-		memBarrier.srcAccessMask	= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;;
+		memBarrier.srcAccessMask	= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 		memBarrier.sType			= VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 
 		context.getDeviceInterface().cmdPipelineBarrier(commandBuffer,
@@ -4174,18 +4176,27 @@ public:
 		const auto tested_var_types = getVarsToTest(testType);
 		const bool has_f64			= std::find	(	tested_var_types.begin	(),
 													tested_var_types.end	(),
-													VariableType::FLOAT) != tested_var_types.end();
+													VariableType::DOUBLE) != tested_var_types.end();
 		const bool has_f64vec2		= std::find	(	tested_var_types.begin	(),
 													tested_var_types.end	(),
-													VariableType::VEC2) != tested_var_types.end();
+													VariableType::DVEC2) != tested_var_types.end();
 		const bool has_f64vec3		= std::find	(	tested_var_types.begin	(),
 													tested_var_types.end	(),
-													VariableType::VEC3) != tested_var_types.end();
+													VariableType::DVEC3) != tested_var_types.end();
 		const bool has_f64vec4		= std::find	(	tested_var_types.begin	(),
 													tested_var_types.end	(),
-													VariableType::VEC4) != tested_var_types.end();
+													VariableType::DVEC4) != tested_var_types.end();
+		const bool has_f64mat2		= std::find	(	tested_var_types.begin	(),
+													tested_var_types.end	(),
+													VariableType::DMAT2) != tested_var_types.end();
+		const bool has_f64mat3		= std::find	(	tested_var_types.begin	(),
+													tested_var_types.end	(),
+													VariableType::DMAT3) != tested_var_types.end();
+		const bool has_f64mat4		= std::find	(	tested_var_types.begin	(),
+													tested_var_types.end	(),
+													VariableType::DMAT4) != tested_var_types.end();
 
-		return (has_f64 || has_f64vec2 || has_f64vec3 || has_f64vec4);
+		return (has_f64 || has_f64vec2 || has_f64vec3 || has_f64vec4 || has_f64mat2 || has_f64mat3 || has_f64mat4);
 	}
 
 	static bool usesI8(const TestType& testType)
@@ -7869,7 +7880,6 @@ public:
 									TestBase*				testPtr);
 	~RayTracingMiscTestInstance (	void);
 
-	bool			init	(void);
 	tcu::TestStatus	iterate	(void);
 
 protected:
@@ -7886,26 +7896,24 @@ private:
 RayTracingMiscTestInstance::RayTracingMiscTestInstance (Context&					context,
 														const CaseDef&				data,
 														TestBase*					testPtr)
-	: vkt::TestInstance	(context)
-	, m_data			(data)
-	, m_testPtr			(testPtr)
+	: vkt::TestInstance			(context)
+	, m_data					(data)
+	, m_rayTracingPropsPtr		(makeRayTracingProperties(context.getInstanceInterface(),
+														  context.getPhysicalDevice()))
+	, m_testPtr					(testPtr)
 {
-}
+	m_testPtr->init(m_context, m_rayTracingPropsPtr.get());
+ }
 
 RayTracingMiscTestInstance::~RayTracingMiscTestInstance(void)
 {
 	/* Stub */
 }
 
-bool RayTracingMiscTestInstance::init()
+void RayTracingMiscTestInstance::checkSupport(void) const
 {
-	const auto& instanceInterface = m_context.getInstanceInterface();
-	const auto& physicalDeviceVk  = m_context.getPhysicalDevice   ();
-
-	m_rayTracingPropsPtr = makeRayTracingProperties(instanceInterface,
-													physicalDeviceVk);
-
-	return true;
+	if (m_testPtr->getResultBufferSize() > m_context.getDeviceVulkan11Properties().maxMemoryAllocationSize)
+		TCU_THROW(NotSupportedError, "VkPhysicalDeviceVulkan11Properties::maxMemoryAllocationSize too small, allocation might fail");
 }
 
 de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
@@ -7918,10 +7926,6 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 	Allocator&				allocator			= m_context.getDefaultAllocator			();
 
 	de::MovePtr<BufferWithMemory>					resultBufferPtr;
-	auto											rtPropertiesPtr		= makeRayTracingProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice() );
-
-	m_testPtr->init(m_context,
-					rtPropertiesPtr.get() );
 
 	// Determine group indices
 	const auto ahitCollectionShaderNameVec			= m_testPtr->getAHitShaderCollectionShaderNames			();
@@ -8256,11 +8260,7 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 					resultBufferDataVec.data(),
 					resultBufferDataVec.size() );
 
-			flushMappedMemoryRange(	deviceInterface,
-									deviceVk,
-									resultBufferPtr->getAllocation().getMemory(),
-									resultBufferPtr->getAllocation().getOffset(),
-									resultBufferSize);
+			flushAlloc(deviceInterface, deviceVk, resultBufferPtr->getAllocation());
 		}
 
 	}
@@ -8270,7 +8270,7 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 						0u /* flags */);
 	{
 		m_testPtr->initAS(	m_context,
-							rtPropertiesPtr.get(),
+							m_rayTracingPropsPtr.get(),
 							*cmdBufferPtr);
 
 		std::vector<TopLevelAccelerationStructure*> tlasPtrVec = m_testPtr->getTLASPtrVecToBind();
@@ -8357,18 +8357,22 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 
 		{
 			const auto	nTraceRaysInvocationsNeeded			= m_testPtr->getNTraceRayInvocationsNeeded();
+			const auto	handleSize							= m_rayTracingPropsPtr->getShaderGroupHandleSize();
+			const auto	missStride							= de::roundUp(handleSize + m_testPtr->getShaderRecordSize(ShaderGroups::MISS_GROUP), handleSize);
+			const auto	hitStride							= de::roundUp(handleSize + m_testPtr->getShaderRecordSize(ShaderGroups::HIT_GROUP), handleSize);
+			const auto	callStride							= de::roundUp(handleSize + m_testPtr->getShaderRecordSize(ShaderGroups::FIRST_CALLABLE_GROUP), handleSize);
 			const auto	raygenShaderBindingTableRegion		= makeStridedDeviceAddressRegionKHR(getBufferDeviceAddress(	deviceInterface,
 																														deviceVk,
 																														raygenShaderBindingTablePtr->get(),
 																														0 /* offset */),
-																								m_rayTracingPropsPtr->getShaderGroupHandleSize(),
-																								m_rayTracingPropsPtr->getShaderGroupHandleSize() );
+																								handleSize,
+																								handleSize);
 			const auto	missShaderBindingTableRegion		= ((nMissGroups > 0u)	?	makeStridedDeviceAddressRegionKHR(getBufferDeviceAddress(	deviceInterface,
 																																					deviceVk,
 																																					missShaderBindingTablePtr->get(),
 																																					0 /* offset */),
-																															m_rayTracingPropsPtr->getShaderGroupHandleSize() + m_testPtr->getShaderRecordSize(ShaderGroups::MISS_GROUP),
-																															m_rayTracingPropsPtr->getShaderGroupHandleSize())
+																															missStride,
+																															missStride * nMissGroups)
 																					:	makeStridedDeviceAddressRegionKHR(DE_NULL,
 																														  0, /* stride */
 																														  0  /* size   */));
@@ -8376,8 +8380,8 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 																																					deviceVk,
 																																					hitShaderBindingTablePtr->get(),
 																																					0 /* offset */),
-																															m_rayTracingPropsPtr->getShaderGroupHandleSize() + m_testPtr->getShaderRecordSize(ShaderGroups::HIT_GROUP),
-																															m_rayTracingPropsPtr->getShaderGroupHandleSize() )
+																															hitStride,
+																															hitStride * nHitGroups)
 																					:	makeStridedDeviceAddressRegionKHR(DE_NULL,
 																														  0, /* stride */
 																														  0  /* size   */));
@@ -8386,8 +8390,8 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 																																										deviceVk,
 																																										callableShaderBindingTablePtr->get(),
 																																										0 /* offset */),
-																																				m_rayTracingPropsPtr->getShaderGroupHandleSize(), /* stride */
-																																				(m_rayTracingPropsPtr->getShaderGroupHandleSize() + m_testPtr->getShaderRecordSize(ShaderGroups::FIRST_CALLABLE_GROUP) ) * static_cast<deUint32>(callableShaderCollectionNames.size() ) )
+																																				callStride, /* stride */
+																																				callStride * static_cast<deUint32>(callableShaderCollectionNames.size() ) )
 																											: makeStridedDeviceAddressRegionKHR(DE_NULL,
 																																				0, /* stride */
 																																				0  /* size   */);
@@ -8449,6 +8453,8 @@ de::MovePtr<BufferWithMemory> RayTracingMiscTestInstance::runTest(void)
 
 tcu::TestStatus RayTracingMiscTestInstance::iterate (void)
 {
+	checkSupport();
+
 	const de::MovePtr<BufferWithMemory>	bufferGPUPtr		= runTest();
 	const deUint32*						bufferGPUDataPtr	= (deUint32*) bufferGPUPtr->getAllocation().getHostPtr();
 	const bool							result				= m_testPtr->verifyResultBuffer(bufferGPUDataPtr);
@@ -8457,6 +8463,220 @@ tcu::TestStatus RayTracingMiscTestInstance::iterate (void)
 		return tcu::TestStatus::pass("Pass");
 	else
 		return tcu::TestStatus::fail("Fail");
+}
+
+void nullMissSupport (Context& context)
+{
+	context.requireDeviceFunctionality("VK_KHR_acceleration_structure");
+	context.requireDeviceFunctionality("VK_KHR_buffer_device_address");
+	context.requireDeviceFunctionality("VK_KHR_ray_tracing_pipeline");
+}
+
+void nullMissPrograms (vk::SourceCollections& programCollection)
+{
+	const vk::ShaderBuildOptions buildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_4, 0u, true);
+
+	std::ostringstream rgen;
+	std::ostringstream chit;
+
+	rgen
+		<< "#version 460\n"
+		<< "#extension GL_EXT_ray_tracing : require\n"
+		<< "layout(location=0) rayPayloadEXT vec3 unused;\n"
+		<< "layout(set=0, binding=0) uniform accelerationStructureEXT topLevelAS;\n"
+		<< "layout(set=0, binding=1) buffer OutputBuffer { float val; } outBuffer;\n"
+		<< "\n"
+		<< "void main()\n"
+		<< "{\n"
+		<< "  uint  rayFlags = 0u;\n"
+		<< "  uint  cullMask = 0xFFu;\n"
+		<< "  float tmin     = 0.0;\n"
+		<< "  float tmax     = 9.0;\n"
+		<< "  vec3  origin   = vec3(0.0, 0.0, 0.0);\n"
+		<< "  vec3  direct   = vec3(0.0, 0.0, 1.0);\n"
+		<< "  traceRayEXT(topLevelAS, rayFlags, cullMask, 0, 0, 0, origin, tmin, direct, tmax, 0);\n"
+		<< "}\n"
+		;
+
+	chit
+		<< "#version 460\n"
+		<< "#extension GL_EXT_ray_tracing : require\n"
+		<< "layout(location=0) rayPayloadInEXT vec3 unused;\n"
+		<< "layout(set=0, binding=0) uniform accelerationStructureEXT topLevelAS;\n"
+		<< "layout(set=0, binding=1) buffer OutputBuffer { float val; } outBuffer;\n"
+		<< "\n"
+		<< "void main()\n"
+		<< "{\n"
+		<< "  outBuffer.val = 1.0;\n"
+		<< "}\n"
+		;
+
+	programCollection.glslSources.add("rgen") << glu::RaygenSource(updateRayTracingGLSL(rgen.str())) << buildOptions;
+	programCollection.glslSources.add("chit") << glu::ClosestHitSource(updateRayTracingGLSL(chit.str())) << buildOptions;
+}
+
+// Creates an empty shader binding table with a zeroed-out shader group handle.
+de::MovePtr<BufferWithMemory> createEmptySBT (const DeviceInterface& vkd, VkDevice device, Allocator& alloc, deUint32 shaderGroupHandleSize)
+{
+	const auto sbtSize	= static_cast<VkDeviceSize>(shaderGroupHandleSize);
+	const auto sbtFlags	= (VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+	const auto sbtInfo	= makeBufferCreateInfo(sbtSize, sbtFlags);
+	const auto sbtReqs	= (MemoryRequirement::HostVisible | MemoryRequirement::DeviceAddress);
+
+	auto	sbtBuffer	= de::MovePtr<BufferWithMemory>(new BufferWithMemory(vkd, device, alloc, sbtInfo, sbtReqs));
+	auto&	sbtAlloc	= sbtBuffer->getAllocation();
+	void*	sbtData		= sbtAlloc.getHostPtr();
+
+	deMemset(sbtData, 0, static_cast<size_t>(sbtSize));
+	flushAlloc(vkd, device, sbtAlloc);
+
+	return sbtBuffer;
+}
+
+tcu::TestStatus nullMissInstance (Context& context)
+{
+	const auto&	vki		= context.getInstanceInterface();
+	const auto	physDev	= context.getPhysicalDevice();
+	const auto&	vkd		= context.getDeviceInterface();
+	const auto	device	= context.getDevice();
+	auto&		alloc	= context.getDefaultAllocator();
+	const auto	qIndex	= context.getUniversalQueueFamilyIndex();
+	const auto	queue	= context.getUniversalQueue();
+	const auto	stages	= (VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+
+	// Command pool and buffer.
+	const auto cmdPool		= makeCommandPool(vkd, device, qIndex);
+	const auto cmdBufferPtr	= allocateCommandBuffer(vkd, device, cmdPool.get(), VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	const auto cmdBuffer	= cmdBufferPtr.get();
+
+	beginCommandBuffer(vkd, cmdBuffer);
+
+	// Build acceleration structures.
+	auto topLevelAS		= makeTopLevelAccelerationStructure();
+	auto bottomLevelAS	= makeBottomLevelAccelerationStructure();
+
+	std::vector<tcu::Vec3> triangle;
+	triangle.reserve(3u);
+	triangle.emplace_back( 0.0f,  1.0f, 10.0f);
+	triangle.emplace_back(-1.0f, -1.0f, 10.0f);
+	triangle.emplace_back( 1.0f, -1.0f, 10.0f);
+	bottomLevelAS->addGeometry(triangle, true/*triangles*/);
+	bottomLevelAS->createAndBuild(vkd, device, cmdBuffer, alloc);
+
+	de::SharedPtr<BottomLevelAccelerationStructure> blasSharedPtr (bottomLevelAS.release());
+	topLevelAS->setInstanceCount(1);
+	topLevelAS->addInstance(blasSharedPtr);
+	topLevelAS->createAndBuild(vkd, device, cmdBuffer, alloc);
+
+	// Create output buffer.
+	const auto			bufferSize			= static_cast<VkDeviceSize>(sizeof(float));
+	const auto			bufferCreateInfo	= makeBufferCreateInfo(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	BufferWithMemory	buffer				(vkd, device, alloc, bufferCreateInfo, MemoryRequirement::HostVisible);
+	auto&				bufferAlloc			= buffer.getAllocation();
+
+	// Fill output buffer with an initial value.
+	deMemset(bufferAlloc.getHostPtr(), 0, sizeof(float));
+	flushAlloc(vkd, device, bufferAlloc);
+
+	// Descriptor set layout and pipeline layout.
+	DescriptorSetLayoutBuilder setLayoutBuilder;
+	setLayoutBuilder.addSingleBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, stages);
+	setLayoutBuilder.addSingleBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages);
+
+	const auto setLayout		= setLayoutBuilder.build(vkd, device);
+	const auto pipelineLayout	= makePipelineLayout(vkd, device, setLayout.get());
+
+	// Descriptor pool and set.
+	DescriptorPoolBuilder poolBuilder;
+	poolBuilder.addType(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
+	poolBuilder.addType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	const auto descriptorPool	= poolBuilder.build(vkd, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
+	const auto descriptorSet	= makeDescriptorSet(vkd, device, descriptorPool.get(), setLayout.get());
+
+	// Update descriptor set.
+	{
+		const VkWriteDescriptorSetAccelerationStructureKHR accelDescInfo =
+		{
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+			nullptr,
+			1u,
+			topLevelAS.get()->getPtr(),
+		};
+
+		const auto bufferDescInfo = makeDescriptorBufferInfo(buffer.get(), 0ull, VK_WHOLE_SIZE);
+
+		DescriptorSetUpdateBuilder updateBuilder;
+		updateBuilder.writeSingle(descriptorSet.get(), DescriptorSetUpdateBuilder::Location::binding(0u), VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, &accelDescInfo);
+		updateBuilder.writeSingle(descriptorSet.get(), DescriptorSetUpdateBuilder::Location::binding(1u), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &bufferDescInfo);
+		updateBuilder.update(vkd, device);
+	}
+
+	// Shader modules.
+	auto rgenModule = createShaderModule(vkd, device, context.getBinaryCollection().get("rgen"), 0);
+	auto chitModule = createShaderModule(vkd, device, context.getBinaryCollection().get("chit"), 0);
+
+	// Get some ray tracing properties.
+	deUint32 shaderGroupHandleSize		= 0u;
+	deUint32 shaderGroupBaseAlignment	= 1u;
+	{
+		const auto rayTracingPropertiesKHR	= makeRayTracingProperties(vki, physDev);
+		shaderGroupHandleSize				= rayTracingPropertiesKHR->getShaderGroupHandleSize();
+		shaderGroupBaseAlignment			= rayTracingPropertiesKHR->getShaderGroupBaseAlignment();
+	}
+
+	// Create raytracing pipeline and shader binding tables.
+	Move<VkPipeline>				pipeline;
+
+	de::MovePtr<BufferWithMemory>	raygenSBT;
+	de::MovePtr<BufferWithMemory>	missSBT;
+	de::MovePtr<BufferWithMemory>	hitSBT;
+	de::MovePtr<BufferWithMemory>	callableSBT;
+
+	VkStridedDeviceAddressRegionKHR	raygenSBTRegion		= makeStridedDeviceAddressRegionKHR(DE_NULL, 0, 0);
+	VkStridedDeviceAddressRegionKHR	missSBTRegion		= makeStridedDeviceAddressRegionKHR(DE_NULL, 0, 0);
+	VkStridedDeviceAddressRegionKHR	hitSBTRegion		= makeStridedDeviceAddressRegionKHR(DE_NULL, 0, 0);
+	VkStridedDeviceAddressRegionKHR	callableSBTRegion	= makeStridedDeviceAddressRegionKHR(DE_NULL, 0, 0);
+
+	{
+		const auto rayTracingPipeline = de::newMovePtr<RayTracingPipeline>();
+
+		rayTracingPipeline->addShader(VK_SHADER_STAGE_RAYGEN_BIT_KHR, rgenModule, 0u);
+		rayTracingPipeline->addShader(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, chitModule, 1u);
+
+		pipeline = rayTracingPipeline->createPipeline(vkd, device, pipelineLayout.get());
+
+		raygenSBT		= rayTracingPipeline->createShaderBindingTable(vkd, device, pipeline.get(), alloc, shaderGroupHandleSize, shaderGroupBaseAlignment, 0u, 1u);
+		raygenSBTRegion	= makeStridedDeviceAddressRegionKHR(getBufferDeviceAddress(vkd, device, raygenSBT->get(), 0ull), shaderGroupHandleSize, shaderGroupHandleSize);
+
+		hitSBT			= rayTracingPipeline->createShaderBindingTable(vkd, device, pipeline.get(), alloc, shaderGroupHandleSize, shaderGroupBaseAlignment, 1u, 1u);
+		hitSBTRegion	= makeStridedDeviceAddressRegionKHR(getBufferDeviceAddress(vkd, device, hitSBT->get(), 0ull), shaderGroupHandleSize, shaderGroupHandleSize);
+
+		// Critical for the test: the miss shader binding table buffer is empty and contains a zero'ed out shader group handle.
+		missSBT			= createEmptySBT(vkd, device, alloc, shaderGroupHandleSize);
+		missSBTRegion	= makeStridedDeviceAddressRegionKHR(getBufferDeviceAddress(vkd, device, missSBT->get(), 0ull), shaderGroupHandleSize, shaderGroupHandleSize);
+	}
+
+	// Trace rays.
+	vkd.cmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.get());
+	vkd.cmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout.get(), 0u, 1u, &descriptorSet.get(), 0u, nullptr);
+	vkd.cmdTraceRaysKHR(cmdBuffer, &raygenSBTRegion, &missSBTRegion, &hitSBTRegion, &callableSBTRegion, 1u, 1u, 1u);
+
+	// Barrier for the output buffer just in case (no writes should take place).
+	const auto bufferBarrier = makeMemoryBarrier(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT);
+	vkd.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_HOST_BIT, 0u, 1u, &bufferBarrier, 0u, nullptr, 0u, nullptr);
+
+	endCommandBuffer(vkd, cmdBuffer);
+	submitCommandsAndWait(vkd, device, queue, cmdBuffer);
+
+	// Read value back from the buffer. No write should have taken place.
+	float bufferValue = 0.0f;
+	invalidateAlloc(vkd, device, bufferAlloc);
+	deMemcpy(&bufferValue, bufferAlloc.getHostPtr(), sizeof(bufferValue));
+
+	if (bufferValue != 0.0f)
+		TCU_FAIL("Unexpected value found in buffer: " + de::toString(bufferValue));
+
+	return tcu::TestStatus::pass("Pass");
 }
 
 }	// anonymous
@@ -9001,8 +9221,6 @@ TestInstance* RayTracingTestCase::createInstance (Context& context) const
 																m_data,
 																m_testPtr.get		() );
 
-	newTestInstancePtr->init();
-
 	return newTestInstancePtr;
 }
 
@@ -9325,6 +9543,10 @@ tcu::TestCaseGroup*	createMiscTests (tcu::TestContext& testCtx)
 		miscGroupPtr->addChild(newTestCase4Ptr);
 		miscGroupPtr->addChild(newTestCase5Ptr);
 		miscGroupPtr->addChild(newTestCase6Ptr);
+	}
+
+	{
+		addFunctionCaseWithPrograms(miscGroupPtr.get(), "null_miss", "", nullMissSupport, nullMissPrograms, nullMissInstance);
 	}
 
 	return miscGroupPtr.release();

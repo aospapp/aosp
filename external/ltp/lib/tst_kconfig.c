@@ -11,7 +11,9 @@
 
 #define TST_NO_DEFAULT_MAIN
 #include "tst_test.h"
+#include "tst_private.h"
 #include "tst_kconfig.h"
+#include "tst_bool_expr.h"
 
 static const char *kconfig_path(char *path_buf, size_t path_buf_len)
 {
@@ -52,7 +54,7 @@ static char is_gzip;
 static FILE *open_kconfig(void)
 {
 	FILE *fp;
-	char buf[1024];
+	char buf[1064];
 	char path_buf[1024];
 	const char *path = kconfig_path(path_buf, sizeof(path_buf));
 
@@ -84,126 +86,108 @@ static void close_kconfig(FILE *fp)
 		fclose(fp);
 }
 
-struct match {
-	/* match len, string length up to \0 or = */
-	size_t len;
-	/* if set part of conf string after = */
-	const char *val;
-	/* if set the config option was matched already */
-	int match;
-};
-
-static int is_set(const char *str, const char *val)
+static inline int kconfig_parse_line(const char *line,
+                                     struct tst_kconfig_var *vars,
+                                     unsigned int vars_len)
 {
-	size_t vlen = strlen(val);
+	unsigned int i, var_len = 0;
+	const char *var;
+	int is_not_set = 0;
 
-	while (isspace(*str))
-		str++;
+	while (isspace(*line))
+		line++;
 
-	if (strncmp(str, val, vlen))
-		return 0;
+	if (*line == '#') {
+		if (!strstr(line, "is not set"))
+			return 0;
 
-	switch (str[vlen]) {
-	case ' ':
-	case '\n':
-	case '\0':
-		return 1;
-	break;
-	default:
-		return 0;
+		is_not_set = 1;
 	}
-}
 
-static inline int match(struct match *match, const char *conf,
-                        struct tst_kconfig_res *result, const char *line)
-{
-	if (match->match)
+	var = strstr(line, "CONFIG_");
+
+	if (!var)
 		return 0;
 
-	const char *cfg = strstr(line, "CONFIG_");
-
-	if (!cfg)
-		return 0;
-
-	if (strncmp(cfg, conf, match->len))
-		return 0;
-
-	const char *val = &cfg[match->len];
-
-	switch (cfg[match->len]) {
-	case '=':
+	for (;;) {
+		switch (var[var_len]) {
+		case 'A' ... 'Z':
+		case '0' ... '9':
+		case '_':
+			var_len++;
 		break;
-	case ' ':
-		if (is_set(val, "is not set")) {
-			result->match = 'n';
-			goto match;
+		default:
+			goto out;
+		break;
 		}
-	/* fall through */
-	default:
-		return 0;
 	}
 
-	if (is_set(val, "=y")) {
-		result->match = 'y';
-		goto match;
-	}
+out:
 
-	if (is_set(val, "=m")) {
-		result->match = 'm';
-		goto match;
-	}
+	for (i = 0; i < vars_len; i++) {
+		const char *val;
+		unsigned int val_len = 0;
 
-	result->match = 'v';
-	result->value = strndup(val+1, strlen(val)-2);
+		if (vars[i].id_len != var_len)
+			continue;
 
-match:
-	match->match = 1;
-	return 1;
-}
+		if (strncmp(vars[i].id, var, var_len))
+			continue;
 
-void tst_kconfig_read(const char *const *kconfigs,
-                      struct tst_kconfig_res results[], size_t cnt)
-{
-	struct match matches[cnt];
-	FILE *fp;
-	unsigned int i, j;
-	char buf[1024];
-
-	for (i = 0; i < cnt; i++) {
-		const char *val = strchr(kconfigs[i], '=');
-
-		if (strncmp("CONFIG_", kconfigs[i], 7))
-			tst_brk(TBROK, "Invalid config string '%s'", kconfigs[i]);
-
-		matches[i].match = 0;
-		matches[i].len = strlen(kconfigs[i]);
-
-		if (val) {
-			matches[i].val = val + 1;
-			matches[i].len -= strlen(val);
+		if (is_not_set) {
+			vars[i].choice = 'n';
+			return 1;
 		}
 
-		results[i].match = 0;
-		results[i].value = NULL;
-	}
+		val = var + var_len;
 
-	fp = open_kconfig();
-	if (!fp)
-		tst_brk(TBROK, "Cannot parse kernel .config");
+		while (isspace(*val))
+			val++;
 
-	while (fgets(buf, sizeof(buf), fp)) {
-		for (i = 0; i < cnt; i++) {
-			if (match(&matches[i], kconfigs[i], &results[i], buf)) {
-				for (j = 0; j < cnt; j++) {
-					if (matches[j].match)
-						break;
-				}
+		if (*val != '=')
+			return 0;
 
-				if (j == cnt)
-					goto exit;
+		val++;
+
+		while (isspace(*val))
+			val++;
+
+		while (!isspace(val[val_len]))
+			val_len++;
+
+		if (val_len == 1) {
+			switch (val[0]) {
+			case 'y':
+				vars[i].choice = 'y';
+				return 1;
+			case 'm':
+				vars[i].choice = 'm';
+				return 1;
 			}
 		}
 
+		vars[i].choice = 'v';
+		vars[i].val = strndup(val, val_len);
+	}
+
+	return 0;
+}
+
+void tst_kconfig_read(struct tst_kconfig_var vars[], size_t vars_len)
+{
+	char line[128];
+	unsigned int vars_found = 0;
+
+	FILE *fp = open_kconfig();
+	if (!fp)
+		tst_brk(TBROK, "Cannot parse kernel .config");
+
+	while (fgets(line, sizeof(line), fp)) {
+		if (kconfig_parse_line(line, vars, vars_len))
+			vars_found++;
+
+		if (vars_found == vars_len)
+			goto exit;
 	}
 
 exit:
@@ -219,67 +203,333 @@ static size_t array_len(const char *const kconfigs[])
 	return i;
 }
 
-static int compare_res(struct tst_kconfig_res *res, const char *kconfig,
-                       char match, const char *val)
+static const char *strnchr(const char *s, int c, unsigned int len)
 {
-	if (res->match != match) {
-		tst_res(TINFO, "Needs kernel %s, have %c", kconfig, res->match);
+	unsigned int i;
+
+	for (i = 0; i < len; i++) {
+		if (s[i] == c)
+			return s + i;
+	}
+
+	return NULL;
+}
+
+static inline unsigned int get_len(const char* kconfig, unsigned int len)
+{
+	const char *sep = strnchr(kconfig, '=', len);
+
+	if (!sep)
+		return len;
+
+	return sep - kconfig;
+}
+
+static void print_err(FILE *f, const struct tst_expr_tok *var,
+                      size_t spaces, const char *err)
+{
+	size_t i;
+
+	for (i = 0; i < var->tok_len; i++)
+		fputc(var->tok[i], f);
+
+	fputc('\n', f);
+
+	while (spaces--)
+		fputc(' ', f);
+
+	fprintf(f, "^\n%s\n\n", err);
+}
+
+static int validate_var(const struct tst_expr_tok *var)
+{
+	size_t i = 7;
+
+	if (var->tok_len < 7 || strncmp(var->tok, "CONFIG_", 7)) {
+		print_err(stderr, var, 0, "Expected CONFIG_ prefix");
 		return 1;
 	}
 
-	if (match != 'v')
-		return 0;
+	while (var->tok[i]) {
+		char c;
 
-	if (strcmp(res->value, val)) {
-		tst_res(TINFO, "Needs kernel %s, have %s", kconfig, res->value);
+		if (i >= var->tok_len)
+			return 0;
+
+		c = var->tok[i];
+
+		if ((c >= 'A' && c <= 'Z') || c == '_') {
+			i++;
+			continue;
+		}
+
+		if (c >= '0' && c <= '9') {
+			i++;
+			continue;
+		}
+
+		if (c == '=') {
+			i++;
+			break;
+		}
+
+		print_err(stderr, var, i, "Unexpected character in variable name");
+		return 1;
+	}
+
+	if (i >= var->tok_len) {
+
+		if (var->tok[i-1] == '=') {
+			print_err(stderr, var, i, "Missing value");
+			return -1;
+		}
+
+		return 0;
+	}
+
+	if (var->tok[i] == '"') {
+		do {
+			i++;
+		} while (i < var->tok_len && var->tok[i] != '"');
+
+		if (i < var->tok_len - 1) {
+			print_err(stderr, var, i, "Garbage after a string");
+			return 1;
+		}
+
+		if (var->tok[i] != '"') {
+			print_err(stderr, var, i, "Untermianted string");
+			return 1;
+		}
+
+		return 0;
+	}
+
+	do {
+		i++;
+	} while (i < var->tok_len && isalnum(var->tok[i]));
+
+	if (i < var->tok_len) {
+		print_err(stderr, var, i, "Invalid character in variable value");
 		return 1;
 	}
 
 	return 0;
 }
 
+static int validate_vars(struct tst_expr *const exprs[], unsigned int expr_cnt)
+{
+	unsigned int i;
+	const struct tst_expr_tok *j;
+	unsigned int ret = 0;
+
+	for (i = 0; i < expr_cnt; i++) {
+		for (j = exprs[i]->rpn; j; j = j->next) {
+			if (j->op == TST_OP_VAR)
+				ret |= validate_var(j);
+		}
+	}
+
+	return ret;
+}
+
+
+static inline unsigned int get_var_cnt(struct tst_expr *const exprs[],
+                                       unsigned int expr_cnt)
+{
+	unsigned int i;
+	const struct tst_expr_tok *j;
+	unsigned int cnt = 0;
+
+	for (i = 0; i < expr_cnt; i++) {
+		for (j = exprs[i]->rpn; j; j = j->next) {
+			if (j->op == TST_OP_VAR)
+				cnt++;
+		}
+	}
+
+	return cnt;
+}
+
+static const struct tst_kconfig_var *find_var(const struct tst_kconfig_var vars[],
+                                        unsigned int var_cnt,
+                                        const char *var)
+{
+	unsigned int i;
+
+	for (i = 0; i < var_cnt; i++) {
+		if (!strcmp(vars[i].id, var))
+			return &vars[i];
+	}
+
+	return NULL;
+}
+
+/*
+ * Fill in the kconfig variables array from the expressions. Also makes sure
+ * that each variable is copied to the array exaclty once.
+ */
+static inline unsigned int populate_vars(struct tst_expr *exprs[],
+                                         unsigned int expr_cnt,
+                                    struct tst_kconfig_var vars[])
+{
+	unsigned int i;
+	struct tst_expr_tok *j;
+	unsigned int cnt = 0;
+
+	for (i = 0; i < expr_cnt; i++) {
+		for (j = exprs[i]->rpn; j; j = j->next) {
+			const struct tst_kconfig_var *var;
+
+			if (j->op != TST_OP_VAR)
+				continue;
+
+			vars[cnt].id_len = get_len(j->tok, j->tok_len);
+
+			if (vars[cnt].id_len + 1 >= sizeof(vars[cnt].id))
+				tst_brk(TBROK, "kconfig var id too long!");
+
+			strncpy(vars[cnt].id, j->tok, vars[cnt].id_len);
+			vars[cnt].id[vars[cnt].id_len] = 0;
+			vars[cnt].choice = 0;
+
+			var = find_var(vars, cnt, vars[cnt].id);
+
+			if (var)
+				j->priv = var;
+			else
+				j->priv = &vars[cnt++];
+		}
+	}
+
+	return cnt;
+}
+
+static int map(struct tst_expr_tok *expr)
+{
+	const struct tst_kconfig_var *var = expr->priv;
+
+	if (var->choice == 0)
+		return 0;
+
+	const char *val = strnchr(expr->tok, '=', expr->tok_len);
+
+	/* CONFIG_FOO evaluates to true if y or m */
+	if (!val)
+		return var->choice == 'y' || var->choice == 'm';
+
+	val++;
+
+	unsigned int len = expr->tok_len - (val - expr->tok);
+	char choice = 'v';
+
+	if (!strncmp(val, "n", len))
+		choice = 'n';
+
+	if (!strncmp(val, "y", len))
+		choice = 'y';
+
+	if (!strncmp(val, "m", len))
+		choice = 'm';
+
+	if (choice != 'v')
+		return var->choice == choice;
+
+	if (strlen(var->val) != len)
+		return 0;
+
+	return !strncmp(val, var->val, len);
+}
+
+static void dump_vars(const struct tst_expr *expr)
+{
+	const struct tst_expr_tok *i;
+	const struct tst_kconfig_var *var;
+
+	tst_res(TINFO, "Variables:");
+
+	for (i = expr->rpn; i; i = i->next) {
+		if (i->op != TST_OP_VAR)
+			continue;
+
+		var = i->priv;
+
+		if (!var->choice) {
+			tst_res(TINFO, " %s Undefined", var->id);
+			continue;
+		}
+
+		if (var->choice == 'v') {
+			tst_res(TINFO, " %s=%s", var->id, var->val);
+			continue;
+		}
+
+		tst_res(TINFO, " %s=%c", var->id, var->choice);
+	}
+}
+
 void tst_kconfig_check(const char *const kconfigs[])
 {
-	size_t cnt = array_len(kconfigs);
-	struct tst_kconfig_res results[cnt];
-	unsigned int i;
+	size_t expr_cnt = array_len(kconfigs);
+	struct tst_expr *exprs[expr_cnt];
+	unsigned int i, var_cnt;
 	int abort_test = 0;
 
-	tst_kconfig_read(kconfigs, results, cnt);
+	for (i = 0; i < expr_cnt; i++) {
+		exprs[i] = tst_bool_expr_parse(kconfigs[i]);
 
-	for (i = 0; i < cnt; i++) {
-		if (results[i].match == 0) {
-			tst_res(TINFO, "Missing kernel %s", kconfigs[i]);
+		if (!exprs[i])
+			tst_brk(TBROK, "Invalid kconfig expression!");
+	}
+
+	if (validate_vars(exprs, expr_cnt))
+		tst_brk(TBROK, "Invalid kconfig variables!");
+
+	var_cnt = get_var_cnt(exprs, expr_cnt);
+	struct tst_kconfig_var vars[var_cnt];
+
+	var_cnt = populate_vars(exprs, expr_cnt, vars);
+
+	tst_kconfig_read(vars, var_cnt);
+
+	for (i = 0; i < expr_cnt; i++) {
+		int val = tst_bool_expr_eval(exprs[i], map);
+
+		if (val != 1) {
 			abort_test = 1;
-			continue;
+			tst_res(TINFO, "Constrain '%s' not satisfied!", kconfigs[i]);
+			dump_vars(exprs[i]);
 		}
 
-		if (results[i].match == 'n') {
-			tst_res(TINFO, "Kernel %s is not set", kconfigs[i]);
-			abort_test = 1;
-			continue;
-		}
+		tst_bool_expr_free(exprs[i]);
+	}
 
-		const char *val = strchr(kconfigs[i], '=');
-
-		if (val) {
-			char match = 'v';
-			val++;
-
-			if (!strcmp(val, "y"))
-				match = 'y';
-
-			if (!strcmp(val, "m"))
-				match = 'm';
-
-			if (compare_res(&results[i], kconfigs[i], match, val))
-				abort_test = 1;
-
-		}
-
-		free(results[i].value);
+	for (i = 0; i < var_cnt; i++) {
+		if (vars[i].choice == 'v')
+			free(vars[i].val);
 	}
 
 	if (abort_test)
 		tst_brk(TCONF, "Aborting due to unsuitable kernel config, see above!");
+}
+
+char tst_kconfig_get(const char *confname)
+{
+	struct tst_kconfig_var var;
+
+	var.id_len = strlen(confname);
+
+	if (var.id_len >= sizeof(var.id))
+		tst_brk(TBROK, "Kconfig var name \"%s\" too long", confname);
+
+	strcpy(var.id, confname);
+	var.choice = 0;
+	var.val = NULL;
+
+	tst_kconfig_read(&var, 1);
+
+	if (var.choice == 'v')
+		free(var.val);
+
+	return var.choice;
 }

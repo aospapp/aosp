@@ -32,23 +32,8 @@ java_library {
         "-Xmulti-platform",
     ],
     visibility: ["//external/kotlinx.coroutines"],
-}
-
-java_binary_host {
-    name: "kotlinx_atomicfu_transformer",
-    srcs: [
-        "atomicfu-transformer/src/main/**/*.kt",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
     ],
-    exclude_srcs: [
-        "atomicfu-transformer/src/main/kotlin/kotlinx/atomicfu/transformer/AtomicFUTransformerJS.kt",
-    ],
-    static_libs: [
-        "kotlinx_metadata_jvm",
-        "asm-6.0",
-        "asm-commons-6.0",
-        "asm-tree-6.0",
-        "asm-util-6.0",
-        "slf4j-jdk14",
-    ],
-    main_class: "kotlinx.atomicfu.transformer.AtomicFUTransformerKT",
 }

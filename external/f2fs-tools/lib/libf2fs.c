@@ -499,7 +499,6 @@ opaque_seq:
 	return __f2fs_dentry_hash(name, len);
 }
 
-#define ALIGN_DOWN(addrs, size)		(((addrs) / (size)) * (size))
 unsigned int addrs_per_inode(struct f2fs_inode *i)
 {
 	unsigned int addrs = CUR_ADDRS_PER_INODE(i) - get_inline_xattr_addrs(i);
@@ -516,6 +515,14 @@ unsigned int addrs_per_block(struct f2fs_inode *i)
 			!(le32_to_cpu(i->i_flags) & F2FS_COMPR_FL))
 		return DEF_ADDRS_PER_BLOCK;
 	return ALIGN_DOWN(DEF_ADDRS_PER_BLOCK, 1 << i->i_log_cluster_size);
+}
+
+unsigned int f2fs_max_file_offset(struct f2fs_inode *i)
+{
+	if (!LINUX_S_ISREG(le16_to_cpu(i->i_mode)) ||
+			!(le32_to_cpu(i->i_flags) & F2FS_COMPR_FL))
+		return le64_to_cpu(i->i_size);
+	return ALIGN_UP(le64_to_cpu(i->i_size), 1 << i->i_log_cluster_size);
 }
 
 /*
@@ -945,7 +952,7 @@ int get_device_info(int i)
 		c.kd = open("/proc/version", O_RDONLY);
 #endif
 		if (c.kd < 0) {
-			MSG(0, "\tInfo: No support kernel version!\n");
+			MSG(0, "Info: not exist /proc/version!\n");
 			c.kd = -2;
 		}
 	}
@@ -1176,6 +1183,12 @@ int f2fs_get_device_info(void)
 	for (i = 0; i < c.ndevs; i++)
 		if (get_device_info(i))
 			return -1;
+	return 0;
+}
+
+int f2fs_get_f2fs_info(void)
+{
+	int i;
 
 	if (c.wanted_total_sectors < c.total_sectors) {
 		MSG(0, "Info: total device sectors = %"PRIu64" (in %u bytes)\n",

@@ -35,18 +35,73 @@ namespace {
 
 constexpr size_t kMaxChunkSize = 4 * 1024 * 1024;
 
+TEST(TraceProcessorCustomConfigTest, SkipInternalMetricsMatchingMountPath) {
+  auto config = Config();
+  config.skip_builtin_metric_paths = {"android/"};
+  auto processor = TraceProcessor::CreateInstance(config);
+  processor->NotifyEndOfFile();
+
+  // Check that andorid metrics have not been loaded.
+  auto it = processor->ExecuteQuery(
+      "select count(*) from trace_metrics "
+      "where name = 'android_cpu';");
+  ASSERT_TRUE(it.Next());
+  ASSERT_EQ(it.Get(0).type, SqlValue::kLong);
+  ASSERT_EQ(it.Get(0).long_value, 0);
+
+  // Check that other metrics have been loaded.
+  it = processor->ExecuteQuery(
+      "select count(*) from trace_metrics "
+      "where name = 'trace_metadata';");
+  ASSERT_TRUE(it.Next());
+  ASSERT_EQ(it.Get(0).type, SqlValue::kLong);
+  ASSERT_EQ(it.Get(0).long_value, 1);
+}
+
+TEST(TraceProcessorCustomConfigTest, EmptyStringSkipsAllMetrics) {
+  auto config = Config();
+  config.skip_builtin_metric_paths = {""};
+  auto processor = TraceProcessor::CreateInstance(config);
+  processor->NotifyEndOfFile();
+
+  // Check that other metrics have been loaded.
+  auto it = processor->ExecuteQuery(
+      "select count(*) from trace_metrics "
+      "where name = 'trace_metadata';");
+  ASSERT_TRUE(it.Next());
+  ASSERT_EQ(it.Get(0).type, SqlValue::kLong);
+  ASSERT_EQ(it.Get(0).long_value, 0);
+}
+
+TEST(TraceProcessorCustomConfigTest, HandlesMalformedMountPath) {
+  auto config = Config();
+  config.skip_builtin_metric_paths = {"androi"};
+  auto processor = TraceProcessor::CreateInstance(config);
+  processor->NotifyEndOfFile();
+
+  // Check that andorid metrics have been loaded.
+  auto it = processor->ExecuteQuery(
+      "select count(*) from trace_metrics "
+      "where name = 'android_cpu';");
+  ASSERT_TRUE(it.Next());
+  ASSERT_EQ(it.Get(0).type, SqlValue::kLong);
+  ASSERT_EQ(it.Get(0).long_value, 1);
+}
+
 class TraceProcessorIntegrationTest : public ::testing::Test {
  public:
   TraceProcessorIntegrationTest()
       : processor_(TraceProcessor::CreateInstance(Config())) {}
 
  protected:
-  util::Status LoadTrace(const char* name, size_t min_chunk_size = 512) {
-    EXPECT_LE(min_chunk_size, kMaxChunkSize);
+  util::Status LoadTrace(const char* name,
+                         size_t min_chunk_size = 512,
+                         size_t max_chunk_size = kMaxChunkSize) {
+    EXPECT_LE(min_chunk_size, max_chunk_size);
     base::ScopedFstream f(fopen(
         base::GetTestDataPath(std::string("test/data/") + name).c_str(), "rb"));
     std::minstd_rand0 rnd_engine(0);
-    std::uniform_int_distribution<size_t> dist(min_chunk_size, kMaxChunkSize);
+    std::uniform_int_distribution<size_t> dist(min_chunk_size, max_chunk_size);
     while (!feof(*f)) {
       size_t chunk_size = dist(rnd_engine);
       std::unique_ptr<uint8_t[]> buf(new uint8_t[chunk_size]);
@@ -124,7 +179,8 @@ TEST_F(TraceProcessorIntegrationTest, Hash) {
   ASSERT_EQ(it.Get(0).long_value, static_cast<int64_t>(0xa9cb070fdc15f7a4));
 }
 
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#if !PERFETTO_BUILDFLAG(PERFETTO_LLVM_DEMANGLE) && \
+    !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 #define MAYBE_Demangle DISABLED_Demangle
 #else
 #define MAYBE_Demangle Demangle
@@ -132,14 +188,37 @@ TEST_F(TraceProcessorIntegrationTest, Hash) {
 TEST_F(TraceProcessorIntegrationTest, MAYBE_Demangle) {
   auto it = Query("select DEMANGLE('_Znwm')");
   ASSERT_TRUE(it.Next());
-  ASSERT_STRCASEEQ(it.Get(0).string_value, "operator new(unsigned long)");
+  EXPECT_STRCASEEQ(it.Get(0).string_value, "operator new(unsigned long)");
 
   it = Query("select DEMANGLE('_ZN3art6Thread14CreateCallbackEPv')");
   ASSERT_TRUE(it.Next());
-  ASSERT_STRCASEEQ(it.Get(0).string_value,
+  EXPECT_STRCASEEQ(it.Get(0).string_value,
                    "art::Thread::CreateCallback(void*)");
 
   it = Query("select DEMANGLE('test')");
+  ASSERT_TRUE(it.Next());
+  EXPECT_TRUE(it.Get(0).is_null());
+}
+
+#if !PERFETTO_BUILDFLAG(PERFETTO_LLVM_DEMANGLE)
+#define MAYBE_DemangleRust DISABLED_DemangleRust
+#else
+#define MAYBE_DemangleRust DemangleRust
+#endif
+TEST_F(TraceProcessorIntegrationTest, MAYBE_DemangleRust) {
+  auto it = Query(
+      "select DEMANGLE("
+      "'_RNvNvMs0_NtNtNtCsg1Z12QU66Yk_3std3sys4unix6threadNtB7_"
+      "6Thread3new12thread_start')");
+  ASSERT_TRUE(it.Next());
+  EXPECT_STRCASEEQ(it.Get(0).string_value,
+                   "<std::sys::unix::thread::Thread>::new::thread_start");
+
+  it = Query("select DEMANGLE('_RNvCsdV139EorvfX_14keystore2_main4main')");
+  ASSERT_TRUE(it.Next());
+  ASSERT_STRCASEEQ(it.Get(0).string_value, "keystore2_main::main");
+
+  it = Query("select DEMANGLE('_R')");
   ASSERT_TRUE(it.Next());
   ASSERT_TRUE(it.Get(0).is_null());
 }
@@ -196,16 +275,28 @@ TEST_F(TraceProcessorIntegrationTest, SerializeMetricDescriptors) {
   ASSERT_EQ(trace_metrics_count, 1);
 }
 
-TEST_F(TraceProcessorIntegrationTest, ComputeMetricsFormatted) {
+TEST_F(TraceProcessorIntegrationTest, ComputeMetricsFormattedExtension) {
   std::string metric_output;
   util::Status status = Processor()->ComputeMetricText(
       std::vector<std::string>{"test_chrome_metric"},
       TraceProcessor::MetricResultFormat::kProtoText, &metric_output);
   ASSERT_TRUE(status.ok());
+  // Extension fields are output as [fully.qualified.name].
   ASSERT_EQ(metric_output,
-            "test_chrome_metric: {\n"
+            "[perfetto.protos.test_chrome_metric] {\n"
             "  test_value: 1\n"
             "}");
+}
+
+TEST_F(TraceProcessorIntegrationTest, ComputeMetricsFormattedNoExtension) {
+  std::string metric_output;
+  util::Status status = Processor()->ComputeMetricText(
+      std::vector<std::string>{"trace_metadata"},
+      TraceProcessor::MetricResultFormat::kProtoText, &metric_output);
+  ASSERT_TRUE(status.ok());
+  // Check that metric result starts with trace_metadata field. Since this is
+  // not an extension field, the field name is not fully qualified.
+  ASSERT_TRUE(metric_output.rfind("trace_metadata {") == 0);
 }
 
 // TODO(hjd): Add trace to test_data.
@@ -332,13 +423,13 @@ TEST_F(TraceProcessorIntegrationTest, RestoreInitialTables) {
 // with opening the same trace with ninjatracing + chrome://tracing.
 TEST_F(TraceProcessorIntegrationTest, NinjaLog) {
   ASSERT_TRUE(LoadTrace("ninja_log", 1024).ok());
-  auto it = Query("select count(*) from process where name like 'build';");
+  auto it = Query("select count(*) from process where name like 'Build';");
   ASSERT_TRUE(it.Next());
   ASSERT_EQ(it.Get(0).long_value, 2);
 
   it = Query(
       "select count(*) from thread left join process using(upid) where "
-      "thread.name like 'worker%' and process.pid=1");
+      "thread.name like 'Worker%' and process.pid=1");
   ASSERT_TRUE(it.Next());
   ASSERT_EQ(it.Get(0).long_value, 14);
 
@@ -361,6 +452,39 @@ TEST_F(TraceProcessorIntegrationTest, NinjaLog) {
   it = Query("select sum(dur) / 1000000 from slices_1st_build");
   ASSERT_TRUE(it.Next());
   ASSERT_EQ(it.Get(0).long_value, 276174);
+}
+
+/*
+ * This trace does not have a uuid. The uuid will be generated from the first
+ * 4096 bytes, which will be read in one chunk.
+ */
+TEST_F(TraceProcessorIntegrationTest, TraceWithoutUuidReadInOneChunk) {
+  ASSERT_TRUE(LoadTrace("example_android_trace_30s.pb", kMaxChunkSize).ok());
+  auto it = Query("select str_value from metadata where name = 'trace_uuid'");
+  ASSERT_TRUE(it.Next());
+  EXPECT_STREQ(it.Get(0).string_value, "00000000-0000-0000-8906-ebb53e1d0738");
+}
+
+/*
+ * This trace does not have a uuid. The uuid will be generated from the first
+ * 4096 bytes, which will be read in multiple chunks.
+ */
+TEST_F(TraceProcessorIntegrationTest, TraceWithoutUuidReadInMultipleChuncks) {
+  ASSERT_TRUE(LoadTrace("example_android_trace_30s.pb", 512, 2048).ok());
+  auto it = Query("select str_value from metadata where name = 'trace_uuid'");
+  ASSERT_TRUE(it.Next());
+  EXPECT_STREQ(it.Get(0).string_value, "00000000-0000-0000-8906-ebb53e1d0738");
+}
+
+/*
+ * This trace has a uuid. It will not be overriden by the hash of the first 4096
+ * bytes.
+ */
+TEST_F(TraceProcessorIntegrationTest, TraceWithUuidReadInParts) {
+  ASSERT_TRUE(LoadTrace("trace_with_uuid.pftrace", 512, 2048).ok());
+  auto it = Query("select str_value from metadata where name = 'trace_uuid'");
+  ASSERT_TRUE(it.Next());
+  EXPECT_STREQ(it.Get(0).string_value, "123e4567-e89b-12d3-a456-426655443322");
 }
 
 }  // namespace

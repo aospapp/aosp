@@ -97,28 +97,38 @@
 //! directives*. A logging directive is of the form:
 //!
 //! ```text
-//! path::to::module=level
+//! example::log::target=level
 //! ```
 //!
-//! The path to the module is rooted in the name of the crate it was compiled
-//! for, so if your program is contained in a file `hello.rs`, for example, to
-//! turn on logging for this file you would use a value of `RUST_LOG=hello`.
-//! Furthermore, this path is a prefix-search, so all modules nested in the
-//! specified module will also have logging enabled.
+//! The log target is typically equal to the path of the module the message
+//! in question originated from, though it can be overriden.
+//!
+//! The path is rooted in the name of the crate it was compiled for, so if
+//! your program is in a file called, for example, `hello.rs`, the path would
+//! simply be be `hello`.
+//!
+//! Furthermore, the the log can be filtered using prefix-search based on the
+//! specified log target. A value of, for example, `RUST_LOG=example`, would
+//! match all of the messages with targets:
+//!
+//! * `example`
+//! * `example::test`
+//! * `example::test::module::submodule`
+//! * `examples::and_more_examples`
 //!
 //! When providing the crate name or a module path, explicitly specifying the
-//! log level is optional. If omitted, all logging for the item (and its
-//! children) will be enabled.
+//! log level is optional. If omitted, all logging for the item will be
+//! enabled.
 //!
 //! The names of the log levels that may be specified correspond to the
 //! variations of the [`log::Level`][level-enum] enum from the `log`
 //! crate. They are:
 //!
-//!    * `error`
-//!    * `warn`
-//!    * `info`
-//!    * `debug`
-//!    * `trace`
+//! * `error`
+//! * `warn`
+//! * `info`
+//! * `debug`
+//! * `trace`
 //!
 //! There is also a pseudo logging level, `off`, which may be specified to
 //! disable all logging for a given module or for the entire application. As
@@ -260,7 +270,7 @@
 //! env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 //! ```
 //!
-//! [gh-repo-examples]: https://github.com/env-logger-rs/env_logger/tree/master/examples
+//! [gh-repo-examples]: https://github.com/env-logger-rs/env_logger/tree/main/examples
 //! [level-enum]: https://docs.rs/log/latest/log/enum.Level.html
 //! [log-crate-url]: https://docs.rs/log/
 //! [`Builder`]: struct.Builder.html
@@ -598,6 +608,12 @@ impl Builder {
         self
     }
 
+    /// Whether or not to write the target in the default format.
+    pub fn format_target(&mut self, write: bool) -> &mut Self {
+        self.format.format_target = write;
+        self
+    }
+
     /// Configures the amount of spaces to use to indent multiline log records.
     /// A value of `None` disables any kind of indentation.
     pub fn format_indent(&mut self, indent: Option<usize>) -> &mut Self {
@@ -708,7 +724,10 @@ impl Builder {
 
     /// Sets the target for the log output.
     ///
-    /// Env logger can log to either stdout or stderr. The default is stderr.
+    /// Env logger can log to either stdout, stderr or a custom pipe. The default is stderr.
+    ///
+    /// The custom pipe can be used to send the log messages to a custom sink (for example a file).
+    /// Do note that direct writes to a file can become a bottleneck due to IO operation times.
     ///
     /// # Examples
     ///
@@ -1276,5 +1295,21 @@ mod tests {
         );
 
         assert_eq!(Some("from default".to_owned()), env.get_write_style());
+    }
+
+    #[test]
+    fn builder_parse_env_overrides_existing_filters() {
+        env::set_var(
+            "builder_parse_default_env_overrides_existing_filters",
+            "debug",
+        );
+        let env = Env::new().filter("builder_parse_default_env_overrides_existing_filters");
+
+        let mut builder = Builder::new();
+        builder.filter_level(LevelFilter::Trace);
+        // Overrides global level to debug
+        builder.parse_env(env);
+
+        assert_eq!(builder.filter.build().filter(), LevelFilter::Debug);
     }
 }

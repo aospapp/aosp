@@ -116,6 +116,16 @@ class PrepareQuantizePass
   explicit PrepareQuantizePass(const QuantizationSpecs& quant_specs)
       : quant_specs_(quant_specs) {}
 
+  StringRef getArgument() const final {
+    // This is the argument used to refer to the pass in
+    // the textual format (on the commandline for example).
+    return "tfl-prepare-quantize";
+  }
+  StringRef getDescription() const final {
+    // This is a brief description of the pass.
+    return "Prepare TFL dialect for quantization";
+  }
+
   void runOnFunction() override;
 
  private:
@@ -368,7 +378,7 @@ void PrepareQuantizePass::runOnFunction() {
   // LSTM's restrict_scale requirement should be handled before converting stats
   // to Q-DQ ops. The pattern is applied for non-PTQ case to make op ordering
   // consistent. Otherwise some FileCheck tests would fail.
-  OwningRewritePatternList patterns_1;
+  OwningRewritePatternList patterns_1(&getContext());
   if (quant_specs_.post_training_quantization) {
     patterns_1.insert<PrepareLstmOutputScale<LSTMOp>>(ctx);
     patterns_1.insert<PrepareLstmOutputScale<UnidirectionalSequenceLSTMOp>>(
@@ -378,7 +388,7 @@ void PrepareQuantizePass::runOnFunction() {
 
   // During the legalization, unsigned quantized type is used, so we have to
   // convert all of them to signed.
-  OwningRewritePatternList patterns_2;
+  OwningRewritePatternList patterns_2(&getContext());
   if (is_signed) {
     patterns_2.insert<quant::ConvertUnsignedToSigned<quant::QuantizeCastOp>>(
         ctx);
@@ -420,8 +430,7 @@ std::unique_ptr<OperationPass<FuncOp>> CreatePrepareQuantizePass(
   return std::make_unique<PrepareQuantizePass>(quant_specs);
 }
 
-static PassRegistration<PrepareQuantizePass> pass(
-    "tfl-prepare-quantize", "Prepare TFL dialect for quantization");
+static PassRegistration<PrepareQuantizePass> pass;
 
 }  // namespace TFL
 }  // namespace mlir

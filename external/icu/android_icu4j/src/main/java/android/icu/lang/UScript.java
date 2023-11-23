@@ -864,6 +864,17 @@ public final class UScript {
     /***/
     public static final int YEZIDI = 192; /* Yezi */
 
+    /***/
+    public static final int CYPRO_MINOAN = 193; /* Cpmn */
+    /***/
+    public static final int OLD_UYGHUR = 194; /* Ougr */
+    /***/
+    public static final int TANGSA = 195; /* Tnsa */
+    /***/
+    public static final int TOTO = 196; /* Toto */
+    /***/
+    public static final int VITHKUQI = 197; /* Vith */
+
     /**
      * One more than the highest normal UScript code.
      * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.SCRIPT).
@@ -872,7 +883,7 @@ public final class UScript {
      * @hide unsupported on Android
      */
     @Deprecated
-    public static final int CODE_LIMIT   = 193;
+    public static final int CODE_LIMIT   = 198;
 
     private static int[] getCodesFromLocale(ULocale locale) {
         // Multi-script languages, equivalent to the LocaleScript data
@@ -1338,6 +1349,11 @@ public final class UScript {
             0x1190C | EXCLUSION,  // Diak
             0x18C65 | EXCLUSION | LB_LETTERS,  // Kits
             0x10E88 | EXCLUSION | RTL,  // Yezi
+            0x12FE5 | EXCLUSION,  // Cpmn
+            0x10F7C | EXCLUSION | RTL,  // Ougr
+            0x16ABC | EXCLUSION,  // Tnsa
+            0x1E290 | EXCLUSION,  // Toto
+            0x10582 | EXCLUSION | CASED,  // Vith
             // End copy-paste from parsescriptmetadata.py
         };
 

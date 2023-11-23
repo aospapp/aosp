@@ -25,6 +25,38 @@ THIS SOFTWARE.
 This file lists all bug fixes, changes, etc., made since the AWK book
 was sent to the printers in August, 1987.
 
+December 8, 2021:
+	The error handling in closefile and closeall was mangled. Long
+	standing warnings had been made fatal and some fatal errors went
+	undetected. Thanks to Miguel Pineiro Jr. <mpj@pineiro.cc>.
+
+Nov 03, 2021:
+        getline accesses uninitialized data after getrec()
+	returns 0 on EOF and leaves the contents of buf unchanged.
+	Thanks to Volodymyr Gubarkov, and Todd C Miller.
+
+Oct 12, 2021:
+	The fix for #83 changed the code to insert 2 chars, but the
+	call to adjbuf just above it only allows for 1 char. This can
+	cause a heap buffer overflow.
+
+July 27, 2021:
+	As per IEEE Std 1003.1-2008, -F "str" is now consistent with
+	-v FS="str" when str is null. Thanks to Warner Losh.
+
+July 24, 2021:
+	Fix readrec's definition of a record. This fixes an issue
+	with NetBSD's RS regular expression support that can cause
+	an infinite read loop. Thanks to Miguel Pineiro Jr.
+
+	Fix regular expression RS ^-anchoring. RS ^-anchoring needs to
+	know if it is reading the first record of a file. This change
+	restores a missing line that was overlooked when porting NetBSD's
+	RS regex functionality. Thanks to Miguel Pineiro Jr.
+
+	Fix size computation in replace_repeat() for special case
+	REPEAT_WITH_Q. Thanks to Todd C. Miller.
+
 February 15, 2021:
 	Small fix so that awk will compile again with g++. Thanks to
 	Arnold Robbins.

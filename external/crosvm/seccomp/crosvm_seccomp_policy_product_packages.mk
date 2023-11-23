@@ -20,9 +20,12 @@ PRODUCT_PACKAGES += \
     battery.policy \
     block_device.policy \
     cras_audio_device.policy \
+    cras_snd_device.policy \
     fs_device.policy \
     gpu_device.policy \
+    gpu_render_server.policy \
     input_device.policy \
+    iommu_device.policy \
     net_device.policy \
     null_audio_device.policy \
     pmem_device.policy \
@@ -44,9 +47,12 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/etc/seccomp_policy/crosvm/battery.policy \
     system/etc/seccomp_policy/crosvm/block_device.policy \
     system/etc/seccomp_policy/crosvm/cras_audio_device.policy \
+    system/etc/seccomp_policy/crosvm/cras_snd_device.policy \
     system/etc/seccomp_policy/crosvm/fs_device.policy \
     system/etc/seccomp_policy/crosvm/gpu_device.policy \
+    system/etc/seccomp_policy/crosvm/gpu_render_server.policy \
     system/etc/seccomp_policy/crosvm/input_device.policy \
+    system/etc/seccomp_policy/crosvm/iommu_device.policy \
     system/etc/seccomp_policy/crosvm/net_device.policy \
     system/etc/seccomp_policy/crosvm/null_audio_device.policy \
     system/etc/seccomp_policy/crosvm/pmem_device.policy \

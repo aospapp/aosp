@@ -55,6 +55,10 @@ def generate_symbol_txt(shim_functions, extra_function_names, template_file):
     }
     return JINJA_ENV.get_template(template_file).render(data)
 
+def get_jinja_env():
+    """Return a jinja2 environment"""
+    return JINJA_ENV
+
 def get_allowlisted_apis(allowlist_file):
     """Return all allowlisted API in allowlist_file"""
     allowlisted_apis = set()
@@ -70,15 +74,38 @@ def android_path(*args):
     return os.path.join(ANDROID_TOP, *args)
 
 
-# TODO: Include clang bindings in prebuilt package. http://b/119270767
-site.addsitedir(android_path('external/clang/bindings/python'))
-import clang.cindex  # pylint: disable=import-error,wrong-import-position
+def get_clang_path():
+    """Find the latest clang version and return the full path"""
+    base_path = android_path('prebuilts/clang/host/linux-x86/')
+    files = [f for f in os.listdir(base_path) if f.startswith('clang-r')]
+    # TODO: Don't use sort() because it assumes the same number of digits in the version name
+    files.sort(reverse=True)
+    selected = files[0]
+    print("Using clang version %s" % selected)
+    path = os.path.join(base_path, selected)
+    return path
 
-# TODO: Do not hardcode clang version. http://b/119270767
-CLANG_REVISION = 'r383902c'
-CLANG_LIB_VERSION = '11git'
-CLANG_HEADER_VERSION = '11.0.3'
-CLANG_PATH = android_path('prebuilts/clang/host/linux-x86/clang-%s' % CLANG_REVISION)
+
+def get_clang_lib_path(clang_path):
+    """Return the libclang.so path"""
+    base_path = os.path.join(clang_path, 'lib64')
+    files = [f for f in os.listdir(base_path) if f.startswith('libclang.so.')]
+    return os.path.join(base_path, files[0])
+
+
+def get_clang_header_dir(clang_path):
+    """Return the path to clang header directory"""
+    base_path = os.path.join(clang_path, 'lib64/clang/')
+    files = os.listdir(base_path)
+    return os.path.join(base_path, files[0], 'include/')
+
+
+CLANG_PATH = get_clang_path()
+CLANG_LIB_PATH = get_clang_lib_path(CLANG_PATH)
+CLANG_HEADER_PATH = get_clang_header_dir(CLANG_PATH)
+
+site.addsitedir(os.path.join(CLANG_PATH, 'lib64/python3/site-packages/'))
+import clang.cindex  # pylint: disable=import-error,wrong-import-position
 
 
 class Function:
@@ -170,9 +197,7 @@ class DeclaredFunctionsParser:
         # Configures libclang to load in our environment
         # Set up LD_LIBRARY_PATH to include libclang.so, libLLVM.so, etc.  Note
         # that setting LD_LIBRARY_PATH with os.putenv() sometimes doesn't help.
-        # clang.cindex.Config.set_library_path(os.path.join(CLANG_PATH, 'lib64'))
-        clang.cindex.Config.set_library_file(
-            os.path.join(CLANG_PATH, 'lib64', 'libclang.so.%s' % CLANG_LIB_VERSION))
+        clang.cindex.Config.set_library_file(CLANG_LIB_PATH)
 
     def set_va_functions_mapping(self, mapping):
         """Set mapping from a variable argument function to an implementation.
@@ -232,8 +257,7 @@ class DeclaredFunctionsParser:
         ]
 
         include_dirs = [
-            # TODO: Do not hardcode clang version. http://b/119270767
-            os.path.join(CLANG_PATH, 'lib64/clang/', CLANG_HEADER_VERSION, 'include/'),
+            CLANG_HEADER_PATH,
             android_path('bionic/libc/include'),
             android_path('external/icu/android_icu4c/include'),
             android_path('external/icu/icu4c/source/common'),

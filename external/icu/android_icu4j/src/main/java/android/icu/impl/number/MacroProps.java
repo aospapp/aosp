@@ -31,7 +31,9 @@ public class MacroProps implements Cloneable {
     public IntegerWidth integerWidth;
     public Object symbols;
     public UnitWidth unitWidth;
+    public String unitDisplayCase;
     public SignDisplay sign;
+    public Boolean approximately;
     public DecimalSeparatorDisplay decimal;
     public Scale scale;
     public String usage;
@@ -67,8 +69,12 @@ public class MacroProps implements Cloneable {
             symbols = fallback.symbols;
         if (unitWidth == null)
             unitWidth = fallback.unitWidth;
+        if (unitDisplayCase == null)
+            unitDisplayCase = fallback.unitDisplayCase;
         if (sign == null)
             sign = fallback.sign;
+        if (approximately == null)
+            approximately = fallback.approximately;
         if (decimal == null)
             decimal = fallback.decimal;
         if (affixProvider == null)
@@ -95,7 +101,9 @@ public class MacroProps implements Cloneable {
                 integerWidth,
                 symbols,
                 unitWidth,
+                unitDisplayCase,
                 sign,
+                approximately,
                 decimal,
                 affixProvider,
                 scale,
@@ -123,7 +131,9 @@ public class MacroProps implements Cloneable {
                 && Objects.equals(integerWidth, other.integerWidth)
                 && Objects.equals(symbols, other.symbols)
                 && Objects.equals(unitWidth, other.unitWidth)
+                && Objects.equals(unitDisplayCase, other.unitDisplayCase)
                 && Objects.equals(sign, other.sign)
+                && Objects.equals(approximately, other.approximately)
                 && Objects.equals(decimal, other.decimal)
                 && Objects.equals(affixProvider, other.affixProvider)
                 && Objects.equals(scale, other.scale)

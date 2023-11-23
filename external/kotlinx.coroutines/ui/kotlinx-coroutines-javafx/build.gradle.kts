@@ -1,15 +1,22 @@
 /*
- * Copyright 2016-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 plugins {
-    id("org.openjfx.javafxplugin")
+    id("org.openjfx.javafxplugin") version "0.0.9"
 }
 
 javafx {
     version = version("javafx")
     modules = listOf("javafx.controls")
-    configuration = "compile"
+    configuration = "compileOnly"
+}
+
+sourceSets {
+    test.configure {
+        compileClasspath += configurations.compileOnly
+        runtimeClasspath += configurations.compileOnly
+    }
 }
 
 val JDK_18: String? by lazy {

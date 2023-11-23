@@ -1,14 +1,18 @@
+AArch
 accessor
 affine
 Authenticator
+authenticator
 backend
 Backends
 backends
 bcrypt
+Bleichenbacher
 Blowfish
 boolean
 Botan
 Brainpool
+Bullseye
 Capitan
 changelog
 Changelog
@@ -17,11 +21,13 @@ codebook
 committer
 committers
 conda
+CPython
 Cryptanalysis
 crypto
 cryptographic
 cryptographically
 Debian
+deallocated
 decrypt
 decrypts
 Decrypts
@@ -50,9 +56,9 @@ Google
 hazmat
 Homebrew
 hostname
-idna
 indistinguishability
 initialisms
+interoperability
 interoperable
 introspectability
 invariants
@@ -76,6 +82,7 @@ Parallelization
 personalization
 pickleable
 plaintext
+Poly
 pre
 precompute
 preprocessor
@@ -83,6 +90,7 @@ preprocessors
 presentational
 pseudorandom
 pyOpenSSL
+pytest
 relicensed
 responder
 runtime
@@ -95,6 +103,7 @@ Solaris
 syscall
 Tanja
 testability
+Thawte
 timestamp
 timestamps
 tunable

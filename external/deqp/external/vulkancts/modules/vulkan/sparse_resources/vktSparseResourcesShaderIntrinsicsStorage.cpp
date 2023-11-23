@@ -66,6 +66,15 @@ void SparseShaderIntrinsicsCaseStorage::initPrograms (vk::SourceCollections& pro
 	// it's not possible to declare two OpTypeImage aliases for the same data type - we have to eliminate %type_image_residency when %type_image_sparse is the same
 	const std::string				typeImageResidencyName		= (opTypeImageSparse == opTypeImageResidency) ? "%type_image_sparse" : "%type_image_residency";
 
+	SpirvVersion	spirvVersion	= SPIRV_VERSION_1_0;
+	std::string		interfaceList	= "";
+
+	if (m_operand.find("Nontemporal") != std::string::npos)
+	{
+		spirvVersion	= SPIRV_VERSION_1_6;
+		interfaceList	= "%uniform_image_sparse %uniform_image_texels %uniform_image_residency";
+	}
+
 	src << "OpCapability Shader\n"
 		<< "OpCapability ImageCubeArray\n"
 		<< "OpCapability SparseResidency\n"
@@ -80,7 +89,7 @@ void SparseShaderIntrinsicsCaseStorage::initPrograms (vk::SourceCollections& pro
 
 	src << "%ext_import = OpExtInstImport \"GLSL.std.450\"\n"
 		<< "OpMemoryModel Logical GLSL450\n"
-		<< "OpEntryPoint GLCompute %func_main \"main\" %input_GlobalInvocationID\n"
+		<< "OpEntryPoint GLCompute %func_main \"main\" %input_GlobalInvocationID " << interfaceList << "\n"
 		<< "OpExecutionMode %func_main LocalSize 1 1 1\n"
 		<< "OpSource GLSL 440\n"
 
@@ -289,7 +298,8 @@ void SparseShaderIntrinsicsCaseStorage::initPrograms (vk::SourceCollections& pro
 		<< "OpReturn\n"
 		<< "OpFunctionEnd\n";
 
-	programCollection.spirvAsmSources.add("compute") << src.str();
+	programCollection.spirvAsmSources.add("compute") << src.str()
+		<< vk::SpirVAsmBuildOptions(programCollection.usedVulkanVersion, spirvVersion);
 }
 
 std::string	SparseCaseOpImageSparseFetch::getSparseImageTypeName (void) const
@@ -309,8 +319,9 @@ std::string	SparseCaseOpImageSparseFetch::sparseImageOpString (const std::string
 															   const std::string& mipLevel) const
 {
 	std::ostringstream	src;
+	std::string			additionalOperand = (m_operand.empty() ? " " : (std::string("|") + m_operand + " "));
 
-	src << resultVariable << " = OpImageSparseFetch " << resultType << " " << image << " " << coord << " Lod " << mipLevel << "\n";
+	src << resultVariable << " = OpImageSparseFetch " << resultType << " " << image << " " << coord << " Lod" << additionalOperand << mipLevel << "\n";
 
 	return src.str();
 }
@@ -335,7 +346,7 @@ std::string	SparseCaseOpImageSparseRead::sparseImageOpString (const std::string&
 
 	std::ostringstream	src;
 
-	src << resultVariable << " = OpImageSparseRead " << resultType << " " << image << " " << coord << "\n";
+	src << resultVariable << " = OpImageSparseRead " << resultType << " " << image << " " << coord << " " << m_operand << "\n";
 
 	return src.str();
 }
@@ -359,9 +370,26 @@ public:
 													 const VkImage				imageSparse,
 													 const VkImage				imageTexels,
 													 const VkImage				imageResidency);
+	virtual void			checkSupport			(VkImageCreateInfo imageSparseInfo) const;
 
 	virtual VkDescriptorType	imageSparseDescType	(void) const = 0;
 };
+
+void SparseShaderIntrinsicsInstanceStorage::checkSupport (VkImageCreateInfo imageSparseInfo) const
+{
+	const InstanceInterface&	instance		= m_context.getInstanceInterface();
+	const VkPhysicalDevice		physicalDevice	= m_context.getPhysicalDevice();
+
+	SparseShaderIntrinsicsInstanceBase::checkSupport(imageSparseInfo);
+
+	// Check if device supports image format for storage image
+	if (!checkImageFormatFeatureSupport(instance, physicalDevice, imageSparseInfo.format, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
+		TCU_THROW(NotSupportedError, "Device does not support image format for storage image");
+
+	// Make sure device supports VK_FORMAT_R32_UINT format for storage image
+	if (!checkImageFormatFeatureSupport(instance, physicalDevice, mapTextureFormat(m_residencyFormat), VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
+		TCU_THROW(TestError, "Device does not support VK_FORMAT_R32_UINT format for storage image");
+}
 
 VkImageUsageFlags SparseShaderIntrinsicsInstanceStorage::imageOutputUsageFlags (void) const
 {
@@ -379,17 +407,7 @@ void SparseShaderIntrinsicsInstanceStorage::recordCommands (const VkCommandBuffe
 															const VkImage				imageTexels,
 															const VkImage				imageResidency)
 {
-	const InstanceInterface&	instance		= m_context.getInstanceInterface();
 	const DeviceInterface&		deviceInterface = getDeviceInterface();
-	const VkPhysicalDevice		physicalDevice	= m_context.getPhysicalDevice();
-
-	// Check if device supports image format for storage image
-	if (!checkImageFormatFeatureSupport(instance, physicalDevice, imageSparseInfo.format, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
-		TCU_THROW(NotSupportedError, "Device does not support image format for storage image");
-
-	// Make sure device supports VK_FORMAT_R32_UINT format for storage image
-	if (!checkImageFormatFeatureSupport(instance, physicalDevice, mapTextureFormat(m_residencyFormat), VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT))
-		TCU_THROW(TestError, "Device does not support VK_FORMAT_R32_UINT format for storage image");
 
 	pipelines.resize(imageSparseInfo.mipLevels);
 	descriptorSets.resize(imageSparseInfo.mipLevels);

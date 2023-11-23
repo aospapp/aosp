@@ -1,4 +1,7 @@
-include_directories(..)
+include_directories(
+	..
+	${DEQP_INL_DIR}
+)
 
 set(DEQP_VK_IMAGE_SRCS
 	vktImageTests.cpp
@@ -33,10 +36,16 @@ set(DEQP_VK_IMAGE_SRCS
 	vktImageTranscodingSupportTests.hpp
 	vktImageMisalignedCubeTests.cpp
 	vktImageMisalignedCubeTests.hpp
+	vktImageSampleDrawnCubeFaceTests.cpp
+	vktImageSampleDrawnCubeFaceTests.hpp
 	vktImageSubresourceLayoutTests.cpp
 	vktImageSubresourceLayoutTests.hpp
 	vktImageMismatchedWriteOpTests.cpp
 	vktImageMismatchedWriteOpTests.hpp
+	vktImageDepthStencilDescriptorTests.cpp
+	vktImageDepthStencilDescriptorTests.hpp
+	vktImageSampleCompressedTextureTests.cpp
+	vktImageSampleCompressedTextureTests.hpp
 	)
 
 set(DEQP_VK_IMAGE_LIBS

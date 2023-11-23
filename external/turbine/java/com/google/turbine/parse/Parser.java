@@ -17,8 +17,10 @@
 package com.google.turbine.parse;
 
 import static com.google.turbine.parse.Token.COMMA;
+import static com.google.turbine.parse.Token.IDENT;
 import static com.google.turbine.parse.Token.INTERFACE;
 import static com.google.turbine.parse.Token.LPAREN;
+import static com.google.turbine.parse.Token.MINUS;
 import static com.google.turbine.parse.Token.RPAREN;
 import static com.google.turbine.parse.Token.SEMI;
 import static com.google.turbine.tree.TurbineModifier.PROTECTED;
@@ -27,7 +29,7 @@ import static com.google.turbine.tree.TurbineModifier.VARARGS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.turbine.diag.SourceFile;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
@@ -63,7 +65,7 @@ import java.util.Deque;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A parser for the subset of Java required for header compilation.
@@ -186,6 +188,26 @@ public class Parser {
         case IDENT:
           {
             Ident ident = ident();
+            if (ident.value().equals("record")) {
+              next();
+              decls.add(recordDeclaration(access, annos.build()));
+              access = EnumSet.noneOf(TurbineModifier.class);
+              annos = ImmutableList.builder();
+              break;
+            }
+            if (ident.value().equals("sealed")) {
+              next();
+              access.add(TurbineModifier.SEALED);
+              break;
+            }
+            if (ident.value().equals("non")) {
+              int start = position;
+              next();
+              eatNonSealed(start);
+              next();
+              access.add(TurbineModifier.NON_SEALED);
+              break;
+            }
             if (access.isEmpty()
                 && (ident.value().equals("module") || ident.value().equals("open"))) {
               boolean open = false;
@@ -209,9 +231,66 @@ public class Parser {
     }
   }
 
+  // Handle the hypenated pseudo-keyword 'non-sealed'.
+  //
+  // This will need to be updated to handle other hyphenated keywords if when/they are introduced.
+  private void eatNonSealed(int start) {
+    eat(Token.MINUS);
+    if (token != IDENT) {
+      throw error(token);
+    }
+    if (!ident().value().equals("sealed")) {
+      throw error(token);
+    }
+    if (position != start + "non-".length()) {
+      throw error(token);
+    }
+  }
+
   private void next() {
     token = lexer.next();
     position = lexer.position();
+  }
+
+  private TyDecl recordDeclaration(EnumSet<TurbineModifier> access, ImmutableList<Anno> annos) {
+    String javadoc = lexer.javadoc();
+    int pos = position;
+    Ident name = eatIdent();
+    ImmutableList<TyParam> typarams;
+    if (token == Token.LT) {
+      typarams = typarams();
+    } else {
+      typarams = ImmutableList.of();
+    }
+    ImmutableList.Builder<VarDecl> formals = ImmutableList.builder();
+    if (token == Token.LPAREN) {
+      next();
+      formalParams(formals, EnumSet.noneOf(TurbineModifier.class));
+      eat(Token.RPAREN);
+    }
+    ImmutableList.Builder<ClassTy> interfaces = ImmutableList.builder();
+    if (token == Token.IMPLEMENTS) {
+      next();
+      do {
+        interfaces.add(classty());
+      } while (maybe(Token.COMMA));
+    }
+    eat(Token.LBRACE);
+    ImmutableList<Tree> members = classMembers();
+    eat(Token.RBRACE);
+    return new TyDecl(
+        pos,
+        access,
+        annos,
+        name,
+        typarams,
+        Optional.<ClassTy>empty(),
+        interfaces.build(),
+        /* permits= */ ImmutableList.of(),
+        members,
+        formals.build(),
+        TurbineTyKind.RECORD,
+        javadoc);
   }
 
   private TyDecl interfaceDeclaration(EnumSet<TurbineModifier> access, ImmutableList<Anno> annos) {
@@ -232,6 +311,15 @@ public class Parser {
         interfaces.add(classty());
       } while (maybe(Token.COMMA));
     }
+    ImmutableList.Builder<ClassTy> permits = ImmutableList.builder();
+    if (token == Token.IDENT) {
+      if (ident().value().equals("permits")) {
+        eat(Token.IDENT);
+        do {
+          permits.add(classty());
+        } while (maybe(Token.COMMA));
+      }
+    }
     eat(Token.LBRACE);
     ImmutableList<Tree> members = classMembers();
     eat(Token.RBRACE);
@@ -243,7 +331,9 @@ public class Parser {
         typarams,
         Optional.<ClassTy>empty(),
         interfaces.build(),
+        permits.build(),
         members,
+        ImmutableList.of(),
         TurbineTyKind.INTERFACE,
         javadoc);
   }
@@ -264,7 +354,9 @@ public class Parser {
         ImmutableList.<TyParam>of(),
         Optional.<ClassTy>empty(),
         ImmutableList.<ClassTy>of(),
+        ImmutableList.of(),
         members,
+        ImmutableList.of(),
         TurbineTyKind.ANNOTATION,
         javadoc);
   }
@@ -293,7 +385,9 @@ public class Parser {
         ImmutableList.<TyParam>of(),
         Optional.<ClassTy>empty(),
         interfaces.build(),
+        ImmutableList.of(),
         members,
+        ImmutableList.of(),
         TurbineTyKind.ENUM,
         javadoc);
   }
@@ -519,7 +613,24 @@ public class Parser {
         interfaces.add(classty());
       } while (maybe(Token.COMMA));
     }
-    eat(Token.LBRACE);
+    ImmutableList.Builder<ClassTy> permits = ImmutableList.builder();
+    if (token == Token.IDENT) {
+      if (ident().value().equals("permits")) {
+        eat(Token.IDENT);
+        do {
+          permits.add(classty());
+        } while (maybe(Token.COMMA));
+      }
+    }
+    switch (token) {
+      case LBRACE:
+        next();
+        break;
+      case EXTENDS:
+        throw error(ErrorKind.EXTENDS_AFTER_IMPLEMENTS);
+      default:
+        throw error(ErrorKind.EXPECTED_TOKEN, Token.LBRACE);
+    }
     ImmutableList<Tree> members = classMembers();
     eat(Token.RBRACE);
     return new TyDecl(
@@ -530,7 +641,9 @@ public class Parser {
         tyParams,
         Optional.ofNullable(xtnds),
         interfaces.build(),
+        permits.build(),
         members,
+        ImmutableList.of(),
         TurbineTyKind.CLASS,
         javadoc);
   }
@@ -605,6 +718,29 @@ public class Parser {
           }
 
         case IDENT:
+          Ident ident = ident();
+          if (ident.value().equals("non")) {
+            int pos = position;
+            next();
+            if (token != MINUS) {
+              acc.addAll(member(access, annos.build(), ImmutableList.of(), pos, ident));
+              access = EnumSet.noneOf(TurbineModifier.class);
+              annos = ImmutableList.builder();
+            } else {
+              eatNonSealed(pos);
+              next();
+              access.add(TurbineModifier.NON_SEALED);
+            }
+            break;
+          }
+          if (ident.value().equals("record")) {
+            eat(IDENT);
+            acc.add(recordDeclaration(access, annos.build()));
+            access = EnumSet.noneOf(TurbineModifier.class);
+            annos = ImmutableList.builder();
+            break;
+          }
+          // fall through
         case BOOLEAN:
         case BYTE:
         case SHORT:
@@ -688,88 +824,118 @@ public class Parser {
           return memberRest(pos, access, annos, typaram, result, name);
         }
       case IDENT:
+        int pos = position;
+        Ident ident = eatIdent();
+        return member(access, annos, typaram, pos, ident);
+      default:
+        throw error(token);
+    }
+  }
+
+  private ImmutableList<Tree> member(
+      EnumSet<TurbineModifier> access,
+      ImmutableList<Anno> annos,
+      ImmutableList<TyParam> typaram,
+      int pos,
+      Ident ident) {
+    Type result;
+    Ident name;
+    switch (token) {
+      case LPAREN:
         {
-          int pos = position;
-          Ident ident = eatIdent();
-          switch (token) {
-            case LPAREN:
-              {
-                name = ident;
-                return ImmutableList.of(methodRest(pos, access, annos, typaram, null, name));
-              }
-            case IDENT:
-              {
-                result =
-                    new ClassTy(
-                        position,
-                        Optional.<ClassTy>empty(),
-                        ident,
-                        ImmutableList.<Type>of(),
-                        ImmutableList.of());
-                pos = position;
-                name = eatIdent();
-                return memberRest(pos, access, annos, typaram, result, name);
-              }
-            case AT:
-            case LBRACK:
-              {
-                result =
-                    new ClassTy(
-                        position,
-                        Optional.<ClassTy>empty(),
-                        ident,
-                        ImmutableList.<Type>of(),
-                        ImmutableList.of());
-                result = maybeDims(maybeAnnos(), result);
-                break;
-              }
-            case LT:
-              {
-                result =
-                    new ClassTy(
-                        position, Optional.<ClassTy>empty(), ident, tyargs(), ImmutableList.of());
-                result = maybeDims(maybeAnnos(), result);
-                break;
-              }
-            case DOT:
-              result =
-                  new ClassTy(
-                      position,
-                      Optional.<ClassTy>empty(),
-                      ident,
-                      ImmutableList.<Type>of(),
-                      ImmutableList.of());
-              break;
-            default:
-              throw error(token);
-          }
-          if (result == null) {
-            throw error(token);
-          }
-          if (token == Token.DOT) {
-            next();
-            // TODO(cushon): is this cast OK?
-            result = classty((ClassTy) result);
-          }
-          result = maybeDims(maybeAnnos(), result);
+          name = ident;
+          return ImmutableList.of(methodRest(pos, access, annos, typaram, null, name));
+        }
+      case LBRACE:
+        {
+          dropBlocks();
+          name = new Ident(position, CTOR_NAME);
+          String javadoc = lexer.javadoc();
+          access.add(TurbineModifier.COMPACT_CTOR);
+          return ImmutableList.<Tree>of(
+              new MethDecl(
+                  pos,
+                  access,
+                  annos,
+                  typaram,
+                  /* ret= */ Optional.empty(),
+                  name,
+                  /* params= */ ImmutableList.of(),
+                  /* exntys= */ ImmutableList.of(),
+                  /* defaultValue= */ Optional.empty(),
+                  javadoc));
+        }
+      case IDENT:
+        {
+          result =
+              new ClassTy(
+                  position,
+                  Optional.<ClassTy>empty(),
+                  ident,
+                  ImmutableList.<Type>of(),
+                  ImmutableList.of());
           pos = position;
           name = eatIdent();
-          switch (token) {
-            case LPAREN:
-              return ImmutableList.of(methodRest(pos, access, annos, typaram, result, name));
-            case LBRACK:
-            case SEMI:
-            case ASSIGN:
-            case COMMA:
-              {
-                if (!typaram.isEmpty()) {
-                  throw error(ErrorKind.UNEXPECTED_TYPE_PARAMETER, typaram);
-                }
-                return fieldRest(pos, access, annos, result, name);
-              }
-            default:
-              throw error(token);
+          return memberRest(pos, access, annos, typaram, result, name);
+        }
+      case AT:
+      case LBRACK:
+        {
+          result =
+              new ClassTy(
+                  position,
+                  Optional.<ClassTy>empty(),
+                  ident,
+                  ImmutableList.<Type>of(),
+                  ImmutableList.of());
+          result = maybeDims(maybeAnnos(), result);
+          break;
+        }
+      case LT:
+        {
+          result =
+              new ClassTy(position, Optional.<ClassTy>empty(), ident, tyargs(), ImmutableList.of());
+          result = maybeDims(maybeAnnos(), result);
+          break;
+        }
+      case DOT:
+        result =
+            new ClassTy(
+                position,
+                Optional.<ClassTy>empty(),
+                ident,
+                ImmutableList.<Type>of(),
+                ImmutableList.of());
+        break;
+
+      default:
+        throw error(token);
+    }
+    if (result == null) {
+      throw error(token);
+    }
+    if (token == Token.DOT) {
+      next();
+      if (!result.kind().equals(Kind.CLASS_TY)) {
+        throw error(token);
+      }
+      result = classty((ClassTy) result);
+    }
+    result = maybeDims(maybeAnnos(), result);
+    pos = position;
+    name = eatIdent();
+    switch (token) {
+      case LPAREN:
+        return ImmutableList.of(methodRest(pos, access, annos, typaram, result, name));
+      case LBRACK:
+      case SEMI:
+      case ASSIGN:
+      case COMMA:
+        {
+          if (!typaram.isEmpty()) {
+            throw error(ErrorKind.UNEXPECTED_TYPE_PARAMETER, typaram);
           }
+          return fieldRest(pos, access, annos, result, name);
         }
       default:
         throw error(token);
@@ -840,7 +1006,8 @@ public class Parser {
       Type ty = baseTy;
       ty = parser.extraDims(ty);
       // TODO(cushon): skip more fields that are definitely non-const
-      ConstExpressionParser constExpressionParser = new ConstExpressionParser(lexer, lexer.next());
+      ConstExpressionParser constExpressionParser =
+          new ConstExpressionParser(lexer, lexer.next(), lexer.position());
       expressionStart = lexer.position();
       Expression init = constExpressionParser.expression();
       if (init != null && init.kind() == Tree.Kind.ARRAY_INIT) {
@@ -885,7 +1052,8 @@ public class Parser {
         break;
       case DEFAULT:
         {
-          ConstExpressionParser cparser = new ConstExpressionParser(lexer, lexer.next());
+          ConstExpressionParser cparser =
+              new ConstExpressionParser(lexer, lexer.next(), lexer.position());
           Tree expr = cparser.expression();
           token = cparser.token;
           if (expr == null && token == Token.AT) {
@@ -1359,7 +1527,7 @@ public class Parser {
     if (token == Token.LPAREN) {
       eat(LPAREN);
       while (token != RPAREN) {
-        ConstExpressionParser cparser = new ConstExpressionParser(lexer, token);
+        ConstExpressionParser cparser = new ConstExpressionParser(lexer, token, position);
         Expression arg = cparser.expression();
         if (arg == null) {
           throw error(ErrorKind.INVALID_ANNOTATION_ARGUMENT);
@@ -1395,6 +1563,7 @@ public class Parser {
     next();
   }
 
+  @CanIgnoreReturnValue
   private boolean maybe(Token kind) {
     if (token == kind) {
       next();
@@ -1403,7 +1572,6 @@ public class Parser {
     return false;
   }
 
-  @CheckReturnValue
   TurbineError error(Token token) {
     switch (token) {
       case IDENT:
@@ -1415,7 +1583,6 @@ public class Parser {
     }
   }
 
-  @CheckReturnValue
   private TurbineError error(ErrorKind kind, Object... args) {
     return TurbineError.format(
         lexer.source(),

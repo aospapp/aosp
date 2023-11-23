@@ -5,11 +5,11 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at https://curl.haxx.se/docs/copyright.html.
+# are also available at https://curl.se/docs/copyright.html.
 #
 # You may opt to use, copy, modify, merge, publish, distribute and/or sell
 # copies of the Software, and permit persons to whom the Software is
@@ -31,7 +31,7 @@ GENHTMLPAGES = curl.html curl-config.html mk-ca-bundle.html
 PDFPAGES = curl.pdf curl-config.pdf mk-ca-bundle.pdf
 MANDISTPAGES = curl.1.dist curl-config.1.dist
 
-HTMLPAGES = $(GENHTMLPAGES) index.html
+HTMLPAGES = $(GENHTMLPAGES)
 
 # Build targets in this file (.) before cmdline-opts to ensure that
 # the curl.1 rule below runs first
@@ -44,6 +44,7 @@ EXTRA_DIST =                                    \
  $(noinst_man_MANS)                             \
  ALTSVC.md                                      \
  BINDINGS.md                                    \
+ BUFREF.md                                      \
  BUG-BOUNTY.md                                  \
  BUGS.md                                        \
  CHECKSRC.md                                    \
@@ -59,13 +60,15 @@ EXTRA_DIST =                                    \
  ECH.md                                         \
  EXPERIMENTAL.md                                \
  FAQ                                            \
- FEATURES                                       \
+ FEATURES.md                                    \
  GOVERNANCE.md                                  \
  HELP-US.md                                     \
  HISTORY.md                                     \
+ HSTS.md                                        \
  HTTP-COOKIES.md                                \
  HTTP2.md                                       \
  HTTP3.md                                       \
+ HYPER.md                                       \
  INSTALL                                        \
  INSTALL.cmake                                  \
  INSTALL.md                                     \
@@ -73,10 +76,12 @@ EXTRA_DIST =                                    \
  KNOWN_BUGS                                     \
  MAIL-ETIQUETTE                                 \
  MQTT.md                                        \
+ NEW-PROTOCOL.md                                \
  options-in-versions                            \
  PARALLEL-TRANSFERS.md                          \
  README.md                                      \
  RELEASE-PROCEDURE.md                           \
+ RUSTLS.md                                      \
  ROADMAP.md                                     \
  SECURITY-PROCESS.md                            \
  SSL-PROBLEMS.md                                \
@@ -84,6 +89,7 @@ EXTRA_DIST =                                    \
  THANKS                                         \
  TODO                                           \
  TheArtOfHttpScripting.md                       \
+ URL-SYNTAX.md                                  \
  VERSIONS.md
 
 MAN2HTML= roffit $< >$@

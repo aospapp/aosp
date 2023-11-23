@@ -8,8 +8,10 @@ use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::fmt::{self, Display};
 use std::ops::{BitAnd, BitOr};
 
+use serde::{Deserialize, Serialize};
+
 /// Represents an Address in the guest's memory.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct GuestAddress(pub u64);
 
 impl GuestAddress {
@@ -112,12 +114,15 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::eq_op)]
+    #[allow(clippy::nonminimal_bool)]
     fn cmp() {
         let a = GuestAddress(0x300);
         let b = GuestAddress(0x301);
         assert!(a < b);
         assert!(b > a);
         assert!(!(a < a));
+        assert!(a >= a);
     }
 
     #[test]

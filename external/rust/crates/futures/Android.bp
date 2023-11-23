@@ -41,6 +41,8 @@ rust_library {
     name: "libfutures",
     host_supported: true,
     crate_name: "futures",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.21",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -62,26 +64,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   futures-channel-0.3.14 "alloc,futures-sink,sink,std"
-//   futures-core-0.3.14 "alloc,std"
-//   futures-executor-0.3.14 "std"
-//   futures-io-0.3.14 "std"
-//   futures-macro-0.3.14
-//   futures-sink-0.3.14 "alloc,std"
-//   futures-task-0.3.14 "alloc,std"
-//   futures-util-0.3.14 "alloc,async-await,async-await-macro,channel,futures-channel,futures-io,futures-macro,futures-sink,io,memchr,proc-macro-hack,proc-macro-nested,sink,slab,std"
-//   memchr-2.3.4 "default,std"
-//   pin-project-lite-0.2.6
-//   pin-utils-0.1.0
-//   proc-macro-hack-0.5.19
-//   proc-macro-nested-0.1.7
-//   proc-macro2-1.0.26 "default,proc-macro"
-//   quote-1.0.9 "default,proc-macro"
-//   slab-0.4.3 "default,std"
-//   syn-1.0.70 "clone-impls,default,derive,full,parsing,printing,proc-macro,quote,visit-mut"
-//   unicode-xid-0.2.1 "default"

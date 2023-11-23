@@ -34,9 +34,9 @@ static int print_short_name(direntry_t *entry, MainParam_t *mp UNUSEDP)
 static void usage(int ret) NORETURN;
 static void usage(int ret)
 {
-	fprintf(stderr, "Mtools version %s, dated %s\n", 
+	fprintf(stderr, "Mtools version %s, dated %s\n",
 		mversion, mdate);
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Usage: %s msdosfile [msdosfiles...]\n",
 		progname);
 	exit(ret);

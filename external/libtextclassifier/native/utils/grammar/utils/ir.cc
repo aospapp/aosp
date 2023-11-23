@@ -16,6 +16,8 @@
 
 #include "utils/grammar/utils/ir.h"
 
+#include <algorithm>
+
 #include "utils/i18n/locale.h"
 #include "utils/strings/append.h"
 #include "utils/strings/stringpiece.h"
@@ -28,14 +30,16 @@ constexpr size_t kMaxHashTableSize = 100;
 
 template <typename T>
 void SortForBinarySearchLookup(T* entries) {
-  std::sort(entries->begin(), entries->end(),
-            [](const auto& a, const auto& b) { return a->key < b->key; });
+  std::stable_sort(
+      entries->begin(), entries->end(),
+      [](const auto& a, const auto& b) { return a->key < b->key; });
 }
 
 template <typename T>
 void SortStructsForBinarySearchLookup(T* entries) {
-  std::sort(entries->begin(), entries->end(),
-            [](const auto& a, const auto& b) { return a.key() < b.key(); });
+  std::stable_sort(
+      entries->begin(), entries->end(),
+      [](const auto& a, const auto& b) { return a.key() < b.key(); });
 }
 
 bool IsSameLhs(const Ir::Lhs& lhs, const RulesSet_::Lhs& other) {
@@ -76,13 +80,14 @@ bool IsSameLhsSet(const Ir::LhsSet& lhs_set,
 
 Ir::LhsSet SortedLhsSet(const Ir::LhsSet& lhs_set) {
   Ir::LhsSet sorted_lhs = lhs_set;
-  std::sort(sorted_lhs.begin(), sorted_lhs.end(),
-            [](const Ir::Lhs& a, const Ir::Lhs& b) {
-              return std::tie(a.nonterminal, a.callback.id, a.callback.param,
-                              a.preconditions.max_whitespace_gap) <
-                     std::tie(b.nonterminal, b.callback.id, b.callback.param,
-                              b.preconditions.max_whitespace_gap);
-            });
+  std::stable_sort(
+      sorted_lhs.begin(), sorted_lhs.end(),
+      [](const Ir::Lhs& a, const Ir::Lhs& b) {
+        return std::tie(a.nonterminal, a.callback.id, a.callback.param,
+                        a.preconditions.max_whitespace_gap) <
+               std::tie(b.nonterminal, b.callback.id, b.callback.param,
+                        b.preconditions.max_whitespace_gap);
+      });
   return lhs_set;
 }
 
@@ -235,6 +240,9 @@ Nonterm Ir::Add(const Lhs& lhs, const std::string& terminal,
   }
 }
 
+// For latency we put sub-rules on the first shard which must be any match
+// i.e. '*' rules are always included while parsing the tree as it is only
+// on shard one hence will be deduped correctly.
 Nonterm Ir::Add(const Lhs& lhs, const std::vector<Nonterm>& rhs,
                 const int shard) {
   // Add a new unary rule.
@@ -245,9 +253,9 @@ Nonterm Ir::Add(const Lhs& lhs, const std::vector<Nonterm>& rhs,
   // Add a chain of (rhs.size() - 1) binary rules.
   Nonterm prev = rhs.front();
   for (int i = 1; i < rhs.size() - 1; i++) {
-    prev = Add(kUnassignedNonterm, prev, rhs[i], shard);
+    prev = Add(kUnassignedNonterm, prev, rhs[i]);
   }
-  return Add(lhs, prev, rhs.back(), shard);
+  return Add(lhs, prev, rhs.back());
 }
 
 Nonterm Ir::AddRegex(Nonterm lhs, const std::string& regex_pattern) {
@@ -297,10 +305,10 @@ void Ir::SerializeTerminalRules(
           TerminalEntry{it.first, /*set_index=*/i, /*index=*/0, it.second});
     }
   }
-  std::sort(terminal_rules.begin(), terminal_rules.end(),
-            [](const TerminalEntry& a, const TerminalEntry& b) {
-              return a.terminal < b.terminal;
-            });
+  std::stable_sort(terminal_rules.begin(), terminal_rules.end(),
+                   [](const TerminalEntry& a, const TerminalEntry& b) {
+                     return a.terminal < b.terminal;
+                   });
 
   // Index the entries in sorted order.
   std::vector<int> index(terminal_rules_sets.size(), 0);

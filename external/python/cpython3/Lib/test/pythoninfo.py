@@ -96,6 +96,7 @@ def collect_sys(info_add):
         'maxunicode',
         'path',
         'platform',
+        'platlibdir',
         'prefix',
         'thread_info',
         'version',
@@ -504,7 +505,7 @@ def collect_ssl(info_add):
     copy_attributes(info_add, ssl, 'ssl.%s', attributes, formatter=format_attr)
 
     for name, ctx in (
-        ('SSLContext', ssl.SSLContext()),
+        ('SSLContext', ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)),
         ('default_https_context', ssl._create_default_https_context()),
         ('stdlib_context', ssl._create_stdlib_context()),
     ):
@@ -718,6 +719,48 @@ def collect_windows(info_add):
         info_add('windows.dll_path', dll_path)
     except (ImportError, AttributeError):
         pass
+
+    import subprocess
+    try:
+        # When wmic.exe output is redirected to a pipe,
+        # it uses the OEM code page
+        proc = subprocess.Popen(["wmic", "os", "get", "Caption,Version", "/value"],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                encoding="oem",
+                                text=True)
+        output, stderr = proc.communicate()
+        if proc.returncode:
+            output = ""
+    except OSError:
+        pass
+    else:
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith('Caption='):
+                line = line.removeprefix('Caption=').strip()
+                if line:
+                    info_add('windows.version_caption', line)
+            elif line.startswith('Version='):
+                line = line.removeprefix('Version=').strip()
+                if line:
+                    info_add('windows.version', line)
+
+    try:
+        proc = subprocess.Popen(["ver"], shell=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True)
+        output = proc.communicate()[0]
+        if proc.returncode:
+            output = ""
+    except OSError:
+        return
+    else:
+        output = output.strip()
+        line = output.splitlines()[0]
+        if line:
+            info_add('windows.ver', line)
 
 
 def collect_fips(info_add):

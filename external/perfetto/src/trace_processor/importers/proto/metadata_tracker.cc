@@ -16,11 +16,19 @@
 
 #include "src/trace_processor/importers/proto/metadata_tracker.h"
 
+#include "perfetto/ext/base/crash_keys.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
+#include "src/trace_processor/storage/metadata.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 
 namespace perfetto {
 namespace trace_processor {
+
+namespace {
+
+base::CrashKey g_crash_key_uuid("trace_uuid");
+
+}
 
 MetadataTracker::MetadataTracker(TraceProcessorContext* context)
     : context_(context) {
@@ -36,6 +44,13 @@ MetadataTracker::MetadataTracker(TraceProcessorContext* context)
 MetadataId MetadataTracker::SetMetadata(metadata::KeyId key, Variadic value) {
   PERFETTO_DCHECK(metadata::kKeyTypes[key] == metadata::KeyType::kSingle);
   PERFETTO_DCHECK(value.type == metadata::kValueTypes[key]);
+
+  // When the trace_uuid is set, store a copy in a crash key, so in case of
+  // a crash in the pipelines we can tell which trace caused the crash.
+  if (key == metadata::trace_uuid && value.type == Variadic::kString) {
+    auto uuid_string_view = context_->storage->GetString(value.string_value);
+    g_crash_key_uuid.Set(uuid_string_view);
+  }
 
   auto* metadata_table = context_->storage->mutable_metadata_table();
   uint32_t key_idx = static_cast<uint32_t>(key);
@@ -55,7 +70,7 @@ MetadataId MetadataTracker::SetMetadata(metadata::KeyId key, Variadic value) {
   return id_and_row.id;
 }
 
-SqlValue MetadataTracker::GetMetadataForTesting(metadata::KeyId key) {
+SqlValue MetadataTracker::GetMetadata(metadata::KeyId key) {
   // KeyType::kMulti not yet supported by this method:
   PERFETTO_CHECK(metadata::kKeyTypes[key] == metadata::KeyType::kSingle);
 
@@ -63,7 +78,23 @@ SqlValue MetadataTracker::GetMetadataForTesting(metadata::KeyId key) {
   uint32_t key_idx = static_cast<uint32_t>(key);
   uint32_t row =
       metadata_table->name().IndexOf(metadata::kNames[key_idx]).value();
-  return metadata_table->mutable_str_value()->Get(row);
+
+  auto value_type = metadata::kValueTypes[key];
+  switch (value_type) {
+    case Variadic::kInt:
+      return metadata_table->mutable_int_value()->Get(row);
+    case Variadic::kString:
+      return metadata_table->mutable_str_value()->Get(row);
+    case Variadic::kNull:
+      return SqlValue();
+    case Variadic::kJson:
+    case Variadic::kUint:
+    case Variadic::kPointer:
+    case Variadic::kReal:
+    case Variadic::kBool:
+      PERFETTO_FATAL("Invalid metadata value type %zu", value_type);
+  }
+  PERFETTO_FATAL("For GCC");
 }
 
 MetadataId MetadataTracker::AppendMetadata(metadata::KeyId key,
@@ -110,6 +141,7 @@ void MetadataTracker::WriteValue(uint32_t row, Variadic value) {
     case Variadic::Type::kPointer:
     case Variadic::Type::kUint:
     case Variadic::Type::kReal:
+    case Variadic::Type::kNull:
       PERFETTO_FATAL("Unsupported value type");
   }
 }

@@ -4,7 +4,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# main.star: lucicfg configuration for ANGLE's standalone builers.
+# main.star: lucicfg configuration for ANGLE's standalone builders.
+
+# Use LUCI Scheduler BBv2 names and add Scheduler realms configs.
+lucicfg.enable_experiment("crbug.com/1182002")
 
 lucicfg.config(
     fail_on_warnings = True,
@@ -14,18 +17,6 @@ lucicfg.config(
         "-function-docstring",
     ],
 )
-
-# Enable LUCI Realms support.
-lucicfg.enable_experiment("crbug.com/1085650")
-# Launch 0% of Swarming tasks for builds in "realms-aware mode"
-# TODO(https://crbug.com/1204972): ramp up to 100%.
-# luci.builder.defaults.experiments.set({"luci.use_realms": 0})
-
-# Enable LUCI Realms support.
-lucicfg.enable_experiment("crbug.com/1085650")
-
-# Launch all builds and tasks in Angle in realms mode.
-luci.builder.defaults.experiments.set({"luci.use_realms": 100})
 
 luci.project(
     name = "angle",
@@ -59,6 +50,10 @@ luci.project(
         ),
     ],
     bindings = [
+        luci.binding(
+            roles = "role/configs.validator",
+            users = "angle-try-builder@chops-service-accounts.iam.gserviceaccount.com",
+        ),
         luci.binding(
             roles = "role/swarming.poolOwner",
             groups = ["project-angle-owners", "mdb/chrome-troopers"],
@@ -111,8 +106,7 @@ lucicfg.generator(_generate_project_pyl)
 
 luci.milo(
     logo = "https://storage.googleapis.com/chrome-infra/OpenGL%20ES_RGB_June16.svg",
-    monorail_project = "angleproject",
-    monorail_components = ["Infra"],
+    bug_url_template = "https://bugs.chromium.org/p/angleproject/issues/entry?components=Infra",
 )
 
 luci.logdog(gs_bucket = "chromium-luci-logdog")
@@ -146,7 +140,7 @@ _GOMA_RBE_PROD = {
 }
 
 def _recipe_for_package(cipd_package):
-    def recipe(*, name, cipd_version = None, recipe = None, use_bbagent = False):
+    def recipe(*, name, cipd_version = None, recipe = None, use_python3 = False):
         # Force the caller to put the recipe prefix rather than adding it
         # programatically to make the string greppable
         if not name.startswith(_RECIPE_NAME_PREFIX):
@@ -159,7 +153,8 @@ def _recipe_for_package(cipd_package):
             cipd_package = cipd_package,
             cipd_version = cipd_version,
             recipe = recipe,
-            use_bbagent = use_bbagent,
+            use_bbagent = True,
+            use_python3 = use_python3,
         )
 
     return recipe
@@ -170,10 +165,12 @@ build_recipe = _recipe_for_package(
 
 build_recipe(
     name = "recipe:angle",
+    use_python3 = True,
 )
 
 build_recipe(
     name = "recipe:run_presubmit",
+    use_python3 = True,
 )
 
 def get_os_from_name(name):
@@ -191,10 +188,7 @@ def get_gpu_type_from_builder_name(name):
     return name.split("-")[1]
 
 # Adds both the CI and Try standalone builders.
-def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode = "compile_and_test"):
-    properties = {
-        "builder_group": "angle",
-    }
+def angle_builder(name, cpu):
     config_os = get_os_from_name(name)
     dimensions = {}
     dimensions["os"] = config_os.dimension
@@ -206,63 +200,99 @@ def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode 
         dimensions["builderless"] = "1"
         goma_props["enable_ats"] = True
 
-    properties["$build/goma"] = goma_props
-    properties["platform"] = config_os.console_name
-    properties["toolchain"] = toolchain
+    is_asan = "-asan" in name
+    is_tsan = "-tsan" in name
+    is_ubsan = "-ubsan" in name
+    is_debug = "-dbg" in name
+    is_exp = "-exp" in name
+    is_perf = name.endswith("-perf")
+    is_trace = name.endswith("-trace")
+    is_uwp = "winuwp" in name
+    is_msvc = is_uwp or "-msvc" in name
 
-    if toolchain == "gcc":
-        properties["test_mode"] = "checkout_only"
-    elif debug or toolchain == "msvc" or (config_os.category == os_category.ANDROID and cpu == "arm"):
-        properties["test_mode"] = "compile_only"
-    else:
-        properties["test_mode"] = test_mode
+    location_regexp = None
 
-    luci.builder(
-        name = name,
-        bucket = "ci",
-        triggered_by = ["master-poller"],
-        executable = "recipe:angle",
-        service_account = "angle-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
-        properties = properties,
-        dimensions = dimensions,
-        build_numbers = True,
-        resultdb_settings = resultdb.settings(enable = True),
-    )
+    if name.endswith("-compile"):
+        test_mode = "compile_only"
+        category = "compile"
+    elif name.endswith("-test"):
+        test_mode = "compile_and_test"
+        category = "test"
+    elif is_trace:
+        test_mode = "trace_tests"
+        category = "trace"
 
-    is_perf = "-perf" in name
-    is_experimental = "-exp" in name
-
-    # Trace tests are only included automatically if files in the capture folder change.
-    if test_mode == "trace_tests":
-        config = "trace"
+        # Trace tests are only run on CQ if files in the capture folders change.
         location_regexp = [
             ".+/[+]/src/libANGLE/capture/.+",
+            ".+/[+]/src/tests/angle_end2end_tests_expectations.txt",
             ".+/[+]/src/tests/capture.+",
+            ".+/[+]/src/tests/egl_tests/.+",
+            ".+/[+]/src/tests/gl_tests/.+",
         ]
     elif is_perf:
-        config = "perf"
+        test_mode = "compile_and_test"
+        category = "perf"
     else:
-        config = "angle"
-        location_regexp = None
+        print("Test mode unknown for %s" % name)
 
-    if uwp:
+    if is_msvc:
+        toolchain = "msvc"
+    else:
+        toolchain = "clang"
+
+    if is_uwp:
         os_name = "winuwp"
     else:
         os_name = config_os.console_name
 
     if is_perf:
         short_name = get_gpu_type_from_builder_name(name)
-    elif is_experimental:
-        short_name = "exp"
-    elif debug:
+    elif is_asan:
+        short_name = "asan"
+    elif is_tsan:
+        short_name = "tsan"
+    elif is_ubsan:
+        short_name = "ubsan"
+    elif is_debug:
         short_name = "dbg"
+    elif is_exp:
+        short_name = "exp"
     else:
         short_name = "rel"
+
+    properties = {
+        "builder_group": "angle",
+        "$build/goma": goma_props,
+        "platform": config_os.console_name,
+        "toolchain": toolchain,
+        "test_mode": test_mode,
+    }
+
+    luci.builder(
+        name = name,
+        bucket = "ci",
+        triggered_by = ["main-poller"],
+        executable = "recipe:angle",
+        service_account = "angle-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
+        properties = properties,
+        dimensions = dimensions,
+        build_numbers = True,
+        resultdb_settings = resultdb.settings(enable = True),
+        test_presentation = resultdb.test_presentation(
+            column_keys = ["v.gpu"],
+            grouping_keys = ["status", "v.test_suite"],
+        ),
+        triggering_policy = scheduler.policy(
+            kind = scheduler.LOGARITHMIC_BATCHING_KIND,
+            log_base = 2,
+        ),
+    )
 
     luci.console_view_entry(
         console_view = "ci",
         builder = "ci/" + name,
-        category = config + "|" + os_name + "|" + toolchain + "|" + cpu,
+        category = category + "|" + os_name + "|" + toolchain + "|" + cpu,
         short_name = short_name,
     )
 
@@ -282,13 +312,16 @@ def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode 
             dimensions = dimensions,
             build_numbers = True,
             resultdb_settings = resultdb.settings(enable = True),
+            test_presentation = resultdb.test_presentation(
+                column_keys = ["v.gpu"],
+                grouping_keys = ["status", "v.test_suite"],
+            ),
         )
 
-        # Include all other bots in the CQ by default except the placeholder GCC configs.
-        # Also exclude experimental bots.
-        if toolchain != "gcc" and not is_experimental:
+        # Don't add experimental bots to CQ.
+        if not is_exp:
             luci.cq_tryjob_verifier(
-                cq_group = "master",
+                cq_group = "main",
                 builder = "angle:try/" + name,
                 location_regexp = location_regexp,
             )
@@ -332,49 +365,56 @@ luci.builder(
         "runhooks": True,
     },
     resultdb_settings = resultdb.settings(enable = True),
+    test_presentation = resultdb.test_presentation(
+        column_keys = ["v.gpu"],
+        grouping_keys = ["status", "v.test_suite"],
+    ),
 )
 
 luci.gitiles_poller(
-    name = "master-poller",
+    name = "main-poller",
     bucket = "ci",
     repo = "https://chromium.googlesource.com/angle/angle",
     refs = [
-        "refs/heads/master",
+        "refs/heads/main",
     ],
     schedule = "with 10s interval",
 )
 
 # name, clang, debug, cpu, uwp, trace_tests
-angle_builder("android-arm-dbg", debug = True, cpu = "arm")
-angle_builder("android-arm-rel", debug = False, cpu = "arm")
-angle_builder("android-arm64-dbg", debug = True, cpu = "arm64")
-angle_builder("android-arm64-rel", debug = False, cpu = "arm64")
-angle_builder("linux-clang-dbg", debug = True, cpu = "x64")
-angle_builder("linux-clang-rel", debug = False, cpu = "x64")
-angle_builder("linux-gcc-dbg", debug = True, cpu = "x64", toolchain = "gcc")
-angle_builder("linux-gcc-rel", debug = False, cpu = "x64", toolchain = "gcc")
-angle_builder("mac-dbg", debug = True, cpu = "x64")
-angle_builder("mac-exp", debug = False, cpu = "x64")
-angle_builder("mac-rel", debug = False, cpu = "x64")
-angle_builder("win-clang-x86-dbg", debug = True, cpu = "x86")
-angle_builder("win-clang-x86-rel", debug = False, cpu = "x86")
-angle_builder("win-clang-x64-dbg", debug = True, cpu = "x64")
-angle_builder("win-clang-x64-rel", debug = False, cpu = "x64")
-angle_builder("win-msvc-x86-dbg", debug = True, cpu = "x86", toolchain = "msvc")
-angle_builder("win-msvc-x86-rel", debug = False, cpu = "x86", toolchain = "msvc")
-angle_builder("win-msvc-x64-dbg", debug = True, cpu = "x64", toolchain = "msvc")
-angle_builder("win-msvc-x64-rel", debug = False, cpu = "x64", toolchain = "msvc")
-angle_builder("winuwp-x64-dbg", debug = True, cpu = "x64", toolchain = "msvc", uwp = True)
-angle_builder("winuwp-x64-rel", debug = False, cpu = "x64", toolchain = "msvc", uwp = True)
+angle_builder("android-arm-compile", cpu = "arm")
+angle_builder("android-arm-dbg-compile", cpu = "arm")
+angle_builder("android-arm64-dbg-compile", cpu = "arm64")
+angle_builder("android-arm64-exp-test", cpu = "arm64")
+angle_builder("android-arm64-test", cpu = "arm64")
+angle_builder("linux-asan-test", cpu = "x64")
+angle_builder("linux-tsan-test", cpu = "x64")
+angle_builder("linux-ubsan-test", cpu = "x64")
+angle_builder("linux-dbg-compile", cpu = "x64")
+angle_builder("linux-test", cpu = "x64")
+angle_builder("mac-dbg-compile", cpu = "x64")
+angle_builder("mac-exp-test", cpu = "x64")
+angle_builder("mac-test", cpu = "x64")
+angle_builder("win-asan-test", cpu = "x64")
+angle_builder("win-dbg-compile", cpu = "x64")
+angle_builder("win-msvc-compile", cpu = "x64")
+angle_builder("win-msvc-dbg-compile", cpu = "x64")
+angle_builder("win-msvc-x86-compile", cpu = "x86")
+angle_builder("win-msvc-x86-dbg-compile", cpu = "x86")
+angle_builder("win-test", cpu = "x64")
+angle_builder("win-x86-dbg-compile", cpu = "x86")
+angle_builder("win-x86-test", cpu = "x86")
+angle_builder("winuwp-compile", cpu = "x64")
+angle_builder("winuwp-dbg-compile", cpu = "x64")
 
-angle_builder("linux-trace-rel", debug = False, cpu = "x64", test_mode = "trace_tests")
-angle_builder("win-trace-rel", debug = False, cpu = "x64", test_mode = "trace_tests")
+angle_builder("linux-trace", cpu = "x64")
+angle_builder("win-trace", cpu = "x64")
 
-angle_builder("android-pixel4-perf", debug = False, cpu = "arm64")
-angle_builder("linux-intel-hd630-perf", debug = False, cpu = "x64")
-angle_builder("linux-nvidia-p400-perf", debug = False, cpu = "x64")
-angle_builder("win10-intel-hd630-perf", debug = False, cpu = "x64")
-angle_builder("win10-nvidia-p400-perf", debug = False, cpu = "x64")
+angle_builder("android-pixel4-perf", cpu = "arm64")
+angle_builder("linux-intel-hd630-perf", cpu = "x64")
+angle_builder("linux-nvidia-p400-perf", cpu = "x64")
+angle_builder("win10-intel-hd630-perf", cpu = "x64")
+angle_builder("win10-nvidia-p400-perf", cpu = "x64")
 
 # Views
 
@@ -382,7 +422,6 @@ luci.console_view(
     name = "ci",
     title = "ANGLE CI Builders",
     repo = "https://chromium.googlesource.com/angle/angle",
-    refs = ["refs/heads/master"],
 )
 
 luci.list_view(
@@ -404,10 +443,10 @@ luci.cq(
 )
 
 luci.cq_group(
-    name = "master",
+    name = "main",
     watch = cq.refset(
         "https://chromium.googlesource.com/angle/angle",
-        refs = [r"refs/heads/master", r"refs/heads/main"],
+        refs = [r"refs/heads/main"],
     ),
     acls = [
         acl.entry(
@@ -428,16 +467,10 @@ luci.cq_group(
             builder = "chromium:try/android-angle-chromium-try",
         ),
         luci.cq_tryjob_verifier(
-            builder = "chromium:try/android-angle-try",
-        ),
-        luci.cq_tryjob_verifier(
             builder = "chromium:try/fuchsia-angle-try",
         ),
         luci.cq_tryjob_verifier(
             builder = "chromium:try/linux-angle-chromium-try",
-        ),
-        luci.cq_tryjob_verifier(
-            builder = "chromium:try/linux-swangle-try-tot-angle-x64",
         ),
         luci.cq_tryjob_verifier(
             builder = "chromium:try/mac-angle-chromium-try",
@@ -447,9 +480,6 @@ luci.cq_group(
         ),
         luci.cq_tryjob_verifier(
             builder = "chromium:try/win-angle-chromium-x86-try",
-        ),
-        luci.cq_tryjob_verifier(
-            builder = "chromium:try/win-swangle-try-tot-angle-x86",
         ),
     ],
 )

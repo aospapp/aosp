@@ -66,6 +66,12 @@ struct TriangleSceneSpec
 		tcu::Vec4	positions[3];
 		tcu::Vec4	colors[3];
 		bool		sharedEdge[3]; // !< is the edge i -> i+1 shared with another scene triangle
+		SceneTriangle()
+		{
+			// Other members are initialized in Vector constructor
+			for (int i = 0; i < 3; i++)
+				sharedEdge[i] = false;
+		}
 	};
 
 	std::vector<SceneTriangle> triangles;
@@ -76,6 +82,7 @@ struct LineSceneSpec
 	LineSceneSpec()
 		: isStrip(false)
 		, isSmooth(false)
+		, isRectangular(false)
 		, stippleEnable(false)
 		, verificationMode(VERIFICATIONMODE_STRICT)
 	{}
@@ -90,6 +97,7 @@ struct LineSceneSpec
 	float					lineWidth;
 	bool					isStrip;
 	bool					isSmooth;
+	bool					isRectangular;
 	bool					stippleEnable;
 	deUint32				stippleFactor;
 	deUint16				stipplePattern;
