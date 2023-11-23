@@ -24,13 +24,11 @@ import static org.mockito.Mockito.verify;
 
 import android.telephony.CellIdentityGsm;
 import android.telephony.CellInfo;
-import android.telephony.DataFailCause;
 import android.telephony.DisconnectCause;
 import android.telephony.PreciseCallState;
 import android.telephony.PreciseDisconnectCause;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
-import android.telephony.data.ApnSetting;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.telephony.PhoneInternalInterface.DataActivityState;
@@ -114,7 +112,7 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         doReturn(1).when(mPhone).getSubId();
         doReturn(2).when(mPhone).getPhoneId();
         mDefaultPhoneNotifierUT.notifySignalStrength(mPhone);
-        verify(mTelephonyRegistryManager).notifySignalStrengthChanged(eq(1), eq(2),
+        verify(mTelephonyRegistryManager).notifySignalStrengthChanged(eq(2), eq(1),
                 signalStrengthArgumentCaptor.capture());
         assertEquals(99, signalStrengthArgumentCaptor.getValue().getGsmSignalStrength());
     }
@@ -137,19 +135,19 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
     public void testNotifyMessageWaiting() throws Exception {
         doReturn(1).when(mPhone).getPhoneId();
         mDefaultPhoneNotifierUT.notifyMessageWaitingChanged(mPhone);
-        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(0, 1, false);
+        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(1, 0, false);
 
         doReturn(2).when(mPhone).getPhoneId();
         mDefaultPhoneNotifierUT.notifyMessageWaitingChanged(mPhone);
-        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(0, 2, false);
+        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(2, 0, false);
 
         doReturn(1).when(mPhone).getSubId();
         mDefaultPhoneNotifierUT.notifyMessageWaitingChanged(mPhone);
-        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(1, 2, false);
+        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(2, 1, false);
 
         doReturn(true).when(mPhone).getMessageWaitingIndicator();
         mDefaultPhoneNotifierUT.notifyMessageWaitingChanged(mPhone);
-        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(1, 2, true);
+        verify(mTelephonyRegistryManager).notifyMessageWaitingChanged(2, 1, true);
     }
 
     @Test @SmallTest
@@ -165,28 +163,6 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
                 PreciseDisconnectCause.CHANNEL_NOT_AVAIL);
         verify(mTelephonyRegistryManager).notifyDisconnectCause(PHONE_ID, SUB_ID,
                 DisconnectCause.LOCAL, PreciseDisconnectCause.CHANNEL_NOT_AVAIL);
-    }
-
-    @Test @SmallTest
-    public void testNotifyDataConnectionFailed() throws Exception {
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "default", "APN_0",
-                DataFailCause.INSUFFICIENT_RESOURCES);
-        verify(mTelephonyRegistryManager).notifyPreciseDataConnectionFailed(
-                eq(0), eq(0), eq(ApnSetting.TYPE_DEFAULT), eq("APN_0"),
-                eq(DataFailCause.INSUFFICIENT_RESOURCES));
-
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "default", "APN_1",
-                DataFailCause.INSUFFICIENT_RESOURCES);
-        verify(mTelephonyRegistryManager).notifyPreciseDataConnectionFailed(
-                eq(0), eq(0), eq(ApnSetting.TYPE_DEFAULT), eq("APN_1"),
-                eq(DataFailCause.INSUFFICIENT_RESOURCES));
-
-        doReturn(1).when(mPhone).getSubId();
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "default", "APN_1",
-                DataFailCause.INSUFFICIENT_RESOURCES);
-        verify(mTelephonyRegistryManager).notifyPreciseDataConnectionFailed(
-                eq(1), eq(0), eq(ApnSetting.TYPE_DEFAULT), eq("APN_1"),
-                eq(DataFailCause.INSUFFICIENT_RESOURCES));
     }
 
     @Test @SmallTest
@@ -253,7 +229,7 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         // mock gsm cell location
         CellIdentityGsm mGsmCellLocation = new CellIdentityGsm(
                 2, 3, 0, 0, null, null, null, null, Collections.emptyList());
-        doReturn(mGsmCellLocation).when(mPhone).getCellIdentity();
+        doReturn(mGsmCellLocation).when(mPhone).getCurrentCellIdentity();
         ArgumentCaptor<CellIdentityGsm> cellLocationCapture =
                 ArgumentCaptor.forClass(CellIdentityGsm.class);
 

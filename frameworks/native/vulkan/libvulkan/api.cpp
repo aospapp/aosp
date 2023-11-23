@@ -33,6 +33,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <cutils/properties.h>
 #include <log/log.h>
@@ -134,7 +135,7 @@ class OverrideLayerNames {
         // If no layers specified via Settings, check legacy properties
         if (implicit_layers_.count <= 0) {
             ParseDebugVulkanLayers();
-            property_list(ParseDebugVulkanLayer, this);
+            ParseDebugVulkanLayer();
 
             // sort by priorities
             auto& arr = implicit_layers_;
@@ -181,30 +182,39 @@ class OverrideLayerNames {
             AddImplicitLayer(prio, p, strlen(p));
     }
 
-    static void ParseDebugVulkanLayer(const char* key,
-                                      const char* val,
-                                      void* user_data) {
+    void ParseDebugVulkanLayer() {
+        // Checks for consecutive debug.vulkan.layer.<priority> system
+        // properties after always checking an initial fixed range.
         static const char prefix[] = "debug.vulkan.layer.";
-        const size_t prefix_len = sizeof(prefix) - 1;
+        static constexpr int kFixedRangeBeginInclusive = 0;
+        static constexpr int kFixedRangeEndInclusive = 9;
 
-        if (strncmp(key, prefix, prefix_len) || val[0] == '\0')
-            return;
-        key += prefix_len;
+        bool logged = false;
 
-        // debug.vulkan.layer.<priority>
-        int priority = -1;
-        if (key[0] >= '0' && key[0] <= '9')
-            priority = atoi(key);
+        int priority = kFixedRangeBeginInclusive;
+        while (true) {
+            const std::string prop_key =
+                std::string(prefix) + std::to_string(priority);
+            const std::string prop_val =
+                android::base::GetProperty(prop_key, "");
 
-        if (priority < 0) {
-            ALOGW("Ignored implicit layer %s with invalid priority %s", val,
-                  key);
-            return;
+            if (!prop_val.empty()) {
+                if (!logged) {
+                    ALOGI(
+                        "Detected Vulkan layers configured with "
+                        "debug.vulkan.layer.<priority>. Checking for "
+                        "debug.vulkan.layer.<priority> in the range [%d, %d] "
+                        "followed by a consecutive scan.",
+                        kFixedRangeBeginInclusive, kFixedRangeEndInclusive);
+                    logged = true;
+                }
+                AddImplicitLayer(priority, prop_val.c_str(), prop_val.length());
+            } else if (priority >= kFixedRangeEndInclusive) {
+                return;
+            }
+
+            ++priority;
         }
-
-        OverrideLayerNames& override_layers =
-            *reinterpret_cast<OverrideLayerNames*>(user_data);
-        override_layers.AddImplicitLayer(priority, val, strlen(val));
     }
 
     void AddImplicitLayer(int priority, const char* name, size_t len) {
@@ -1174,23 +1184,18 @@ const LayerChain::ActiveLayer* LayerChain::GetActiveLayers(
 // ----------------------------------------------------------------------------
 
 bool EnsureInitialized() {
-    static std::once_flag once_flag;
-    static bool initialized;
+    static bool initialized = false;
+    static pid_t init_attempted_for_pid = 0;
+    static std::mutex init_lock;
 
-    std::call_once(once_flag, []() {
-        if (driver::OpenHAL()) {
-            initialized = true;
-        }
-    });
+    std::lock_guard<std::mutex> lock(init_lock);
+    if (init_attempted_for_pid == getpid())
+        return initialized;
 
-    {
-        static pid_t pid = getpid() + 1;
-        static std::mutex layer_lock;
-        std::lock_guard<std::mutex> lock(layer_lock);
-        if (pid != getpid()) {
-            pid = getpid();
-            DiscoverLayers();
-        }
+    init_attempted_for_pid = getpid();
+    if (driver::OpenHAL()) {
+        DiscoverLayers();
+        initialized = true;
     }
 
     return initialized;
@@ -1256,7 +1261,7 @@ VkResult EnumerateInstanceLayerProperties(uint32_t* pPropertyCount,
     ATRACE_CALL();
 
     if (!EnsureInitialized())
-        return VK_ERROR_INITIALIZATION_FAILED;
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
 
     uint32_t count = GetLayerCount();
 
@@ -1280,7 +1285,7 @@ VkResult EnumerateInstanceExtensionProperties(
     ATRACE_CALL();
 
     if (!EnsureInitialized())
-        return VK_ERROR_INITIALIZATION_FAILED;
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
 
     if (pLayerName) {
         const Layer* layer = FindLayer(pLayerName);
@@ -1455,6 +1460,11 @@ VkResult EnumerateDeviceExtensionProperties(
 
 VkResult EnumerateInstanceVersion(uint32_t* pApiVersion) {
     ATRACE_CALL();
+
+    // Load the driver here if not done yet. This api will be used in Zygote
+    // for Vulkan driver pre-loading because of the minimum overhead.
+    if (!EnsureInitialized())
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
 
     *pApiVersion = VK_API_VERSION_1_1;
     return VK_SUCCESS;

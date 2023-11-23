@@ -53,7 +53,7 @@ public class FrameworkResources extends ResourceRepository {
     private final Map<ResourceType, List<ResourceItem>> mPublicResourceMap =
         new EnumMap<>(ResourceType.class);
 
-    public FrameworkResources(@NotNull IAbstractFolder resFolder) {
+    public FrameworkResources(@NotNull TestFolderWrapper resFolder) {
         super(resFolder, true /*isFrameworkRepository*/);
     }
 

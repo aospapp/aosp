@@ -32,11 +32,12 @@ namespace android {
 
 // ---------------------------------------------------------------------------
 
-DisplayEventReceiver::DisplayEventReceiver(ISurfaceComposer::VsyncSource vsyncSource,
-                                           ISurfaceComposer::ConfigChanged configChanged) {
+DisplayEventReceiver::DisplayEventReceiver(
+        ISurfaceComposer::VsyncSource vsyncSource,
+        ISurfaceComposer::EventRegistrationFlags eventRegistration) {
     sp<ISurfaceComposer> sf(ComposerService::getComposerService());
     if (sf != nullptr) {
-        mEventConnection = sf->createDisplayEventConnection(vsyncSource, configChanged);
+        mEventConnection = sf->createDisplayEventConnection(vsyncSource, eventRegistration);
         if (mEventConnection != nullptr) {
             mDataChannel = std::make_unique<gui::BitTube>();
             mEventConnection->stealReceiveChannel(mDataChannel.get());
@@ -79,14 +80,6 @@ status_t DisplayEventReceiver::requestNextVsync() {
     return NO_INIT;
 }
 
-status_t DisplayEventReceiver::requestLatestConfig() {
-    if (mEventConnection != nullptr) {
-        mEventConnection->requestLatestConfig();
-        return NO_ERROR;
-    }
-    return NO_INIT;
-}
-
 ssize_t DisplayEventReceiver::getEvents(DisplayEventReceiver::Event* events,
         size_t count) {
     return DisplayEventReceiver::getEvents(mDataChannel.get(), events, count);
@@ -96,6 +89,10 @@ ssize_t DisplayEventReceiver::getEvents(gui::BitTube* dataChannel,
         Event* events, size_t count)
 {
     return gui::BitTube::recvObjects(dataChannel, events, count);
+}
+
+ssize_t DisplayEventReceiver::sendEvents(Event const* events, size_t count) {
+    return DisplayEventReceiver::sendEvents(mDataChannel.get(), events, count);
 }
 
 ssize_t DisplayEventReceiver::sendEvents(gui::BitTube* dataChannel,

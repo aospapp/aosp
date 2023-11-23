@@ -21,6 +21,7 @@
 #include <media/AudioSystem.h>
 #include <media/MicrophoneInfo.h>
 #include <media/mediarecorder.h>
+#include <android/content/AttributionSourceState.h>
 
 #include <system/audio.h>
 
@@ -33,8 +34,8 @@ class IGraphicBufferProducer;
 struct PersistentSurface;
 
 struct MediaRecorderBase {
-    MediaRecorderBase(const String16 &opPackageName)
-        : mOpPackageName(opPackageName) {}
+    explicit MediaRecorderBase(const android::content::AttributionSourceState &attributionSource)
+        : mAttributionSource(attributionSource) {}
     virtual ~MediaRecorderBase() {}
 
     virtual status_t init() = 0;
@@ -77,12 +78,13 @@ struct MediaRecorderBase {
     virtual status_t setPreferredMicrophoneDirection(audio_microphone_direction_t direction) = 0;
     virtual status_t setPreferredMicrophoneFieldDimension(float zoom) = 0;
     virtual status_t getPortId(audio_port_handle_t *portId) const = 0;
+    virtual status_t getRtpDataUsage(uint64_t *bytes) = 0;
 
 
 
 protected:
 
-    String16 mOpPackageName;
+    android::content::AttributionSourceState mAttributionSource;
 
 private:
     MediaRecorderBase(const MediaRecorderBase &);

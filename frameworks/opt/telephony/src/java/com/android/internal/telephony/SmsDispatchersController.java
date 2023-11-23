@@ -16,8 +16,6 @@
 
 package com.android.internal.telephony;
 
-import static com.android.internal.telephony.IccSmsInterfaceManager.SMS_MESSAGE_PERIOD_NOT_SPECIFIED;
-import static com.android.internal.telephony.IccSmsInterfaceManager.SMS_MESSAGE_PRIORITY_NOT_SPECIFIED;
 import static com.android.internal.telephony.SmsResponse.NO_ERROR_CODE;
 import static com.android.internal.telephony.cdma.sms.BearerData.ERROR_NONE;
 import static com.android.internal.telephony.cdma.sms.BearerData.ERROR_TEMPORARY;
@@ -39,8 +37,8 @@ import android.provider.Telephony.Sms.Intents;
 import android.telephony.ServiceState;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
-import android.util.Pair;
 
+import com.android.ims.ImsManager;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.cdma.CdmaInboundSmsHandler;
 import com.android.internal.telephony.cdma.CdmaSMSDispatcher;
@@ -52,7 +50,6 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map.Entry;
 
 /**
  *
@@ -110,6 +107,26 @@ public class SmsDispatchersController extends Handler {
     private boolean mIms = false;
     private String mImsSmsFormat = SmsConstants.FORMAT_UNKNOWN;
 
+    /** 3GPP format sent messages awaiting a delivery status report. */
+    private HashMap<Integer, SMSDispatcher.SmsTracker> mDeliveryPendingMapFor3GPP = new HashMap<>();
+
+    /** 3GPP2 format sent messages awaiting a delivery status report. */
+    private HashMap<Integer, SMSDispatcher.SmsTracker> mDeliveryPendingMapFor3GPP2 =
+            new HashMap<>();
+
+    /**
+     * Puts a delivery pending tracker to the map based on the format.
+     *
+     * @param tracker the tracker awaiting a delivery status report.
+     */
+    public void putDeliveryPendingTracker(SMSDispatcher.SmsTracker tracker) {
+        if (isCdmaFormat(tracker.mFormat)) {
+            mDeliveryPendingMapFor3GPP2.put(tracker.mMessageRef, tracker);
+        } else {
+            mDeliveryPendingMapFor3GPP.put(tracker.mMessageRef, tracker);
+        }
+    }
+
     public SmsDispatchersController(Phone phone, SmsStorageMonitor storageMonitor,
             SmsUsageMonitor usageMonitor) {
         Rlog.d(TAG, "SmsDispatchersController created");
@@ -121,7 +138,7 @@ public class SmsDispatchersController extends Handler {
 
         // Create dispatchers, inbound SMS handlers and
         // broadcast undelivered messages in raw table.
-        mImsSmsDispatcher = new ImsSmsDispatcher(phone, this);
+        mImsSmsDispatcher = new ImsSmsDispatcher(phone, this, ImsManager::getConnector);
         mCdmaDispatcher = new CdmaSMSDispatcher(phone, this);
         mGsmInboundSmsHandler = GsmInboundSmsHandler.makeInboundSmsHandler(phone.getContext(),
                 storageMonitor, phone);
@@ -297,8 +314,7 @@ public class SmsDispatchersController extends Handler {
         // Timer expired. This indicates that device has been in service for
         // PARTIAL_SEGMENT_WAIT_DURATION since waitTimerStart. Delete orphaned message segments
         // older than waitTimerStart.
-        SmsBroadcastUndelivered.scanRawTable(mContext, mCdmaInboundSmsHandler,
-                mGsmInboundSmsHandler, waitTimerStart);
+        SmsBroadcastUndelivered.scanRawTable(mContext, waitTimerStart);
         if (VDBG) {
             logd("handlePartialSegmentTimerExpiry: scanRawTable() done");
         }
@@ -368,12 +384,13 @@ public class SmsDispatchersController extends Handler {
      *                 the same time an SMS received from radio is responded back.
      */
     @VisibleForTesting
-    public void injectSmsPdu(byte[] pdu, String format, SmsInjectionCallback callback) {
+    public void injectSmsPdu(byte[] pdu, String format, boolean isOverIms,
+            SmsInjectionCallback callback) {
         // TODO We need to decide whether we should allow injecting GSM(3gpp)
         // SMS pdus when the phone is camping on CDMA(3gpp2) network and vice versa.
         android.telephony.SmsMessage msg =
                 android.telephony.SmsMessage.createFromPdu(pdu, format);
-        injectSmsPdu(msg, format, callback, false /* ignoreClass */);
+        injectSmsPdu(msg, format, callback, false /* ignoreClass */, isOverIms);
     }
 
     /**
@@ -388,7 +405,7 @@ public class SmsDispatchersController extends Handler {
      */
     @VisibleForTesting
     public void injectSmsPdu(SmsMessage msg, String format, SmsInjectionCallback callback,
-            boolean ignoreClass) {
+            boolean ignoreClass, boolean isOverIms) {
         Rlog.d(TAG, "SmsDispatchersController:injectSmsPdu");
         try {
             if (msg == null) {
@@ -409,11 +426,13 @@ public class SmsDispatchersController extends Handler {
             if (format.equals(SmsConstants.FORMAT_3GPP)) {
                 Rlog.i(TAG, "SmsDispatchersController:injectSmsText Sending msg=" + msg
                         + ", format=" + format + "to mGsmInboundSmsHandler");
-                mGsmInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_INJECT_SMS, ar);
+                mGsmInboundSmsHandler.sendMessage(
+                        InboundSmsHandler.EVENT_INJECT_SMS, isOverIms ? 1 : 0, 0, ar);
             } else if (format.equals(SmsConstants.FORMAT_3GPP2)) {
                 Rlog.i(TAG, "SmsDispatchersController:injectSmsText Sending msg=" + msg
                         + ", format=" + format + "to mCdmaInboundSmsHandler");
-                mCdmaInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_INJECT_SMS, ar);
+                mCdmaInboundSmsHandler.sendMessage(
+                        InboundSmsHandler.EVENT_INJECT_SMS, isOverIms ? 1 : 0, 0, ar);
             } else {
                 // Invalid pdu format.
                 Rlog.e(TAG, "Invalid pdu format: " + format);
@@ -466,12 +485,18 @@ public class SmsDispatchersController extends Handler {
             }
             String scAddr = (String) map.get("scAddr");
             String destAddr = (String) map.get("destAddr");
+            if (destAddr == null) {
+                Rlog.e(TAG, "sendRetrySms failed due to null destAddr");
+                tracker.onFailed(mContext, SmsManager.RESULT_SMS_SEND_RETRY_FAILED, NO_ERROR_CODE);
+                return;
+            }
 
             SmsMessageBase.SubmitPduBase pdu = null;
             // figure out from tracker if this was sendText/Data
             if (map.containsKey("text")) {
-                Rlog.d(TAG, "sms failed was text");
                 String text = (String) map.get("text");
+                Rlog.d(TAG, "sms failed was text with length: "
+                        + (text == null ? null : text.length()));
 
                 if (isCdmaFormat(newFormat)) {
                     pdu = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
@@ -481,9 +506,10 @@ public class SmsDispatchersController extends Handler {
                             scAddr, destAddr, text, (tracker.mDeliveryIntent != null), null);
                 }
             } else if (map.containsKey("data")) {
-                Rlog.d(TAG, "sms failed was data");
                 byte[] data = (byte[]) map.get("data");
                 Integer destPort = (Integer) map.get("destPort");
+                Rlog.d(TAG, "sms failed was data with length: "
+                        + (data == null ? null : data.length));
 
                 if (isCdmaFormat(newFormat)) {
                     pdu = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
@@ -496,6 +522,13 @@ public class SmsDispatchersController extends Handler {
                 }
             }
 
+            if (pdu == null) {
+                Rlog.e(TAG, String.format("sendRetrySms failed to encode message."
+                        + "scAddr: %s, "
+                        + "destPort: %s", scAddr, map.get("destPort")));
+                tracker.onFailed(mContext, SmsManager.RESULT_SMS_SEND_RETRY_FAILED, NO_ERROR_CODE);
+                return;
+            }
             // replace old smsc and pdu with newly encoded ones
             map.put("smsc", pdu.encodedScAddress);
             map.put("pdu", pdu.encodedMessage);
@@ -569,13 +602,65 @@ public class SmsDispatchersController extends Handler {
      *  broadcast when the message is successfully sent, or failed.
      *  The result code will be <code>Activity.RESULT_OK<code> for success,
      *  or one of these errors:<br>
-     *  <code>RESULT_ERROR_GENERIC_FAILURE</code><br>
-     *  <code>RESULT_ERROR_RADIO_OFF</code><br>
-     *  <code>RESULT_ERROR_NULL_PDU</code><br>
-     *  <code>RESULT_ERROR_NO_SERVICE</code><br>.
-     *  For <code>RESULT_ERROR_GENERIC_FAILURE</code> the sentIntent may include
-     *  the extra "errorCode" containing a radio technology specific value,
-     *  generally only useful for troubleshooting.<br>
+     *  <code>SmsManager.RESULT_ERROR_GENERIC_FAILURE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_RADIO_OFF</code><br>
+     *  <code>SmsManager.RESULT_ERROR_NULL_PDU</code><br>
+     *  <code>SmsManager.RESULT_ERROR_NO_SERVICE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_LIMIT_EXCEEDED</code><br>
+     *  <code>SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_SHORT_CODE_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RADIO_NOT_AVAILABLE</code><br>
+     *  <code>SmsManager.RESULT_NETWORK_REJECT</code><br>
+     *  <code>SmsManager.RESULT_INVALID_ARGUMENTS</code><br>
+     *  <code>SmsManager.RESULT_INVALID_STATE</code><br>
+     *  <code>SmsManager.RESULT_NO_MEMORY</code><br>
+     *  <code>SmsManager.RESULT_INVALID_SMS_FORMAT</code><br>
+     *  <code>SmsManager.RESULT_SYSTEM_ERROR</code><br>
+     *  <code>SmsManager.RESULT_MODEM_ERROR</code><br>
+     *  <code>SmsManager.RESULT_NETWORK_ERROR</code><br>
+     *  <code>SmsManager.RESULT_ENCODING_ERROR</code><br>
+     *  <code>SmsManager.RESULT_INVALID_SMSC_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_OPERATION_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_INTERNAL_ERROR</code><br>
+     *  <code>SmsManager.RESULT_NO_RESOURCES</code><br>
+     *  <code>SmsManager.RESULT_CANCELLED</code><br>
+     *  <code>SmsManager.RESULT_REQUEST_NOT_SUPPORTED</code><br>
+     *  <code>SmsManager.RESULT_NO_BLUETOOTH_SERVICE</code><br>
+     *  <code>SmsManager.RESULT_INVALID_BLUETOOTH_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_BLUETOOTH_DISCONNECTED</code><br>
+     *  <code>SmsManager.RESULT_UNEXPECTED_EVENT_STOP_SENDING</code><br>
+     *  <code>SmsManager.RESULT_SMS_BLOCKED_DURING_EMERGENCY</code><br>
+     *  <code>SmsManager.RESULT_SMS_SEND_RETRY_FAILED</code><br>
+     *  <code>SmsManager.RESULT_REMOTE_EXCEPTION</code><br>
+     *  <code>SmsManager.RESULT_NO_DEFAULT_SMS_APP</code><br>
+     *  <code>SmsManager.RESULT_RIL_RADIO_NOT_AVAILABLE</code><br>
+     *  <code>SmsManager.RESULT_RIL_SMS_SEND_FAIL_RETRY</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_REJECT</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_STATE</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_ARGUMENTS</code><br>
+     *  <code>SmsManager.RESULT_RIL_NO_MEMORY</code><br>
+     *  <code>SmsManager.RESULT_RIL_REQUEST_RATE_LIMITED</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_SMS_FORMAT</code><br>
+     *  <code>SmsManager.RESULT_RIL_SYSTEM_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_ENCODING_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_SMSC_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_RIL_MODEM_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_INTERNAL_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_REQUEST_NOT_SUPPORTED</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_MODEM_STATE</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_NOT_READY</code><br>
+     *  <code>SmsManager.RESULT_RIL_OPERATION_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RIL_NO_RESOURCES</code><br>
+     *  <code>SmsManager.RESULT_RIL_CANCELLED</code><br>
+     *  <code>SmsManager.RESULT_RIL_SIM_ABSENT</code><br>
+     *  <code>SmsManager.RESULT_RIL_SIMULTANEOUS_SMS_AND_CALL_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RIL_ACCESS_BARRED</code><br>
+     *  <code>SmsManager.RESULT_RIL_BLOCKED_DUE_TO_CALL</code><br>
+     *  For <code>SmsManager.RESULT_ERROR_GENERIC_FAILURE</code> or any of the RESULT_RIL errors,
+     *  the sentIntent may include the extra "errorCode" containing a radio technology specific
+     *  value, generally only useful for troubleshooting.<br>
      *  The per-application based SMS control checks sentIntent. If sentIntent
      *  is NULL the caller will be checked against all unknown applications,
      *  which cause smaller number of SMS to be sent in checking period.
@@ -599,7 +684,8 @@ public class SmsDispatchersController extends Handler {
 
     /**
      * Send a text based SMS.
-     *  @param destAddr the address to send the message to
+     *
+     * @param destAddr the address to send the message to
      * @param scAddr is the service center address or null to use
      *  the current default SMSC
      * @param text the body of the message to send
@@ -607,13 +693,65 @@ public class SmsDispatchersController extends Handler {
      *  broadcast when the message is successfully sent, or failed.
      *  The result code will be <code>Activity.RESULT_OK<code> for success,
      *  or one of these errors:<br>
-     *  <code>RESULT_ERROR_GENERIC_FAILURE</code><br>
-     *  <code>RESULT_ERROR_RADIO_OFF</code><br>
-     *  <code>RESULT_ERROR_NULL_PDU</code><br>
-     *  <code>RESULT_ERROR_NO_SERVICE</code><br>.
-     *  For <code>RESULT_ERROR_GENERIC_FAILURE</code> the sentIntent may include
-     *  the extra "errorCode" containing a radio technology specific value,
-     *  generally only useful for troubleshooting.<br>
+     *  <code>SmsManager.RESULT_ERROR_GENERIC_FAILURE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_RADIO_OFF</code><br>
+     *  <code>SmsManager.RESULT_ERROR_NULL_PDU</code><br>
+     *  <code>SmsManager.RESULT_ERROR_NO_SERVICE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_LIMIT_EXCEEDED</code><br>
+     *  <code>SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_SHORT_CODE_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RADIO_NOT_AVAILABLE</code><br>
+     *  <code>SmsManager.RESULT_NETWORK_REJECT</code><br>
+     *  <code>SmsManager.RESULT_INVALID_ARGUMENTS</code><br>
+     *  <code>SmsManager.RESULT_INVALID_STATE</code><br>
+     *  <code>SmsManager.RESULT_NO_MEMORY</code><br>
+     *  <code>SmsManager.RESULT_INVALID_SMS_FORMAT</code><br>
+     *  <code>SmsManager.RESULT_SYSTEM_ERROR</code><br>
+     *  <code>SmsManager.RESULT_MODEM_ERROR</code><br>
+     *  <code>SmsManager.RESULT_NETWORK_ERROR</code><br>
+     *  <code>SmsManager.RESULT_ENCODING_ERROR</code><br>
+     *  <code>SmsManager.RESULT_INVALID_SMSC_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_OPERATION_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_INTERNAL_ERROR</code><br>
+     *  <code>SmsManager.RESULT_NO_RESOURCES</code><br>
+     *  <code>SmsManager.RESULT_CANCELLED</code><br>
+     *  <code>SmsManager.RESULT_REQUEST_NOT_SUPPORTED</code><br>
+     *  <code>SmsManager.RESULT_NO_BLUETOOTH_SERVICE</code><br>
+     *  <code>SmsManager.RESULT_INVALID_BLUETOOTH_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_BLUETOOTH_DISCONNECTED</code><br>
+     *  <code>SmsManager.RESULT_UNEXPECTED_EVENT_STOP_SENDING</code><br>
+     *  <code>SmsManager.RESULT_SMS_BLOCKED_DURING_EMERGENCY</code><br>
+     *  <code>SmsManager.RESULT_SMS_SEND_RETRY_FAILED</code><br>
+     *  <code>SmsManager.RESULT_REMOTE_EXCEPTION</code><br>
+     *  <code>SmsManager.RESULT_NO_DEFAULT_SMS_APP</code><br>
+     *  <code>SmsManager.RESULT_RIL_RADIO_NOT_AVAILABLE</code><br>
+     *  <code>SmsManager.RESULT_RIL_SMS_SEND_FAIL_RETRY</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_REJECT</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_STATE</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_ARGUMENTS</code><br>
+     *  <code>SmsManager.RESULT_RIL_NO_MEMORY</code><br>
+     *  <code>SmsManager.RESULT_RIL_REQUEST_RATE_LIMITED</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_SMS_FORMAT</code><br>
+     *  <code>SmsManager.RESULT_RIL_SYSTEM_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_ENCODING_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_SMSC_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_RIL_MODEM_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_INTERNAL_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_REQUEST_NOT_SUPPORTED</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_MODEM_STATE</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_NOT_READY</code><br>
+     *  <code>SmsManager.RESULT_RIL_OPERATION_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RIL_NO_RESOURCES</code><br>
+     *  <code>SmsManager.RESULT_RIL_CANCELLED</code><br>
+     *  <code>SmsManager.RESULT_RIL_SIM_ABSENT</code><br>
+     *  <code>SmsManager.RESULT_RIL_SIMULTANEOUS_SMS_AND_CALL_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RIL_ACCESS_BARRED</code><br>
+     *  <code>SmsManager.RESULT_RIL_BLOCKED_DUE_TO_CALL</code><br>
+     *  For <code>SmsManager.RESULT_ERROR_GENERIC_FAILURE</code> or any of the RESULT_RIL errors,
+     *  the sentIntent may include the extra "errorCode" containing a radio technology specific
+     *  value, generally only useful for troubleshooting.<br>
      *  The per-application based SMS control checks sentIntent. If sentIntent
      *  is NULL the caller will be checked against all unknown applications,
      *  which cause smaller number of SMS to be sent in checking period.
@@ -622,7 +760,7 @@ public class SmsDispatchersController extends Handler {
      * @param messageUri optional URI of the message if it is already stored in the system
      * @param callingPkg the calling package name
      * @param persistMessage whether to save the sent message into SMS DB for a
-     *   non-default SMS app.
+     *  non-default SMS app.
      * @param priority Priority level of the message
      *  Refer specification See 3GPP2 C.S0015-B, v2.0, table 4.5.9-1
      *  ---------------------------------
@@ -647,9 +785,8 @@ public class SmsDispatchersController extends Handler {
             long messageId) {
         if (mImsSmsDispatcher.isAvailable() || mImsSmsDispatcher.isEmergencySmsSupport(destAddr)) {
             mImsSmsDispatcher.sendText(destAddr, scAddr, text, sentIntent, deliveryIntent,
-                    messageUri, callingPkg, persistMessage, SMS_MESSAGE_PRIORITY_NOT_SPECIFIED,
-                    false /*expectMore*/, SMS_MESSAGE_PERIOD_NOT_SPECIFIED, isForVvm,
-                    messageId);
+                    messageUri, callingPkg, persistMessage, priority, false /*expectMore*/,
+                    validityPeriod, isForVvm, messageId);
         } else {
             if (isCdmaMo()) {
                 mCdmaDispatcher.sendText(destAddr, scAddr, text, sentIntent, deliveryIntent,
@@ -665,31 +802,87 @@ public class SmsDispatchersController extends Handler {
 
     /**
      * Send a multi-part text based SMS.
-     *  @param destAddr the address to send the message to
+     *
+     * @param destAddr the address to send the message to
      * @param scAddr is the service center address or null to use
-     *   the current default SMSC
+     *  the current default SMSC
      * @param parts an <code>ArrayList</code> of strings that, in order,
-     *   comprise the original message
+     *  comprise the original message
      * @param sentIntents if not null, an <code>ArrayList</code> of
-     *   <code>PendingIntent</code>s (one for each message part) that is
-     *   broadcast when the corresponding message part has been sent.
-     *   The result code will be <code>Activity.RESULT_OK<code> for success,
-     *   or one of these errors:
-     *   <code>RESULT_ERROR_GENERIC_FAILURE</code>
-     *   <code>RESULT_ERROR_RADIO_OFF</code>
-     *   <code>RESULT_ERROR_NULL_PDU</code>
-     *   <code>RESULT_ERROR_NO_SERVICE</code>.
+     *  <code>PendingIntent</code>s (one for each message part) that is
+     *  broadcast when the corresponding message part has been sent.
+     *  The result code will be <code>Activity.RESULT_OK<code> for success,
+     *  or one of these errors:<br>
+     *  <code>SmsManager.RESULT_ERROR_GENERIC_FAILURE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_RADIO_OFF</code><br>
+     *  <code>SmsManager.RESULT_ERROR_NULL_PDU</code><br>
+     *  <code>SmsManager.RESULT_ERROR_NO_SERVICE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_LIMIT_EXCEEDED</code><br>
+     *  <code>SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE</code><br>
+     *  <code>SmsManager.RESULT_ERROR_SHORT_CODE_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RADIO_NOT_AVAILABLE</code><br>
+     *  <code>SmsManager.RESULT_NETWORK_REJECT</code><br>
+     *  <code>SmsManager.RESULT_INVALID_ARGUMENTS</code><br>
+     *  <code>SmsManager.RESULT_INVALID_STATE</code><br>
+     *  <code>SmsManager.RESULT_NO_MEMORY</code><br>
+     *  <code>SmsManager.RESULT_INVALID_SMS_FORMAT</code><br>
+     *  <code>SmsManager.RESULT_SYSTEM_ERROR</code><br>
+     *  <code>SmsManager.RESULT_MODEM_ERROR</code><br>
+     *  <code>SmsManager.RESULT_NETWORK_ERROR</code><br>
+     *  <code>SmsManager.RESULT_ENCODING_ERROR</code><br>
+     *  <code>SmsManager.RESULT_INVALID_SMSC_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_OPERATION_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_INTERNAL_ERROR</code><br>
+     *  <code>SmsManager.RESULT_NO_RESOURCES</code><br>
+     *  <code>SmsManager.RESULT_CANCELLED</code><br>
+     *  <code>SmsManager.RESULT_REQUEST_NOT_SUPPORTED</code><br>
+     *  <code>SmsManager.RESULT_NO_BLUETOOTH_SERVICE</code><br>
+     *  <code>SmsManager.RESULT_INVALID_BLUETOOTH_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_BLUETOOTH_DISCONNECTED</code><br>
+     *  <code>SmsManager.RESULT_UNEXPECTED_EVENT_STOP_SENDING</code><br>
+     *  <code>SmsManager.RESULT_SMS_BLOCKED_DURING_EMERGENCY</code><br>
+     *  <code>SmsManager.RESULT_SMS_SEND_RETRY_FAILED</code><br>
+     *  <code>SmsManager.RESULT_REMOTE_EXCEPTION</code><br>
+     *  <code>SmsManager.RESULT_NO_DEFAULT_SMS_APP</code><br>
+     *  <code>SmsManager.RESULT_RIL_RADIO_NOT_AVAILABLE</code><br>
+     *  <code>SmsManager.RESULT_RIL_SMS_SEND_FAIL_RETRY</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_REJECT</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_STATE</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_ARGUMENTS</code><br>
+     *  <code>SmsManager.RESULT_RIL_NO_MEMORY</code><br>
+     *  <code>SmsManager.RESULT_RIL_REQUEST_RATE_LIMITED</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_SMS_FORMAT</code><br>
+     *  <code>SmsManager.RESULT_RIL_SYSTEM_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_ENCODING_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_SMSC_ADDRESS</code><br>
+     *  <code>SmsManager.RESULT_RIL_MODEM_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_INTERNAL_ERR</code><br>
+     *  <code>SmsManager.RESULT_RIL_REQUEST_NOT_SUPPORTED</code><br>
+     *  <code>SmsManager.RESULT_RIL_INVALID_MODEM_STATE</code><br>
+     *  <code>SmsManager.RESULT_RIL_NETWORK_NOT_READY</code><br>
+     *  <code>SmsManager.RESULT_RIL_OPERATION_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RIL_NO_RESOURCES</code><br>
+     *  <code>SmsManager.RESULT_RIL_CANCELLED</code><br>
+     *  <code>SmsManager.RESULT_RIL_SIM_ABSENT</code><br>
+     *  <code>SmsManager.RESULT_RIL_SIMULTANEOUS_SMS_AND_CALL_NOT_ALLOWED</code><br>
+     *  <code>SmsManager.RESULT_RIL_ACCESS_BARRED</code><br>
+     *  <code>SmsManager.RESULT_RIL_BLOCKED_DUE_TO_CALL</code><br>
+     *  For <code>SmsManager.RESULT_ERROR_GENERIC_FAILURE</code> or any of the RESULT_RIL errors,
+     *  the sentIntent may include the extra "errorCode" containing a radio technology specific
+     *  value, generally only useful for troubleshooting.<br>
      *  The per-application based SMS control checks sentIntent. If sentIntent
      *  is NULL the caller will be checked against all unknown applications,
      *  which cause smaller number of SMS to be sent in checking period.
      * @param deliveryIntents if not null, an <code>ArrayList</code> of
-     *   <code>PendingIntent</code>s (one for each message part) that is
-     *   broadcast when the corresponding message part has been delivered
-     *   to the recipient.  The raw pdu of the status report is in the
+     *  <code>PendingIntent</code>s (one for each message part) that is
+     *  broadcast when the corresponding message part has been delivered
+     *  to the recipient.  The raw pdu of the status report is in the
      * @param messageUri optional URI of the message if it is already stored in the system
      * @param callingPkg the calling package name
      * @param persistMessage whether to save the sent message into SMS DB for a
-     *   non-default SMS app.
+     *  non-default SMS app.
      * @param priority Priority level of the message
      *  Refer specification See 3GPP2 C.S0015-B, v2.0, table 4.5.9-1
      *  ---------------------------------
@@ -718,10 +911,8 @@ public class SmsDispatchersController extends Handler {
             long messageId) {
         if (mImsSmsDispatcher.isAvailable()) {
             mImsSmsDispatcher.sendMultipartText(destAddr, scAddr, parts, sentIntents,
-                    deliveryIntents, messageUri, callingPkg, persistMessage,
-                    SMS_MESSAGE_PRIORITY_NOT_SPECIFIED,
-                    false /*expectMore*/, SMS_MESSAGE_PERIOD_NOT_SPECIFIED,
-                    messageId);
+                    deliveryIntents, messageUri, callingPkg, persistMessage, priority,
+                    false /*expectMore*/, validityPeriod, messageId);
         } else {
             if (isCdmaMo()) {
                 mCdmaDispatcher.sendMultipartText(destAddr, scAddr, parts, sentIntents,
@@ -766,86 +957,75 @@ public class SmsDispatchersController extends Handler {
     }
 
     /**
-     * Handles the sms status report for the sent sms through ImsSmsDispatcher. Carriers can send
-     * the report over CS even if the previously submitted SMS-SUBMIT was sent over IMS. For this
-     * case, finds a corresponding tracker from the tracker map in ImsSmsDispatcher and handles it.
+     * Handles the sms status report based on the format.
      *
-     * @param messageRef the TP-MR of the previously submitted SMS-SUBMIT in the report.
      * @param format the format.
      * @param pdu the pdu of the report.
      */
-    public void handleSentOverImsStatusReport(int messageRef, String format, byte[] pdu) {
-        for (Entry<Integer, SMSDispatcher.SmsTracker> entry :
-                mImsSmsDispatcher.mTrackers.entrySet()) {
-            int token = entry.getKey();
-            SMSDispatcher.SmsTracker tracker = entry.getValue();
-            if (tracker.mMessageRef == messageRef) {
-                Pair<Boolean, Boolean> result = handleSmsStatusReport(tracker, format, pdu);
-                if (result.second) {
-                    mImsSmsDispatcher.mTrackers.remove(token);
-                }
-                return;
-            }
-        }
-    }
-
-    /**
-     * Triggers the correct method for handling the sms status report based on the format.
-     *
-     * @param tracker the sms tracker.
-     * @param format the format.
-     * @param pdu the pdu of the report.
-     * @return a Pair in which the first boolean is whether the report was handled successfully
-     *          or not and the second boolean is whether processing the sms is complete and the
-     *          tracker no longer need to be kept track of, false if we should expect more callbacks
-     *          and the tracker should be kept.
-     */
-    public Pair<Boolean, Boolean> handleSmsStatusReport(SMSDispatcher.SmsTracker tracker,
-            String format, byte[] pdu) {
+    public void handleSmsStatusReport(String format, byte[] pdu) {
+        int messageRef;
+        SMSDispatcher.SmsTracker tracker;
+        boolean handled = false;
         if (isCdmaFormat(format)) {
-            return handleCdmaStatusReport(tracker, format, pdu);
+            com.android.internal.telephony.cdma.SmsMessage sms =
+                    com.android.internal.telephony.cdma.SmsMessage.createFromPdu(pdu);
+            if (sms != null) {
+                boolean foundIn3GPPMap = false;
+                messageRef = sms.mMessageRef;
+                tracker = mDeliveryPendingMapFor3GPP2.get(messageRef);
+                if (tracker == null) {
+                    // A tracker for this 3GPP2 report may be in the 3GPP map instead if the
+                    // previously submitted SMS was 3GPP format.
+                    // (i.e. Some carriers require that devices receive 3GPP2 SMS also even if IMS
+                    // SMS format is 3GGP.)
+                    tracker = mDeliveryPendingMapFor3GPP.get(messageRef);
+                    if (tracker != null) {
+                        foundIn3GPPMap = true;
+                    }
+                }
+                if (tracker != null) {
+                    // The status is composed of an error class (bits 25-24) and a status code
+                    // (bits 23-16).
+                    int errorClass = (sms.getStatus() >> 24) & 0x03;
+                    if (errorClass != ERROR_TEMPORARY) {
+                        // Update the message status (COMPLETE or FAILED)
+                        tracker.updateSentMessageStatus(
+                                mContext,
+                                (errorClass == ERROR_NONE)
+                                        ? Sms.STATUS_COMPLETE
+                                        : Sms.STATUS_FAILED);
+                        // No longer need to be kept.
+                        if (foundIn3GPPMap) {
+                            mDeliveryPendingMapFor3GPP.remove(messageRef);
+                        } else {
+                            mDeliveryPendingMapFor3GPP2.remove(messageRef);
+                        }
+                    }
+                    handled = triggerDeliveryIntent(tracker, format, pdu);
+                }
+            }
         } else {
-            return handleGsmStatusReport(tracker, format, pdu);
-        }
-    }
-
-    private Pair<Boolean, Boolean> handleCdmaStatusReport(SMSDispatcher.SmsTracker tracker,
-            String format, byte[] pdu) {
-        com.android.internal.telephony.cdma.SmsMessage sms =
-                com.android.internal.telephony.cdma.SmsMessage.createFromPdu(pdu);
-        boolean complete = false;
-        boolean success = false;
-        if (sms != null) {
-            // The status is composed of an error class (bits 25-24) and a status code (bits 23-16).
-            int errorClass = (sms.getStatus() >> 24) & 0x03;
-            if (errorClass != ERROR_TEMPORARY) {
-                // Update the message status (COMPLETE or FAILED)
-                tracker.updateSentMessageStatus(
-                        mContext,
-                        (errorClass == ERROR_NONE) ? Sms.STATUS_COMPLETE : Sms.STATUS_FAILED);
-                complete = true;
+            com.android.internal.telephony.gsm.SmsMessage sms =
+                    com.android.internal.telephony.gsm.SmsMessage.createFromPdu(pdu);
+            if (sms != null) {
+                messageRef = sms.mMessageRef;
+                tracker = mDeliveryPendingMapFor3GPP.get(messageRef);
+                if (tracker != null) {
+                    int tpStatus = sms.getStatus();
+                    if (tpStatus >= Sms.STATUS_FAILED || tpStatus < Sms.STATUS_PENDING) {
+                        // Update the message status (COMPLETE or FAILED)
+                        tracker.updateSentMessageStatus(mContext, tpStatus);
+                        // No longer need to be kept.
+                        mDeliveryPendingMapFor3GPP.remove(messageRef);
+                    }
+                    handled = triggerDeliveryIntent(tracker, format, pdu);
+                }
             }
-            success = triggerDeliveryIntent(tracker, format, pdu);
         }
-        return new Pair(success, complete);
-    }
 
-    private Pair<Boolean, Boolean> handleGsmStatusReport(SMSDispatcher.SmsTracker tracker,
-            String format, byte[] pdu) {
-        com.android.internal.telephony.gsm.SmsMessage sms =
-                com.android.internal.telephony.gsm.SmsMessage.newFromCDS(pdu);
-        boolean complete = false;
-        boolean success = false;
-        if (sms != null) {
-            int tpStatus = sms.getStatus();
-            if(tpStatus >= Sms.STATUS_FAILED || tpStatus < Sms.STATUS_PENDING ) {
-                // Update the message status (COMPLETE or FAILED)
-                tracker.updateSentMessageStatus(mContext, tpStatus);
-                complete = true;
-            }
-            success = triggerDeliveryIntent(tracker, format, pdu);
+        if (!handled) {
+            Rlog.e(TAG, "handleSmsStatusReport: can not handle the status report!");
         }
-        return new Pair(success, complete);
     }
 
     private boolean triggerDeliveryIntent(SMSDispatcher.SmsTracker tracker, String format,
@@ -862,6 +1042,13 @@ public class SmsDispatchersController extends Handler {
         }
     }
 
+    /**
+     * Get InboundSmsHandler for the phone.
+     */
+    public InboundSmsHandler getInboundSmsHandler(boolean is3gpp2) {
+        if (is3gpp2) return mCdmaInboundSmsHandler;
+        else return mGsmInboundSmsHandler;
+    }
 
     public interface SmsInjectionCallback {
         void onSmsInjectedResult(int result);
@@ -870,6 +1057,9 @@ public class SmsDispatchersController extends Handler {
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         mGsmInboundSmsHandler.dump(fd, pw, args);
         mCdmaInboundSmsHandler.dump(fd, pw, args);
+        mGsmDispatcher.dump(fd, pw, args);
+        mCdmaDispatcher.dump(fd, pw, args);
+        mImsSmsDispatcher.dump(fd, pw, args);
     }
 
     private void logd(String msg) {

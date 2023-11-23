@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["frameworks_native_libs_math_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_native_libs_math_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libmath",
     host_supported: true,
@@ -22,9 +39,34 @@ cc_library_static {
         "com.android.media.swcodec",
         "com.android.neuralnetworks",
     ],
+
     min_sdk_version: "29",
 
     export_include_dirs: ["include"],
+    target:  {
+        windows: {
+            enabled: true,
+        }
+    }
+}
+
+cc_library_headers {
+    name: "libmath_headers",
+    export_include_dirs: ["include"],
+    host_supported: true,
+    vendor_available: true,
+
+    apex_available: [
+        "//apex_available:anyapex",
+        "//apex_available:platform",
+    ],
+    min_sdk_version: "apex_inherit",
+
+    target:  {
+        windows: {
+            enabled: true,
+        }
+    }
 }
 
 subdirs = ["tests"]

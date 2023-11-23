@@ -9,7 +9,6 @@
       <module fileurl="file://$PROJECT_DIR$/remote/common/remote common.iml" filepath="$PROJECT_DIR$/remote/common/remote common.iml" group="remote" />
       <module fileurl="file://$PROJECT_DIR$/remote/server/remote server.iml" filepath="$PROJECT_DIR$/remote/server/remote server.iml" group="remote" />
       <module fileurl="file://$PROJECT_DIR$/remote/tests/remote tests.iml" filepath="$PROJECT_DIR$/remote/tests/remote tests.iml" group="remote" />
-      <module fileurl="file://$PROJECT_DIR$/studio-custom-widgets/studio-android-widgets.iml" filepath="$PROJECT_DIR$/studio-custom-widgets/studio-android-widgets.iml" />
       <module fileurl="file://$PROJECT_DIR$/validator/validator.iml" filepath="$PROJECT_DIR$/validator/validator.iml" />
     </modules>
   </component>

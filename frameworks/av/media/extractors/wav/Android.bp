@@ -1,7 +1,24 @@
+package {
+    default_applicable_licenses: ["frameworks_av_media_extractors_wav_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_extractors_wav_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library {
     name: "libwavextractor",
 
-    defaults: ["extractor-defaults"],
+    defaults: ["extractor-defaults", "libbinder_ndk_host_user"],
 
     srcs: ["WAVExtractor.cpp"],
 
@@ -19,4 +36,11 @@ cc_library {
         "libfifo",
         "libstagefright_foundation",
     ],
+
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
 }

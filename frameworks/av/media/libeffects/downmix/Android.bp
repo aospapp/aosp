@@ -1,9 +1,28 @@
 // Multichannel downmix effect library
-cc_library_shared {
-    name: "libdownmix",
+package {
+    default_applicable_licenses: [
+        "frameworks_av_media_libeffects_downmix_license",
+    ],
+}
 
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_libeffects_downmix_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+cc_library {
+    name: "libdownmix",
+    host_supported: true,
     vendor: true,
-    srcs: ["EffectDownmix.c"],
+    srcs: ["EffectDownmix.cpp"],
 
     shared_libs: [
         "libaudioutils",
@@ -14,7 +33,6 @@ cc_library_shared {
     relative_install_path: "soundfx",
 
     cflags: [
-        "-DBUILD_FLOAT",
         "-fvisibility=hidden",
         "-Wall",
         "-Werror",

@@ -50,8 +50,6 @@
 extern "C" {
 #endif
 
-#if __ANDROID_API__ >= 26
-
 /**
  * Create a shared memory region.
  *
@@ -61,15 +59,21 @@ extern "C" {
  *
  * Use close() to release the shared memory region.
  *
- * Use {@link android.os.ParcelFileDescriptor} to pass the file descriptor to
- * another process. File descriptors may also be sent to other processes over a Unix domain
- * socket with sendmsg and SCM_RIGHTS. See sendmsg(3) and cmsg(3) man pages for more information.
+ * Use <a href="/reference/android/os/ParcelFileDescriptor">android.os.ParcelFileDescriptor</a>
+ * to pass the file descriptor to another process. File descriptors may also be sent to other
+ * processes over a Unix domain socket with sendmsg and SCM_RIGHTS. See sendmsg(3) and
+ * cmsg(3) man pages for more information.
+ *
+ * If you intend to share this file descriptor with a child process after
+ * calling exec(3), note that you will need to use fcntl(2) with FD_SETFD
+ * to clear the FD_CLOEXEC flag for this to work on all versions of Android.
  *
  * Available since API level 26.
  *
  * \param name an optional name.
  * \param size size of the shared memory region
- * \return file descriptor that denotes the shared memory; -1 and sets errno on failure, or -EINVAL if the error is that size was 0.
+ * \return file descriptor that denotes the shared memory;
+ *         -1 and sets errno on failure, or -EINVAL if the error is that size was 0.
  */
 int ASharedMemory_create(const char *name, size_t size) __INTRODUCED_IN(26);
 
@@ -116,8 +120,6 @@ size_t ASharedMemory_getSize(int fd) __INTRODUCED_IN(26);
  * \return 0 for success, -1 and sets errno on failure.
  */
 int ASharedMemory_setProt(int fd, int prot) __INTRODUCED_IN(26);
-
-#endif // __ANDROID_API__ >= 26
 
 #ifdef __cplusplus
 };

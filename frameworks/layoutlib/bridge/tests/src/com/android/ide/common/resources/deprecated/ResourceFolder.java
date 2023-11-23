@@ -63,7 +63,7 @@ public final class ResourceFolder implements Configurable {
      *            as a place to stash errors encountered
      * @return the {@link ResourceFile} that was created.
      */
-    public ResourceFile processFile(IAbstractFile file, ResourceDeltaKind kind,
+    public ResourceFile processFile(TestFileWrapper file, ResourceDeltaKind kind,
             ScanningContext context) {
         // look for this file if it's already been created
         ResourceFile resFile = getFile(file, context);
@@ -84,7 +84,7 @@ public final class ResourceFolder implements Configurable {
         return resFile;
     }
 
-    private ResourceFile createResourceFile(IAbstractFile file) {
+    private ResourceFile createResourceFile(TestFileWrapper file) {
         // check if that's a single or multi resource type folder. We have a special case
         // for ID generating resource types (layout/menu, and XML drawables, etc.).
         // MultiResourceFile handles the case when several resource types come from a single file
@@ -130,7 +130,7 @@ public final class ResourceFolder implements Configurable {
      *            as a place to stash errors encountered
      * @return the {@link ResourceFile} or null if no match was found.
      */
-    private ResourceFile getFile(IAbstractFile file, ScanningContext context) {
+    private ResourceFile getFile(TestFileWrapper file, ScanningContext context) {
         assert mFolder.equals(file.getParentFolder());
 
         // If the file actually exists, the resource folder  may not have been

@@ -25,6 +25,8 @@ LOCAL_STATIC_JAVA_LIBRARIES += xmp_toolkit
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
 
 LOCAL_PACKAGE_NAME := Refocus
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_SDK_VERSION := current
 LOCAL_RENDERSCRIPT_TARGET_API := 21

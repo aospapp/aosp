@@ -17,6 +17,7 @@
 package com.android.localepicker;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.robolectric.RuntimeEnvironment.application;
 import static org.robolectric.Shadows.shadowOf;
@@ -26,10 +27,7 @@ import android.telephony.TelephonyManager;
 
 import com.android.internal.app.LocalePicker;
 import com.android.localepicker.LocaleStore.LocaleInfo;
-import com.android.localepicker.LocaleStoreTest.ShadowICU;
 import com.android.localepicker.LocaleStoreTest.ShadowLocalePicker;
-
-import libcore.icu.ICU;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -45,7 +43,6 @@ import java.util.Locale;
 @Config(
         shadows = {
                 ShadowLocalePicker.class,
-                ShadowICU.class,
         })
 public class LocaleStoreTest {
 
@@ -65,7 +62,7 @@ public class LocaleStoreTest {
     public void getLevel() {
         LocaleInfo localeInfo = LocaleStore.getLocaleInfo(Locale.forLanguageTag("zh-Hant-HK"));
         assertThat(localeInfo.getParent().toLanguageTag()).isEqualTo("zh-Hant");
-        assertThat(localeInfo.isTranslated()).named("is translated").isTrue();
+        assertWithMessage("is translated").that(localeInfo.isTranslated()).isTrue();
     }
 
     @Implements(LocalePicker.class)
@@ -74,16 +71,6 @@ public class LocaleStoreTest {
         @Implementation
         public static String[] getSystemAssetLocales() {
             return new String[] { "en-US", "zh-HK", "ja-JP", "zh-TW" };
-        }
-    }
-
-    @Implements(ICU.class)
-    public static class ShadowICU {
-
-        @Implementation
-        public static Locale addLikelySubtags(Locale locale) {
-            ULocale uLocale = ULocale.addLikelySubtags(ULocale.forLocale(locale));
-            return uLocale.toLocale();
         }
     }
 }

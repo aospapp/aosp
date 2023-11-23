@@ -44,8 +44,6 @@
 
 __BEGIN_DECLS
 
-#if __ANDROID_API__ >= 24
-
 /**
  * ACameraDevice is opaque type that provides access to a camera device.
  *
@@ -126,6 +124,10 @@ typedef void (*ACameraDevice_StateCallback)(void* context, ACameraDevice* device
  */
 typedef void (*ACameraDevice_ErrorStateCallback)(void* context, ACameraDevice* device, int error);
 
+/**
+ * Applications' callbacks for camera device state changes, register with
+ * {@link ACameraManager_openCamera}.
+ */
 typedef struct ACameraDevice_StateCallbacks {
     /// optional application context.
     void*                             context;
@@ -200,6 +202,10 @@ camera_status_t ACameraDevice_close(ACameraDevice* device) __INTRODUCED_IN(24);
  */
 const char* ACameraDevice_getId(const ACameraDevice* device) __INTRODUCED_IN(24);
 
+/**
+ * Capture request pre-defined template types, used in {@link ACameraDevice_createCaptureRequest}
+ * and {@link ACameraDevice_createCaptureRequest_withPhysicalIds}.
+ */
 typedef enum {
     /**
      * Create a request suitable for a camera preview window. Specifically, this
@@ -303,10 +309,12 @@ camera_status_t ACameraDevice_createCaptureRequest(
         const ACameraDevice* device, ACameraDevice_request_template templateId,
         /*out*/ACaptureRequest** request) __INTRODUCED_IN(24);
 
-
+/**
+ * Opaque object for CaptureSessionOutput container, use
+ * {@link ACaptureSessionOutputContainer_create} to create an instance.
+ */
 typedef struct ACaptureSessionOutputContainer ACaptureSessionOutputContainer;
 
-typedef struct ACaptureSessionOutput ACaptureSessionOutput;
 
 /**
  * Create a capture session output container.
@@ -687,10 +695,6 @@ camera_status_t ACameraDevice_createCaptureSession(
         const ACameraCaptureSession_stateCallbacks* callbacks,
         /*out*/ACameraCaptureSession** session) __INTRODUCED_IN(24);
 
-#endif /* __ANDROID_API__ >= 24 */
-
-#if __ANDROID_API__ >= 28
-
 /**
  * Create a shared ACaptureSessionOutput object.
  *
@@ -782,10 +786,6 @@ camera_status_t ACameraDevice_createCaptureSessionWithSessionParameters(
         const ACameraCaptureSession_stateCallbacks* callbacks,
         /*out*/ACameraCaptureSession** session) __INTRODUCED_IN(28);
 
-#endif /* __ANDROID_API__ >= 28 */
-
-#if __ANDROID_API__ >= 29
-
 /**
  * Create a ACaptureSessionOutput object used for streaming from a physical
  * camera as part of a logical camera device.
@@ -854,7 +854,7 @@ camera_status_t ACameraDevice_createCaptureRequest_withPhysicalIds(
         /*out*/ACaptureRequest** request) __INTRODUCED_IN(29);
 
 /**
- * Check whether a particular {@ACaptureSessionOutputContainer} is supported by
+ * Check whether a particular {@link ACaptureSessionOutputContainer} is supported by
  * the camera device.
  *
  * <p>This method performs a runtime check of a given {@link
@@ -885,12 +885,11 @@ camera_status_t ACameraDevice_createCaptureRequest_withPhysicalIds(
  *                                                         device.</li>
  *        <li>{@link ACAMERA_ERROR_UNSUPPORTED_OPERATION} if the query operation is not
  *                                                        supported by the camera device.</li>
+ *        </ul>
  */
 camera_status_t ACameraDevice_isSessionConfigurationSupported(
         const ACameraDevice* device,
         const ACaptureSessionOutputContainer* sessionOutputContainer) __INTRODUCED_IN(29);
-
-#endif /* __ANDROID_API__ >= 29 */
 
 __END_DECLS
 

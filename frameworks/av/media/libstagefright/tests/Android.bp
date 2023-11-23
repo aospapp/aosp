@@ -1,5 +1,24 @@
 // Build the unit tests.
 
+package {
+    default_applicable_licenses: [
+        "frameworks_av_media_libstagefright_tests_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_libstagefright_tests_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_test {
     name: "MediaCodecListOverrides_test",
 
@@ -9,7 +28,6 @@ cc_test {
         "libmedia",
         "libstagefright",
         "libstagefright_foundation",
-        "libstagefright_omx",
         "libutils",
         "liblog",
     ],
@@ -17,10 +35,7 @@ cc_test {
     include_dirs: [
         "frameworks/av/media/libstagefright",
         "frameworks/av/media/libstagefright/include",
-        "frameworks/native/include/media/openmax",
     ],
-
-    compile_multilib: "32",
 
     cflags: [
         "-Werror",

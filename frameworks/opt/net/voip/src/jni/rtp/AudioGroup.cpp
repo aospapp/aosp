@@ -44,6 +44,8 @@
 #include <system/audio.h>
 
 #include <nativehelper/ScopedUtfChars.h>
+#include <android/content/AttributionSourceState.h>
+#include <android_os_Parcel.h>
 
 #include "jni.h"
 #include <nativehelper/JNIHelp.h>
@@ -56,6 +58,8 @@ extern int parse(JNIEnv *env, jstring jAddress, int port, sockaddr_storage *ss);
 namespace {
 
 using namespace android;
+
+using android::content::AttributionSourceState;
 
 int gRandom = -1;
 
@@ -480,7 +484,7 @@ void AudioStream::decode(int tick)
 class AudioGroup
 {
 public:
-    explicit AudioGroup(const String16 &opPackageName);
+    explicit AudioGroup(const AttributionSourceState &attributionSource);
     ~AudioGroup();
     bool set(int sampleRate, int sampleCount);
 
@@ -505,7 +509,7 @@ private:
     int mEventQueue;
     volatile int mDtmfEvent;
 
-    String16 mOpPackageName;
+    const AttributionSourceState mAttributionSource;
 
     int mMode;
     int mSampleRate;
@@ -554,9 +558,9 @@ private:
     sp<DeviceThread> mDeviceThread;
 };
 
-AudioGroup::AudioGroup(const String16 &opPackageName)
+AudioGroup::AudioGroup(const AttributionSourceState &attributionSource)
+        : mAttributionSource(attributionSource)
 {
-    mOpPackageName = opPackageName;
     mMode = ON_HOLD;
     mChain = NULL;
     mEventQueue = -1;
@@ -818,7 +822,7 @@ bool AudioGroup::DeviceThread::threadLoop()
 
     // Initialize AudioTrack and AudioRecord.
     sp<AudioTrack> track = new AudioTrack();
-    sp<AudioRecord> record = new AudioRecord(mGroup->mOpPackageName);
+    sp<AudioRecord> record = new AudioRecord(mGroup->mAttributionSource);
     // Set caller name so it can be logged in destructor.
     // MediaMetricsConstants.h: AMEDIAMETRICS_PROP_CALLERNAME_VALUE_RTP
     track->setCallerName("rtp");
@@ -851,14 +855,14 @@ bool AudioGroup::DeviceThread::threadLoop()
     sp<AudioEffect> aec;
     if (mode == ECHO_SUPPRESSION) {
         if (mGroup->platformHasAec()) {
-            aec = new AudioEffect(FX_IID_AEC,
-                                    mGroup->mOpPackageName,
-                                    NULL,
-                                    0,
-                                    0,
-                                    0,
-                                    record->getSessionId(),
-                                    AUDIO_IO_HANDLE_NONE); // record sessionId is sufficient.
+            aec = new AudioEffect(mGroup->mAttributionSource);
+            aec->set(FX_IID_AEC,
+                     NULL,
+                     0,
+                     0,
+                     0,
+                     record->getSessionId(),
+                     AUDIO_IO_HANDLE_NONE); // record sessionId is sufficient.
             status_t status = aec->initCheck();
             if (status == NO_ERROR || status == ALREADY_EXISTS) {
                 aec->setEnabled(true);
@@ -953,7 +957,7 @@ static jfieldID gMode;
 
 jlong add(JNIEnv *env, jobject thiz, jint mode,
     jint socket, jstring jRemoteAddress, jint remotePort,
-    jstring jCodecSpec, jint dtmfType, jstring opPackageNameStr)
+    jstring jCodecSpec, jint dtmfType, jobject jAttributionSource)
 {
     AudioCodec *codec = NULL;
     AudioStream *stream = NULL;
@@ -981,7 +985,9 @@ jlong add(JNIEnv *env, jobject thiz, jint mode,
         return 0;
     }
 
-    ScopedUtfChars opPackageName(env, opPackageNameStr);
+    Parcel* parcel = parcelForJavaObject(env, jAttributionSource);
+    AttributionSourceState attributionSource;
+    attributionSource.readFromParcel(parcel);
 
     // Create audio codec.
     int codecType = -1;
@@ -1012,7 +1018,7 @@ jlong add(JNIEnv *env, jobject thiz, jint mode,
     group = (AudioGroup *)env->GetLongField(thiz, gNative);
     if (!group) {
         int mode = env->GetIntField(thiz, gMode);
-        group = new AudioGroup(String16(opPackageName.c_str()));
+        group = new AudioGroup(attributionSource);
         if (!group->set(8000, 256) || !group->setMode(mode)) {
             jniThrowException(env, "java/lang/IllegalStateException",
                 "cannot initialize audio group");
@@ -1068,7 +1074,7 @@ void sendDtmf(JNIEnv *env, jobject thiz, jint event)
 }
 
 JNINativeMethod gMethods[] = {
-    {"nativeAdd", "(IILjava/lang/String;ILjava/lang/String;ILjava/lang/String;)J", (void *)add},
+    {"nativeAdd", "(IILjava/lang/String;ILjava/lang/String;ILandroid/os/Parcel;)J", (void *)add},
     {"nativeRemove", "(J)V", (void *)remove},
     {"nativeSetMode", "(I)V", (void *)setMode},
     {"nativeSendDtmf", "(I)V", (void *)sendDtmf},
@@ -1078,7 +1084,7 @@ JNINativeMethod gMethods[] = {
 
 int registerAudioGroup(JNIEnv *env)
 {
-    gRandom = open("/dev/urandom", O_RDONLY);
+    gRandom = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
     if (gRandom == -1) {
         ALOGE("urandom: %s", strerror(errno));
         return -1;
@@ -1092,5 +1098,6 @@ int registerAudioGroup(JNIEnv *env)
         ALOGE("JNI registration failed");
         return -1;
     }
+
     return 0;
 }

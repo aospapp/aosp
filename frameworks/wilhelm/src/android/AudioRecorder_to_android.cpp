@@ -29,6 +29,8 @@
 #define KEY_RECORDING_PRESET_PARAMSIZE  sizeof(SLuint32)
 #define KEY_PERFORMANCE_MODE_PARAMSIZE  sizeof(SLuint32)
 
+using android::content::AttributionSourceState;
+
 //-----------------------------------------------------------------------------
 // Internal utility functions
 //----------------------------
@@ -515,32 +517,32 @@ static void checkAndSetPerformanceModePre(CAudioRecorder* ar)
     // no need to check the buffer queue size, application side
     // double-buffering (and more) is not a requirement for using fast tracks
 
-    // Check a blacklist of interfaces that are incompatible with fast tracks.
-    // The alternative, to check a whitelist of compatible interfaces, is
+    // Check a denylist of interfaces that are incompatible with fast tracks.
+    // The alternative, to check a allowlist of compatible interfaces, is
     // more maintainable but is too slow.  As a compromise, in a debug build
     // we use both methods and warn if they produce different results.
-    // In release builds, we only use the blacklist method.
-    // If a blacklisted interface is added after realization using
+    // In release builds, we only use the denylist method.
+    // If a denylisted interface is added after realization using
     // DynamicInterfaceManagement::AddInterface,
     // then this won't be detected but the interface will be ineffective.
-    static const unsigned blacklist[] = {
+    static const unsigned denylist[] = {
         MPH_ANDROIDACOUSTICECHOCANCELLATION,
         MPH_ANDROIDAUTOMATICGAINCONTROL,
         MPH_ANDROIDNOISESUPPRESSION,
         MPH_ANDROIDEFFECT,
-        // FIXME The problem with a blacklist is remembering to add new interfaces here
+        // FIXME The problem with a denylist is remembering to add new interfaces here
     };
 
-    for (unsigned i = 0; i < sizeof(blacklist)/sizeof(blacklist[0]); ++i) {
-        if (IsInterfaceInitialized(&ar->mObject, blacklist[i])) {
+    for (unsigned i = 0; i < sizeof(denylist)/sizeof(denylist[0]); ++i) {
+        if (IsInterfaceInitialized(&ar->mObject, denylist[i])) {
             uint32_t flags = 0;
 
             allowedModes &= ~ANDROID_PERFORMANCE_MODE_LATENCY;
 
             // if generic effect interface is used we don't know which effect will be used and
             // disable all low latency performance modes
-            if (blacklist[i] != MPH_ANDROIDEFFECT) {
-                switch (blacklist[i]) {
+            if (denylist[i] != MPH_ANDROIDEFFECT) {
+                switch (denylist[i]) {
                 case MPH_ANDROIDACOUSTICECHOCANCELLATION:
                     SL_LOGV("checkAndSetPerformanceModePre found AEC name %s",
                             ar->mAcousticEchoCancellation.mAECDescriptor.name);
@@ -567,11 +569,11 @@ static void checkAndSetPerformanceModePre(CAudioRecorder* ar)
         }
     }
 #if LOG_NDEBUG == 0
-    bool blacklistResult = (
+    bool denylistResult = (
             (allowedModes &
                 (ANDROID_PERFORMANCE_MODE_LATENCY|ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS)) != 0);
-    bool whitelistResult = true;
-    static const unsigned whitelist[] = {
+    bool allowlistResult = true;
+    static const unsigned allowlist[] = {
         MPH_BUFFERQUEUE,
         MPH_DYNAMICINTERFACEMANAGEMENT,
         MPH_OBJECT,
@@ -580,19 +582,19 @@ static void checkAndSetPerformanceModePre(CAudioRecorder* ar)
         MPH_ANDROIDSIMPLEBUFFERQUEUE,
     };
     for (unsigned mph = MPH_MIN; mph < MPH_MAX; ++mph) {
-        for (unsigned i = 0; i < sizeof(whitelist)/sizeof(whitelist[0]); ++i) {
-            if (mph == whitelist[i]) {
+        for (unsigned i = 0; i < sizeof(allowlist)/sizeof(allowlist[0]); ++i) {
+            if (mph == allowlist[i]) {
                 goto compatible;
             }
         }
         if (IsInterfaceInitialized(&ar->mObject, mph)) {
-            whitelistResult = false;
+            allowlistResult = false;
             break;
         }
 compatible: ;
     }
-    if (whitelistResult != blacklistResult) {
-        SL_LOGW("whitelistResult != blacklistResult");
+    if (allowlistResult != denylistResult) {
+        SL_LOGW("allowlistResult != denylistResult");
     }
 #endif
     if (ar->mPerformanceMode == ANDROID_PERFORMANCE_MODE_LATENCY) {
@@ -687,13 +689,19 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
     SL_LOGV("SLES channel mask %#x converted to Android mask %#x", df_pcm->channelMask,
             channelMask);
 
+    // TODO b/182392769: use attribution source util
+    AttributionSourceState attributionSource;
+    attributionSource.uid = VALUE_OR_FATAL(android::legacy2aidl_uid_t_int32_t(getuid()));
+    attributionSource.pid = VALUE_OR_FATAL(android::legacy2aidl_pid_t_int32_t(getpid()));
+    attributionSource.token = android::sp<android::BBinder>::make();
+
     // initialize platform-specific CAudioRecorder fields
     ar->mAudioRecord = new android::AudioRecord(
             ar->mRecordSource,     // source
             sampleRate,            // sample rate in Hertz
             sles_to_android_sampleFormat(df_pcm),               // format
             channelMask,           // channel mask
-            android::String16(),   // app ops
+            attributionSource,
             0,                     // frameCount
             audioRecorder_callback,// callback_t
             (void*)ar,             // user, callback data, here the AudioRecorder

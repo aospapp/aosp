@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 cc_library_shared {
     name: "libaudiohal",
 
@@ -14,10 +23,10 @@ cc_library_shared {
     ],
 
     required: [
-        "libaudiohal@2.0",
         "libaudiohal@4.0",
         "libaudiohal@5.0",
         "libaudiohal@6.0",
+        "libaudiohal@7.0",
     ],
 
     shared_libs: [
@@ -30,6 +39,7 @@ cc_library_shared {
     header_libs: [
         "libaudiohal_headers",
         "libbase_headers",
+        "libmediautils_headers",
     ]
 }
 
@@ -62,8 +72,6 @@ cc_library_headers {
     export_include_dirs: ["include"],
 
     // This is needed because the stream interface includes media/MicrophoneInfo.h
-    // which is not in any library but has a dependency on headers from libbinder.
-    header_libs: ["libbinder_headers"],
-
-    export_header_lib_headers: ["libbinder_headers"],
+    header_libs: ["av-headers"],
+    export_header_lib_headers: ["av-headers"],
 }

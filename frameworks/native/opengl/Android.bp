@@ -12,6 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-MIT
+    //   legacy_notice
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 ndk_headers {
     name: "libEGL_headers",
     from: "include",
@@ -52,34 +64,14 @@ ndk_headers {
     license: "include/KHR/NOTICE",
 }
 
-llndk_library {
-    name: "libEGL",
-    symbol_file: "libs/libEGL.map.txt",
-    export_include_dirs: ["include"],
-}
-
-llndk_library {
-    name: "libGLESv1_CM",
-    symbol_file: "libs/libGLESv1_CM.map.txt",
-    export_include_dirs: ["include"],
-}
-
-llndk_library {
-    name: "libGLESv2",
-    symbol_file: "libs/libGLESv2.map.txt",
-    export_include_dirs: ["include"],
-}
-
-llndk_library {
-    name: "libGLESv3",
-    symbol_file: "libs/libGLESv3.map.txt",
-    export_include_dirs: ["include"],
-}
-
 cc_library_headers {
     name: "gl_headers",
+    host_supported: true,
     vendor_available: true,
     export_include_dirs: ["include"],
+    llndk: {
+        llndk_headers: true,
+    },
 }
 
 subdirs = [

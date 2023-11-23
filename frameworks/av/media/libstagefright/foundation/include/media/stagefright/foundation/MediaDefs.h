@@ -22,6 +22,7 @@ namespace android {
 
 extern const char *MEDIA_MIMETYPE_IMAGE_JPEG;
 extern const char *MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC;
+extern const char *MEDIA_MIMETYPE_IMAGE_AVIF;
 
 extern const char *MEDIA_MIMETYPE_VIDEO_VP8;
 extern const char *MEDIA_MIMETYPE_VIDEO_VP9;
@@ -59,6 +60,8 @@ extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC;
 extern const char *MEDIA_MIMETYPE_AUDIO_AC4;
+extern const char *MEDIA_MIMETYPE_AUDIO_MPEGH_MHA1;
+extern const char *MEDIA_MIMETYPE_AUDIO_MPEGH_MHM1;
 extern const char *MEDIA_MIMETYPE_AUDIO_SCRAMBLED;
 extern const char *MEDIA_MIMETYPE_AUDIO_ALAC;
 extern const char *MEDIA_MIMETYPE_AUDIO_WMA;
@@ -89,6 +92,8 @@ enum AudioEncoding {
     kAudioEncodingPcm16bit = 2,
     kAudioEncodingPcm8bit = 3,
     kAudioEncodingPcmFloat = 4,
+    kAudioEncodingPcm24bitPacked = 21,
+    kAudioEncodingPcm32bit = 22,
 };
 
 }  // namespace android

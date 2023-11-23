@@ -20,8 +20,8 @@
 #include <input/Input.h>
 #include <input/InputDevice.h>
 #include <input/InputEventLabels.h>
+#include <input/PropertyMap.h>
 #include <utils/Errors.h>
-#include <utils/PropertyMap.h>
 
 namespace android {
 
@@ -34,10 +34,10 @@ class KeyCharacterMap;
 class KeyMap {
 public:
     std::string keyLayoutFile;
-    sp<KeyLayoutMap> keyLayoutMap;
+    std::shared_ptr<KeyLayoutMap> keyLayoutMap;
 
     std::string keyCharacterMapFile;
-    sp<KeyCharacterMap> keyCharacterMap;
+    std::shared_ptr<KeyCharacterMap> keyCharacterMap;
 
     KeyMap();
     ~KeyMap();

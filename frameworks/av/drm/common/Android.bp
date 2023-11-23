@@ -14,7 +14,24 @@
 // limitations under the License.
 //
 
-cc_library_static {
+package {
+    default_applicable_licenses: ["frameworks_av_drm_common_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_drm_common_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+cc_library {
     name: "libdrmframeworkcommon",
 
     srcs: [
@@ -35,7 +52,11 @@ cc_library_static {
 
     cflags: ["-Wall", "-Werror"],
 
-    shared_libs: ["libbinder"],
+    shared_libs: [
+        "libbinder",
+        "liblog",
+        "libutils"
+    ],
 
     export_include_dirs: ["include"],
 }

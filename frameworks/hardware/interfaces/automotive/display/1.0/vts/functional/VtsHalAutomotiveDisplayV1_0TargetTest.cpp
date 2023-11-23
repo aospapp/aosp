@@ -19,7 +19,7 @@
 
 #include <android/frameworks/automotive/display/1.0/IAutomotiveDisplayProxyService.h>
 #include <android/hardware/graphics/bufferqueue/2.0/IGraphicBufferProducer.h>
-#include <ui/DisplayConfig.h>
+#include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
 #include <utils/Log.h>
 
@@ -59,7 +59,7 @@ TEST_P(AutomotiveDisplayHidlTest, getIGBP) {
     for (const auto& id : displayIdList) {
         // Get a display info
         mDisplayProxy->getDisplayInfo(id, [](const auto& cfg, const auto& /*state*/) {
-            android::DisplayConfig* pConfig = (android::DisplayConfig*)cfg.data();
+            android::ui::DisplayMode* pConfig = (android::ui::DisplayMode*)cfg.data();
             ASSERT_GT(pConfig->resolution.getWidth(), 0);
             ASSERT_GT(pConfig->resolution.getHeight(), 0);
         });
@@ -101,6 +101,7 @@ TEST_P(AutomotiveDisplayHidlTest, hideWindow) {
     }
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AutomotiveDisplayHidlTest);
 INSTANTIATE_TEST_SUITE_P(
     PerInstance,
     AutomotiveDisplayHidlTest,

@@ -18,8 +18,8 @@ package com.android.layoutlib.bridge.android;
 
 import com.android.SdkConstants;
 import com.android.ide.common.rendering.api.AssetRepository;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.ILayoutPullParser;
-import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.ResourceNamespace;
@@ -30,21 +30,23 @@ import com.android.ide.common.rendering.api.ResourceValueImpl;
 import com.android.ide.common.rendering.api.StyleResourceValue;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.BridgeConstants;
-import com.android.layoutlib.bridge.android.view.WindowManagerImpl;
 import com.android.layoutlib.bridge.impl.ParserFactory;
 import com.android.layoutlib.bridge.impl.ResourceHelper;
 import com.android.layoutlib.bridge.impl.Stack;
 import com.android.resources.ResourceType;
-import com.android.util.Pair;
+import com.android.utils.Pair;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.ActivityManager;
+import android.app.ActivityManager_Accessor;
 import android.app.SystemServiceRegistry;
 import android.content.BroadcastReceiver;
 import android.content.ClipboardManager;
+import android.content.ComponentCallbacks;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -69,6 +71,7 @@ import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.hardware.display.DisplayManager;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -90,6 +93,7 @@ import android.view.DisplayAdjustments;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.WindowManagerImpl;
 import android.view.accessibility.AccessibilityManager;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.IAutoFillManager.Default;
@@ -116,7 +120,6 @@ import static com.android.layoutlib.bridge.android.RenderParamsFlags.FLAG_KEY_AP
 /**
  * Custom implementation of Context/Activity to handle non compiled resources.
  */
-@SuppressWarnings("deprecation")  // For use of Pair.
 public class BridgeContext extends Context {
     private static final String PREFIX_THEME_APPCOMPAT = "Theme.AppCompat";
 
@@ -166,6 +169,8 @@ public class BridgeContext extends Context {
     private final DisplayManager mDisplayManager;
     private final AutofillManager mAutofillManager;
     private final ClipboardManager mClipboardManager;
+    private final ActivityManager mActivityManager;
+    private final ConnectivityManager mConnectivityManager;
     private final HashMap<View, Integer> mScrollYPos = new HashMap<>();
     private final HashMap<View, Integer> mScrollXPos = new HashMap<>();
 
@@ -253,6 +258,8 @@ public class BridgeContext extends Context {
         mDisplayManager = new DisplayManager(this);
         mAutofillManager = new AutofillManager(this, new Default());
         mClipboardManager = new ClipboardManager(this, null);
+        mActivityManager = ActivityManager_Accessor.getActivityManagerInstance(this);
+        mConnectivityManager = new ConnectivityManager(this, null);
 
         if (mLayoutlibCallback.isResourceNamespacingRequired()) {
             if (mLayoutlibCallback.hasAndroidXAppCompat()) {
@@ -522,18 +529,18 @@ public class BridgeContext extends Context {
                         popParser();
                     }
                 } else {
-                    Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+                    Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                             String.format("File %s is missing!", path), null, null);
                 }
             } catch (XmlPullParserException e) {
-                Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+                Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                         "Failed to parse file " + path, e, null, null /*data*/);
                 // we'll return null below.
             } finally {
                 mBridgeInflater.setResourceReference(null);
             }
         } else {
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     String.format("Layout %s%s does not exist.", isPlatformLayout ? "android:" : "",
                             layout.getName()), null, null);
         }
@@ -648,6 +655,12 @@ public class BridgeContext extends Context {
             case CLIPBOARD_SERVICE:
                 return mClipboardManager;
 
+            case ACTIVITY_SERVICE:
+                return mActivityManager;
+
+            case CONNECTIVITY_SERVICE:
+                return mConnectivityManager;
+
             case AUDIO_SERVICE:
             case TEXT_CLASSIFICATION_SERVICE:
             case CONTENT_CAPTURE_MANAGER_SERVICE:
@@ -685,7 +698,7 @@ public class BridgeContext extends Context {
             }
 
             if (style == null) {
-                Bridge.getLog().error(LayoutLog.TAG_RESOURCES_RESOLVE,
+                Bridge.getLog().error(ILayoutLog.TAG_RESOURCES_RESOLVE,
                         "Failed to find style with " + resId, null, null);
                 return null;
             }
@@ -754,7 +767,7 @@ public class BridgeContext extends Context {
             resolver = Resolver.EMPTY_RESOLVER;
         } else if (set != null) {
             // really this should not be happening since its instantiated in Bridge
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     "Parser is not a BridgeXmlBlockParser!", null, null);
             return null;
         } else {
@@ -793,7 +806,7 @@ public class BridgeContext extends Context {
                 // This should be rare. Happens trying to map R.style.foo to @style/foo fails.
                 // This will happen if the user explicitly used a non existing int value for
                 // defStyleAttr or there's something wrong with the project structure/build.
-                Bridge.getLog().error(LayoutLog.TAG_RESOURCES_RESOLVE,
+                Bridge.getLog().error(ILayoutLog.TAG_RESOURCES_RESOLVE,
                         "Failed to find the style corresponding to the id " + defStyleAttr, null,
                         null);
             } else {
@@ -952,7 +965,7 @@ public class BridgeContext extends Context {
                                 if (reference != null) {
                                     val = reference.getResourceUrl().toString();
                                 }
-                                Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_RESOLVE_THEME_ATTR,
+                                Bridge.getLog().warning(ILayoutLog.TAG_RESOURCES_RESOLVE_THEME_ATTR,
                                         String.format("Failed to find '%s' in current theme.", val),
                                         null, val);
                             }
@@ -1004,6 +1017,12 @@ public class BridgeContext extends Context {
         }
         return mPackageManager;
     }
+
+    @Override
+    public void registerComponentCallbacks(ComponentCallbacks callback) {}
+
+    @Override
+    public void unregisterComponentCallbacks(ComponentCallbacks callback) {}
 
     // ------------- private new methods
 
@@ -1186,7 +1205,7 @@ public class BridgeContext extends Context {
 
     public IBinder getBinder() {
         if (mBinder == null) {
-            // create a dummy binder. We only need it be not null.
+            // create a no-op binder. We only need it be not null.
             mBinder = new IBinder() {
                 @Override
                 public String getInterfaceDescriptor() throws RemoteException {
@@ -1965,7 +1984,7 @@ public class BridgeContext extends Context {
 
     @Override
     public File getObbDir() {
-        Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED, "OBB not supported", null, null);
+        Bridge.getLog().error(ILayoutLog.TAG_UNSUPPORTED, "OBB not supported", null, null);
         return null;
     }
 

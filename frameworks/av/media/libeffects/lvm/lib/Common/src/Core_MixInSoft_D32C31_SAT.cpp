@@ -18,72 +18,54 @@
 /**********************************************************************************
    INCLUDE FILES
 ***********************************************************************************/
-
 #include "Mixer_private.h"
 #include "LVM_Macros.h"
+#include "ScalarArithmetic.h"
 
 /**********************************************************************************
    FUNCTION CORE_MIXSOFT_1ST_D32C31_WRA
 ***********************************************************************************/
 
-void Core_MixInSoft_D32C31_SAT(     Mix_1St_Cll_FLOAT_t       *pInstance,
-                                    const LVM_FLOAT     *src,
-                                          LVM_FLOAT     *dst,
-                                          LVM_INT16     n)
-{
-    LVM_FLOAT    Temp1,Temp2,Temp3;
-    LVM_INT16     OutLoop;
-    LVM_INT16     InLoop;
-    LVM_FLOAT    TargetTimesOneMinAlpha;
-    LVM_FLOAT    CurrentTimesAlpha;
-    LVM_INT16     ii,jj;
+void Core_MixInSoft_D32C31_SAT(Mix_1St_Cll_FLOAT_t* pInstance, const LVM_FLOAT* src, LVM_FLOAT* dst,
+                               LVM_INT16 n) {
+    LVM_FLOAT Temp1, Temp2, Temp3;
+    LVM_INT16 OutLoop;
+    LVM_INT16 InLoop;
+    LVM_FLOAT TargetTimesOneMinAlpha;
+    LVM_FLOAT CurrentTimesAlpha;
+    LVM_INT16 ii, jj;
 
     InLoop = (LVM_INT16)(n >> 2); /* Process per 4 samples */
     OutLoop = (LVM_INT16)(n - (InLoop << 2));
 
-    TargetTimesOneMinAlpha = ((1.0f -pInstance->Alpha) * pInstance->Target);
-    if (pInstance->Target >= pInstance->Current){
-        TargetTimesOneMinAlpha +=(LVM_FLOAT)(2.0f / 2147483647.0f); /* Ceil*/
+    TargetTimesOneMinAlpha = ((1.0f - pInstance->Alpha) * pInstance->Target);
+    if (pInstance->Target >= pInstance->Current) {
+        TargetTimesOneMinAlpha += (LVM_FLOAT)(2.0f / 2147483647.0f); /* Ceil*/
     }
 
-    if (OutLoop){
-
+    if (OutLoop) {
         CurrentTimesAlpha = pInstance->Current * pInstance->Alpha;
         pInstance->Current = TargetTimesOneMinAlpha + CurrentTimesAlpha;
 
-        for (ii = OutLoop; ii != 0; ii--){
-        Temp1 = *src++;
-        Temp2 = *dst;
-
-        Temp3 = Temp1 * (pInstance->Current);
-        Temp1 = Temp2 + Temp3;
-
-        if (Temp1 > 1.0f)
-            Temp1 = 1.0f;
-        else if (Temp1 < -1.0f)
-            Temp1 = -1.0f;
-
-        *dst++ = Temp1;
-        }
-    }
-
-    for (ii = InLoop; ii != 0; ii--){
-
-        CurrentTimesAlpha = pInstance->Current * pInstance->Alpha;
-        pInstance->Current = TargetTimesOneMinAlpha + CurrentTimesAlpha;
-
-        for (jj = 4; jj!=0 ; jj--){
+        for (ii = OutLoop; ii != 0; ii--) {
             Temp1 = *src++;
             Temp2 = *dst;
 
             Temp3 = Temp1 * (pInstance->Current);
-            Temp1 = Temp2 + Temp3;
+            *dst++ = LVM_Clamp(Temp2 + Temp3);
+        }
+    }
 
-            if (Temp1 > 1.0f)
-                Temp1 = 1.0f;
-            else if (Temp1 < -1.0f)
-                Temp1 = -1.0f;
-            *dst++ = Temp1;
+    for (ii = InLoop; ii != 0; ii--) {
+        CurrentTimesAlpha = pInstance->Current * pInstance->Alpha;
+        pInstance->Current = TargetTimesOneMinAlpha + CurrentTimesAlpha;
+
+        for (jj = 4; jj != 0; jj--) {
+            Temp1 = *src++;
+            Temp2 = *dst;
+
+            Temp3 = Temp1 * (pInstance->Current);
+            *dst++ = LVM_Clamp(Temp2 + Temp3);
         }
     }
 }

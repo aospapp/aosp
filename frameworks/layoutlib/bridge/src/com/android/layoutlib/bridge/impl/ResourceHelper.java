@@ -18,8 +18,8 @@ package com.android.layoutlib.bridge.impl;
 import com.android.SdkConstants;
 import com.android.ide.common.rendering.api.AssetRepository;
 import com.android.ide.common.rendering.api.DensityBasedResourceValue;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.ILayoutPullParser;
-import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.ResourceNamespace;
@@ -161,10 +161,16 @@ public final class ResourceHelper {
         }
 
         // try to load the color state list from an int
-        try {
-            int color = getColor(value);
-            return ColorStateList.valueOf(color);
-        } catch (NumberFormatException ignored) {
+        if (value.trim().startsWith("#")) {
+            try {
+                int color = getColor(value);
+                return ColorStateList.valueOf(color);
+            } catch (NumberFormatException e) {
+                Bridge.getLog().warning(ILayoutLog.TAG_RESOURCES_FORMAT,
+                        String.format("\"%1$s\" cannot be interpreted as a color.", value),
+                        null, null);
+                return null;
+            }
         }
 
         try {
@@ -202,13 +208,13 @@ public final class ResourceHelper {
                 }
             }
         } catch (XmlPullParserException e) {
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     "Failed to configure parser for " + value, e, null,null /*data*/);
             // we'll return null below.
         } catch (Exception e) {
             // this is an error and not warning since the file existence is
             // checked before attempting to parse it.
-            Bridge.getLog().error(LayoutLog.TAG_RESOURCES_READ,
+            Bridge.getLog().error(ILayoutLog.TAG_RESOURCES_READ,
                     "Failed to parse file " + value, e, null, null /*data*/);
 
             return null;
@@ -311,12 +317,17 @@ public final class ResourceHelper {
             return null;
         }
 
-        String lowerCaseValue = stringValue.toLowerCase();
         // try the simple case first. Attempt to get a color from the value
-        try {
-            int color = getColor(stringValue);
-            return new ColorDrawable(color);
-        } catch (NumberFormatException ignore) {
+        if (stringValue.trim().startsWith("#")) {
+            try {
+                int color = getColor(stringValue);
+                return new ColorDrawable(color);
+            } catch (NumberFormatException e) {
+                Bridge.getLog().warning(ILayoutLog.TAG_RESOURCES_FORMAT,
+                        String.format("\"%1$s\" cannot be interpreted as a color.", stringValue),
+                        null, null);
+                return null;
+            }
         }
 
         Density density = Density.MEDIUM;
@@ -327,12 +338,13 @@ public final class ResourceHelper {
             }
         }
 
+        String lowerCaseValue = stringValue.toLowerCase();
         if (lowerCaseValue.endsWith(NinePatch.EXTENSION_9PATCH)) {
             try {
                 return getNinePatchDrawable(density, value.isFramework(), stringValue, context);
             } catch (IOException e) {
                 // failed to read the file, we'll return null below.
-                Bridge.getLog().error(LayoutLog.TAG_RESOURCES_READ,
+                Bridge.getLog().error(ILayoutLog.TAG_RESOURCES_READ,
                         "Failed to load " + stringValue, e, null, null /*data*/);
             }
 
@@ -393,7 +405,7 @@ public final class ResourceHelper {
                     return new BitmapDrawable(context.getResources(), bitmap);
                 } catch (IOException e) {
                     // we'll return null below
-                    Bridge.getLog().error(LayoutLog.TAG_RESOURCES_READ,
+                    Bridge.getLog().error(ILayoutLog.TAG_RESOURCES_READ,
                             "Failed to load " + stringValue, e, null, null /*data*/);
                 }
             }
@@ -633,7 +645,7 @@ public final class ResourceHelper {
                         applyUnit(sUnitNames[1], outValue, sFloatOut);
                         computeTypedValue(outValue, f, sFloatOut[0]);
 
-                        Bridge.getLog().error(LayoutLog.TAG_RESOURCES_RESOLVE,
+                        Bridge.getLog().error(ILayoutLog.TAG_RESOURCES_RESOLVE,
                                 String.format(
                                         "Dimension \"%1$s\" in attribute \"%2$s\" is missing unit!",
                                         value, attribute),

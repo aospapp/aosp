@@ -48,7 +48,7 @@ class RSExportForEach : public RSExportable {
   std::string mName;
 
   // For diagnostic purposes, we record the order in which we parse
-  // foreach kernels.  Does not apply to a dummy root.
+  // foreach kernels.  Does not apply to a placeholder root.
   unsigned mOrdinal;
 
   RSExportRecordType *mParamPacketType;

@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_test {
     name: "sffakehwc_test",
     defaults: ["surfaceflinger_defaults"],
@@ -8,12 +17,12 @@ cc_test {
          "FakeComposerUtils.cpp",
          "SFFakeHwc_test.cpp"
     ],
+    require_root: true,
     shared_libs: [
         "android.hardware.graphics.composer@2.1",
         "android.hardware.graphics.composer@2.2",
         "android.hardware.graphics.composer@2.3",
         "android.hardware.graphics.composer@2.4",
-        "android.hardware.graphics.composer@2.1-resources",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
@@ -33,6 +42,7 @@ cc_test {
         "libutils",
     ],
     static_libs: [
+        "android.hardware.graphics.composer@2.1-resources",
         "libcompositionengine",
         "libgmock",
         "libperfetto_client_experimental",

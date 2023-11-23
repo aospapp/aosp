@@ -163,7 +163,7 @@ GetOutDir.cache = None
 
 def CreateCmd():
   """Creates the test command to run for the current test."""
-  cmd_string = ('%s/bin/llvm-rs-cc -o tmp/ -p tmp/ -MD '
+  cmd_string = ('%s/bin/llvm-rs-cc -o tmp/ -p tmp/ -MD -Wno-deprecated-declarations '
                 '-I ../../../../../frameworks/rs/script_api/include/ '
                 '-I ../../../../../external/clang/lib/Headers/') % GetOutDir()
   base_args = cmd_string.split()

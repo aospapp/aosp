@@ -247,6 +247,25 @@ public class VirtualDisplayTest extends AndroidTestCase {
         assertDisplayUnregistered(display);
     }
 
+    /**
+     * Ensures that an application can create a trusted virtual display with the permission
+     * {@code ADD_TRUSTED_DISPLAY}.
+     */
+    public void testTrustedVirtualDisplay() throws Exception {
+        VirtualDisplay virtualDisplay = mDisplayManager.createVirtualDisplay(NAME,
+                WIDTH, HEIGHT, DENSITY, mSurface,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_TRUSTED);
+        assertNotNull("virtual display must not be null", virtualDisplay);
+
+        Display display = virtualDisplay.getDisplay();
+        try {
+            assertDisplayRegistered(display, Display.FLAG_PRIVATE | Display.FLAG_TRUSTED);
+        } finally {
+            virtualDisplay.release();
+        }
+        assertDisplayUnregistered(display);
+    }
+
     private void assertDisplayRegistered(Display display, int flags) {
         assertNotNull("display object must not be null", display);
         assertTrue("display must be valid", display.isValid());
@@ -343,14 +362,12 @@ public class VirtualDisplayTest extends AndroidTestCase {
 
     private final class TestPresentation extends Presentation {
         private final int mColor;
-        private final int mWindowType;
         private final int mWindowFlags;
 
         public TestPresentation(Context context, Display display,
                 int color, int windowType, int windowFlags) {
-            super(context, display);
+            super(context, display, 0 /* theme */, windowType);
             mColor = color;
-            mWindowType = windowType;
             mWindowFlags = windowFlags;
         }
 
@@ -359,7 +376,6 @@ public class VirtualDisplayTest extends AndroidTestCase {
             super.onCreate(savedInstanceState);
 
             setTitle(TAG);
-            getWindow().setType(mWindowType);
             getWindow().addFlags(mWindowFlags);
 
             // Create a solid color image to use as the content of the presentation.

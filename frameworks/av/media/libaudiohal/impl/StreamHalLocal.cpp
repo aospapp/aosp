@@ -17,13 +17,14 @@
 #define LOG_TAG "StreamHalLocal"
 //#define LOG_NDEBUG 0
 
+#include <audio_utils/Metadata.h>
 #include <hardware/audio.h>
 #include <media/AudioParameter.h>
 #include <utils/Log.h>
 
 #include "DeviceHalLocal.h"
+#include "ParameterUtils.h"
 #include "StreamHalLocal.h"
-#include "VersionUtils.h"
 
 namespace android {
 namespace CPP_VERSION {
@@ -45,31 +46,15 @@ StreamHalLocal::~StreamHalLocal() {
     mDevice.clear();
 }
 
-status_t StreamHalLocal::getSampleRate(uint32_t *rate) {
-    *rate = mStream->get_sample_rate(mStream);
-    return OK;
-}
-
 status_t StreamHalLocal::getBufferSize(size_t *size) {
     *size = mStream->get_buffer_size(mStream);
     return OK;
 }
 
-status_t StreamHalLocal::getChannelMask(audio_channel_mask_t *mask) {
-    *mask = mStream->get_channels(mStream);
-    return OK;
-}
-
-status_t StreamHalLocal::getFormat(audio_format_t *format) {
-    *format = mStream->get_format(mStream);
-    return OK;
-}
-
-status_t StreamHalLocal::getAudioProperties(
-        uint32_t *sampleRate, audio_channel_mask_t *mask, audio_format_t *format) {
-    *sampleRate = mStream->get_sample_rate(mStream);
-    *mask = mStream->get_channels(mStream);
-    *format = mStream->get_format(mStream);
+status_t StreamHalLocal::getAudioProperties(audio_config_base_t *configBase) {
+    configBase->sample_rate = mStream->get_sample_rate(mStream);
+    configBase->channel_mask = mStream->get_channels(mStream);
+    configBase->format = mStream->get_format(mStream);
     return OK;
 }
 
@@ -241,18 +226,54 @@ status_t StreamOutHalLocal::getPresentationPosition(uint64_t *frames, struct tim
     return mStream->get_presentation_position(mStream, frames, timestamp);
 }
 
+void StreamOutHalLocal::doUpdateSourceMetadata(const SourceMetadata& sourceMetadata) {
+    std::vector<playback_track_metadata> halTracks;
+    halTracks.reserve(sourceMetadata.tracks.size());
+    for (auto& metadata : sourceMetadata.tracks) {
+        playback_track_metadata halTrackMetadata;
+        playback_track_metadata_from_v7(&halTrackMetadata, &metadata);
+        halTracks.push_back(halTrackMetadata);
+    }
+    const source_metadata_t halMetadata = {
+        .track_count = halTracks.size(),
+        .tracks = halTracks.data(),
+    };
+    mStream->update_source_metadata(mStream, &halMetadata);
+}
+
+#if MAJOR_VERSION >= 7
+void StreamOutHalLocal::doUpdateSourceMetadataV7(const SourceMetadata& sourceMetadata) {
+    const source_metadata_v7_t metadata {
+        .track_count = sourceMetadata.tracks.size(),
+        // const cast is fine as it is in a const structure
+        .tracks = const_cast<playback_track_metadata_v7*>(sourceMetadata.tracks.data()),
+    };
+    mStream->update_source_metadata_v7(mStream, &metadata);
+}
+#endif
+
 status_t StreamOutHalLocal::updateSourceMetadata(const SourceMetadata& sourceMetadata) {
+#if MAJOR_VERSION < 7
     if (mStream->update_source_metadata == nullptr) {
         return INVALID_OPERATION;
     }
-    const source_metadata_t metadata {
-        .track_count = sourceMetadata.tracks.size(),
-        // const cast is fine as it is in a const structure
-        .tracks = const_cast<playback_track_metadata*>(sourceMetadata.tracks.data()),
-    };
-    mStream->update_source_metadata(mStream, &metadata);
+    doUpdateSourceMetadata(sourceMetadata);
+#else
+    if (mDevice->version() < AUDIO_DEVICE_API_VERSION_3_2) {
+        if (mStream->update_source_metadata == nullptr) {
+            return INVALID_OPERATION;
+        }
+        doUpdateSourceMetadata(sourceMetadata);
+    } else {
+        if (mStream->update_source_metadata_v7 == nullptr) {
+            return INVALID_OPERATION;
+        }
+        doUpdateSourceMetadataV7(sourceMetadata);
+    }
+#endif
     return OK;
 }
+
 
 status_t StreamOutHalLocal::start() {
     if (mStream->start == NULL) return INVALID_OPERATION;
@@ -273,6 +294,36 @@ status_t StreamOutHalLocal::createMmapBuffer(int32_t minSizeFrames,
 status_t StreamOutHalLocal::getMmapPosition(struct audio_mmap_position *position) {
     if (mStream->get_mmap_position == NULL) return INVALID_OPERATION;
     return mStream->get_mmap_position(mStream, position);
+}
+
+status_t StreamOutHalLocal::getDualMonoMode(audio_dual_mono_mode_t* mode) {
+    if (mStream->get_dual_mono_mode == nullptr) return INVALID_OPERATION;
+    return mStream->get_dual_mono_mode(mStream, mode);
+}
+
+status_t StreamOutHalLocal::setDualMonoMode(audio_dual_mono_mode_t mode) {
+    if (mStream->set_dual_mono_mode == nullptr) return INVALID_OPERATION;
+    return mStream->set_dual_mono_mode(mStream, mode);
+}
+
+status_t StreamOutHalLocal::getAudioDescriptionMixLevel(float* leveldB) {
+    if (mStream->get_audio_description_mix_level == nullptr) return INVALID_OPERATION;
+    return mStream->get_audio_description_mix_level(mStream, leveldB);
+}
+
+status_t StreamOutHalLocal::setAudioDescriptionMixLevel(float leveldB) {
+    if (mStream->set_audio_description_mix_level == nullptr) return INVALID_OPERATION;
+    return mStream->set_audio_description_mix_level(mStream, leveldB);
+}
+
+status_t StreamOutHalLocal::getPlaybackRateParameters(audio_playback_rate_t* playbackRate) {
+    if (mStream->get_playback_rate_parameters == nullptr) return INVALID_OPERATION;
+    return mStream->get_playback_rate_parameters(mStream, playbackRate);
+}
+
+status_t StreamOutHalLocal::setPlaybackRateParameters(const audio_playback_rate_t& playbackRate) {
+    if (mStream->set_playback_rate_parameters == nullptr) return INVALID_OPERATION;
+    return mStream->set_playback_rate_parameters(mStream, &playbackRate);
 }
 
 status_t StreamOutHalLocal::setEventCallback(
@@ -303,7 +354,11 @@ int StreamOutHalLocal::asyncEventCallback(
     if (callback.get() == nullptr) return 0;
     switch (event) {
         case STREAM_EVENT_CBK_TYPE_CODEC_FORMAT_CHANGED:
-            callback->onCodecFormatChanged(std::basic_string<uint8_t>((uint8_t*)param));
+            // void* param is the byte string buffer from byte_string_from_audio_metadata().
+            // As the byte string buffer may have embedded zeroes, we cannot use strlen()
+            callback->onCodecFormatChanged(std::basic_string<uint8_t>(
+                    (const uint8_t*)param,
+                    audio_utils::metadata::dataByteStringLen((const uint8_t*)param)));
             break;
         default:
             ALOGW("%s unknown event %d", __func__, event);
@@ -352,16 +407,51 @@ status_t StreamInHalLocal::getCapturePosition(int64_t *frames, int64_t *time) {
     return mStream->get_capture_position(mStream, frames, time);
 }
 
-status_t StreamInHalLocal::updateSinkMetadata(const SinkMetadata& sinkMetadata) {
-    if (mStream->update_sink_metadata == nullptr) {
-        return INVALID_OPERATION;
+void StreamInHalLocal::doUpdateSinkMetadata(const SinkMetadata& sinkMetadata) {
+    std::vector<record_track_metadata> halTracks;
+    halTracks.reserve(sinkMetadata.tracks.size());
+    for (auto& metadata : sinkMetadata.tracks) {
+        record_track_metadata halTrackMetadata;
+        record_track_metadata_from_v7(&halTrackMetadata, &metadata);
+        halTracks.push_back(halTrackMetadata);
     }
-    const sink_metadata_t metadata {
+    const sink_metadata_t halMetadata = {
+        .track_count = halTracks.size(),
+        .tracks = halTracks.data(),
+    };
+    mStream->update_sink_metadata(mStream, &halMetadata);
+}
+
+#if MAJOR_VERSION >= 7
+void StreamInHalLocal::doUpdateSinkMetadataV7(const SinkMetadata& sinkMetadata) {
+    const sink_metadata_v7_t halMetadata {
         .track_count = sinkMetadata.tracks.size(),
         // const cast is fine as it is in a const structure
-        .tracks = const_cast<record_track_metadata*>(sinkMetadata.tracks.data()),
+        .tracks = const_cast<record_track_metadata_v7*>(sinkMetadata.tracks.data()),
     };
-    mStream->update_sink_metadata(mStream, &metadata);
+    mStream->update_sink_metadata_v7(mStream, &halMetadata);
+}
+#endif
+
+status_t StreamInHalLocal::updateSinkMetadata(const SinkMetadata& sinkMetadata) {
+#if MAJOR_VERSION < 7
+    if (mStream->update_sink_metadata == nullptr) {
+        return INVALID_OPERATION;  // not supported by the HAL
+    }
+    doUpdateSinkMetadata(sinkMetadata);
+#else
+    if (mDevice->version() < AUDIO_DEVICE_API_VERSION_3_2) {
+        if (mStream->update_sink_metadata == nullptr) {
+            return INVALID_OPERATION;  // not supported by the HAL
+        }
+        doUpdateSinkMetadata(sinkMetadata);
+    } else {
+        if (mStream->update_sink_metadata_v7 == nullptr) {
+            return INVALID_OPERATION;  // not supported by the HAL
+        }
+        doUpdateSinkMetadataV7(sinkMetadata);
+    }
+#endif
     return OK;
 }
 

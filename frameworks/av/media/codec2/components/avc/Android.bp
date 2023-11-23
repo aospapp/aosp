@@ -1,9 +1,19 @@
-cc_library_shared {
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
+cc_library {
     name: "libcodec2_soft_avcdec",
     defaults: [
         "libcodec2_soft-defaults",
         "libcodec2_soft_sanitize_signed-defaults",
-   ],
+        "libcodec2_soft_sanitize_cfi-defaults",
+    ],
 
     static_libs: ["libavcdec"],
 
@@ -15,12 +25,13 @@ cc_library_shared {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "libcodec2_soft_avcenc",
     defaults: [
         "libcodec2_soft-defaults",
         "libcodec2_soft_sanitize_signed-defaults",
-   ],
+        "libcodec2_soft_sanitize_cfi-defaults",
+    ],
 
     static_libs: ["libavcenc"],
 

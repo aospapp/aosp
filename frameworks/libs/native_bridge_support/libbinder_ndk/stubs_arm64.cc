@@ -17,10 +17,13 @@
 // clang-format off
 #include "native_bridge_support/vdso/interceptable_functions.h"
 
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_handlePolledCommands);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_joinThreadPool);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_setThreadPoolMaxThreadCount);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_setupPolling);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_startThreadPool);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_Class_define);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_Class_setHandleShellCommand);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_Class_setOnDump);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_DeathRecipient_delete);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_DeathRecipient_new);
@@ -33,6 +36,7 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_decStrong);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_dump);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_fromJavaBinder);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_getCallingPid);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_getCallingSid);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_getCallingUid);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_getClass);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_getExtension);
@@ -48,11 +52,13 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_new);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_ping);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_prepareTransaction);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_setExtension);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_setRequestingSid);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_toJavaBinder);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_transact);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AIBinder_unlinkToDeath);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_delete);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_fromJavaParcel);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_getAllowFds);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_getDataPosition);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_readBool);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_readBoolArray);
@@ -106,6 +112,9 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_writeUint64Array);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_addService);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_checkService);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_getService);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_isDeclared);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_registerLazyService);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_waitForService);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_delete);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_deleteDescription);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_fromExceptionCode);
@@ -120,12 +129,17 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_getServiceSpecificError);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_getStatus);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_isOk);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_newOk);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z25AIBinder_toPlatformBinderP8AIBinder);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z27AIBinder_fromPlatformBinderRKN7android2spINS_7IBinderEEE);
 
 static void __attribute__((constructor(0))) init_stub_library() {
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_handlePolledCommands);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_joinThreadPool);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_setThreadPoolMaxThreadCount);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_setupPolling);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_startThreadPool);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_Class_define);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_Class_setHandleShellCommand);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_Class_setOnDump);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_DeathRecipient_delete);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_DeathRecipient_new);
@@ -138,6 +152,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_dump);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_fromJavaBinder);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_getCallingPid);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_getCallingSid);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_getCallingUid);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_getClass);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_getExtension);
@@ -153,11 +168,13 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_ping);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_prepareTransaction);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_setExtension);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_setRequestingSid);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_toJavaBinder);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_transact);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AIBinder_unlinkToDeath);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_delete);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_fromJavaParcel);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_getAllowFds);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_getDataPosition);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_readBool);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_readBoolArray);
@@ -211,6 +228,9 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_addService);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_checkService);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_getService);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_isDeclared);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_registerLazyService);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_waitForService);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_delete);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_deleteDescription);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_fromExceptionCode);
@@ -225,5 +245,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_getStatus);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_isOk);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_newOk);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", _Z25AIBinder_toPlatformBinderP8AIBinder);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", _Z27AIBinder_fromPlatformBinderRKN7android2spINS_7IBinderEEE);
 }
 // clang-format on

@@ -39,15 +39,11 @@ using ::android::sp;
 class BinderCallback : public LooperCallback {
 public:
     static sp<BinderCallback> setupTo(const sp<Looper>& looper) {
-        sp<BinderCallback> cb = new BinderCallback;
+        sp<BinderCallback> cb = sp<BinderCallback>::make();
 
         int binder_fd = -1;
         IPCThreadState::self()->setupPolling(&binder_fd);
         LOG_ALWAYS_FATAL_IF(binder_fd < 0, "Failed to setupPolling: %d", binder_fd);
-
-        // Flush after setupPolling(), to make sure the binder driver
-        // knows about this thread handling commands.
-        IPCThreadState::self()->flushCommands();
 
         int ret = looper->addFd(binder_fd,
                                 Looper::POLL_CALLBACK,
@@ -69,7 +65,7 @@ public:
 class ClientCallbackCallback : public LooperCallback {
 public:
     static sp<ClientCallbackCallback> setupTo(const sp<Looper>& looper, const sp<ServiceManager>& manager) {
-        sp<ClientCallbackCallback> cb = new ClientCallbackCallback(manager);
+        sp<ClientCallbackCallback> cb = sp<ClientCallbackCallback>::make(manager);
 
         int fdTimer = timerfd_create(CLOCK_MONOTONIC, 0 /*flags*/);
         LOG_ALWAYS_FATAL_IF(fdTimer < 0, "Failed to timerfd_create: fd: %d err: %d", fdTimer, errno);
@@ -109,6 +105,7 @@ public:
         return 1;  // Continue receiving callbacks.
     }
 private:
+    friend sp<ClientCallbackCallback>;
     ClientCallbackCallback(const sp<ServiceManager>& manager) : mManager(manager) {}
     sp<ServiceManager> mManager;
 };
@@ -124,13 +121,13 @@ int main(int argc, char** argv) {
     ps->setThreadPoolMaxThreadCount(0);
     ps->setCallRestriction(ProcessState::CallRestriction::FATAL_IF_NOT_ONEWAY);
 
-    sp<ServiceManager> manager = new ServiceManager(std::make_unique<Access>());
+    sp<ServiceManager> manager = sp<ServiceManager>::make(std::make_unique<Access>());
     if (!manager->addService("manager", manager, false /*allowIsolated*/, IServiceManager::DUMP_FLAG_PRIORITY_DEFAULT).isOk()) {
         LOG(ERROR) << "Could not self register servicemanager";
     }
 
     IPCThreadState::self()->setTheContextObject(manager);
-    ps->becomeContextManager(nullptr, nullptr);
+    ps->becomeContextManager();
 
     sp<Looper> looper = Looper::prepare(false /*allowNonCallbacks*/);
 

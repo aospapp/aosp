@@ -289,6 +289,7 @@ TEST_P(SensorManagerTest, Accelerometer) {
   }
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SensorManagerTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, SensorManagerTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(ISensorManager::descriptor)),

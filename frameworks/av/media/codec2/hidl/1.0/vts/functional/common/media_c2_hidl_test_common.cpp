@@ -22,6 +22,48 @@
 
 #include <android/hardware/media/c2/1.0/IComponentStore.h>
 
+std::string sResourceDir = "";
+
+std::string sComponentNamePrefix = "";
+
+static constexpr struct option kArgOptions[] = {
+        {"res", required_argument, 0, 'P'},
+        {"prefix", required_argument, 0, 'p'},
+        {"help", required_argument, 0, 'h'},
+        {nullptr, 0, nullptr, 0},
+};
+
+void printUsage(char* me) {
+    std::cerr << "VTS tests to test codec2 components \n";
+    std::cerr << "Usage: " << me << " [options] \n";
+    std::cerr << "\t -P,  --res:    Mandatory path to a folder that contains test resources \n";
+    std::cerr << "\t -p,  --prefix: Optional prefix to select component/s to be tested \n";
+    std::cerr << "\t                    All codecs are tested by default \n";
+    std::cerr << "\t                    Eg: c2.android - test codecs starting with c2.android \n";
+    std::cerr << "\t                    Eg: c2.android.aac.decoder - test a specific codec \n";
+    std::cerr << "\t -h,  --help:   Print usage \n";
+}
+
+void parseArgs(int argc, char** argv) {
+    int arg;
+    int option_index;
+    while ((arg = getopt_long(argc, argv, ":P:p:h", kArgOptions, &option_index)) != -1) {
+        switch (arg) {
+            case 'P':
+                sResourceDir = optarg;
+                break;
+            case 'p':
+                sComponentNamePrefix = optarg;
+                break;
+            case 'h':
+                printUsage(argv[0]);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 // Test the codecs for NullBuffer, Empty Input Buffer with(out) flags set
 void testInputBuffer(const std::shared_ptr<android::Codec2Client::Component>& component,
                      std::mutex& queueLock, std::list<std::unique_ptr<C2Work>>& workQueue,
@@ -92,8 +134,7 @@ void workDone(const std::shared_ptr<android::Codec2Client::Component>& component
         for (size_t i = 0; i < updates.size(); ++i) {
             C2Param* param = updates[i].get();
             if (param->index() == C2StreamInitDataInfo::output::PARAM_TYPE) {
-                C2StreamInitDataInfo::output* csdBuffer =
-                        (C2StreamInitDataInfo::output*)(param);
+                C2StreamInitDataInfo::output* csdBuffer = (C2StreamInitDataInfo::output*)(param);
                 size_t csdSize = csdBuffer->flexCount();
                 if (csdSize > 0) csd = true;
             } else if ((param->index() == C2StreamSampleRateInfo::output::PARAM_TYPE) ||
@@ -118,8 +159,7 @@ void workDone(const std::shared_ptr<android::Codec2Client::Component>& component
             typedef std::unique_lock<std::mutex> ULock;
             ULock l(queueLock);
             workQueue.push_back(std::move(work));
-            if (!flushedIndices.empty() &&
-                (frameIndexIt != flushedIndices.end())) {
+            if (!flushedIndices.empty() && (frameIndexIt != flushedIndices.end())) {
                 flushedIndices.erase(frameIndexIt);
             }
             queueCondition.notify_all();
@@ -136,15 +176,15 @@ int64_t getNowUs() {
 }
 
 // Return all test parameters, a list of tuple of <instance, component>
-const std::vector<std::tuple<std::string, std::string>>& getTestParameters() {
+const std::vector<TestParameters>& getTestParameters() {
     return getTestParameters(C2Component::DOMAIN_OTHER, C2Component::KIND_OTHER);
 }
 
 // Return all test parameters, a list of tuple of <instance, component> with matching domain and
 // kind.
-const std::vector<std::tuple<std::string, std::string>>& getTestParameters(
-        C2Component::domain_t domain, C2Component::kind_t kind) {
-    static std::vector<std::tuple<std::string, std::string>> parameters;
+const std::vector<TestParameters>& getTestParameters(C2Component::domain_t domain,
+                                                     C2Component::kind_t kind) {
+    static std::vector<TestParameters> parameters;
 
     auto instances = android::Codec2Client::GetServiceNames();
     for (std::string instance : instances) {
@@ -157,11 +197,18 @@ const std::vector<std::tuple<std::string, std::string>>& getTestParameters(
                 (traits.domain != domain || traits.kind != kind)) {
                 continue;
             }
-
+            if (traits.name.rfind(sComponentNamePrefix, 0) != 0) {
+                ALOGD("Skipping tests for %s. Prefix specified is %s", traits.name.c_str(),
+                      sComponentNamePrefix.c_str());
+                continue;
+            }
             parameters.push_back(std::make_tuple(instance, traits.name));
         }
     }
 
+    if (parameters.empty()) {
+        ALOGE("No test parameters added. Verify component prefix passed to the test");
+    }
     return parameters;
 }
 

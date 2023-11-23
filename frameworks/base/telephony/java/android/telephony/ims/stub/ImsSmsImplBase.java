@@ -19,7 +19,6 @@ package android.telephony.ims.stub;
 import android.annotation.IntDef;
 import android.annotation.IntRange;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.os.RemoteException;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
@@ -38,7 +37,6 @@ import java.lang.annotation.RetentionPolicy;
  * @hide
  */
 @SystemApi
-@TestApi
 public class ImsSmsImplBase {
     private static final String LOG_TAG = "SmsImplBase";
 
@@ -403,8 +401,7 @@ public class ImsSmsImplBase {
                             message.mWrappedSmsMessage.mMessageRef,
                             STATUS_REPORT_STATUS_ERROR);
                 } else {
-                    Log.w(LOG_TAG,
-                            "onSmsStatusReportReceivedWithoutMessageRef: Invalid pdu entered.");
+                    Log.w(LOG_TAG, "onSmsStatusReportReceived: Invalid pdu entered.");
                     acknowledgeSmsReport(token, 0, STATUS_REPORT_STATUS_ERROR);
                 }
             }

@@ -16,6 +16,7 @@
 
 package com.android.internal.telephony;
 
+import static android.app.UiModeManager.PROJECTION_TYPE_AUTOMOTIVE;
 import static android.hardware.radio.V1_0.DeviceStateType.CHARGING_STATE;
 import static android.hardware.radio.V1_0.DeviceStateType.LOW_DATA_EXPECTED;
 import static android.hardware.radio.V1_0.DeviceStateType.POWER_SAVE_MODE;
@@ -25,7 +26,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
 import android.hardware.radio.V1_5.IndicationFilter;
 import android.net.ConnectivityManager;
@@ -71,7 +71,7 @@ public class DeviceStateMonitor extends Handler {
     protected static final String TAG = DeviceStateMonitor.class.getSimpleName();
 
     static final int EVENT_RIL_CONNECTED                = 0;
-    static final int EVENT_CAR_MODE_CHANGED             = 1;
+    static final int EVENT_AUTOMOTIVE_PROJECTION_STATE_CHANGED = 1;
     @VisibleForTesting
     static final int EVENT_SCREEN_STATE_CHANGED         = 2;
     static final int EVENT_POWER_SAVE_MODE_CHANGED      = 3;
@@ -173,11 +173,11 @@ public class DeviceStateMonitor extends Handler {
     private boolean mIsWifiConnected;
 
     /**
-     * Car mode is on. True means the device is currently connected to Android Auto. This should be
-     * handled by mIsScreenOn, but the Android Auto display is private and not accessible by
-     * DeviceStateMonitor from DisplayMonitor.
+     * Automotive projection is active. True means the device is currently connected to Android
+     * Auto. This should be handled by mIsScreenOn, but the Android Auto display is private and not
+     * accessible by DeviceStateMonitor from DisplayMonitor.
      */
-    private boolean mIsCarModeOn;
+    private boolean mIsAutomotiveProjectionActive;
 
     /**
      * True indicates we should always enable the signal strength reporting from radio.
@@ -248,14 +248,6 @@ public class DeviceStateMonitor extends Handler {
                     msg = obtainMessage(EVENT_TETHERING_STATE_CHANGED);
                     msg.arg1 = isTetheringOn ? 1 : 0;
                     break;
-                case UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED:
-                    msg = obtainMessage(EVENT_CAR_MODE_CHANGED);
-                    msg.arg1 = 1; // car mode on
-                    break;
-                case UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED:
-                    msg = obtainMessage(EVENT_CAR_MODE_CHANGED);
-                    msg.arg1 = 0; // car mode off
-                    break;
                 default:
                     log("Unexpected broadcast intent: " + intent, false);
                     return;
@@ -279,7 +271,7 @@ public class DeviceStateMonitor extends Handler {
         mIsPowerSaveOn = isPowerSaveModeOn();
         mIsCharging = isDeviceCharging();
         mIsScreenOn = isScreenOn();
-        mIsCarModeOn = isCarModeOn();
+        mIsAutomotiveProjectionActive = isAutomotiveProjectionActive();
         // Assuming tethering is always off after boot up.
         mIsTetheringOn = false;
         mIsLowDataExpected = false;
@@ -289,7 +281,7 @@ public class DeviceStateMonitor extends Handler {
                 + ", mIsCharging=" + mIsCharging
                 + ", mIsPowerSaveOn=" + mIsPowerSaveOn
                 + ", mIsLowDataExpected=" + mIsLowDataExpected
-                + ", mIsCarModeOn=" + mIsCarModeOn
+                + ", mIsAutomotiveProjectionActive=" + mIsAutomotiveProjectionActive
                 + ", mIsWifiConnected=" + mIsWifiConnected
                 + ", mIsAlwaysSignalStrengthReportingEnabled="
                 + mIsAlwaysSignalStrengthReportingEnabled, false);
@@ -298,9 +290,7 @@ public class DeviceStateMonitor extends Handler {
         filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
         filter.addAction(BatteryManager.ACTION_CHARGING);
         filter.addAction(BatteryManager.ACTION_DISCHARGING);
-        filter.addAction(ConnectivityManager.ACTION_TETHER_STATE_CHANGED);
-        filter.addAction(UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED);
-        filter.addAction(UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED);
+        filter.addAction(TetheringManager.ACTION_TETHER_STATE_CHANGED);
         mPhone.getContext().registerReceiver(mBroadcastReceiver, filter, null, mPhone);
 
         mPhone.mCi.registerForRilConnected(this, EVENT_RIL_CONNECTED, null);
@@ -309,6 +299,16 @@ public class DeviceStateMonitor extends Handler {
         ConnectivityManager cm = (ConnectivityManager) phone.getContext().getSystemService(
                 Context.CONNECTIVITY_SERVICE);
         cm.registerNetworkCallback(mWifiNetworkRequest, mNetworkCallback);
+
+        UiModeManager umm = (UiModeManager) phone.getContext().getSystemService(
+                Context.UI_MODE_SERVICE);
+        umm.addOnProjectionStateChangedListener(PROJECTION_TYPE_AUTOMOTIVE,
+                phone.getContext().getMainExecutor(),
+                (t, pkgs) -> {
+                    Message msg = obtainMessage(EVENT_AUTOMOTIVE_PROJECTION_STATE_CHANGED);
+                    msg.arg1 = Math.min(pkgs.size(), 1);
+                    sendMessage(msg);
+                });
     }
 
     /**
@@ -398,13 +398,13 @@ public class DeviceStateMonitor extends Handler {
      *
      * @return True if the response update should be enabled.
      */
-    private boolean shouldEnableHighPowerConsumptionIndications() {
+    public boolean shouldEnableHighPowerConsumptionIndications() {
         // We should enable indications reports if one of the following condition is true.
         // 1. The device is charging.
         // 2. When the screen is on.
         // 3. When the tethering is on.
-        // 4. When car mode (Android Auto) is on.
-        return mIsCharging || mIsScreenOn || mIsTetheringOn || mIsCarModeOn;
+        // 4. When automotive projection (Android Auto) is on.
+        return mIsCharging || mIsScreenOn || mIsTetheringOn || mIsAutomotiveProjectionActive;
     }
 
     /**
@@ -437,7 +437,9 @@ public class DeviceStateMonitor extends Handler {
      * @param isEnable
      */
     public void setAlwaysReportSignalStrength(boolean isEnable) {
-        sendMessage(obtainMessage(EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH, isEnable ? 1 : 0));
+        Message msg = obtainMessage(EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH);
+        msg.arg1 = isEnable ? 1 : 0;
+        sendMessage(msg);
     }
 
     /**
@@ -458,7 +460,7 @@ public class DeviceStateMonitor extends Handler {
             case EVENT_CHARGING_STATE_CHANGED:
             case EVENT_TETHERING_STATE_CHANGED:
             case EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH:
-            case EVENT_CAR_MODE_CHANGED:
+            case EVENT_AUTOMOTIVE_PROJECTION_STATE_CHANGED:
                 onUpdateDeviceState(msg.what, msg.arg1 != 0);
                 break;
             case EVENT_WIFI_CONNECTION_CHANGED:
@@ -477,6 +479,7 @@ public class DeviceStateMonitor extends Handler {
      */
     private void onUpdateDeviceState(int eventType, boolean state) {
         final boolean shouldEnableBarringInfoReportsOld = shouldEnableBarringInfoReports();
+        final boolean wasHighPowerEnabled = shouldEnableHighPowerConsumptionIndications();
         switch (eventType) {
             case EVENT_SCREEN_STATE_CHANGED:
                 if (mIsScreenOn == state) return;
@@ -504,12 +507,17 @@ public class DeviceStateMonitor extends Handler {
                 if (mIsAlwaysSignalStrengthReportingEnabled == state) return;
                 mIsAlwaysSignalStrengthReportingEnabled = state;
                 break;
-            case EVENT_CAR_MODE_CHANGED:
-                if (mIsCarModeOn == state) return;
-                mIsCarModeOn = state;
+            case EVENT_AUTOMOTIVE_PROJECTION_STATE_CHANGED:
+                if (mIsAutomotiveProjectionActive == state) return;
+                mIsAutomotiveProjectionActive = state;
                 break;
             default:
                 return;
+        }
+
+        final boolean isHighPowerEnabled = shouldEnableHighPowerConsumptionIndications();
+        if (wasHighPowerEnabled != isHighPowerEnabled) {
+            mPhone.notifyDeviceIdleStateChanged(!isHighPowerEnabled /*isIdle*/);
         }
 
         final int newCellInfoMinInterval = computeCellInfoMinInterval();
@@ -628,26 +636,31 @@ public class DeviceStateMonitor extends Handler {
     }
 
     private void setSignalStrengthReportingCriteria() {
-        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSSI,
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSSI,
                 AccessNetworkThresholds.GERAN, AccessNetworkType.GERAN, true);
-        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSCP,
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSCP,
                 AccessNetworkThresholds.UTRAN, AccessNetworkType.UTRAN, true);
-        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSRP,
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSRP,
                 AccessNetworkThresholds.EUTRAN_RSRP, AccessNetworkType.EUTRAN, true);
-        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSSI,
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSSI,
                 AccessNetworkThresholds.CDMA2000, AccessNetworkType.CDMA2000, true);
         if (mPhone.getHalVersion().greaterOrEqual(RIL.RADIO_HAL_VERSION_1_5)) {
-            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSRQ,
+            mPhone.setSignalStrengthReportingCriteria(
+                    SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSRQ,
                     AccessNetworkThresholds.EUTRAN_RSRQ, AccessNetworkType.EUTRAN, false);
-            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSSNR,
+            mPhone.setSignalStrengthReportingCriteria(
+                    SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSSNR,
                     AccessNetworkThresholds.EUTRAN_RSSNR, AccessNetworkType.EUTRAN, true);
 
             // Defaultly we only need SSRSRP for NGRAN signal criteria reporting
-            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_SSRSRP,
+            mPhone.setSignalStrengthReportingCriteria(
+                    SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_SSRSRP,
                     AccessNetworkThresholds.NGRAN_RSRSRP, AccessNetworkType.NGRAN, true);
-            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_SSRSRQ,
+            mPhone.setSignalStrengthReportingCriteria(
+                    SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_SSRSRQ,
                     AccessNetworkThresholds.NGRAN_RSRSRQ, AccessNetworkType.NGRAN, false);
-            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_SSSINR,
+            mPhone.setSignalStrengthReportingCriteria(
+                    SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_SSSINR,
                     AccessNetworkThresholds.NGRAN_SSSINR, AccessNetworkType.NGRAN, false);
         }
     }
@@ -727,15 +740,16 @@ public class DeviceStateMonitor extends Handler {
     }
 
     /**
-     * @return True if car mode (Android Auto) is on.
+     * @return True if automotive projection (Android Auto) is active.
      */
-    private boolean isCarModeOn() {
+    private boolean isAutomotiveProjectionActive() {
         final UiModeManager umm = (UiModeManager) mPhone.getContext().getSystemService(
                 Context.UI_MODE_SERVICE);
         if (umm == null) return false;
-        boolean retval = umm.getCurrentModeType() == Configuration.UI_MODE_TYPE_CAR;
-        log("isCarModeOn=" + retval, true);
-        return retval;
+        boolean isAutomotiveProjectionActive = (umm.getActiveProjectionTypes()
+                & PROJECTION_TYPE_AUTOMOTIVE) != 0;
+        log("isAutomotiveProjectionActive=" + isAutomotiveProjectionActive, true);
+        return isAutomotiveProjectionActive;
     }
 
     /**
@@ -786,7 +800,7 @@ public class DeviceStateMonitor extends Handler {
         ipw.println("mIsCharging=" + mIsCharging);
         ipw.println("mIsPowerSaveOn=" + mIsPowerSaveOn);
         ipw.println("mIsLowDataExpected=" + mIsLowDataExpected);
-        ipw.println("mIsCarModeOn=" + mIsCarModeOn);
+        ipw.println("mIsAutomotiveProjectionActive=" + mIsAutomotiveProjectionActive);
         ipw.println("mUnsolicitedResponseFilter=" + mUnsolicitedResponseFilter);
         ipw.println("mIsWifiConnected=" + mIsWifiConnected);
         ipw.println("mIsAlwaysSignalStrengthReportingEnabled="
@@ -891,10 +905,10 @@ public class DeviceStateMonitor extends Handler {
          * List of dB thresholds for NGRAN {@link AccessNetworkType} RSRSRP
          */
         public static final int[] NGRAN_RSRSRQ = new int[] {
-            -16, /* SIGNAL_STRENGTH_POOR */
-            -12, /* SIGNAL_STRENGTH_MODERATE */
-            -9, /* SIGNAL_STRENGTH_GOOD */
-            -6  /* SIGNAL_STRENGTH_GREAT */
+            -31, /* SIGNAL_STRENGTH_POOR */
+            -19, /* SIGNAL_STRENGTH_MODERATE */
+            -7, /* SIGNAL_STRENGTH_GOOD */
+            6  /* SIGNAL_STRENGTH_GREAT */
         };
 
         /**

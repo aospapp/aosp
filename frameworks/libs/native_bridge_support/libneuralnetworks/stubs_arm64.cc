@@ -25,12 +25,17 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_finish);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_free);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_setCaching);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_setPreference);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_setPriority);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksCompilation_setTimeout);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksDevice_getExtensionSupport);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksDevice_getFeatureLevel);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksDevice_getName);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksDevice_getType);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksDevice_getVersion);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksDevice_wait);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_createFromSyncFenceFd);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_free);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_getSyncFenceFd);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksEvent_wait);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_burstCompute);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_compute);
@@ -41,10 +46,13 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_getOutputOperandDime
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_getOutputOperandRank);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setInput);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setInputFromMemory);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setLoopTimeout);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setMeasureTiming);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setOutput);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setOutputFromMemory);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_setTimeout);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_startCompute);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksExecution_startComputeWithDependencies);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksMemoryDesc_addInputRole);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksMemoryDesc_addOutputRole);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksMemoryDesc_create);
@@ -70,8 +78,11 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksModel_setOperandExtensionData)
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksModel_setOperandSymmPerChannelQuantParams);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksModel_setOperandValue);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksModel_setOperandValueFromMemory);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworksModel_setOperandValueFromModel);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworks_getDefaultLoopTimeout);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworks_getDevice);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworks_getDeviceCount);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ANeuralNetworks_getMaximumLoopTimeout);
 
 static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksBurst_create);
@@ -82,12 +93,17 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_free);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_setCaching);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_setPreference);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_setPriority);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksCompilation_setTimeout);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksDevice_getExtensionSupport);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksDevice_getFeatureLevel);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksDevice_getName);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksDevice_getType);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksDevice_getVersion);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksDevice_wait);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_createFromSyncFenceFd);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_free);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_getSyncFenceFd);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksEvent_wait);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_burstCompute);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_compute);
@@ -98,10 +114,13 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_getOutputOperandRank);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setInput);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setInputFromMemory);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setLoopTimeout);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setMeasureTiming);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setOutput);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setOutputFromMemory);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_setTimeout);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_startCompute);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksExecution_startComputeWithDependencies);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksMemoryDesc_addInputRole);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksMemoryDesc_addOutputRole);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksMemoryDesc_create);
@@ -127,7 +146,10 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksModel_setOperandSymmPerChannelQuantParams);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksModel_setOperandValue);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksModel_setOperandValueFromMemory);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworksModel_setOperandValueFromModel);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworks_getDefaultLoopTimeout);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworks_getDevice);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworks_getDeviceCount);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libneuralnetworks.so", ANeuralNetworks_getMaximumLoopTimeout);
 }
 // clang-format on

@@ -16,7 +16,7 @@
 
 package android.graphics;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
@@ -183,7 +183,7 @@ public class FontFamily_Delegate {
                 }
             }
         } catch (FileNotFoundException e) {
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     "Unable to load the list of fonts. Try re-installing the SDK Platform from the SDK Manager.",
                     e, null, null);
         } finally {
@@ -268,12 +268,12 @@ public class FontFamily_Delegate {
                     // warning.
                     return null;
                 }
-                Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN,
+                Bridge.getLog().fidelityWarning(ILayoutLog.TAG_BROKEN,
                         String.format("Unable to load font %1$s", relativePath),
                         e, null, null);
             }
         } else {
-            Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+            Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                     "Only platform fonts located in " + SYSTEM_FONTS + "can be loaded.",
                     null, null, null);
         }

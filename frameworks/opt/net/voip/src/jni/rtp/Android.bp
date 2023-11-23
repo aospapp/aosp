@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "librtp_jni",
     srcs: [
@@ -32,8 +36,11 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "framework-permission-aidl-cpp",
+        "libandroid_runtime",
         "libaudioclient",
         "libaudiofoundation",
+        "libbinder",
         "libcutils",
         "liblog",
         "libnativehelper",
@@ -42,12 +49,9 @@ cc_library_shared {
     ],
     static_libs: [
         "libgsm",
+        "framework-permission-aidl-cpp",
         "libstagefright_amrnbdec",
         "libstagefright_amrnbenc",
-    ],
-    include_dirs: [
-        "frameworks/av/media/libstagefright/codecs/amrnb/enc/src",
-        "frameworks/av/media/libstagefright/codecs/amrnb/dec/src",
     ],
     cflags: [
         "-fvisibility=hidden",

@@ -70,15 +70,10 @@ public class ImsMultiEndpoint {
     }
 
     public void setExternalCallStateListener(ImsExternalCallStateListener externalCallStateListener)
-            throws ImsException {
-        try {
-            if (DBG) Rlog.d(TAG, "setExternalCallStateListener");
-            mImsMultiendpoint.setListener(new ImsExternalCallStateListenerProxy(
-                    externalCallStateListener));
-        } catch (RemoteException e) {
-            throw new ImsException("setExternalCallStateListener could not be set.", e,
-                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
-        }
+            throws RemoteException {
+        if (DBG) Rlog.d(TAG, "setExternalCallStateListener");
+        mImsMultiendpoint.setListener(externalCallStateListener != null ?
+                new ImsExternalCallStateListenerProxy(externalCallStateListener) : null);
     }
 
     public boolean isBinderAlive() {

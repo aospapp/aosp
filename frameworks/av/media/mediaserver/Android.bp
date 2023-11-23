@@ -1,4 +1,21 @@
 
+package {
+    default_applicable_licenses: ["frameworks_av_media_mediaserver_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_mediaserver_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libregistermsext",
     srcs: ["register.cpp"],
@@ -17,6 +34,7 @@ cc_binary {
     shared_libs: [
         "android.hardware.media.omx@1.0",
         "libandroidicu",
+        "libfmq",
         "libbinder",
         "libhidlbase",
         "liblog",
@@ -34,8 +52,13 @@ cc_binary {
         "frameworks/av/services/mediaresourcemanager",
     ],
 
-    // back to 32-bit, b/126502613
-    compile_multilib: "32",
+    // By default mediaserver runs in 32-bit to save memory, except
+    // on 64-bit-only lunch targets.
+    // ****************************************************************
+    // TO ENABLE 64-BIT MEDIASERVER ON MIXED 32/64-BIT DEVICES, COMMENT
+    // OUT THE FOLLOWING LINE:
+    // ****************************************************************
+    compile_multilib: "prefer32",
 
     init_rc: ["mediaserver.rc"],
 

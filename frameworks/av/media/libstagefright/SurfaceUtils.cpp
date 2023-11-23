@@ -132,37 +132,63 @@ status_t setNativeWindowSizeFormatAndUsage(
 }
 
 void setNativeWindowHdrMetadata(ANativeWindow *nativeWindow, HDRStaticInfo *info) {
-    struct android_smpte2086_metadata smpte2086_meta = {
-            .displayPrimaryRed = {
-                    info->sType1.mR.x * 0.00002f,
-                    info->sType1.mR.y * 0.00002f
-            },
-            .displayPrimaryGreen = {
-                    info->sType1.mG.x * 0.00002f,
-                    info->sType1.mG.y * 0.00002f
-            },
-            .displayPrimaryBlue = {
-                    info->sType1.mB.x * 0.00002f,
-                    info->sType1.mB.y * 0.00002f
-            },
-            .whitePoint = {
-                    info->sType1.mW.x * 0.00002f,
-                    info->sType1.mW.y * 0.00002f
-            },
-            .maxLuminance = (float) info->sType1.mMaxDisplayLuminance,
-            .minLuminance = info->sType1.mMinDisplayLuminance * 0.0001f
-    };
+    // If mastering max and min luminance fields are 0, do not use them.
+    // It indicates the value may not be present in the stream.
+    if ((float)info->sType1.mMaxDisplayLuminance > 0.0f &&
+        (info->sType1.mMinDisplayLuminance * 0.0001f) > 0.0f) {
+        struct android_smpte2086_metadata smpte2086_meta = {
+                .displayPrimaryRed = {
+                        info->sType1.mR.x * 0.00002f,
+                        info->sType1.mR.y * 0.00002f
+                },
+                .displayPrimaryGreen = {
+                        info->sType1.mG.x * 0.00002f,
+                        info->sType1.mG.y * 0.00002f
+                },
+                .displayPrimaryBlue = {
+                        info->sType1.mB.x * 0.00002f,
+                        info->sType1.mB.y * 0.00002f
+                },
+                .whitePoint = {
+                        info->sType1.mW.x * 0.00002f,
+                        info->sType1.mW.y * 0.00002f
+                },
+                .maxLuminance = (float) info->sType1.mMaxDisplayLuminance,
+                .minLuminance = info->sType1.mMinDisplayLuminance * 0.0001f
+        };
 
-    int err = native_window_set_buffers_smpte2086_metadata(nativeWindow, &smpte2086_meta);
-    ALOGW_IF(err != 0, "failed to set smpte2086 metadata on surface (%d)", err);
+        int err = native_window_set_buffers_smpte2086_metadata(nativeWindow, &smpte2086_meta);
+        ALOGW_IF(err != 0, "failed to set smpte2086 metadata on surface (%d)", err);
+    }
 
-    struct android_cta861_3_metadata cta861_meta = {
-            .maxContentLightLevel = (float) info->sType1.mMaxContentLightLevel,
-            .maxFrameAverageLightLevel = (float) info->sType1.mMaxFrameAverageLightLevel
-    };
+    // If the content light level fields are 0, do not use them, it
+    // indicates the value may not be present in the stream.
+    if ((float)info->sType1.mMaxContentLightLevel > 0.0f &&
+        (float)info->sType1.mMaxFrameAverageLightLevel > 0.0f) {
+        struct android_cta861_3_metadata cta861_meta = {
+                .maxContentLightLevel = (float) info->sType1.mMaxContentLightLevel,
+                .maxFrameAverageLightLevel = (float) info->sType1.mMaxFrameAverageLightLevel
+        };
 
-    err = native_window_set_buffers_cta861_3_metadata(nativeWindow, &cta861_meta);
-    ALOGW_IF(err != 0, "failed to set cta861_3 metadata on surface (%d)", err);
+        int err = native_window_set_buffers_cta861_3_metadata(nativeWindow, &cta861_meta);
+        ALOGW_IF(err != 0, "failed to set cta861_3 metadata on surface (%d)", err);
+    }
+}
+
+status_t setNativeWindowRotation(
+        ANativeWindow *nativeWindow /* nonnull */, int rotation) {
+
+    int transform = 0;
+    if ((rotation % 90) == 0) {
+        switch ((rotation / 90) & 3) {
+            case 1:  transform = HAL_TRANSFORM_ROT_90;  break;
+            case 2:  transform = HAL_TRANSFORM_ROT_180; break;
+            case 3:  transform = HAL_TRANSFORM_ROT_270; break;
+            default: transform = 0;                     break;
+        }
+    }
+
+    return native_window_set_buffers_transform(nativeWindow, transform);
 }
 
 status_t pushBlankBuffersToNativeWindow(ANativeWindow *nativeWindow /* nonnull */) {

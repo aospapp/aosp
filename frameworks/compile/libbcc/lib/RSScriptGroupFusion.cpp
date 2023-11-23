@@ -75,7 +75,7 @@ getFunction(Module* mergedModule, const Source* source, const int slot,
   return function;
 }
 
-// The whitelist of supported signature bits. Context or user data arguments are
+// The collection of supported signature bits. Context or user data arguments are
 // not currently supported in kernel fusion. To support them or any new kinds of
 // arguments in the future, it requires not only listing the signature bits here,
 // but also implementing additional necessary fusion logic in the getFusedFuncSig(),

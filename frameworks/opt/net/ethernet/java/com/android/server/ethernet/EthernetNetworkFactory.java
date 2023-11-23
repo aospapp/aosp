@@ -16,13 +16,13 @@
 
 package com.android.server.ethernet;
 
-import static android.net.shared.LinkPropertiesParcelableUtil.toStableParcelable;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ConnectivityManager;
+import android.net.EthernetNetworkSpecifier;
 import android.net.IpConfiguration;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
@@ -33,7 +33,6 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkFactory;
 import android.net.NetworkRequest;
 import android.net.NetworkSpecifier;
-import android.net.StringNetworkSpecifier;
 import android.net.ip.IIpClient;
 import android.net.ip.IpClientCallbacks;
 import android.net.ip.IpClientUtil;
@@ -50,8 +49,8 @@ import android.util.SparseArray;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.FileDescriptor;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * {@link NetworkFactory} that represents Ethernet networks.
@@ -87,20 +86,16 @@ public class EthernetNetworkFactory extends NetworkFactory {
     }
 
     @Override
-    public boolean acceptRequest(NetworkRequest request, int score) {
-        if (request.type == NetworkRequest.Type.TRACK_DEFAULT) {
-            return false;
-        }
-
+    public boolean acceptRequest(NetworkRequest request) {
         if (DBG) {
-            Log.d(TAG, "acceptRequest, request: " + request + ", score: " + score);
+            Log.d(TAG, "acceptRequest, request: " + request);
         }
 
         return networkForRequest(request) != null;
     }
 
     @Override
-    protected void needNetworkFor(NetworkRequest networkRequest, int score) {
+    protected void needNetworkFor(NetworkRequest networkRequest) {
         NetworkInterfaceState network = networkForRequest(networkRequest);
 
         if (network == null) {
@@ -161,12 +156,22 @@ public class EthernetNetworkFactory extends NetworkFactory {
         updateCapabilityFilter();
     }
 
+    private static NetworkCapabilities mixInCapabilities(NetworkCapabilities nc,
+            NetworkCapabilities addedNc) {
+       final NetworkCapabilities.Builder builder = new NetworkCapabilities.Builder(nc);
+       for (int transport : addedNc.getTransportTypes()) builder.addTransportType(transport);
+       for (int capability : addedNc.getCapabilities()) builder.addCapability(capability);
+       return builder.build();
+    }
+
     private void updateCapabilityFilter() {
-        NetworkCapabilities capabilitiesFilter = new NetworkCapabilities();
-        capabilitiesFilter.clearAll();
+        NetworkCapabilities capabilitiesFilter =
+                NetworkCapabilities.Builder.withoutDefaultCapabilities()
+                .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+                .build();
 
         for (NetworkInterfaceState iface:  mTrackingInterfaces.values()) {
-            capabilitiesFilter.combineCapabilities(iface.mCapabilities);
+            capabilitiesFilter = mixInCapabilities(capabilitiesFilter, iface.mCapabilities);
         }
 
         if (DBG) Log.d(TAG, "updateCapabilityFilter: " + capabilitiesFilter);
@@ -210,20 +215,21 @@ public class EthernetNetworkFactory extends NetworkFactory {
     private NetworkInterfaceState networkForRequest(NetworkRequest request) {
         String requestedIface = null;
 
-        NetworkSpecifier specifier = request.networkCapabilities.getNetworkSpecifier();
-        if (specifier instanceof StringNetworkSpecifier) {
-            requestedIface = ((StringNetworkSpecifier) specifier).specifier;
+        NetworkSpecifier specifier = request.getNetworkSpecifier();
+        if (specifier instanceof EthernetNetworkSpecifier) {
+            requestedIface = ((EthernetNetworkSpecifier) specifier)
+                .getInterfaceName();
         }
 
         NetworkInterfaceState network = null;
         if (!TextUtils.isEmpty(requestedIface)) {
             NetworkInterfaceState n = mTrackingInterfaces.get(requestedIface);
-            if (n != null && n.satisfied(request.networkCapabilities)) {
+            if (n != null && request.canBeSatisfiedBy(n.mCapabilities)) {
                 network = n;
             }
         } else {
             for (NetworkInterfaceState n : mTrackingInterfaces.values()) {
-                if (n.satisfied(request.networkCapabilities) && n.mLinkUp) {
+                if (request.canBeSatisfiedBy(n.mCapabilities) && n.mLinkUp) {
                     network = n;
                     break;
                 }
@@ -466,6 +472,7 @@ public class EthernetNetworkFactory extends NetworkFactory {
             final NetworkAgentConfig config = new NetworkAgentConfig.Builder()
                     .setLegacyType(mLegacyType)
                     .setLegacyTypeName(NETWORK_TYPE)
+                    .setLegacyExtraInfo(mHwAddress)
                     .build();
             mNetworkAgent = new NetworkAgent(mContext, mHandler.getLooper(),
                     NETWORK_TYPE, mCapabilities, mLinkProperties,
@@ -480,7 +487,6 @@ public class EthernetNetworkFactory extends NetworkFactory {
                 }
             };
             mNetworkAgent.register();
-            mNetworkAgent.setLegacyExtraInfo(mHwAddress);
             mNetworkAgent.markConnected();
         }
 
@@ -552,7 +558,7 @@ public class EthernetNetworkFactory extends NetworkFactory {
             if (config.getProxySettings() == ProxySettings.STATIC ||
                     config.getProxySettings() == ProxySettings.PAC) {
                 try {
-                    ipClient.setHttpProxy(toStableParcelable(config.getHttpProxy()));
+                    ipClient.setHttpProxy(config.getHttpProxy());
                 } catch (RemoteException e) {
                     e.rethrowFromSystemServer();
                 }

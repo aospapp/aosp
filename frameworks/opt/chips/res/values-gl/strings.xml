@@ -22,7 +22,7 @@
     <string name="action_label" msgid="7172664623795021857">"Volver"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="9015267358421989409">"Suxestións de contactos abertas"</string>
     <string name="accessbility_suggestion_dropdown_closed" msgid="91481373431329121">"Non hai suxestións dispoñibles"</string>
-    <string name="dropdown_delete_button_desc" msgid="4359394656487762022">"Eliminar <xliff:g id="CONTACT">%s</xliff:g> dos destinatarios"</string>
+    <string name="dropdown_delete_button_desc" msgid="4359394656487762022">"Quitar <xliff:g id="CONTACT">%s</xliff:g> dos destinatarios"</string>
     <string name="chips_action_copy" msgid="6984158516334578792">"Copiar"</string>
     <string name="chips_action_cancel" msgid="2582257014578396781">"Cancelar"</string>
     <string name="chips_permission_text" msgid="5601284803674008863">"Permitir suxestións de contactos"</string>

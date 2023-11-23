@@ -28,12 +28,14 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.LocalServerSocket;
+import android.os.Build;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.telephony.AnomalyReporter;
+import android.telephony.RadioAccessFamily;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.LocalLog;
@@ -98,6 +100,7 @@ public class PhoneFactory {
 
     static private final HashMap<String, LocalLog>sLocalLogs = new HashMap<String, LocalLog>();
     private static MetricsCollector sMetricsCollector;
+    private static RadioInterfaceCapabilityController sRadioHalCapabilities;
 
     //***** Class Methods
 
@@ -169,9 +172,23 @@ public class PhoneFactory {
                     networkModes[i] = RILConstants.PREFERRED_NETWORK_MODE;
 
                     Rlog.i(LOG_TAG, "Network Mode set to " + Integer.toString(networkModes[i]));
-                    sCommandsInterfaces[i] = new RIL(context, networkModes[i],
+                    sCommandsInterfaces[i] = new RIL(context,
+                            RadioAccessFamily.getRafFromNetworkType(networkModes[i]),
                             cdmaSubscription, i);
                 }
+
+                if (numPhones > 0) {
+                    final RadioConfig radioConfig = RadioConfig.make(context,
+                            sCommandsInterfaces[0].getHalVersion());
+                    sRadioHalCapabilities = RadioInterfaceCapabilityController.init(radioConfig,
+                            sCommandsInterfaces[0]);
+                } else {
+                    // There is no command interface to go off of
+                    final RadioConfig radioConfig = RadioConfig.make(context, HalVersion.UNKNOWN);
+                    sRadioHalCapabilities = RadioInterfaceCapabilityController.init(
+                            radioConfig, null);
+                }
+
 
                 // Instantiate UiccController so that all other classes can just
                 // call getInstance()
@@ -220,7 +237,7 @@ public class PhoneFactory {
                 sSubInfoRecordUpdater = TelephonyComponentFactory.getInstance().inject(
                         SubscriptionInfoUpdater.class.getName()).
                         makeSubscriptionInfoUpdater(pfhandlerThread.
-                        getLooper(), context, sCommandsInterfaces);
+                        getLooper(), context, SubscriptionController.getInstance());
 
                 // Only bring up IMS if the device supports having an IMS stack.
                 if (context.getPackageManager().hasSystemFeature(
@@ -282,7 +299,8 @@ public class PhoneFactory {
 
             int cdmaSubscription = CdmaSubscriptionSourceManager.getDefault(context);
             for (int i = prevActiveModemCount; i < activeModemCount; i++) {
-                sCommandsInterfaces[i] = new RIL(context, RILConstants.PREFERRED_NETWORK_MODE,
+                sCommandsInterfaces[i] = new RIL(context, RadioAccessFamily.getRafFromNetworkType(
+                        RILConstants.PREFERRED_NETWORK_MODE),
                         cdmaSubscription, i);
                 sPhones[i] = createPhone(context, i);
                 if (context.getPackageManager().hasSystemFeature(
@@ -348,7 +366,7 @@ public class PhoneFactory {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public static Phone[] getPhones() {
         synchronized (sLockProxyPhones) {
             if (!sMadeDefaults) {
@@ -402,37 +420,27 @@ public class PhoneFactory {
     }
 
     /**
-     * Returns the preferred network type that should be set in the modem.
+     * Returns the preferred network type bitmask that should be set in the modem.
      *
-     * @param context The current {@link Context}.
-     * @return the preferred network mode that should be set.
+     * @param phoneId The phone's id.
+     * @return the preferred network mode bitmask that should be set.
      */
     // TODO: Fix when we "properly" have TelephonyDevController/SubscriptionController ..
-    @UnsupportedAppUsage
-    public static int calculatePreferredNetworkType(Context context, int phoneSubId) {
-        int networkType = android.provider.Settings.Global.getInt(context.getContentResolver(),
-                android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
-                -1 /* invalid network mode */);
-        Rlog.d(LOG_TAG, "calculatePreferredNetworkType: phoneSubId = " + phoneSubId +
-                " networkType = " + networkType);
-
-        if (networkType == -1) {
-            networkType = RILConstants.PREFERRED_NETWORK_MODE;
-            try {
-                networkType = TelephonyManager.getIntAtIndex(context.getContentResolver(),
-                        android.provider.Settings.Global.PREFERRED_NETWORK_MODE,
-                        SubscriptionController.getInstance().getPhoneId(phoneSubId));
-            } catch (SettingNotFoundException retrySnfe) {
-                Rlog.e(LOG_TAG, "Settings Exception Reading Value At Index for "
-                        + "Settings.Global.PREFERRED_NETWORK_MODE");
-            }
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
+    public static int calculatePreferredNetworkType(int phoneId) {
+        if (getPhone(phoneId) == null) {
+            Rlog.d(LOG_TAG, "Invalid phoneId return default network mode ");
+            return RadioAccessFamily.getRafFromNetworkType(RILConstants.PREFERRED_NETWORK_MODE);
         }
-
+        int networkType = (int) getPhone(phoneId).getAllowedNetworkTypes(
+                TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_USER);
+        Rlog.d(LOG_TAG, "calculatePreferredNetworkType: phoneId = " + phoneId + " networkType = "
+                + networkType);
         return networkType;
     }
 
     /* Gets the default subscription */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public static int getDefaultSubscription() {
         return SubscriptionController.getInstance().getDefaultSubId();
     }

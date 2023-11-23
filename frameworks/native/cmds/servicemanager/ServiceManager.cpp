@@ -37,22 +37,12 @@ using ::android::internal::Stability;
 namespace android {
 
 #ifndef VENDORSERVICEMANAGER
-static bool isVintfDeclared(const std::string& name) {
-    size_t firstSlash = name.find('/');
-    size_t lastDot = name.rfind('.', firstSlash);
-    if (firstSlash == std::string::npos || lastDot == std::string::npos) {
-        LOG(ERROR) << "VINTF HALs require names in the format type/instance (e.g. "
-                   << "some.package.foo.IFoo/default) but got: " << name;
-        return false;
-    }
-    const std::string package = name.substr(0, lastDot);
-    const std::string iface = name.substr(lastDot+1, firstSlash-lastDot-1);
-    const std::string instance = name.substr(firstSlash+1);
-
-    struct ManifestWithDescription {
-        std::shared_ptr<const vintf::HalManifest> manifest;
-        const char* description;
-    };
+struct ManifestWithDescription {
+    std::shared_ptr<const vintf::HalManifest> manifest;
+    const char* description;
+};
+// func true -> stop search and forEachManifest will return true
+static bool forEachManifest(const std::function<bool(const ManifestWithDescription&)>& func) {
     for (const ManifestWithDescription& mwd : {
             ManifestWithDescription{ vintf::VintfObject::GetDeviceHalManifest(), "device" },
             ManifestWithDescription{ vintf::VintfObject::GetFrameworkHalManifest(), "framework" },
@@ -63,17 +53,91 @@ static bool isVintfDeclared(const std::string& name) {
           // or other bugs (b/151696835)
           continue;
         }
-        if (mwd.manifest->hasAidlInstance(package, iface, instance)) {
-            LOG(INFO) << "Found " << name << " in " << mwd.description << " VINTF manifest.";
-            return true;
+        if (func(mwd)) return true;
+    }
+    return false;
+}
+
+struct AidlName {
+    std::string package;
+    std::string iface;
+    std::string instance;
+
+    static bool fill(const std::string& name, AidlName* aname) {
+        size_t firstSlash = name.find('/');
+        size_t lastDot = name.rfind('.', firstSlash);
+        if (firstSlash == std::string::npos || lastDot == std::string::npos) {
+            LOG(ERROR) << "VINTF HALs require names in the format type/instance (e.g. "
+                       << "some.package.foo.IFoo/default) but got: " << name;
+            return false;
         }
+        aname->package = name.substr(0, lastDot);
+        aname->iface = name.substr(lastDot + 1, firstSlash - lastDot - 1);
+        aname->instance = name.substr(firstSlash + 1);
+        return true;
+    }
+};
+
+static bool isVintfDeclared(const std::string& name) {
+    AidlName aname;
+    if (!AidlName::fill(name, &aname)) return false;
+
+    bool found = forEachManifest([&](const ManifestWithDescription& mwd) {
+        if (mwd.manifest->hasAidlInstance(aname.package, aname.iface, aname.instance)) {
+            LOG(INFO) << "Found " << name << " in " << mwd.description << " VINTF manifest.";
+            return true; // break
+        }
+        return false;  // continue
+    });
+
+    if (!found) {
+        // Although it is tested, explicitly rebuilding qualified name, in case it
+        // becomes something unexpected.
+        LOG(ERROR) << "Could not find " << aname.package << "." << aname.iface << "/"
+                   << aname.instance << " in the VINTF manifest.";
     }
 
-    // Although it is tested, explicitly rebuilding qualified name, in case it
-    // becomes something unexpected.
-    LOG(ERROR) << "Could not find " << package << "." << iface << "/" << instance
-               << " in the VINTF manifest.";
-    return false;
+    return found;
+}
+
+static std::optional<std::string> getVintfUpdatableApex(const std::string& name) {
+    AidlName aname;
+    if (!AidlName::fill(name, &aname)) return std::nullopt;
+
+    std::optional<std::string> updatableViaApex;
+
+    forEachManifest([&](const ManifestWithDescription& mwd) {
+        mwd.manifest->forEachInstance([&](const auto& manifestInstance) {
+            if (manifestInstance.format() != vintf::HalFormat::AIDL) return true;
+            if (manifestInstance.package() != aname.package) return true;
+            if (manifestInstance.interface() != aname.iface) return true;
+            if (manifestInstance.instance() != aname.instance) return true;
+            updatableViaApex = manifestInstance.updatableViaApex();
+            return false; // break (libvintf uses opposite convention)
+        });
+        return false; // continue
+    });
+
+    return updatableViaApex;
+}
+
+static std::vector<std::string> getVintfInstances(const std::string& interface) {
+    size_t lastDot = interface.rfind('.');
+    if (lastDot == std::string::npos) {
+        LOG(ERROR) << "VINTF interfaces require names in Java package format (e.g. some.package.foo.IFoo) but got: " << interface;
+        return {};
+    }
+    const std::string package = interface.substr(0, lastDot);
+    const std::string iface = interface.substr(lastDot+1);
+
+    std::vector<std::string> ret;
+    (void)forEachManifest([&](const ManifestWithDescription& mwd) {
+        auto instances = mwd.manifest->getAidlInstances(package, iface);
+        ret.insert(ret.end(), instances.begin(), instances.end());
+        return false;  // continue
+    });
+
+    return ret;
 }
 
 static bool meetsDeclarationRequirements(const sp<IBinder>& binder, const std::string& name) {
@@ -208,22 +272,24 @@ Status ServiceManager::addService(const std::string& name, const sp<IBinder>& bi
 #endif  // !VENDORSERVICEMANAGER
 
     // implicitly unlinked when the binder is removed
-    if (binder->remoteBinder() != nullptr && binder->linkToDeath(this) != OK) {
+    if (binder->remoteBinder() != nullptr &&
+        binder->linkToDeath(sp<ServiceManager>::fromExisting(this)) != OK) {
         LOG(ERROR) << "Could not linkToDeath when adding " << name;
         return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
     }
 
-    auto entry = mNameToService.emplace(name, Service {
+    // Overwrite the old service if it exists
+    mNameToService[name] = Service {
         .binder = binder,
         .allowIsolated = allowIsolated,
         .dumpPriority = dumpPriority,
         .debugPid = ctx.debugPid,
-    });
+    };
 
     auto it = mNameToRegistrationCallback.find(name);
     if (it != mNameToRegistrationCallback.end()) {
         for (const sp<IServiceCallback>& cb : it->second) {
-            entry.first->second.guaranteeClient = true;
+            mNameToService[name].guaranteeClient = true;
             // permission checked in registerForNotifications
             cb->onRegistration(name, binder);
         }
@@ -275,7 +341,9 @@ Status ServiceManager::registerForNotifications(
         return Status::fromExceptionCode(Status::EX_NULL_POINTER);
     }
 
-    if (OK != IInterface::asBinder(callback)->linkToDeath(this)) {
+    if (OK !=
+        IInterface::asBinder(callback)->linkToDeath(
+                sp<ServiceManager>::fromExisting(this))) {
         LOG(ERROR) << "Could not linkToDeath when adding " << name;
         return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
     }
@@ -330,6 +398,45 @@ Status ServiceManager::isDeclared(const std::string& name, bool* outReturn) {
     return Status::ok();
 }
 
+binder::Status ServiceManager::getDeclaredInstances(const std::string& interface, std::vector<std::string>* outReturn) {
+    auto ctx = mAccess->getCallingContext();
+
+    std::vector<std::string> allInstances;
+#ifndef VENDORSERVICEMANAGER
+    allInstances = getVintfInstances(interface);
+#endif
+
+    outReturn->clear();
+
+    for (const std::string& instance : allInstances) {
+        if (mAccess->canFind(ctx, interface + "/" + instance)) {
+            outReturn->push_back(instance);
+        }
+    }
+
+    if (outReturn->size() == 0 && allInstances.size() != 0) {
+        return Status::fromExceptionCode(Status::EX_SECURITY);
+    }
+
+    return Status::ok();
+}
+
+Status ServiceManager::updatableViaApex(const std::string& name,
+                                        std::optional<std::string>* outReturn) {
+    auto ctx = mAccess->getCallingContext();
+
+    if (!mAccess->canFind(ctx, name)) {
+        return Status::fromExceptionCode(Status::EX_SECURITY);
+    }
+
+    *outReturn = std::nullopt;
+
+#ifndef VENDORSERVICEMANAGER
+    *outReturn = getVintfUpdatableApex(name);
+#endif
+    return Status::ok();
+}
+
 void ServiceManager::removeRegistrationCallback(const wp<IBinder>& who,
                                     ServiceCallbackMap::iterator* it,
                                     bool* found) {
@@ -374,7 +481,12 @@ void ServiceManager::tryStartService(const std::string& name) {
           name.c_str());
 
     std::thread([=] {
-        (void)base::SetProperty("ctl.interface_start", "aidl/" + name);
+        if (!base::SetProperty("ctl.interface_start", "aidl/" + name)) {
+            LOG(INFO) << "Tried to start aidl service " << name
+                      << " as a lazy service, but was unable to. Usually this happens when a "
+                         "service is not installed, but if the service is intended to be used as a "
+                         "lazy service, then it may be configured incorrectly.";
+        }
     }).detach();
 }
 
@@ -406,7 +518,8 @@ Status ServiceManager::registerClientCallback(const std::string& name, const sp<
         return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT);
     }
 
-    if (OK != IInterface::asBinder(cb)->linkToDeath(this)) {
+    if (OK !=
+        IInterface::asBinder(cb)->linkToDeath(sp<ServiceManager>::fromExisting(this))) {
         LOG(ERROR) << "Could not linkToDeath when adding client callback for " << name;
         return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
     }
@@ -436,10 +549,10 @@ void ServiceManager::removeClientCallback(const wp<IBinder>& who,
 }
 
 ssize_t ServiceManager::Service::getNodeStrongRefCount() {
-    sp<BpBinder> bpBinder = binder->remoteBinder();
+    sp<BpBinder> bpBinder = sp<BpBinder>::fromExisting(binder->remoteBinder());
     if (bpBinder == nullptr) return -1;
 
-    return ProcessState::self()->getStrongRefCountForNodeByHandle(bpBinder->handle());
+    return ProcessState::self()->getStrongRefCountForNode(bpBinder);
 }
 
 void ServiceManager::handleClientCallbacks() {
@@ -564,6 +677,23 @@ Status ServiceManager::tryUnregisterService(const std::string& name, const sp<IB
     }
 
     mNameToService.erase(name);
+
+    return Status::ok();
+}
+
+Status ServiceManager::getServiceDebugInfo(std::vector<ServiceDebugInfo>* outReturn) {
+    if (!mAccess->canList(mAccess->getCallingContext())) {
+        return Status::fromExceptionCode(Status::EX_SECURITY);
+    }
+
+    outReturn->reserve(mNameToService.size());
+    for (auto const& [name, service] : mNameToService) {
+        ServiceDebugInfo info;
+        info.name = name;
+        info.debugPid = service.debugPid;
+
+        outReturn->push_back(std::move(info));
+    }
 
     return Status::ok();
 }

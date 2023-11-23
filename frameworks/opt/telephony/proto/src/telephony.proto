@@ -53,6 +53,9 @@ message TelephonyLog {
 
   // The last active subscription info for each slot.
   repeated ActiveSubscriptionInfo last_active_subscription_info = 10;
+
+  // Bandwidth estimator stats
+  optional BandwidthEstimatorStats bandwidth_estimator_stats = 11;
 }
 
 // The time information
@@ -418,6 +421,20 @@ enum RadioAccessTechnology {
   RAT_NR = 20;
 }
 
+// NR (5G) operation mode
+enum NrMode {
+  // The device is not in a NR network.
+  NR_NONE = 1;
+  // The device is in a NR non-standalone network at non-MMWAVE frequencies.
+  NR_NSA = 2;
+  // The device is in a NR non-standalone network at MMWAVE frequencies.
+  NR_NSA_MMWAVE = 3;
+  // The device is in a NR standalone network at non-MMWAVE frequencies.
+  NR_SA = 4;
+  // The device is in a NR standalone network at MMWAVE frequencies.
+  NR_SA_MMWAVE = 5;
+}
+
 // The information about IMS errors
 // https://cs.corp.google.com/#android/frameworks/base/telephony/java/com/android/ims/ImsReasonInfo.java
 message ImsReasonInfo {
@@ -706,7 +723,7 @@ message RilDataCall {
   optional PdpType type = 2;
 
   // The network interface name e.g. wlan0, rmnet_data0.
-  optional string iframe = 3;
+  optional string ifname = 3;
 
   // State of the Data Call connection
   optional State state = 4;
@@ -836,6 +853,9 @@ message TelephonyEvent {
 
     // Signal strength
     SIGNAL_STRENGTH = 23;
+
+    // Radio state change event
+    RADIO_STATE_CHANGED = 24;
   }
 
   enum ApnType {
@@ -882,6 +902,20 @@ message TelephonyEvent {
 
     /** The validation is passed. */
     NETWORK_VALIDATION_STATE_PASSED = 3;
+  }
+
+  enum RadioState {
+    /** Radio state is unknown or invalid. */
+    RADIO_STATE_UNKNOWN = 0;
+
+    /** Radio is explicitly off (e.g. airplane mode). */
+    RADIO_STATE_OFF = 1;
+
+    /** Radio is on. */
+    RADIO_STATE_ON = 2;
+
+    /** Radio power unavailable (eg, modem resetting or not booted). */
+    RADIO_STATE_UNAVAILABLE = 3;
   }
 
   message DataSwitch {
@@ -1743,7 +1777,7 @@ message TelephonyEvent {
     optional bool is_network_unmetered = 1;
   }
 
-  // Time when event happened on device, in milliseconds since epoch
+  // Time when event happened on device, in milliseconds since boot
   optional int64 timestamp_millis = 1;
 
   // In Multi-SIM devices this indicates SIM slot
@@ -1828,6 +1862,9 @@ message TelephonyEvent {
   //  (datapol.semantic_type) = ST_SOFTWARE_ID,
   //  (datapol.qualifier) = { is_public: true }
   //]
+
+  // Radio state for the given phone_id
+  optional RadioState radio_state = 29;
 }
 
 message ActiveSubscriptionInfo {
@@ -2457,7 +2494,7 @@ message SmsSession {
     // Formats used to encode SMS messages
     enum Format {
 
-      // State is unknown.
+      // Format is unknown.
       SMS_FORMAT_UNKNOWN = 0;
 
       // GSM, WCDMA
@@ -2679,4 +2716,35 @@ message ModemPowerStats {
 
   // Actual monitored rail energy consumed by modem (mAh)
   optional double monitored_rail_energy_consumed_mah = 15;
+}
+
+// Bandwidth estimator stats
+message BandwidthEstimatorStats {
+  // Bandwidth stats of each level
+  message PerLevel {
+    optional uint32 signal_level = 1;
+    // Accumulated bandwidth sample count
+    optional uint32 count = 2;
+    // Average end-to-end bandwidth in kbps
+    optional uint32 avg_bw_kbps = 3;
+    // Normalized error of static BW values in percent
+    optional uint32 static_bw_error_percent = 4;
+    // Normalized error of end-to-end BW estimation in percent
+    optional uint32 bw_est_error_percent = 5;
+  }
+
+  // Bandwidth stats of each RAT
+  message PerRat {
+    // radio access technology
+    optional RadioAccessTechnology rat = 1;
+    // NR (5g) operation mode
+    optional NrMode nr_mode = 2;
+    // bandwidth stats of signal levels
+    repeated PerLevel per_level = 3;
+  }
+
+  // Tx Stats of visited RATs
+  repeated PerRat per_rat_tx = 1;
+  // Rx Stats of visited RATs
+  repeated PerRat per_rat_rx = 2;
 }

@@ -21,7 +21,7 @@
 /*######################################################################################*/
 /*  Include files                                                                       */
 /*######################################################################################*/
-
+#include <math.h>
 #include "LVM_Types.h"
 
 /*######################################################################################*/
@@ -30,7 +30,13 @@
 
 /* Absolute value including the corner case for the extreme negative value */
 
-LVM_FLOAT   Abs_Float(LVM_FLOAT     input);
+static inline LVM_FLOAT Abs_Float(LVM_FLOAT input) {
+    return fabs(input);
+}
+
+static inline LVM_FLOAT LVM_Clamp(LVM_FLOAT val) {
+    return fmin(fmax(val, -1.0f), 1.0f);
+}
 
 /****************************************************************************************
  *  Name        : dB_to_Lin32()
@@ -44,7 +50,6 @@ LVM_FLOAT   Abs_Float(LVM_FLOAT     input);
  *                  (15->01) = decimal part
  *  Returns     : Lin value format 1.16.15
  ****************************************************************************************/
-LVM_FLOAT dB_to_LinFloat(LVM_INT16    db_fix);
+LVM_FLOAT dB_to_LinFloat(LVM_INT16 db_fix);
 
-#endif  /* __SCALARARITHMETIC_H__ */
-
+#endif /* __SCALARARITHMETIC_H__ */

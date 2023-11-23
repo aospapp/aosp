@@ -52,13 +52,19 @@ def parseArgs():
 def findBitPos(decimal):
     pos = 0
     i = 1
-    while i != decimal:
+    while i < decimal:
         i = i << 1
         pos = pos + 1
         if pos == 32:
             return -1
-    return pos
 
+    # TODO: b/168065706. This is just to fix the build. That the problem of devices with
+    # multiple bits set must be addressed more generally in the configurable audio policy
+    # and parameter framework.
+    if i > decimal:
+        logging.info("Device:{} which has multiple bits set is skipped. b/168065706".format(decimal))
+        return -2
+    return pos
 
 def generateXmlStructureFile(componentTypeDict, structureTypesFile, outputFile):
 
@@ -74,10 +80,12 @@ def generateXmlStructureFile(componentTypeDict, structureTypesFile, outputFile):
                 if bitparameters_node is not None:
                     ordered_values = OrderedDict(sorted(values_dict.items(), key=lambda x: x[1]))
                     for key, value in ordered_values.items():
-                        value_node = ET.SubElement(bitparameters_node, "BitParameter")
-                        value_node.set('Name', key)
-                        value_node.set('Size', "1")
-                        value_node.set('Pos', str(findBitPos(value)))
+                        pos = findBitPos(value)
+                        if pos >= 0:
+                            value_node = ET.SubElement(bitparameters_node, "BitParameter")
+                            value_node.set('Name', key)
+                            value_node.set('Size', "1")
+                            value_node.set('Pos', str(pos))
 
                 enum_parameter_node = component_type.find("EnumParameter")
                 if enum_parameter_node is not None:
@@ -118,9 +126,9 @@ def parseAndroidAudioFile(androidaudiobaseheaderFile):
     ignored_values = ['CNT', 'MAX', 'ALL', 'NONE']
 
     criteria_pattern = re.compile(
-        r"\s*(?P<type>(?:"+'|'.join(component_type_mapping_table.keys()) + "))_" \
-        r"(?P<literal>(?!" + '|'.join(ignored_values) + ")\w*)\s*=\s*" \
-        r"(?P<values>(?:0[xX])?[0-9a-fA-F]+)")
+        r"\s*V\((?P<type>(?:"+'|'.join(component_type_mapping_table.keys()) + "))_" \
+        r"(?P<literal>(?!" + '|'.join(ignored_values) + ")\w*)\s*,\s*" \
+        r"(?:AUDIO_DEVICE_BIT_IN \| )?(?P<values>(?:0[xX])[0-9a-fA-F]+|[0-9]+)")
 
     logging.info("Checking Android Header file {}".format(androidaudiobaseheaderFile))
 
@@ -156,13 +164,14 @@ def parseAndroidAudioFile(androidaudiobaseheaderFile):
 
             logging.debug("type:{}, literal:{}, values:{}.".format(component_type_name, component_type_literal, component_type_numerical_value))
 
-    # Transform input source in inclusive criterion
-    shift = len(all_component_types['OutputDevicesMask'])
-    if shift > 32:
-        logging.critical("OutputDevicesMask incompatible with criterion representation on 32 bits")
-        logging.info("EXIT ON FAILURE")
-        exit(1)
+    if "stub" not in all_component_types["OutputDevicesMask"]:
+        all_component_types["OutputDevicesMask"]["stub"] = 0x40000000
+        logging.info("added stub output device mask")
+    if "stub" not in all_component_types["InputDevicesMask"]:
+        all_component_types["InputDevicesMask"]["stub"] = 0x40000000
+        logging.info("added stub input device mask")
 
+    # Transform input source in inclusive criterion
     for component_types in all_component_types:
         values = ','.join('{}:{}'.format(value, key) for key, value in all_component_types[component_types].items())
         logging.info("{}: <{}>".format(component_types, values))

@@ -298,8 +298,8 @@ public class SupportPreferencesUtil {
                     preferenceGroupAdapter);
 
             ScrollView scrollView = new ScrollView(context);
-            scrollView.setLayoutParams(new ViewGroup.LayoutParams(LayoutParams.WRAP_CONTENT,
-                    LayoutParams.WRAP_CONTENT));
+            scrollView.setLayoutParams(new ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT,
+                    LayoutParams.MATCH_PARENT));
             scrollView.addView(listView);
 
             if (root != null) {

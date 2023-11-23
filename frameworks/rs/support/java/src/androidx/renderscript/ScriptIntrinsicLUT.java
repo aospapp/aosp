@@ -23,7 +23,12 @@ import android.util.Log;
  * channel of the input has an independant lookup table. The
  * tables are 256 entries in size and can cover the full value
  * range of {@link Element#U8_4}.
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class ScriptIntrinsicLUT extends ScriptIntrinsic {
     private final Matrix4f mMatrix = new Matrix4f();
     private Allocation mTables;

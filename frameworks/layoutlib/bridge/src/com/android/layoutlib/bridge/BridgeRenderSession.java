@@ -74,11 +74,6 @@ public class BridgeRenderSession extends RenderSession {
     }
 
     @Override
-    public Map<Object, String> getDefaultStyles() {
-        return mSession != null ? mSession.getDefaultStyles() : Collections.emptyMap();
-    }
-
-    @Override
     public Map<Object, ResourceReference> getDefaultNamespacedStyles() {
         return mSession != null ? mSession.getDefaultNamespacedStyles() : Collections.emptyMap();
     }

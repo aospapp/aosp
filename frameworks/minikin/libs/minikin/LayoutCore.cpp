@@ -355,8 +355,9 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
     mPoints.reserve(count);
 
     HbBufferUniquePtr buffer(hb_buffer_create());
-    std::vector<FontCollection::Run> items = paint.font->itemize(
-            textBuf.substr(range), paint.fontStyle, paint.localeListId, paint.familyVariant);
+    U16StringPiece substr = textBuf.substr(range);
+    std::vector<FontCollection::Run> items =
+            paint.font->itemize(substr, paint.fontStyle, paint.localeListId, paint.familyVariant);
 
     std::vector<hb_feature_t> features;
     // Disable default-on non-required ligature features if letter-spacing
@@ -384,14 +385,14 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
          isRtl ? run_ix >= 0 : run_ix < static_cast<int>(items.size());
          isRtl ? --run_ix : ++run_ix) {
         FontCollection::Run& run = items[run_ix];
-        const FakedFont& fakedFont = run.fakedFont;
-        auto it = fontMap.find(fakedFont.font);
+        FakedFont fakedFont = paint.font->getBestFont(substr, run, paint.fontStyle);
+        auto it = fontMap.find(fakedFont.font.get());
         uint8_t font_ix;
         if (it == fontMap.end()) {
             // First time to see this font.
             font_ix = mFonts.size();
             mFonts.push_back(fakedFont);
-            fontMap.insert(std::make_pair(fakedFont.font, font_ix));
+            fontMap.insert(std::make_pair(fakedFont.font.get(), font_ix));
 
             // We override some functions which are not thread safe.
             HbFontUniquePtr font(hb_font_create_sub_font(fakedFont.font->baseFont().get()));
@@ -420,8 +421,6 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
 
         hb_font_set_ppem(hbFont.get(), size * scaleX, size);
         hb_font_set_scale(hbFont.get(), HBFloatToFixed(size * scaleX), HBFloatToFixed(size));
-
-        const bool is_color_bitmap_font = isColorBitmapFont(hbFont);
 
         // TODO: if there are multiple scripts within a font in an RTL run,
         // we need to reorder those runs. This is unlikely with our current
@@ -502,23 +501,6 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
                 mGlyphIds.push_back(glyph_ix);
                 mPoints.emplace_back(x + xoff, y + yoff);
                 float xAdvance = HBFixedToFloat(positions[i].x_advance);
-                MinikinRect glyphBounds;
-                hb_glyph_extents_t extents = {};
-                if (is_color_bitmap_font &&
-                    hb_font_get_glyph_extents(hbFont.get(), glyph_ix, &extents)) {
-                    // Note that it is technically possible for a TrueType font to have outline and
-                    // embedded bitmap at the same time. We ignore modified bbox of hinted outline
-                    // glyphs in that case.
-                    glyphBounds.mLeft = roundf(HBFixedToFloat(extents.x_bearing));
-                    glyphBounds.mTop = roundf(HBFixedToFloat(-extents.y_bearing));
-                    glyphBounds.mRight = roundf(HBFixedToFloat(extents.x_bearing + extents.width));
-                    glyphBounds.mBottom =
-                            roundf(HBFixedToFloat(-extents.y_bearing - extents.height));
-                } else {
-                    fakedFont.font->typeface()->GetBounds(&glyphBounds, glyph_ix, paint,
-                                                          fakedFont.fakery);
-                }
-                glyphBounds.offset(xoff, yoff);
 
                 if (clusterBaseIndex < count) {
                     mAdvances[clusterBaseIndex] += xAdvance;
@@ -526,8 +508,6 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
                     ALOGE("cluster %zu (start %zu) out of bounds of count %zu", clusterBaseIndex,
                           start, count);
                 }
-                glyphBounds.offset(x, y);
-                mBounds.join(glyphBounds);
                 x += xAdvance;
             }
             if (numGlyphs) {

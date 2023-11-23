@@ -40,6 +40,7 @@ import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.dataconnection.DcTracker.ReleaseNetworkType;
 import com.android.internal.telephony.dataconnection.DcTracker.RequestNetworkType;
 import com.android.internal.telephony.dataconnection.TransportManager.HandoverParams;
+import com.android.internal.telephony.metrics.NetworkRequestsStats;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.telephony.Rlog;
 
@@ -130,24 +131,34 @@ public class TelephonyNetworkFactory extends NetworkFactory {
         return makeNetworkFilter(subscriptionId);
     }
 
-    private NetworkCapabilities makeNetworkFilter(int subscriptionId) {
-        NetworkCapabilities nc = new NetworkCapabilities();
-        nc.addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_MMS);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_SUPL);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_DUN);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_FOTA);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_IMS);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_CBS);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_IA);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_RCS);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_XCAP);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_EIMS);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED);
-        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
-        nc.setNetworkSpecifier(new TelephonyNetworkSpecifier.Builder()
+    /**
+     * Build the network request filter used by this factory.
+     * @param subscriptionId the subscription ID to listen to
+     * @return the filter to send to the system server
+     */
+    // This is used by the test to simulate the behavior of the system server, which is to
+    // send requests that match the network filter.
+    @VisibleForTesting
+    public NetworkCapabilities makeNetworkFilter(int subscriptionId) {
+        final NetworkCapabilities.Builder builder = new NetworkCapabilities.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_MMS)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_SUPL)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_DUN)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_FOTA)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_IMS)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_CBS)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_IA)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_RCS)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_XCAP)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_ENTERPRISE)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_EIMS)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VCN_MANAGED)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .setNetworkSpecifier(new TelephonyNetworkSpecifier.Builder()
                 .setSubscriptionId(subscriptionId).build());
-        return nc;
+        return builder.build();
     }
 
     private class InternalHandler extends Handler {
@@ -183,23 +194,20 @@ public class TelephonyNetworkFactory extends NetworkFactory {
                 }
                 case EVENT_DATA_HANDOVER_COMPLETED: {
                     Bundle bundle = msg.getData();
-                    int requestType = bundle.getInt(DcTracker.DATA_COMPLETE_MSG_EXTRA_REQUEST_TYPE);
-                    if (requestType == DcTracker.REQUEST_TYPE_HANDOVER) {
-                        NetworkRequest nr = bundle.getParcelable(
-                                DcTracker.DATA_COMPLETE_MSG_EXTRA_NETWORK_REQUEST);
-                        boolean success = bundle.getBoolean(
-                                DcTracker.DATA_COMPLETE_MSG_EXTRA_SUCCESS);
-                        int transport = bundle.getInt(
-                                DcTracker.DATA_COMPLETE_MSG_EXTRA_TRANSPORT_TYPE);
-                        boolean fallback = bundle.getBoolean(
-                                DcTracker.DATA_COMPLETE_MSG_EXTRA_HANDOVER_FAILURE_FALLBACK);
-                        HandoverParams handoverParams = mPendingHandovers.remove(msg);
-                        if (handoverParams != null) {
-                            onDataHandoverSetupCompleted(nr, success, transport, fallback,
-                                    handoverParams);
-                        } else {
-                            logl("Handover completed but cannot find handover entry!");
-                        }
+                    NetworkRequest nr = bundle.getParcelable(
+                            DcTracker.DATA_COMPLETE_MSG_EXTRA_NETWORK_REQUEST);
+                    boolean success = bundle.getBoolean(
+                            DcTracker.DATA_COMPLETE_MSG_EXTRA_SUCCESS);
+                    int transport = bundle.getInt(
+                            DcTracker.DATA_COMPLETE_MSG_EXTRA_TRANSPORT_TYPE);
+                    boolean fallback = bundle.getBoolean(
+                            DcTracker.DATA_COMPLETE_MSG_EXTRA_HANDOVER_FAILURE_FALLBACK);
+                    HandoverParams handoverParams = mPendingHandovers.remove(msg);
+                    if (handoverParams != null) {
+                        onDataHandoverSetupCompleted(nr, success, transport, fallback,
+                                handoverParams);
+                    } else {
+                        logl("Handover completed but cannot find handover entry!");
                     }
                     break;
                 }
@@ -212,18 +220,28 @@ public class TelephonyNetworkFactory extends NetworkFactory {
         return mTransportManager.getCurrentTransport(apnType);
     }
 
+    /**
+     * Request network
+     *
+     * @param networkRequest Network request from clients
+     * @param requestType The request type
+     * @param transport Transport type
+     * @param onHandoverCompleteMsg When request type is handover, this message will be sent when
+     * handover is completed. For normal request, this should be null.
+     */
     private void requestNetworkInternal(NetworkRequest networkRequest,
-                                        @RequestNetworkType int requestType,
-                                        int transport, Message onCompleteMsg) {
+            @RequestNetworkType int requestType, int transport, Message onHandoverCompleteMsg) {
+        NetworkRequestsStats.addNetworkRequest(networkRequest, mSubscriptionId);
         if (mPhone.getDcTracker(transport) != null) {
             mPhone.getDcTracker(transport).requestNetwork(networkRequest, requestType,
-                    onCompleteMsg);
+                    onHandoverCompleteMsg);
         }
     }
 
     private void releaseNetworkInternal(NetworkRequest networkRequest,
                                         @ReleaseNetworkType int releaseType,
                                         int transport) {
+        NetworkRequestsStats.addNetworkRelease(networkRequest, mSubscriptionId);
         if (mPhone.getDcTracker(transport) != null) {
             mPhone.getDcTracker(transport).releaseNetwork(networkRequest, releaseType);
         }
@@ -280,7 +298,7 @@ public class TelephonyNetworkFactory extends NetworkFactory {
     }
 
     @Override
-    public void needNetworkFor(NetworkRequest networkRequest, int score) {
+    public void needNetworkFor(NetworkRequest networkRequest) {
         Message msg = mInternalHandler.obtainMessage(EVENT_NETWORK_REQUEST);
         msg.obj = networkRequest;
         msg.sendToTarget();
@@ -320,8 +338,16 @@ public class TelephonyNetworkFactory extends NetworkFactory {
         logl("onReleaseNetworkFor " + networkRequest + " applied " + applied);
 
         if (applied) {
-            int transport = getTransportTypeFromNetworkRequest(networkRequest);
-            releaseNetworkInternal(networkRequest, DcTracker.RELEASE_TYPE_NORMAL, transport);
+            // Most of the time, the network request only exists in one of the DcTracker, but in the
+            // middle of handover, the network request temporarily exists in both DcTrackers. If
+            // connectivity service releases the network request while handover is ongoing, we need
+            // to remove network requests from both DcTrackers.
+            // Note that this part will be refactored in T, where we won't even have DcTracker at
+            // all.
+            releaseNetworkInternal(networkRequest, DcTracker.RELEASE_TYPE_NORMAL,
+                    AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+            releaseNetworkInternal(networkRequest, DcTracker.RELEASE_TYPE_NORMAL,
+                    AccessNetworkConstants.TRANSPORT_TYPE_WLAN);
         }
     }
 
@@ -356,8 +382,10 @@ public class TelephonyNetworkFactory extends NetworkFactory {
                         mPendingHandovers.put(onCompleteMsg, handoverParams);
                         requestNetworkInternal(networkRequest, DcTracker.REQUEST_TYPE_HANDOVER,
                                 targetTransport, onCompleteMsg);
-                        log("Requested handover " + ApnSetting.getApnTypeString(apnType) + " to "
-                                + AccessNetworkConstants.transportTypeToString(targetTransport));
+                        log("Requested handover " + ApnSetting.getApnTypeString(apnType)
+                                + " to "
+                                + AccessNetworkConstants.transportTypeToString(targetTransport)
+                                + ". " + networkRequest);
                         handoverPending = true;
                     } else {
                         // Request is there, but no actual data connection. In this case, just move
@@ -413,7 +441,23 @@ public class TelephonyNetworkFactory extends NetworkFactory {
                     // connection can be re-established on the other transport.
                     : DcTracker.RELEASE_TYPE_DETACH;
             releaseNetworkInternal(networkRequest, releaseType, originTransport);
-            mNetworkRequests.put(networkRequest, targetTransport);
+
+            // Before updating the network request with the target transport, make sure the request
+            // is still there because it's possible that connectivity service has already released
+            // the network while handover is ongoing. If connectivity service already released
+            // the network request, we need to tear down the just-handovered data connection on the
+            // target transport.
+            if (mNetworkRequests.containsKey(networkRequest)) {
+                // Update it with the target transport.
+                mNetworkRequests.put(networkRequest, targetTransport);
+            }
+        } else {
+            // If handover fails and requires to fallback, the context of target transport needs to
+            // be released
+            if (!success) {
+                releaseNetworkInternal(networkRequest,
+                        DcTracker.RELEASE_TYPE_NORMAL, targetTransport);
+            }
         }
 
         handoverParams.callback.onCompleted(success, fallback);

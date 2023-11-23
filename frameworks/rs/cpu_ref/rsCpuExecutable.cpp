@@ -1,6 +1,7 @@
 #include "rsCpuExecutable.h"
 #include "rsCppUtils.h"
 
+#include <fcntl.h>
 #include <fstream>
 #include <set>
 #include <memory>

@@ -29,6 +29,7 @@
 #include <binder/IMemory.h>
 
 #include <camera/CameraBase.h>
+#include <camera/CameraUtils.h>
 
 // needed to instantiate
 #include <camera/Camera.h>
@@ -124,9 +125,7 @@ const sp<::android::hardware::ICameraService> CameraBase<TCam, TCamTraits>::getC
 {
     Mutex::Autolock _l(gLock);
     if (gCameraService.get() == 0) {
-        char value[PROPERTY_VALUE_MAX];
-        property_get("config.disable_cameraservice", value, "0");
-        if (strncmp(value, "0", 2) != 0 && strncasecmp(value, "false", 6) != 0) {
+        if (CameraUtils::isCameraServiceDisabled()) {
             return gCameraService;
         }
 
@@ -153,7 +152,7 @@ const sp<::android::hardware::ICameraService> CameraBase<TCam, TCamTraits>::getC
 template <typename TCam, typename TCamTraits>
 sp<TCam> CameraBase<TCam, TCamTraits>::connect(int cameraId,
                                                const String16& clientPackageName,
-                                               int clientUid, int clientPid)
+                                               int clientUid, int clientPid, int targetSdkVersion)
 {
     ALOGV("%s: connect", __FUNCTION__);
     sp<TCam> c = new TCam(cameraId);
@@ -164,7 +163,7 @@ sp<TCam> CameraBase<TCam, TCamTraits>::connect(int cameraId,
     if (cs != nullptr) {
         TCamConnectService fnConnectService = TCamTraits::fnConnectService;
         ret = (cs.get()->*fnConnectService)(cl, cameraId, clientPackageName, clientUid,
-                                               clientPid, /*out*/ &c->mCamera);
+                                               clientPid, targetSdkVersion, /*out*/ &c->mCamera);
     }
     if (ret.isOk() && c->mCamera != nullptr) {
         IInterface::asBinder(c->mCamera)->linkToDeath(c);

@@ -23,6 +23,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
                    $(call all-renderscript-files-under, src)
 
 LOCAL_PACKAGE_NAME := RsComputePerf
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SDK_VERSION := current
 LOCAL_MIN_SDK_VERSION := 19
 

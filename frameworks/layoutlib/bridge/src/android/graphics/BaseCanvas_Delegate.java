@@ -16,7 +16,7 @@
 
 package android.graphics;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.layoutlib.bridge.impl.GcSnapshot;
@@ -29,7 +29,11 @@ import android.text.TextUtils;
 import android.util.imagepool.ImagePool;
 import android.util.imagepool.ImagePoolProvider;
 
-import java.awt.*;
+import java.awt.Composite;
+import java.awt.Graphics2D;
+import java.awt.PaintContext;
+import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Area;
@@ -167,7 +171,7 @@ public class BaseCanvas_Delegate {
     @LayoutlibDelegate
     /*package*/ static void nDrawPaint(long nativeCanvas, long paint) {
         // FIXME
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Canvas.drawPaint is not supported.", null,null, null /*data*/);
     }
 
@@ -420,7 +424,7 @@ public class BaseCanvas_Delegate {
     /*package*/ static void nDrawRegion(long nativeCanvas, long nativeRegion,
             long nativePaint) {
         // FIXME
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Some canvas paths may not be drawn", null, null, null);
     }
 
@@ -512,7 +516,7 @@ public class BaseCanvas_Delegate {
             int meshWidth, int meshHeight, float[] verts, int vertOffset, int[] colors,
             int colorOffset, long nPaint) {
         // FIXME
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Canvas.drawBitmapMesh is not supported.", null, null, null /*data*/);
     }
 
@@ -524,7 +528,7 @@ public class BaseCanvas_Delegate {
             short[] indices, int indexOffset,
             int indexCount, long nPaint) {
         // FIXME
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Canvas.drawVertices is not supported.", null, null, null /*data*/);
     }
 
@@ -573,7 +577,7 @@ public class BaseCanvas_Delegate {
             float vOffset, int bidiFlags,
             long paint) {
         // FIXME
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Canvas.drawTextOnPath is not supported.", null, null, null /*data*/);
     }
 
@@ -584,7 +588,7 @@ public class BaseCanvas_Delegate {
             float vOffset,
             int bidiFlags, long paint) {
         // FIXME
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Canvas.drawTextOnPath is not supported.", null, null, null /*data*/);
     }
 

@@ -36,21 +36,18 @@
 #ifndef _NDK_CAMERA_METADATA_H
 #define _NDK_CAMERA_METADATA_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <sys/cdefs.h>
 
 #ifndef __ANDROID_VNDK__
-#if __ANDROID_API__ >= 30
 #include "jni.h"
-#endif  /* __ANDROID_API__ >= 30 */
 #endif  /* __ANDROID_VNDK__ */
 
 #include "NdkCameraError.h"
 #include "NdkCameraMetadataTags.h"
 
 __BEGIN_DECLS
-
-#if __ANDROID_API__ >= 24
 
 /**
  * ACameraMetadata is opaque type that provides access to read-only camera metadata like camera
@@ -237,10 +234,6 @@ ACameraMetadata* ACameraMetadata_copy(const ACameraMetadata* src) __INTRODUCED_I
  */
 void ACameraMetadata_free(ACameraMetadata* metadata) __INTRODUCED_IN(24);
 
-#endif /* __ANDROID_API__ >= 24 */
-
-#if __ANDROID_API__ >= 29
-
 /**
  * Helper function to check if a camera is logical multi-camera.
  *
@@ -259,17 +252,16 @@ bool ACameraMetadata_isLogicalMultiCamera(const ACameraMetadata* staticMetadata,
         /*out*/size_t* numPhysicalCameras, /*out*/const char* const** physicalCameraIds)
         __INTRODUCED_IN(29);
 
-#endif /* __ANDROID_API__ >= 29 */
-
 #ifndef __ANDROID_VNDK__
-#if __ANDROID_API__ >= 30
 
 /**
  * Return a {@link ACameraMetadata} that references the same data as
- * {@link cameraMetadata}, which is an instance of
- * {@link android.hardware.camera2.CameraMetadata} (e.g., a
- * {@link android.hardware.camera2.CameraCharacteristics} or
- * {@link android.hardware.camera2.CaptureResult}).
+ * <a href="/reference/android/hardware/camera2/CameraMetadata">
+ *     android.hardware.camera2.CameraMetadata</a> from Java API. (e.g., a
+ * <a href="/reference/android/hardware/camera2/CameraCharacteristics">
+ *     android.hardware.camera2.CameraCharacteristics</a>
+ * or <a href="/reference/android/hardware/camera2/CaptureResult">
+ *     android.hardware.camera2.CaptureResult</a>).
  *
  * <p>The returned ACameraMetadata must be freed by the application by {@link ACameraMetadata_free}
  * after application is done using it.</p>
@@ -279,17 +271,18 @@ bool ACameraMetadata_isLogicalMultiCamera(const ACameraMetadata* staticMetadata,
  * the Java metadata is garbage collected.
  *
  * @param env the JNI environment.
- * @param cameraMetadata the source {@link android.hardware.camera2.CameraMetadata} from which the
+ * @param cameraMetadata the source <a href="/reference/android/hardware/camera2/CameraMetadata">
+                         android.hardware.camera2.CameraMetadata </a>from which the
  *                       returned {@link ACameraMetadata} is a view.
  *
- * @return a valid ACameraMetadata pointer or NULL if {@link cameraMetadata} is null or not a valid
- *         instance of {@link android.hardware.camera2.CameraMetadata}.
+ * @return a valid ACameraMetadata pointer or NULL if cameraMetadata is null or not a valid
+ *         instance of <a href="android/hardware/camera2/CameraMetadata">
+ *         android.hardware.camera2.CameraMetadata</a>.
  *
  */
 ACameraMetadata* ACameraMetadata_fromCameraMetadata(JNIEnv* env, jobject cameraMetadata)
         __INTRODUCED_IN(30);
 
-#endif /* __ANDROID_API__ >= 30 */
 #endif  /* __ANDROID_VNDK__ */
 
 __END_DECLS

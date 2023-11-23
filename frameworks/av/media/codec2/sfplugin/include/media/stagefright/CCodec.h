@@ -65,6 +65,12 @@ public:
     virtual void signalEndOfInputStream() override;
     virtual void signalRequestIDRFrame() override;
 
+    virtual status_t querySupportedParameters(std::vector<std::string> *names) override;
+    virtual status_t describeParameter(
+            const std::string &name, CodecParameterDescriptor *desc) override;
+    virtual status_t subscribeToParameters(const std::vector<std::string> &names) override;
+    virtual status_t unsubscribeFromParameters(const std::vector<std::string> &names) override;
+
     void initiateReleaseIfStuck();
     void onWorkDone(std::list<std::unique_ptr<C2Work>> &workItems);
     void onInputBufferDone(uint64_t frameIndex, size_t arrayIndex);
@@ -125,6 +131,11 @@ private:
             const TimePoint &now,
             const std::chrono::milliseconds &timeout,
             const char *name);
+
+    status_t configureTunneledVideoPlayback(
+            const std::shared_ptr<Codec2Client::Component> comp,
+            sp<NativeHandle> *sidebandHandle,
+            const sp<AMessage> &msg);
 
     enum {
         kWhatAllocate,
@@ -193,7 +204,6 @@ private:
 
     Mutexed<std::unique_ptr<CCodecConfig>> mConfig;
     Mutexed<std::list<std::unique_ptr<C2Work>>> mWorkDoneQueue;
-    std::atomic_flag mSentConfigAfterResume;
 
     friend class CCodecCallbackImpl;
 

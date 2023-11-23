@@ -16,7 +16,7 @@
 
 package android.view;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 
@@ -106,7 +106,7 @@ public class LayoutInflater_Delegate {
             if (layout == 0) {
                 final String value = attrs.getAttributeValue(null, ATTR_LAYOUT);
                 if (value == null || value.length() <= 0) {
-                    Bridge.getLog().error(LayoutLog.TAG_BROKEN, "You must specify a layout in the"
+                    Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "You must specify a layout in the"
                             + " include tag: <include layout=\"@layout/layoutID\" />", null, null);
                     LayoutInflater.consumeChildElements(parser);
                     return;
@@ -129,10 +129,10 @@ public class LayoutInflater_Delegate {
             if (layout == 0) {
                 final String value = attrs.getAttributeValue(null, ATTR_LAYOUT);
                 if (value == null) {
-                    Bridge.getLog().error(LayoutLog.TAG_BROKEN, "You must specify a layout in the"
+                    Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "You must specify a layout in the"
                             + " include tag: <include layout=\"@layout/layoutID\" />", null, null);
                 } else {
-                    Bridge.getLog().error(LayoutLog.TAG_BROKEN, "You must specify a valid layout "
+                    Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "You must specify a valid layout "
                             + "reference. The layout ID " + value + " is not valid.", null, null);
                 }
             } else {
@@ -148,7 +148,7 @@ public class LayoutInflater_Delegate {
                     }
 
                     if (type != XmlPullParser.START_TAG) {
-                        Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+                        Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                                 childParser.getPositionDescription() + ": No start tag found!",
                                 null, null);
                         LayoutInflater.consumeChildElements(parser);
@@ -226,7 +226,7 @@ public class LayoutInflater_Delegate {
                 }
             }
         } else {
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     "<include /> can only be used inside of a ViewGroup",
                     null, null);
         }

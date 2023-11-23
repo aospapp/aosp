@@ -17,7 +17,6 @@
 
 package com.android.car.setupwizardlib.summary;
 
-import android.annotation.Nullable;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,6 +27,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,14 +86,14 @@ public class PartnerSummaryActionsCollector {
         ResolveInfo resolveInfo = getSummaryContentProviderResolveInfo(context.getPackageManager());
 
         if (resolveInfo == null) {
-            Log.e(TAG, "Could not find partner content provider, ignoring partner summary items.");
+            Log.i(TAG, "Could not find partner content provider, ignoring partner summary items.");
             return;
         }
 
         mContentProviderUri = getSummaryContentProviderUri(resolveInfo);
 
         if (mContentProviderUri == null) {
-            Log.e(TAG, "Could not fetch content provider URI, ignoring partner summary items.");
+            Log.i(TAG, "Could not fetch content provider URI, ignoring partner summary items.");
         }
     }
 
@@ -309,7 +310,7 @@ public class PartnerSummaryActionsCollector {
                 if (deferredAction != null) {
                     deferredActions.add(deferredAction);
                 }
-            } catch (NullPointerException e) {
+            } catch (NullPointerException | IllegalArgumentException e) {
                 Log.e(
                         TAG,
                         "Unable to load the completion or config state for deferred action: "

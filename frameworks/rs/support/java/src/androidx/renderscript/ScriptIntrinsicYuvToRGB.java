@@ -23,7 +23,12 @@ package androidx.renderscript;
  * The input allocation is supplied in NV21 format as a U8
  * element type. The output is RGBA, the alpha channel will be
  * set to 255.
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  */
+@Deprecated
 public class ScriptIntrinsicYuvToRGB extends ScriptIntrinsic {
     private Allocation mInput;
     // API level for the intrinsic

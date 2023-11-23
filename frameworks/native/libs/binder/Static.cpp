@@ -33,7 +33,7 @@ class LogTextOutput : public BufferedTextOutput
 {
 public:
     LogTextOutput() : BufferedTextOutput(MULTITHREADED) { }
-    virtual ~LogTextOutput() { };
+    virtual ~LogTextOutput() { }
 
 protected:
     virtual status_t writeLines(const struct iovec& vec, size_t N)
@@ -49,7 +49,7 @@ class FdTextOutput : public BufferedTextOutput
 {
 public:
     explicit FdTextOutput(int fd) : BufferedTextOutput(MULTITHREADED), mFD(fd) { }
-    virtual ~FdTextOutput() { };
+    virtual ~FdTextOutput() { }
 
 protected:
     virtual status_t writeLines(const struct iovec& vec, size_t N)
@@ -67,10 +67,5 @@ private:
 TextOutput& alog(*new LogTextOutput());
 TextOutput& aout(*new FdTextOutput(STDOUT_FILENO));
 TextOutput& aerr(*new FdTextOutput(STDERR_FILENO));
-
-// ------------ ProcessState.cpp
-
-Mutex& gProcessMutex = *new Mutex;
-sp<ProcessState> gProcess;
 
 }   // namespace android

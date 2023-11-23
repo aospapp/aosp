@@ -9,6 +9,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
     $(call all-Iaidl-files-under, ../src)
 
 LOCAL_PACKAGE_NAME := CarServicesTest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_CERTIFICATE := platform
@@ -23,17 +25,18 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_JAVA_LIBRARIES += \
     android.test.runner \
     android.test.base \
-    services
+    android.hardware.automotive.vehicle-V2.0-java \
+    com.android.car.internal.common
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android.car.internal.event-log-tags \
     android.car.test.utils \
-    android.car.userlib \
     android.car.watchdoglib \
     androidx.test.ext.junit \
     androidx.test.rules \
+    com.android.car.internal.system \
     mockito-target-extended-minus-junit4 \
-    services \
+    services.core \
+    testng \
     truth-prebuilt
 
 # mockito-target-extended dependencies

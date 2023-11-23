@@ -79,10 +79,14 @@ bool AudioMixer::setChannelMasks(int name,
             && mixerChannelMask == (track->mMixerChannelMask | track->mMixerHapticChannelMask)) {
         return false;  // no need to change
     }
-    const audio_channel_mask_t hapticChannelMask = trackChannelMask & AUDIO_CHANNEL_HAPTIC_ALL;
-    trackChannelMask &= ~AUDIO_CHANNEL_HAPTIC_ALL;
-    const audio_channel_mask_t mixerHapticChannelMask = mixerChannelMask & AUDIO_CHANNEL_HAPTIC_ALL;
-    mixerChannelMask &= ~AUDIO_CHANNEL_HAPTIC_ALL;
+    const audio_channel_mask_t hapticChannelMask =
+            static_cast<audio_channel_mask_t>(trackChannelMask & AUDIO_CHANNEL_HAPTIC_ALL);
+    trackChannelMask = static_cast<audio_channel_mask_t>(
+            trackChannelMask & ~AUDIO_CHANNEL_HAPTIC_ALL);
+    const audio_channel_mask_t mixerHapticChannelMask = static_cast<audio_channel_mask_t>(
+            mixerChannelMask & AUDIO_CHANNEL_HAPTIC_ALL);
+    mixerChannelMask = static_cast<audio_channel_mask_t>(
+            mixerChannelMask & ~AUDIO_CHANNEL_HAPTIC_ALL);
     // always recompute for both channel masks even if only one has changed.
     const uint32_t trackChannelCount = audio_channel_count_from_out_mask(trackChannelMask);
     const uint32_t mixerChannelCount = audio_channel_count_from_out_mask(mixerChannelMask);
@@ -362,7 +366,8 @@ void AudioMixer::setParameter(int name, int target, int param, void *value)
             const audio_channel_mask_t trackChannelMask =
                 static_cast<audio_channel_mask_t>(valueInt);
             if (setChannelMasks(name, trackChannelMask,
-                    (track->mMixerChannelMask | track->mMixerHapticChannelMask))) {
+                    static_cast<audio_channel_mask_t>(
+                            track->mMixerChannelMask | track->mMixerHapticChannelMask))) {
                 ALOGV("setParameter(TRACK, CHANNEL_MASK, %x)", trackChannelMask);
                 invalidate();
             }
@@ -407,7 +412,8 @@ void AudioMixer::setParameter(int name, int target, int param, void *value)
         case MIXER_CHANNEL_MASK: {
             const audio_channel_mask_t mixerChannelMask =
                     static_cast<audio_channel_mask_t>(valueInt);
-            if (setChannelMasks(name, track->channelMask | track->mHapticChannelMask,
+            if (setChannelMasks(name, static_cast<audio_channel_mask_t>(
+                                    track->channelMask | track->mHapticChannelMask),
                     mixerChannelMask)) {
                 ALOGV("setParameter(TRACK, MIXER_CHANNEL_MASK, %#x)", mixerChannelMask);
                 invalidate();
@@ -423,7 +429,7 @@ void AudioMixer::setParameter(int name, int target, int param, void *value)
             }
             } break;
         case HAPTIC_INTENSITY: {
-            const haptic_intensity_t hapticIntensity = static_cast<haptic_intensity_t>(valueInt);
+            const os::HapticScale hapticIntensity = static_cast<os::HapticScale>(valueInt);
             if (track->mHapticIntensity != hapticIntensity) {
                 track->mHapticIntensity = hapticIntensity;
             }
@@ -533,9 +539,10 @@ status_t AudioMixer::postCreateTrack(TrackBase *track)
     Track* t = static_cast<Track*>(track);
 
     audio_channel_mask_t channelMask = t->channelMask;
-    t->mHapticChannelMask = channelMask & AUDIO_CHANNEL_HAPTIC_ALL;
+    t->mHapticChannelMask = static_cast<audio_channel_mask_t>(
+            channelMask & AUDIO_CHANNEL_HAPTIC_ALL);
     t->mHapticChannelCount = audio_channel_count_from_out_mask(t->mHapticChannelMask);
-    channelMask &= ~AUDIO_CHANNEL_HAPTIC_ALL;
+    channelMask = static_cast<audio_channel_mask_t>(channelMask & ~AUDIO_CHANNEL_HAPTIC_ALL);
     t->channelCount = audio_channel_count_from_out_mask(channelMask);
     ALOGV_IF(audio_channel_mask_get_bits(channelMask) != AUDIO_CHANNEL_OUT_STEREO,
             "Non-stereo channel mask: %d\n", channelMask);
@@ -545,7 +552,7 @@ status_t AudioMixer::postCreateTrack(TrackBase *track)
     t->mPlaybackRate = AUDIO_PLAYBACK_RATE_DEFAULT;
     // haptic
     t->mHapticPlaybackEnabled = false;
-    t->mHapticIntensity = HAPTIC_SCALE_NONE;
+    t->mHapticIntensity = os::HapticScale::NONE;
     t->mMixerHapticChannelMask = AUDIO_CHANNEL_NONE;
     t->mMixerHapticChannelCount = 0;
     t->mAdjustInChannelCount = t->channelCount + t->mHapticChannelCount;
@@ -590,19 +597,12 @@ void AudioMixer::postProcess()
             const std::shared_ptr<Track> &t = getTrack(name);
             if (t->mHapticPlaybackEnabled) {
                 size_t sampleCount = mFrameCount * t->mMixerHapticChannelCount;
-                float gamma = t->getHapticScaleGamma();
-                float maxAmplitudeRatio = t->getHapticMaxAmplitudeRatio();
                 uint8_t* buffer = (uint8_t*)pair.first + mFrameCount * audio_bytes_per_frame(
                         t->mMixerChannelCount, t->mMixerFormat);
                 switch (t->mMixerFormat) {
                 // Mixer format should be AUDIO_FORMAT_PCM_FLOAT.
                 case AUDIO_FORMAT_PCM_FLOAT: {
-                    float* fout = (float*) buffer;
-                    for (size_t i = 0; i < sampleCount; i++) {
-                        float mul = fout[i] >= 0 ? 1.0 : -1.0;
-                        fout[i] = powf(fabsf(fout[i] / HAPTIC_MAX_AMPLITUDE_FLOAT), gamma)
-                                * maxAmplitudeRatio * HAPTIC_MAX_AMPLITUDE_FLOAT * mul;
-                    }
+                    os::scaleHapticData((float*) buffer, sampleCount, t->mHapticIntensity);
                 } break;
                 default:
                     LOG_ALWAYS_FATAL("bad mMixerFormat: %#x", t->mMixerFormat);

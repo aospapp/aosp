@@ -13,6 +13,15 @@
 // limitations under the License.
 
 // Headers module is in external/vulkan-headers/Android.bp.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 ndk_library {
     name: "libvulkan",
     symbol_file: "libvulkan.map.txt",
@@ -20,16 +29,14 @@ ndk_library {
     unversioned_until: "current",
 }
 
-llndk_library {
-    name: "libvulkan",
-    symbol_file: "libvulkan.map.txt",
-    export_llndk_headers: [
-        "vulkan_headers_llndk",
-    ],
-}
-
 cc_library_shared {
     name: "libvulkan",
+    llndk: {
+        symbol_file: "libvulkan.map.txt",
+        export_llndk_headers: [
+            "vulkan_headers",
+        ],
+    },
     clang: true,
     sanitize: {
         misc_undefined: ["integer"],
@@ -89,7 +96,6 @@ cc_library_shared {
         "libhardware",
         "libsync",
         "libbase",
-        "libdl_android",
         "libhidlbase",
         "liblog",
         "libui",
@@ -100,6 +106,7 @@ cc_library_shared {
         "libnativebridge_lazy",
         "libnativeloader_lazy",
         "libnativewindow",
+        "libvndksupport",
         "android.hardware.graphics.common@1.0",
         "libSurfaceFlingerProp",
     ],

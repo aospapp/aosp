@@ -36,6 +36,11 @@ static bool isWordBreakAfter(uint16_t c) {
         // spaces
         return true;
     }
+    // Break layout context before and after BiDi control character.
+    if ((0x2066 <= c && c <= 0x2069) || (0x202A <= c && c <= 0x202E) || c == 0x200E ||
+        c == 0x200F) {
+        return true;
+    }
     // Note: kana is not included, as sophisticated fonts may kern kana
     return false;
 }

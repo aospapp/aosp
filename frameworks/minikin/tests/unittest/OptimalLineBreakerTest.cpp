@@ -2080,5 +2080,33 @@ TEST_F(OptimalLineBreakerTest, testControllCharAfterSpace) {
                                                    << toString(textBuf, actual);
     }
 }
+
+TEST_F(OptimalLineBreakerTest, roundingError) {
+    MeasuredTextBuilder builder;
+    auto family1 = buildFontFamily("Ascii.ttf");
+    std::vector<std::shared_ptr<FontFamily>> families = {family1};
+    auto fc = std::make_shared<FontCollection>(families);
+    MinikinPaint paint(fc);
+    paint.size = 56.0f;  // Make 1em=56px
+    paint.scaleX = 1;
+    paint.letterSpacing = -0.093f;
+    paint.localeListId = LocaleListCache::getId("en-US");
+    const std::vector<uint16_t> textBuffer = utf8ToUtf16("8888888888888888888");
+
+    float measured = Layout::measureText(textBuffer, Range(0, textBuffer.size()), Bidi::LTR, paint,
+                                         StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, nullptr);
+
+    builder.addStyleRun(0, textBuffer.size(), std::move(paint), false);
+    std::unique_ptr<MeasuredText> measuredText =
+            builder.build(textBuffer, false /* compute hyphenation */,
+                          false /* compute full layout */, nullptr /* no hint */);
+    RectangleLineWidth rectangleLineWidth(measured);
+    TabStops tabStops(nullptr, 0, 10);
+    LineBreakResult r = doLineBreak(textBuffer, *measuredText, BreakStrategy::Balanced,
+                                    HyphenationFrequency::None, measured);
+
+    EXPECT_EQ(1u, r.breakPoints.size());
+}
+
 }  // namespace
 }  // namespace minikin

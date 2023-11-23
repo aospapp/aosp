@@ -1,9 +1,29 @@
+package {
+    default_applicable_licenses: [
+        "frameworks_av_media_libstagefright_rtsp_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_libstagefright_rtsp_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "libstagefright_rtsp_defaults",
 
     srcs: [
         "AAMRAssembler.cpp",
         "AAVCAssembler.cpp",
+        "AHEVCAssembler.cpp",
         "AH263Assembler.cpp",
         "AMPEG2TSAssembler.cpp",
         "AMPEG4AudioAssembler.cpp",
@@ -16,10 +36,12 @@ cc_defaults {
         "ARTPWriter.cpp",
         "ARTSPConnection.cpp",
         "ASessionDescription.cpp",
+        "JitterCalculator.cpp",
         "SDPLoader.cpp",
     ],
 
     shared_libs: [
+        "libandroid_net",
         "libcrypto",
         "libdatasource",
         "libmedia",
@@ -28,6 +50,7 @@ cc_defaults {
     include_dirs: [
         "frameworks/av/media/libstagefright",
         "frameworks/native/include/media/openmax",
+        "frameworks/native/include/android",
     ],
 
     arch: {

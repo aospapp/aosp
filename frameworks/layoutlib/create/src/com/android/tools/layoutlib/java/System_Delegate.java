@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Provides dummy implementation of methods that don't exist on the host VM.
+ * Provides alternative implementations of methods that don't exist on the host VM.
  * This also providers a time control that allows to set a specific system time.
  *
  * @see ReplaceMethodCallsAdapter

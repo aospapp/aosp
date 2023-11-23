@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <binder/ProcessInfoService.h>
+#include <processinfo/ProcessInfoService.h>
 #include <binder/IServiceManager.h>
 
 #include <utils/Log.h>
@@ -99,6 +99,6 @@ void ProcessInfoService::updateBinderLocked() {
     }
 }
 
-ANDROID_SINGLETON_STATIC_INSTANCE(ProcessInfoService);
+ANDROID_SINGLETON_STATIC_INSTANCE(ProcessInfoService)
 
 } // namespace android

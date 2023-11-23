@@ -25,7 +25,11 @@ import android.util.Log;
  * allocation.  The 8 nearest values are sampled and linearly interpolated.  The
  * result is placed in the output.
  *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class ScriptIntrinsic3DLUT extends ScriptIntrinsic {
     private Allocation mLUT;
     private Element mElement;

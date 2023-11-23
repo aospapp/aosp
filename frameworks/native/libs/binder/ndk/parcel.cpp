@@ -226,6 +226,10 @@ int32_t AParcel_getDataPosition(const AParcel* parcel) {
     return parcel->get()->dataPosition();
 }
 
+void AParcel_markSensitive(const AParcel* parcel) {
+    return parcel->get()->markSensitive();
+}
+
 binder_status_t AParcel_writeStrongBinder(AParcel* parcel, AIBinder* binder) {
     sp<IBinder> writeBinder = binder != nullptr ? binder->getBinder() : nullptr;
     return parcel->get()->writeStrongBinder(writeBinder);
@@ -257,7 +261,7 @@ binder_status_t AParcel_writeParcelFileDescriptor(AParcel* parcel, int fd) {
 }
 
 binder_status_t AParcel_readParcelFileDescriptor(const AParcel* parcel, int* fd) {
-    std::unique_ptr<ParcelFileDescriptor> parcelFd;
+    std::optional<ParcelFileDescriptor> parcelFd;
 
     status_t status = parcel->get()->readParcelable(&parcelFd);
     if (status != STATUS_OK) return PruneStatusT(status);
@@ -272,7 +276,7 @@ binder_status_t AParcel_readParcelFileDescriptor(const AParcel* parcel, int* fd)
 }
 
 binder_status_t AParcel_writeStatusHeader(AParcel* parcel, const AStatus* status) {
-    return PruneStatusT(status->get()->writeToParcel(parcel->get()));
+    return PruneStatusT(status->get().writeToParcel(parcel->get()));
 }
 binder_status_t AParcel_readStatusHeader(const AParcel* parcel, AStatus** status) {
     ::android::binder::Status bstatus;
@@ -645,6 +649,24 @@ binder_status_t AParcel_readByteArray(const AParcel* parcel, void* arrayData,
 
 bool AParcel_getAllowFds(const AParcel* parcel) {
     return parcel->get()->allowFds();
+}
+
+binder_status_t AParcel_reset(AParcel* parcel) {
+    parcel->get()->freeData();
+    return STATUS_OK;
+}
+
+int32_t AParcel_getDataSize(const AParcel* parcel) {
+    return parcel->get()->dataSize();
+}
+
+binder_status_t AParcel_appendFrom(const AParcel* from, AParcel* to, int32_t start, int32_t size) {
+    status_t status = to->get()->appendFrom(from->get(), start, size);
+    return PruneStatusT(status);
+}
+
+AParcel* AParcel_create() {
+    return new AParcel(nullptr);
 }
 
 // @END

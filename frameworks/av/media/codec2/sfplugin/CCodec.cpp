@@ -38,12 +38,14 @@
 #include <media/omx/1.0/WOmxNode.h>
 #include <media/openmax/OMX_Core.h>
 #include <media/openmax/OMX_IndexExt.h>
+#include <media/stagefright/foundation/avc_utils.h>
 #include <media/stagefright/omx/1.0/WGraphicBufferSource.h>
 #include <media/stagefright/omx/OmxGraphicBufferSource.h>
 #include <media/stagefright/CCodec.h>
 #include <media/stagefright/BufferProducerWrapper.h>
 #include <media/stagefright/MediaCodecConstants.h>
 #include <media/stagefright/PersistentSurface.h>
+#include <utils/NativeHandle.h>
 
 #include "C2OMXNode.h"
 #include "CCodecBufferChannel.h"
@@ -210,8 +212,6 @@ public:
                 (OMX_INDEXTYPE)OMX_IndexParamConsumerUsageBits,
                 &usage, sizeof(usage));
 
-        // NOTE: we do not use/pass through color aspects from GraphicBufferSource as we
-        // communicate that directly to the component.
         mSource->configure(
                 mOmxNode, static_cast<hardware::graphics::common::V1_0::Dataspace>(mDataSpace));
         return OK;
@@ -246,8 +246,19 @@ public:
         if (source == nullptr) {
             return NO_INIT;
         }
-        constexpr size_t kNumSlots = 16;
-        for (size_t i = 0; i < kNumSlots; ++i) {
+
+        size_t numSlots = 16;
+        constexpr OMX_U32 kPortIndexInput = 0;
+
+        OMX_PARAM_PORTDEFINITIONTYPE param;
+        param.nPortIndex = kPortIndexInput;
+        status_t err = mNode->getParameter(OMX_IndexParamPortDefinition,
+                                           &param, sizeof(param));
+        if (err == OK) {
+            numSlots = param.nBufferCountActual;
+        }
+
+        for (size_t i = 0; i < numSlots; ++i) {
             source->onInputBufferAdded(i);
         }
 
@@ -387,6 +398,14 @@ public:
 
         // consumer usage is queried earlier.
 
+        // priority
+        if (mConfig.mPriority != config.mPriority) {
+            if (config.mPriority != INT_MAX) {
+                mNode->setPriority(config.mPriority);
+            }
+            mConfig.mPriority = config.mPriority;
+        }
+
         if (status.str().empty()) {
             ALOGD("ISConfig not changed");
         } else {
@@ -397,6 +416,10 @@ public:
 
     void onInputBufferDone(c2_cntr64_t index) override {
         mNode->onInputBufferDone(index);
+    }
+
+    android_dataspace getDataspace() override {
+        return mNode->getDataspace();
     }
 
 private:
@@ -471,6 +494,72 @@ public:
     }
 };
 
+void RevertOutputFormatIfNeeded(
+        const sp<AMessage> &oldFormat, sp<AMessage> &currentFormat) {
+    // We used to not report changes to these keys to the client.
+    const static std::set<std::string> sIgnoredKeys({
+            KEY_BIT_RATE,
+            KEY_FRAME_RATE,
+            KEY_MAX_BIT_RATE,
+            KEY_MAX_WIDTH,
+            KEY_MAX_HEIGHT,
+            "csd-0",
+            "csd-1",
+            "csd-2",
+    });
+    if (currentFormat == oldFormat) {
+        return;
+    }
+    sp<AMessage> diff = currentFormat->changesFrom(oldFormat);
+    AMessage::Type type;
+    for (size_t i = diff->countEntries(); i > 0; --i) {
+        if (sIgnoredKeys.count(diff->getEntryNameAt(i - 1, &type)) > 0) {
+            diff->removeEntryAt(i - 1);
+        }
+    }
+    if (diff->countEntries() == 0) {
+        currentFormat = oldFormat;
+    }
+}
+
+void AmendOutputFormatWithCodecSpecificData(
+        const uint8_t *data, size_t size, const std::string &mediaType,
+        const sp<AMessage> &outputFormat) {
+    if (mediaType == MIMETYPE_VIDEO_AVC) {
+        // Codec specific data should be SPS and PPS in a single buffer,
+        // each prefixed by a startcode (0x00 0x00 0x00 0x01).
+        // We separate the two and put them into the output format
+        // under the keys "csd-0" and "csd-1".
+
+        unsigned csdIndex = 0;
+
+        const uint8_t *nalStart;
+        size_t nalSize;
+        while (getNextNALUnit(&data, &size, &nalStart, &nalSize, true) == OK) {
+            sp<ABuffer> csd = new ABuffer(nalSize + 4);
+            memcpy(csd->data(), "\x00\x00\x00\x01", 4);
+            memcpy(csd->data() + 4, nalStart, nalSize);
+
+            outputFormat->setBuffer(
+                    AStringPrintf("csd-%u", csdIndex).c_str(), csd);
+
+            ++csdIndex;
+        }
+
+        if (csdIndex != 2) {
+            ALOGW("Expected two NAL units from AVC codec config, but %u found",
+                    csdIndex);
+        }
+    } else {
+        // For everything else we just stash the codec specific data into
+        // the output format as a single piece of csd under "csd-0".
+        sp<ABuffer> csd = new ABuffer(size);
+        memcpy(csd->data(), data, size);
+        csd->setRange(0, size);
+        outputFormat->setBuffer("csd-0", csd);
+    }
+}
+
 }  // namespace
 
 // CCodec::ClientListener
@@ -502,9 +591,26 @@ struct CCodec::ClientListener : public Codec2Client::Listener {
     virtual void onError(
             const std::weak_ptr<Codec2Client::Component>& component,
             uint32_t errorCode) override {
-        // TODO
-        (void)component;
-        (void)errorCode;
+        {
+            // Component is only used for reporting as we use a separate listener for each instance
+            std::shared_ptr<Codec2Client::Component> comp = component.lock();
+            if (!comp) {
+                ALOGD("Component died with error: 0x%x", errorCode);
+            } else {
+                ALOGD("Component \"%s\" returned error: 0x%x", comp->getName().c_str(), errorCode);
+            }
+        }
+
+        // Report to MediaCodec
+        // Note: for now we do not propagate the error code to MediaCodec
+        // except for C2_NO_MEMORY, as we would need to translate to a MediaCodec error.
+        sp<CCodec> codec(mCodec.promote());
+        if (!codec || !codec->mCallback) {
+            return;
+        }
+        codec->mCallback->onError(
+                errorCode == C2_NO_MEMORY ? NO_MEMORY : UNKNOWN_ERROR,
+                ACTION_CODE_FATAL);
     }
 
     virtual void onDeath(
@@ -565,6 +671,10 @@ public:
 
     void onOutputBuffersChanged() override {
         mCodec->mCallback->onOutputBuffersChanged();
+    }
+
+    void onFirstTunnelFrameReady() override {
+        mCodec->mCallback->onFirstTunnelFrameReady();
     }
 
 private:
@@ -634,17 +744,18 @@ void CCodec::allocate(const sp<MediaCodecInfo> &codecInfo) {
                 std::make_shared<Codec2ClientInterfaceWrapper>(client));
     }
 
-    std::shared_ptr<Codec2Client::Component> comp =
-            Codec2Client::CreateComponentByName(
+    std::shared_ptr<Codec2Client::Component> comp;
+    c2_status_t status = Codec2Client::CreateComponentByName(
             componentName.c_str(),
             mClientListener,
+            &comp,
             &client);
-    if (!comp) {
-        ALOGE("Failed Create component: %s", componentName.c_str());
+    if (status != C2_OK) {
+        ALOGE("Failed Create component: %s, error=%d", componentName.c_str(), status);
         Mutexed<State>::Locked state(mState);
         state->set(RELEASED);
         state.unlock();
-        mCallback->onError(UNKNOWN_ERROR, ACTION_CODE_FATAL);
+        mCallback->onError((status == C2_NO_MEMORY ? NO_MEMORY : UNKNOWN_ERROR), ACTION_CODE_FATAL);
         state.lock();
         return;
     }
@@ -739,10 +850,30 @@ void CCodec::configure(const sp<AMessage> &msg) {
             mChannel->setMetaMode(CCodecBufferChannel::MODE_ANW);
         }
 
+        status_t err = OK;
         sp<RefBase> obj;
         sp<Surface> surface;
         if (msg->findObject("native-window", &obj)) {
             surface = static_cast<Surface *>(obj.get());
+            // setup tunneled playback
+            if (surface != nullptr) {
+                Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+                const std::unique_ptr<Config> &config = *configLocked;
+                if ((config->mDomain & Config::IS_DECODER)
+                        && (config->mDomain & Config::IS_VIDEO)) {
+                    int32_t tunneled;
+                    if (msg->findInt32("feature-tunneled-playback", &tunneled) && tunneled != 0) {
+                        ALOGI("Configuring TUNNELED video playback.");
+
+                        err = configureTunneledVideoPlayback(comp, &config->mSidebandHandle, msg);
+                        if (err != OK) {
+                            ALOGE("configureTunneledVideoPlayback failed!");
+                            return err;
+                        }
+                        config->mTunneled = true;
+                    }
+                }
+            }
             setSurface(surface);
         }
 
@@ -773,12 +904,14 @@ void CCodec::configure(const sp<AMessage> &msg) {
                 return BAD_VALUE;
             }
         }
+        int32_t width = 0;
+        int32_t height = 0;
         if (config->mDomain & (Config::IS_IMAGE | Config::IS_VIDEO)) {
-            if (!msg->findInt32(KEY_WIDTH, &i32)) {
+            if (!msg->findInt32(KEY_WIDTH, &width)) {
                 ALOGD("width is missing, which is required for image/video components.");
                 return BAD_VALUE;
             }
-            if (!msg->findInt32(KEY_HEIGHT, &i32)) {
+            if (!msg->findInt32(KEY_HEIGHT, &height)) {
                 ALOGD("height is missing, which is required for image/video components.");
                 return BAD_VALUE;
             }
@@ -862,26 +995,120 @@ void CCodec::configure(const sp<AMessage> &msg) {
                 }
             }
             config->mISConfig->mUsage = 0;
+            config->mISConfig->mPriority = INT_MAX;
         }
 
         /*
          * Handle desired color format.
          */
+        int32_t defaultColorFormat = COLOR_FormatYUV420Flexible;
         if ((config->mDomain & (Config::IS_VIDEO | Config::IS_IMAGE))) {
-            int32_t format = -1;
+            int32_t format = 0;
+            // Query vendor format for Flexible YUV
+            std::vector<std::unique_ptr<C2Param>> heapParams;
+            C2StoreFlexiblePixelFormatDescriptorsInfo *pixelFormatInfo = nullptr;
+            if (mClient->query(
+                        {},
+                        {C2StoreFlexiblePixelFormatDescriptorsInfo::PARAM_TYPE},
+                        C2_MAY_BLOCK,
+                        &heapParams) == C2_OK
+                    && heapParams.size() == 1u) {
+                pixelFormatInfo = C2StoreFlexiblePixelFormatDescriptorsInfo::From(
+                        heapParams[0].get());
+            } else {
+                pixelFormatInfo = nullptr;
+            }
+            std::optional<uint32_t> flexPixelFormat{};
+            std::optional<uint32_t> flexPlanarPixelFormat{};
+            std::optional<uint32_t> flexSemiPlanarPixelFormat{};
+            if (pixelFormatInfo && *pixelFormatInfo) {
+                for (size_t i = 0; i < pixelFormatInfo->flexCount(); ++i) {
+                    const C2FlexiblePixelFormatDescriptorStruct &desc =
+                        pixelFormatInfo->m.values[i];
+                    if (desc.bitDepth != 8
+                            || desc.subsampling != C2Color::YUV_420
+                            // TODO(b/180076105): some device report wrong layout
+                            // || desc.layout == C2Color::INTERLEAVED_PACKED
+                            // || desc.layout == C2Color::INTERLEAVED_ALIGNED
+                            || desc.layout == C2Color::UNKNOWN_LAYOUT) {
+                        continue;
+                    }
+                    if (!flexPixelFormat) {
+                        flexPixelFormat = desc.pixelFormat;
+                    }
+                    if (desc.layout == C2Color::PLANAR_PACKED && !flexPlanarPixelFormat) {
+                        flexPlanarPixelFormat = desc.pixelFormat;
+                    }
+                    if (desc.layout == C2Color::SEMIPLANAR_PACKED && !flexSemiPlanarPixelFormat) {
+                        flexSemiPlanarPixelFormat = desc.pixelFormat;
+                    }
+                }
+            }
             if (!msg->findInt32(KEY_COLOR_FORMAT, &format)) {
-                /*
-                 * Also handle default color format (encoders require color format, so this is only
-                 * needed for decoders.
-                 */
+                // Also handle default color format (encoders require color format, so this is only
+                // needed for decoders.
                 if (!(config->mDomain & Config::IS_ENCODER)) {
-                    format = (surface == nullptr) ? COLOR_FormatYUV420Planar : COLOR_FormatSurface;
+                    if (surface == nullptr) {
+                        const char *prefix = "";
+                        if (flexSemiPlanarPixelFormat) {
+                            format = COLOR_FormatYUV420SemiPlanar;
+                            prefix = "semi-";
+                        } else {
+                            format = COLOR_FormatYUV420Planar;
+                        }
+                        ALOGD("Client requested ByteBuffer mode decoder w/o color format set: "
+                                "using default %splanar color format", prefix);
+                    } else {
+                        format = COLOR_FormatSurface;
+                    }
+                    defaultColorFormat = format;
+                }
+            } else {
+                if ((config->mDomain & Config::IS_ENCODER) || !surface) {
+                    switch (format) {
+                        case COLOR_FormatYUV420Flexible:
+                            format = flexPixelFormat.value_or(COLOR_FormatYUV420Planar);
+                            break;
+                        case COLOR_FormatYUV420Planar:
+                        case COLOR_FormatYUV420PackedPlanar:
+                            format = flexPlanarPixelFormat.value_or(
+                                    flexPixelFormat.value_or(format));
+                            break;
+                        case COLOR_FormatYUV420SemiPlanar:
+                        case COLOR_FormatYUV420PackedSemiPlanar:
+                            format = flexSemiPlanarPixelFormat.value_or(
+                                    flexPixelFormat.value_or(format));
+                            break;
+                        default:
+                            // No-op
+                            break;
+                    }
                 }
             }
 
-            if (format >= 0) {
+            if (format != 0) {
                 msg->setInt32("android._color-format", format);
             }
+        }
+
+        /*
+         * Handle dataspace
+         */
+        int32_t usingRecorder;
+        if (msg->findInt32("android._using-recorder", &usingRecorder) && usingRecorder) {
+            android_dataspace dataSpace = HAL_DATASPACE_BT709;
+            int32_t width, height;
+            if (msg->findInt32("width", &width)
+                    && msg->findInt32("height", &height)) {
+                ColorAspects aspects;
+                getColorAspectsFromFormat(msg, aspects);
+                setDefaultCodecColorAspectsIfNeeded(aspects, width, height);
+                // TODO: read dataspace / color aspect from the component
+                setColorAspectsIntoFormat(aspects, const_cast<sp<AMessage> &>(msg));
+                dataSpace = getDataSpaceForColorAspects(aspects, true /* mayexpand */);
+            }
+            msg->setInt32("android._dataspace", (int32_t)dataSpace);
+            ALOGD("setting dataspace to %x", dataSpace);
         }
 
         int32_t subscribeToAllVendorParams;
@@ -900,7 +1127,7 @@ void CCodec::configure(const sp<AMessage> &msg) {
             sdkParams = msg->dup();
             sdkParams->removeEntryAt(sdkParams->findEntryByName(PARAMETER_KEY_VIDEO_BITRATE));
         }
-        status_t err = config->getConfigUpdateFromSdkParams(
+        err = config->getConfigUpdateFromSdkParams(
                 comp, sdkParams, Config::IS_CONFIG, C2_DONT_BLOCK, &configUpdate);
         if (err != OK) {
             ALOGW("failed to convert configuration to c2 params");
@@ -921,6 +1148,55 @@ void CCodec::configure(const sp<AMessage> &msg) {
             configUpdate.push_back(std::move(gop));
         }
 
+        if ((config->mDomain & Config::IS_ENCODER)
+                && (config->mDomain & Config::IS_VIDEO)) {
+            // we may not use all 3 of these entries
+            std::unique_ptr<C2StreamPictureQuantizationTuning::output> qp =
+                C2StreamPictureQuantizationTuning::output::AllocUnique(3 /* flexCount */,
+                                                                       0u /* stream */);
+
+            int ix = 0;
+
+            int32_t iMax = INT32_MAX;
+            int32_t iMin = INT32_MIN;
+            (void) sdkParams->findInt32(KEY_VIDEO_QP_I_MAX, &iMax);
+            (void) sdkParams->findInt32(KEY_VIDEO_QP_I_MIN, &iMin);
+            if (iMax != INT32_MAX || iMin != INT32_MIN) {
+                qp->m.values[ix++] = {I_FRAME, iMin, iMax};
+            }
+
+            int32_t pMax = INT32_MAX;
+            int32_t pMin = INT32_MIN;
+            (void) sdkParams->findInt32(KEY_VIDEO_QP_P_MAX, &pMax);
+            (void) sdkParams->findInt32(KEY_VIDEO_QP_P_MIN, &pMin);
+            if (pMax != INT32_MAX || pMin != INT32_MIN) {
+                qp->m.values[ix++] = {P_FRAME, pMin, pMax};
+            }
+
+            int32_t bMax = INT32_MAX;
+            int32_t bMin = INT32_MIN;
+            (void) sdkParams->findInt32(KEY_VIDEO_QP_B_MAX, &bMax);
+            (void) sdkParams->findInt32(KEY_VIDEO_QP_B_MIN, &bMin);
+            if (bMax != INT32_MAX || bMin != INT32_MIN) {
+                qp->m.values[ix++] = {B_FRAME, bMin, bMax};
+            }
+
+            // adjust to reflect actual use.
+            qp->setFlexCount(ix);
+
+            configUpdate.push_back(std::move(qp));
+        }
+
+        int32_t background = 0;
+        if ((config->mDomain & Config::IS_VIDEO)
+                && msg->findInt32("android._background-mode", &background)
+                && background) {
+            androidSetThreadPriority(gettid(), ANDROID_PRIORITY_BACKGROUND);
+            if (config->mISConfig) {
+                config->mISConfig->mPriority = ANDROID_PRIORITY_BACKGROUND;
+            }
+        }
+
         err = config->setParameters(comp, configUpdate, C2_DONT_BLOCK);
         if (err != OK) {
             ALOGW("failed to configure c2 params");
@@ -932,7 +1208,10 @@ void CCodec::configure(const sp<AMessage> &msg) {
         C2StreamMaxBufferSizeInfo::input maxInputSize(0u, 0u);
         C2PrependHeaderModeSetting prepend(PREPEND_HEADER_TO_NONE);
 
+        C2Param::Index colorAspectsRequestIndex =
+            C2StreamColorAspectsInfo::output::PARAM_TYPE | C2Param::CoreIndex::IS_REQUEST_FLAG;
         std::initializer_list<C2Param::Index> indices {
+            colorAspectsRequestIndex.withStream(0u),
         };
         c2_status_t c2err = comp->query(
                 { &usage, &maxInputSize, &prepend },
@@ -943,11 +1222,6 @@ void CCodec::configure(const sp<AMessage> &msg) {
             ALOGE("Failed to query component interface: %d", c2err);
             return UNKNOWN_ERROR;
         }
-        if (params.size() != indices.size()) {
-            ALOGE("Component returns wrong number of params: expected %zu actual %zu",
-                    indices.size(), params.size());
-            return UNKNOWN_ERROR;
-        }
         if (usage) {
             if (usage.value & C2MemoryUsage::CPU_READ) {
                 config->mInputFormat->setInt32("using-sw-read-often", true);
@@ -956,6 +1230,7 @@ void CCodec::configure(const sp<AMessage> &msg) {
                 C2AndroidMemoryUsage androidUsage(C2MemoryUsage(usage.value));
                 config->mISConfig->mUsage = androidUsage.asGrallocUsage();
             }
+            config->mInputFormat->setInt64("android._C2MemoryUsage", usage.value);
         }
 
         // NOTE: we don't blindly use client specified input size if specified as clients
@@ -1012,13 +1287,14 @@ void CCodec::configure(const sp<AMessage> &msg) {
         int32_t clientPrepend;
         if ((config->mDomain & Config::IS_VIDEO)
                 && (config->mDomain & Config::IS_ENCODER)
-                && msg->findInt32(KEY_PREPEND_HEADERS_TO_SYNC_FRAMES, &clientPrepend)
+                && msg->findInt32(KEY_PREPEND_HEADER_TO_SYNC_FRAMES, &clientPrepend)
                 && clientPrepend
                 && (!prepend || prepend.value != PREPEND_HEADER_TO_ALL_SYNC)) {
-            ALOGE("Failed to set KEY_PREPEND_HEADERS_TO_SYNC_FRAMES");
+            ALOGE("Failed to set KEY_PREPEND_HEADER_TO_SYNC_FRAMES");
             return BAD_VALUE;
         }
 
+        int32_t componentColorFormat = 0;
         if ((config->mDomain & (Config::IS_VIDEO | Config::IS_IMAGE))) {
             // propagate HDR static info to output format for both encoders and decoders
             // if component supports this info, we will update from component, but only the raw port,
@@ -1031,12 +1307,16 @@ void CCodec::configure(const sp<AMessage> &msg) {
 
             // Set desired color format from configuration parameter
             int32_t format;
-            if (msg->findInt32("android._color-format", &format)) {
-                if (config->mDomain & Config::IS_ENCODER) {
-                    config->mInputFormat->setInt32(KEY_COLOR_FORMAT, format);
-                } else {
-                    config->mOutputFormat->setInt32(KEY_COLOR_FORMAT, format);
+            if (!msg->findInt32(KEY_COLOR_FORMAT, &format)) {
+                format = defaultColorFormat;
+            }
+            if (config->mDomain & Config::IS_ENCODER) {
+                config->mInputFormat->setInt32(KEY_COLOR_FORMAT, format);
+                if (msg->findInt32("android._color-format", &componentColorFormat)) {
+                    config->mInputFormat->setInt32("android._color-format", componentColorFormat);
                 }
+            } else {
+                config->mOutputFormat->setInt32(KEY_COLOR_FORMAT, format);
             }
         }
 
@@ -1064,8 +1344,86 @@ void CCodec::configure(const sp<AMessage> &msg) {
             }
         }
 
-        ALOGD("setup formats input: %s and output: %s",
-                config->mInputFormat->debugString().c_str(),
+        std::unique_ptr<C2Param> colorTransferRequestParam;
+        for (std::unique_ptr<C2Param> &param : params) {
+            if (param->index() == colorAspectsRequestIndex.withStream(0u)) {
+                ALOGI("found color transfer request param");
+                colorTransferRequestParam = std::move(param);
+            }
+        }
+        int32_t colorTransferRequest = 0;
+        if (config->mDomain & (Config::IS_IMAGE | Config::IS_VIDEO)
+                && !sdkParams->findInt32("color-transfer-request", &colorTransferRequest)) {
+            colorTransferRequest = 0;
+        }
+
+        if (colorTransferRequest != 0) {
+            if (colorTransferRequestParam && *colorTransferRequestParam) {
+                C2StreamColorAspectsInfo::output *info =
+                    static_cast<C2StreamColorAspectsInfo::output *>(
+                            colorTransferRequestParam.get());
+                if (!C2Mapper::map(info->transfer, &colorTransferRequest)) {
+                    colorTransferRequest = 0;
+                }
+            } else {
+                colorTransferRequest = 0;
+            }
+            config->mInputFormat->setInt32("color-transfer-request", colorTransferRequest);
+        }
+
+        if (componentColorFormat != 0 && componentColorFormat != COLOR_FormatSurface) {
+            // Need to get stride/vstride
+            uint32_t pixelFormat = PIXEL_FORMAT_UNKNOWN;
+            if (C2Mapper::mapPixelFormatFrameworkToCodec(componentColorFormat, &pixelFormat)) {
+                // TODO: retrieve these values without allocating a buffer.
+                //       Currently allocating a buffer is necessary to retrieve the layout.
+                int64_t blockUsage =
+                    usage.value | C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE;
+                std::shared_ptr<C2GraphicBlock> block = FetchGraphicBlock(
+                        width, height, pixelFormat, blockUsage, {comp->getName()});
+                sp<GraphicBlockBuffer> buffer;
+                if (block) {
+                    buffer = GraphicBlockBuffer::Allocate(
+                            config->mInputFormat,
+                            block,
+                            [](size_t size) -> sp<ABuffer> { return new ABuffer(size); });
+                } else {
+                    ALOGD("Failed to allocate a graphic block "
+                            "(width=%d height=%d pixelFormat=%u usage=%llx)",
+                            width, height, pixelFormat, (long long)blockUsage);
+                    // This means that byte buffer mode is not supported in this configuration
+                    // anyway. Skip setting stride/vstride to input format.
+                }
+                if (buffer) {
+                    sp<ABuffer> imageData = buffer->getImageData();
+                    MediaImage2 *img = nullptr;
+                    if (imageData && imageData->data()
+                            && imageData->size() >= sizeof(MediaImage2)) {
+                        img = (MediaImage2*)imageData->data();
+                    }
+                    if (img && img->mNumPlanes > 0 && img->mType != img->MEDIA_IMAGE_TYPE_UNKNOWN) {
+                        int32_t stride = img->mPlane[0].mRowInc;
+                        config->mInputFormat->setInt32(KEY_STRIDE, stride);
+                        if (img->mNumPlanes > 1 && stride > 0) {
+                            int64_t offsetDelta =
+                                (int64_t)img->mPlane[1].mOffset - (int64_t)img->mPlane[0].mOffset;
+                            if (offsetDelta % stride == 0) {
+                                int32_t vstride = int32_t(offsetDelta / stride);
+                                config->mInputFormat->setInt32(KEY_SLICE_HEIGHT, vstride);
+                            } else {
+                                ALOGD("Cannot report accurate slice height: "
+                                        "offsetDelta = %lld stride = %d",
+                                        (long long)offsetDelta, stride);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ALOGD("setup formats input: %s",
+                config->mInputFormat->debugString().c_str());
+        ALOGD("setup formats output: %s",
                 config->mOutputFormat->debugString().c_str());
         return OK;
     };
@@ -1075,6 +1433,8 @@ void CCodec::configure(const sp<AMessage> &msg) {
 
     Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
     const std::unique_ptr<Config> &config = *configLocked;
+
+    config->queryConfiguration(comp);
 
     mCallback->onComponentConfigured(config->mInputFormat, config->mOutputFormat);
 }
@@ -1144,13 +1504,11 @@ void CCodec::createInputSurface() {
     status_t err;
     sp<IGraphicBufferProducer> bufferProducer;
 
-    sp<AMessage> inputFormat;
     sp<AMessage> outputFormat;
     uint64_t usage = 0;
     {
         Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
         const std::unique_ptr<Config> &config = *configLocked;
-        inputFormat = config->mInputFormat;
         outputFormat = config->mOutputFormat;
         usage = config->mISConfig ? config->mISConfig->mUsage : 0;
     }
@@ -1186,6 +1544,14 @@ void CCodec::createInputSurface() {
         return;
     }
 
+    // Formats can change after setupInputSurface
+    sp<AMessage> inputFormat;
+    {
+        Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+        const std::unique_ptr<Config> &config = *configLocked;
+        inputFormat = config->mInputFormat;
+        outputFormat = config->mOutputFormat;
+    }
     mCallback->onInputSurfaceCreated(
             inputFormat,
             outputFormat,
@@ -1235,13 +1601,11 @@ void CCodec::initiateSetInputSurface(const sp<PersistentSurface> &surface) {
 }
 
 void CCodec::setInputSurface(const sp<PersistentSurface> &surface) {
-    sp<AMessage> inputFormat;
     sp<AMessage> outputFormat;
     uint64_t usage = 0;
     {
         Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
         const std::unique_ptr<Config> &config = *configLocked;
-        inputFormat = config->mInputFormat;
         outputFormat = config->mOutputFormat;
         usage = config->mISConfig ? config->mISConfig->mUsage : 0;
     }
@@ -1272,6 +1636,14 @@ void CCodec::setInputSurface(const sp<PersistentSurface> &surface) {
         ALOGE("Failed to set input surface: Corrupted surface.");
         mCallback->onInputSurfaceDeclined(UNKNOWN_ERROR);
         return;
+    }
+    // Formats can change after setupInputSurface
+    sp<AMessage> inputFormat;
+    {
+        Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+        const std::unique_ptr<Config> &config = *configLocked;
+        inputFormat = config->mInputFormat;
+        outputFormat = config->mOutputFormat;
     }
     mCallback->onInputSurfaceAccepted(inputFormat, outputFormat);
 }
@@ -1324,6 +1696,7 @@ void CCodec::start() {
         outputFormat = config->mOutputFormat = config->mOutputFormat->dup();
         if (config->mInputSurface) {
             err2 = config->mInputSurface->start();
+            config->mInputSurfaceDataspace = config->mInputSurface->getDataspace();
         }
         buffersBoundToCodec = config->mBuffersBoundToCodec;
     }
@@ -1331,8 +1704,6 @@ void CCodec::start() {
         mCallback->onError(err2, ACTION_CODE_FATAL);
         return;
     }
-    // We're not starting after flush.
-    (void)mSentConfigAfterResume.test_and_set();
     err2 = mChannel->start(inputFormat, outputFormat, buffersBoundToCodec);
     if (err2 != OK) {
         mCallback->onError(err2, ACTION_CODE_FATAL);
@@ -1413,6 +1784,7 @@ void CCodec::stop() {
         if (config->mInputSurface) {
             config->mInputSurface->disconnect();
             config->mInputSurface = nullptr;
+            config->mInputSurfaceDataspace = HAL_DATASPACE_UNKNOWN;
         }
     }
     {
@@ -1462,6 +1834,7 @@ void CCodec::initiateRelease(bool sendCallback /* = true */) {
         if (config->mInputSurface) {
             config->mInputSurface->disconnect();
             config->mInputSurface = nullptr;
+            config->mInputSurfaceDataspace = HAL_DATASPACE_UNKNOWN;
         }
     }
 
@@ -1499,6 +1872,21 @@ void CCodec::release(bool sendCallback) {
 }
 
 status_t CCodec::setSurface(const sp<Surface> &surface) {
+    {
+        Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+        const std::unique_ptr<Config> &config = *configLocked;
+        if (config->mTunneled && config->mSidebandHandle != nullptr) {
+            sp<ANativeWindow> nativeWindow = static_cast<ANativeWindow *>(surface.get());
+            status_t err = native_window_set_sideband_stream(
+                    nativeWindow.get(),
+                    const_cast<native_handle_t *>(config->mSidebandHandle->handle()));
+            if (err != OK) {
+                ALOGE("NativeWindow(%p) native_window_set_sideband_stream(%p) failed! (err %d).",
+                        nativeWindow.get(), config->mSidebandHandle->handle(), err);
+                return err;
+            }
+        }
+    }
     return mChannel->setSurface(surface);
 }
 
@@ -1580,11 +1968,12 @@ void CCodec::signalResume() {
         return;
     }
 
-    mSentConfigAfterResume.clear();
     {
         Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
         const std::unique_ptr<Config> &config = *configLocked;
+        sp<AMessage> outputFormat = config->mOutputFormat;
         config->queryConfiguration(comp);
+        RevertOutputFormatIfNeeded(outputFormat, config->mOutputFormat);
     }
 
     (void)mChannel->start(nullptr, nullptr, [&]{
@@ -1630,6 +2019,12 @@ void CCodec::signalSetParameters(const sp<AMessage> &msg) {
         params->removeEntryAt(params->findEntryByName(KEY_BIT_RATE));
     }
 
+    int32_t syncId = 0;
+    if (params->findInt32("audio-hw-sync", &syncId)
+            || params->findInt32("hw-av-sync-id", &syncId)) {
+        configureTunneledVideoPlayback(comp, nullptr, params);
+    }
+
     Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
     const std::unique_ptr<Config> &config = *configLocked;
 
@@ -1672,7 +2067,9 @@ void CCodec::signalSetParameters(const sp<AMessage> &msg) {
                     || comp->getName().find("c2.android.") == 0)) {
         mChannel->setParameters(configUpdate);
     } else {
+        sp<AMessage> outputFormat = config->mOutputFormat;
         (void)config->setParameters(comp, configUpdate, C2_MAY_BLOCK);
+        RevertOutputFormatIfNeeded(outputFormat, config->mOutputFormat);
     }
 }
 
@@ -1697,6 +2094,39 @@ void CCodec::signalRequestIDRFrame() {
     params.push_back(
             std::make_unique<C2StreamRequestSyncFrameTuning::output>(0u, true));
     config->setParameters(comp, params, C2_MAY_BLOCK);
+}
+
+status_t CCodec::querySupportedParameters(std::vector<std::string> *names) {
+    Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+    const std::unique_ptr<Config> &config = *configLocked;
+    return config->querySupportedParameters(names);
+}
+
+status_t CCodec::describeParameter(
+        const std::string &name, CodecParameterDescriptor *desc) {
+    Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+    const std::unique_ptr<Config> &config = *configLocked;
+    return config->describe(name, desc);
+}
+
+status_t CCodec::subscribeToParameters(const std::vector<std::string> &names) {
+    std::shared_ptr<Codec2Client::Component> comp = mState.lock()->comp;
+    if (!comp) {
+        return INVALID_OPERATION;
+    }
+    Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+    const std::unique_ptr<Config> &config = *configLocked;
+    return config->subscribeToVendorConfigUpdate(comp, names);
+}
+
+status_t CCodec::unsubscribeFromParameters(const std::vector<std::string> &names) {
+    std::shared_ptr<Codec2Client::Component> comp = mState.lock()->comp;
+    if (!comp) {
+        return INVALID_OPERATION;
+    }
+    Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+    const std::unique_ptr<Config> &config = *configLocked;
+    return config->unsubscribeFromVendorConfigUpdate(comp, names);
 }
 
 void CCodec::onWorkDone(std::list<std::unique_ptr<C2Work>> &workItems) {
@@ -1795,78 +2225,99 @@ void CCodec::onMessageReceived(const sp<AMessage> &msg) {
             }
 
             // handle configuration changes in work done
-            Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
-            const std::unique_ptr<Config> &config = *configLocked;
-            bool changed = !mSentConfigAfterResume.test_and_set();
-            Config::Watcher<C2StreamInitDataInfo::output> initData =
-                config->watch<C2StreamInitDataInfo::output>();
-            if (!work->worklets.empty()
-                    && (work->worklets.front()->output.flags
-                            & C2FrameData::FLAG_DISCARD_FRAME) == 0) {
+            std::shared_ptr<const C2StreamInitDataInfo::output> initData;
+            sp<AMessage> outputFormat = nullptr;
+            {
+                Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+                const std::unique_ptr<Config> &config = *configLocked;
+                Config::Watcher<C2StreamInitDataInfo::output> initDataWatcher =
+                    config->watch<C2StreamInitDataInfo::output>();
+                if (!work->worklets.empty()
+                        && (work->worklets.front()->output.flags
+                                & C2FrameData::FLAG_DISCARD_FRAME) == 0) {
 
-                // copy buffer info to config
-                std::vector<std::unique_ptr<C2Param>> updates;
-                for (const std::unique_ptr<C2Param> &param
-                        : work->worklets.front()->output.configUpdate) {
-                    updates.push_back(C2Param::Copy(*param));
-                }
-                unsigned stream = 0;
-                for (const std::shared_ptr<C2Buffer> &buf : work->worklets.front()->output.buffers) {
-                    for (const std::shared_ptr<const C2Info> &info : buf->info()) {
-                        // move all info into output-stream #0 domain
-                        updates.emplace_back(C2Param::CopyAsStream(*info, true /* output */, stream));
+                    // copy buffer info to config
+                    std::vector<std::unique_ptr<C2Param>> updates;
+                    for (const std::unique_ptr<C2Param> &param
+                            : work->worklets.front()->output.configUpdate) {
+                        updates.push_back(C2Param::Copy(*param));
                     }
-                    for (const C2ConstGraphicBlock &block : buf->data().graphicBlocks()) {
-                        // ALOGV("got output buffer with crop %u,%u+%u,%u and size %u,%u",
-                        //      block.crop().left, block.crop().top,
-                        //      block.crop().width, block.crop().height,
-                        //      block.width(), block.height());
-                        updates.emplace_back(new C2StreamCropRectInfo::output(stream, block.crop()));
-                        updates.emplace_back(new C2StreamPictureSizeInfo::output(
-                                stream, block.crop().width, block.crop().height));
-                        break; // for now only do the first block
+                    unsigned stream = 0;
+                    std::vector<std::shared_ptr<C2Buffer>> &outputBuffers =
+                        work->worklets.front()->output.buffers;
+                    for (const std::shared_ptr<C2Buffer> &buf : outputBuffers) {
+                        for (const std::shared_ptr<const C2Info> &info : buf->info()) {
+                            // move all info into output-stream #0 domain
+                            updates.emplace_back(
+                                    C2Param::CopyAsStream(*info, true /* output */, stream));
+                        }
+
+                        const std::vector<C2ConstGraphicBlock> blocks = buf->data().graphicBlocks();
+                        // for now only do the first block
+                        if (!blocks.empty()) {
+                            // ALOGV("got output buffer with crop %u,%u+%u,%u and size %u,%u",
+                            //      block.crop().left, block.crop().top,
+                            //      block.crop().width, block.crop().height,
+                            //      block.width(), block.height());
+                            const C2ConstGraphicBlock &block = blocks[0];
+                            updates.emplace_back(new C2StreamCropRectInfo::output(
+                                    stream, block.crop()));
+                            updates.emplace_back(new C2StreamPictureSizeInfo::output(
+                                    stream, block.crop().width, block.crop().height));
+                        }
+                        ++stream;
                     }
-                    ++stream;
-                }
 
-                if (config->updateConfiguration(updates, config->mOutputDomain)) {
-                    changed = true;
-                }
+                    sp<AMessage> oldFormat = config->mOutputFormat;
+                    config->updateConfiguration(updates, config->mOutputDomain);
+                    RevertOutputFormatIfNeeded(oldFormat, config->mOutputFormat);
 
-                // copy standard infos to graphic buffers if not already present (otherwise, we
-                // may overwrite the actual intermediate value with a final value)
-                stream = 0;
-                const static std::vector<C2Param::Index> stdGfxInfos = {
-                    C2StreamRotationInfo::output::PARAM_TYPE,
-                    C2StreamColorAspectsInfo::output::PARAM_TYPE,
-                    C2StreamDataSpaceInfo::output::PARAM_TYPE,
-                    C2StreamHdrStaticInfo::output::PARAM_TYPE,
-                    C2StreamHdr10PlusInfo::output::PARAM_TYPE,
-                    C2StreamPixelAspectRatioInfo::output::PARAM_TYPE,
-                    C2StreamSurfaceScalingInfo::output::PARAM_TYPE
-                };
-                for (const std::shared_ptr<C2Buffer> &buf : work->worklets.front()->output.buffers) {
-                    if (buf->data().graphicBlocks().size()) {
-                        for (C2Param::Index ix : stdGfxInfos) {
-                            if (!buf->hasInfo(ix)) {
-                                const C2Param *param =
-                                    config->getConfigParameterValue(ix.withStream(stream));
-                                if (param) {
-                                    std::shared_ptr<C2Param> info(C2Param::Copy(*param));
-                                    buf->setInfo(std::static_pointer_cast<C2Info>(info));
+                    // copy standard infos to graphic buffers if not already present (otherwise, we
+                    // may overwrite the actual intermediate value with a final value)
+                    stream = 0;
+                    const static C2Param::Index stdGfxInfos[] = {
+                        C2StreamRotationInfo::output::PARAM_TYPE,
+                        C2StreamColorAspectsInfo::output::PARAM_TYPE,
+                        C2StreamDataSpaceInfo::output::PARAM_TYPE,
+                        C2StreamHdrStaticInfo::output::PARAM_TYPE,
+                        C2StreamHdr10PlusInfo::output::PARAM_TYPE,
+                        C2StreamPixelAspectRatioInfo::output::PARAM_TYPE,
+                        C2StreamSurfaceScalingInfo::output::PARAM_TYPE
+                    };
+                    for (const std::shared_ptr<C2Buffer> &buf : outputBuffers) {
+                        if (buf->data().graphicBlocks().size()) {
+                            for (C2Param::Index ix : stdGfxInfos) {
+                                if (!buf->hasInfo(ix)) {
+                                    const C2Param *param =
+                                        config->getConfigParameterValue(ix.withStream(stream));
+                                    if (param) {
+                                        std::shared_ptr<C2Param> info(C2Param::Copy(*param));
+                                        buf->setInfo(std::static_pointer_cast<C2Info>(info));
+                                    }
                                 }
                             }
                         }
+                        ++stream;
                     }
-                    ++stream;
                 }
-            }
-            if (config->mInputSurface) {
-                config->mInputSurface->onInputBufferDone(work->input.ordinal.frameIndex);
+                if (config->mInputSurface) {
+                    if (work->worklets.empty()
+                           || !work->worklets.back()
+                           || (work->worklets.back()->output.flags
+                                  & C2FrameData::FLAG_INCOMPLETE) == 0) {
+                        config->mInputSurface->onInputBufferDone(work->input.ordinal.frameIndex);
+                    }
+                }
+                if (initDataWatcher.hasChanged()) {
+                    initData = initDataWatcher.update();
+                    AmendOutputFormatWithCodecSpecificData(
+                            initData->m.value, initData->flexCount(), config->mCodingMediaType,
+                            config->mOutputFormat);
+                }
+                outputFormat = config->mOutputFormat;
             }
             mChannel->onWorkDone(
-                    std::move(work), changed ? config->mOutputFormat->dup() : nullptr,
-                    initData.hasChanged() ? initData.update().get() : nullptr);
+                    std::move(work), outputFormat, initData ? initData.get() : nullptr);
             break;
         }
         case kWhatWatch: {
@@ -1890,6 +2341,55 @@ void CCodec::setDeadline(
     deadline->set(now + (timeout * mult), name);
 }
 
+status_t CCodec::configureTunneledVideoPlayback(
+        std::shared_ptr<Codec2Client::Component> comp,
+        sp<NativeHandle> *sidebandHandle,
+        const sp<AMessage> &msg) {
+    std::vector<std::unique_ptr<C2SettingResult>> failures;
+
+    std::unique_ptr<C2PortTunneledModeTuning::output> tunneledPlayback =
+        C2PortTunneledModeTuning::output::AllocUnique(
+            1,
+            C2PortTunneledModeTuning::Struct::SIDEBAND,
+            C2PortTunneledModeTuning::Struct::REALTIME,
+            0);
+    // TODO: use KEY_AUDIO_HW_SYNC, KEY_HARDWARE_AV_SYNC_ID when they are in MediaCodecConstants.h
+    if (msg->findInt32("audio-hw-sync", &tunneledPlayback->m.syncId[0])) {
+        tunneledPlayback->m.syncType = C2PortTunneledModeTuning::Struct::sync_type_t::AUDIO_HW_SYNC;
+    } else if (msg->findInt32("hw-av-sync-id", &tunneledPlayback->m.syncId[0])) {
+        tunneledPlayback->m.syncType = C2PortTunneledModeTuning::Struct::sync_type_t::HW_AV_SYNC;
+    } else {
+        tunneledPlayback->m.syncType = C2PortTunneledModeTuning::Struct::sync_type_t::REALTIME;
+        tunneledPlayback->setFlexCount(0);
+    }
+    c2_status_t c2err = comp->config({ tunneledPlayback.get() }, C2_MAY_BLOCK, &failures);
+    if (c2err != C2_OK) {
+        return UNKNOWN_ERROR;
+    }
+
+    if (sidebandHandle == nullptr) {
+        return OK;
+    }
+
+    std::vector<std::unique_ptr<C2Param>> params;
+    c2err = comp->query({}, {C2PortTunnelHandleTuning::output::PARAM_TYPE}, C2_DONT_BLOCK, &params);
+    if (c2err == C2_OK && params.size() == 1u) {
+        C2PortTunnelHandleTuning::output *videoTunnelSideband =
+            C2PortTunnelHandleTuning::output::From(params[0].get());
+        // Currently, Codec2 only supports non-fd case for sideband native_handle.
+        native_handle_t *handle = native_handle_create(0, videoTunnelSideband->flexCount());
+        *sidebandHandle = NativeHandle::create(handle, true /* ownsHandle */);
+        if (handle != nullptr && videoTunnelSideband->flexCount()) {
+            memcpy(handle->data, videoTunnelSideband->m.values,
+                    sizeof(int32_t) * videoTunnelSideband->flexCount());
+            return OK;
+        } else {
+            return NO_MEMORY;
+        }
+    }
+    return UNKNOWN_ERROR;
+}
+
 void CCodec::initiateReleaseIfStuck() {
     std::string name;
     bool pendingDeadline = false;
@@ -1902,7 +2402,44 @@ void CCodec::initiateReleaseIfStuck() {
             pendingDeadline = true;
         }
     }
-    if (name.empty()) {
+    bool tunneled = false;
+    bool isMediaTypeKnown = false;
+    {
+        static const std::set<std::string> kKnownMediaTypes{
+            MIMETYPE_VIDEO_VP8,
+            MIMETYPE_VIDEO_VP9,
+            MIMETYPE_VIDEO_AV1,
+            MIMETYPE_VIDEO_AVC,
+            MIMETYPE_VIDEO_HEVC,
+            MIMETYPE_VIDEO_MPEG4,
+            MIMETYPE_VIDEO_H263,
+            MIMETYPE_VIDEO_MPEG2,
+            MIMETYPE_VIDEO_RAW,
+            MIMETYPE_VIDEO_DOLBY_VISION,
+
+            MIMETYPE_AUDIO_AMR_NB,
+            MIMETYPE_AUDIO_AMR_WB,
+            MIMETYPE_AUDIO_MPEG,
+            MIMETYPE_AUDIO_AAC,
+            MIMETYPE_AUDIO_QCELP,
+            MIMETYPE_AUDIO_VORBIS,
+            MIMETYPE_AUDIO_OPUS,
+            MIMETYPE_AUDIO_G711_ALAW,
+            MIMETYPE_AUDIO_G711_MLAW,
+            MIMETYPE_AUDIO_RAW,
+            MIMETYPE_AUDIO_FLAC,
+            MIMETYPE_AUDIO_MSGSM,
+            MIMETYPE_AUDIO_AC3,
+            MIMETYPE_AUDIO_EAC3,
+
+            MIMETYPE_IMAGE_ANDROID_HEIC,
+        };
+        Mutexed<std::unique_ptr<Config>>::Locked configLocked(mConfig);
+        const std::unique_ptr<Config> &config = *configLocked;
+        tunneled = config->mTunneled;
+        isMediaTypeKnown = (kKnownMediaTypes.count(config->mCodingMediaType) != 0);
+    }
+    if (!tunneled && isMediaTypeKnown && name.empty()) {
         constexpr std::chrono::steady_clock::duration kWorkDurationThreshold = 3s;
         std::chrono::steady_clock::duration elapsed = mChannel->elapsed();
         if (elapsed >= kWorkDurationThreshold) {
@@ -1922,7 +2459,18 @@ void CCodec::initiateReleaseIfStuck() {
         return;
     }
 
-    ALOGW("previous call to %s exceeded timeout", name.c_str());
+    C2String compName;
+    {
+        Mutexed<State>::Locked state(mState);
+        if (!state->comp) {
+            ALOGD("previous call to %s exceeded timeout "
+                  "and the component is already released", name.c_str());
+            return;
+        }
+        compName = state->comp->getName();
+    }
+    ALOGW("[%s] previous call to %s exceeded timeout", compName.c_str(), name.c_str());
+
     initiateRelease(false);
     mCallback->onError(UNKNOWN_ERROR, ACTION_CODE_FATAL);
 }
@@ -1994,7 +2542,7 @@ public:
             }
             if (param->type() == C2PortAllocatorsTuning::input::PARAM_TYPE) {
                 mInputAllocators.reset(
-                        C2PortAllocatorsTuning::input::From(params[0].get()));
+                        C2PortAllocatorsTuning::input::From(param));
             }
         }
         mInitStatus = OK;
@@ -2144,7 +2692,11 @@ static status_t CalculateMinMaxUsage(
             *maxUsage = 0;
             continue;
         }
-        *minUsage |= supported.values[0].u64;
+        if (supported.values.size() > 1) {
+            *minUsage |= supported.values[1].u64;
+        } else {
+            *minUsage |= supported.values[0].u64;
+        }
         int64_t currentMaxUsage = 0;
         for (const C2Value::Primitive &flags : supported.values) {
             currentMaxUsage |= flags.u64;
@@ -2168,15 +2720,17 @@ status_t CCodec::CanFetchLinearBlock(
             return OK;
         }
     }
-    uint64_t minUsage = usage.expected;
-    uint64_t maxUsage = ~0ull;
     std::set<C2Allocator::id_t> allocators;
     GetCommonAllocatorIds(names, C2Allocator::LINEAR, &allocators);
     if (allocators.empty()) {
         *isCompatible = false;
         return OK;
     }
+
+    uint64_t minUsage = 0;
+    uint64_t maxUsage = ~0ull;
     CalculateMinMaxUsage(names, &minUsage, &maxUsage);
+    minUsage |= usage.expected;
     *isCompatible = ((maxUsage & minUsage) == minUsage);
     return OK;
 }
@@ -2203,14 +2757,16 @@ static std::shared_ptr<C2BlockPool> GetPool(C2Allocator::id_t allocId) {
 // static
 std::shared_ptr<C2LinearBlock> CCodec::FetchLinearBlock(
         size_t capacity, const C2MemoryUsage &usage, const std::vector<std::string> &names) {
-    uint64_t minUsage = usage.expected;
-    uint64_t maxUsage = ~0ull;
     std::set<C2Allocator::id_t> allocators;
     GetCommonAllocatorIds(names, C2Allocator::LINEAR, &allocators);
     if (allocators.empty()) {
         allocators.insert(C2PlatformAllocatorStore::DEFAULT_LINEAR);
     }
+
+    uint64_t minUsage = 0;
+    uint64_t maxUsage = ~0ull;
     CalculateMinMaxUsage(names, &minUsage, &maxUsage);
+    minUsage |= usage.expected;
     if ((maxUsage & minUsage) != minUsage) {
         allocators.clear();
         allocators.insert(C2PlatformAllocatorStore::DEFAULT_LINEAR);
@@ -2291,4 +2847,3 @@ std::shared_ptr<C2GraphicBlock> CCodec::FetchGraphicBlock(
 }
 
 }  // namespace android
-

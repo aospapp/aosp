@@ -18,16 +18,19 @@ package com.android.internal.telephony;
 
 import android.annotation.NonNull;
 import android.compat.annotation.UnsupportedAppUsage;
-import android.telephony.Annotation.DataFailureCause;
 import android.telephony.Annotation.RadioPowerState;
 import android.telephony.Annotation.SrvccState;
 import android.telephony.BarringInfo;
 import android.telephony.CallQuality;
 import android.telephony.CellIdentity;
 import android.telephony.CellInfo;
+import android.telephony.LinkCapacityEstimate;
 import android.telephony.PhoneCapability;
+import android.telephony.PhysicalChannelConfig;
 import android.telephony.PreciseDataConnectionState;
+import android.telephony.ServiceState;
 import android.telephony.TelephonyDisplayInfo;
+import android.telephony.TelephonyManager.DataEnabledReason;
 import android.telephony.emergency.EmergencyNumber;
 import android.telephony.ims.ImsReasonInfo;
 
@@ -40,7 +43,18 @@ public interface PhoneNotifier {
 
     void notifyPhoneState(Phone sender);
 
+    /**
+     * Notify registrants of the given phone's current ServiceState.
+     */
     void notifyServiceState(Phone sender);
+
+    /**
+     * Notify registrants with a given ServiceState. Passing in the subId allows us to
+     * send a final ServiceState update when the subId for the sender phone becomes invalid
+     * @param sender
+     * @param subId
+     */
+    void notifyServiceStateForSubId(Phone sender, ServiceState ss, int subId);
 
     /**
      * Notify registrants of the current CellLocation.
@@ -58,8 +72,7 @@ public interface PhoneNotifier {
     void notifyCallForwardingChanged(Phone sender);
 
     /** Send a notification that the Data Connection for a particular apnType has changed */
-    void notifyDataConnection(
-            Phone sender, String apnType, PreciseDataConnectionState preciseState);
+    void notifyDataConnection(Phone sender, PreciseDataConnectionState preciseState);
 
     void notifyDataActivity(Phone sender);
 
@@ -70,10 +83,6 @@ public interface PhoneNotifier {
     void notifyDisconnectCause(Phone sender, int cause, int preciseCause);
 
     void notifyImsDisconnectCause(Phone sender, ImsReasonInfo imsReasonInfo);
-
-    /** Send a notification that a particular data connection has failed with specified cause. */
-    void notifyDataConnectionFailed(Phone sender, String apnType, String apn,
-                                                  @DataFailureCause int failCause);
 
     /** Send a notification that the SRVCC state has changed.*/
     void notifySrvccStateChanged(Phone sender, @SrvccState int state);
@@ -98,9 +107,6 @@ public interface PhoneNotifier {
     /** Notify of change to EmergencyNumberList. */
     void notifyEmergencyNumberList(Phone sender);
 
-    /** Notify of a change for Outgoing Emergency Call. */
-    void notifyOutgoingEmergencyCall(Phone sender, EmergencyNumber emergencyNumber);
-
     /** Notify of a change for Outgoing Emergency Sms. */
     void notifyOutgoingEmergencySms(Phone sender, EmergencyNumber emergencyNumber);
 
@@ -113,4 +119,17 @@ public interface PhoneNotifier {
 
     /** Notify barring info has changed */
     void notifyBarringInfoChanged(Phone sender, @NonNull BarringInfo barringInfo);
+
+    /** Notify of change to PhysicalChannelConfig. */
+    void notifyPhysicalChannelConfig(Phone sender, List<PhysicalChannelConfig> configs);
+
+    /** Notify DataEnabled has changed. */
+    void notifyDataEnabled(Phone sender, boolean enabled, @DataEnabledReason int reason);
+
+    /** Notify Allowed Network Type has changed. */
+    void notifyAllowedNetworkTypesChanged(Phone sender, int reason, long allowedNetworkType);
+
+    /** Notify link capacity estimate has changed. */
+    void notifyLinkCapacityEstimateChanged(Phone sender,
+            List<LinkCapacityEstimate> linkCapacityEstimateList);
 }

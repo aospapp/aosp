@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "FontTestUtils.h"
+#include "FreeTypeMinikinFontForTest.h"
 #include "MinikinInternal.h"
 
 namespace minikin {
@@ -56,22 +57,23 @@ void expectVSGlyphs(const FontCollection* fc, uint32_t codepoint, const std::set
     }
 }
 
-TEST(FontCollectionTest, hasVariationSelectorTest) {
-    auto fc = buildFontCollection(kVsTestFont);
-
+void expectVSGlyphsForVsTestFont(const FontCollection* fc) {
     EXPECT_FALSE(fc->hasVariationSelector(0x82A6, 0));
-    expectVSGlyphs(fc.get(), 0x82A6,
-                   std::set<uint32_t>({0xFE00, 0xFE0E, 0xE0100, 0xE0101, 0xE0102}));
+    expectVSGlyphs(fc, 0x82A6, std::set<uint32_t>({0xFE00, 0xFE0E, 0xE0100, 0xE0101, 0xE0102}));
 
     EXPECT_FALSE(fc->hasVariationSelector(0x845B, 0));
-    expectVSGlyphs(fc.get(), 0x845B,
-                   std::set<uint32_t>({0xFE01, 0xFE0E, 0xE0101, 0xE0102, 0xE0103}));
+    expectVSGlyphs(fc, 0x845B, std::set<uint32_t>({0xFE01, 0xFE0E, 0xE0101, 0xE0102, 0xE0103}));
 
     EXPECT_FALSE(fc->hasVariationSelector(0x537F, 0));
-    expectVSGlyphs(fc.get(), 0x537F, std::set<uint32_t>({0xFE0E}));
+    expectVSGlyphs(fc, 0x537F, std::set<uint32_t>({0xFE0E}));
 
     EXPECT_FALSE(fc->hasVariationSelector(0x717D, 0));
-    expectVSGlyphs(fc.get(), 0x717D, std::set<uint32_t>({0xFE02, 0xE0102, 0xE0103}));
+    expectVSGlyphs(fc, 0x717D, std::set<uint32_t>({0xFE02, 0xE0102, 0xE0103}));
+}
+
+TEST(FontCollectionTest, hasVariationSelectorTest) {
+    auto fc = buildFontCollection(kVsTestFont);
+    expectVSGlyphsForVsTestFont(fc.get());
 }
 
 const char kEmojiXmlFile[] = "emoji.xml";
@@ -173,6 +175,146 @@ TEST(FontCollectionTest, createWithVariations) {
 
         EXPECT_EQ(nullptr, noAxisFc->createCollectionWithVariation(variations));
     }
+}
+
+std::vector<uint8_t> writeToBuffer(
+        const std::vector<std::shared_ptr<FontCollection>>& collections) {
+    BufferWriter fakeWriter(nullptr);
+    FontCollection::writeVector<writeFreeTypeMinikinFontForTest>(&fakeWriter, collections);
+    std::vector<uint8_t> buffer(fakeWriter.size());
+    BufferWriter writer(buffer.data());
+    FontCollection::writeVector<writeFreeTypeMinikinFontForTest>(&writer, collections);
+    return buffer;
+}
+
+TEST(FontCollectionTest, bufferTest) {
+    {
+        std::vector<std::shared_ptr<FontCollection>> original({buildFontCollection(kVsTestFont)});
+        std::vector<uint8_t> buffer = writeToBuffer(original);
+        BufferReader reader(buffer.data());
+        auto copied = FontCollection::readVector<readFreeTypeMinikinFontForTest>(&reader);
+        EXPECT_EQ(1u, copied.size());
+        expectVSGlyphsForVsTestFont(copied[0].get());
+        EXPECT_EQ(original[0]->getSupportedTags(), copied[0]->getSupportedTags());
+        // Id will be different.
+        EXPECT_NE(original[0]->getId(), copied[0]->getId());
+        std::vector<uint8_t> newBuffer = writeToBuffer(copied);
+        EXPECT_EQ(buffer, newBuffer);
+    }
+    {
+        // Test that FontFamily instances are shared.
+        std::vector<std::shared_ptr<FontFamily>> families = {buildFontFamily(kVsTestFont)};
+        auto fc1 = std::make_shared<FontCollection>(families);
+        auto fc2 = std::make_shared<FontCollection>(families);
+        std::vector<std::shared_ptr<FontCollection>> original({fc1, fc2});
+        std::vector<uint8_t> buffer = writeToBuffer(original);
+        BufferReader reader(buffer.data());
+        auto copied = FontCollection::readVector<readFreeTypeMinikinFontForTest>(&reader);
+        EXPECT_EQ(2u, copied.size());
+        EXPECT_EQ(copied[0]->mFamilies[0], copied[1]->mFamilies[0]);
+        std::vector<uint8_t> newBuffer = writeToBuffer(copied);
+        EXPECT_EQ(buffer, newBuffer);
+    }
+    {
+        // Test axes.
+        // This font has 'wdth' and 'wght' axes.
+        const char kMultiAxisFont[] = "MultiAxis.ttf";
+        std::vector<std::shared_ptr<FontCollection>> original(
+                {buildFontCollection(kMultiAxisFont)});
+        std::vector<uint8_t> buffer = writeToBuffer(original);
+        BufferReader reader(buffer.data());
+        auto copied = FontCollection::readVector<readFreeTypeMinikinFontForTest>(&reader);
+        EXPECT_EQ(1u, copied.size());
+        EXPECT_EQ(1u,
+                  copied[0]->getSupportedTags().count(MinikinFont::MakeTag('w', 'd', 't', 'h')));
+        EXPECT_EQ(1u,
+                  copied[0]->getSupportedTags().count(MinikinFont::MakeTag('w', 'g', 'h', 't')));
+        std::vector<uint8_t> newBuffer = writeToBuffer(copied);
+        EXPECT_EQ(buffer, newBuffer);
+    }
+}
+
+TEST(FontCollectionTest, FamilyMatchResultBuilderTest) {
+    using Builder = FontCollection::FamilyMatchResult::Builder;
+    EXPECT_TRUE(Builder().empty());
+    EXPECT_EQ(0u, Builder().size());
+    EXPECT_EQ(1u, Builder().add(5).size());
+    EXPECT_EQ(2u, Builder().add(5).add(4).size());
+
+    // Reset
+    EXPECT_TRUE(Builder().add(5).reset().empty());
+    EXPECT_EQ(0u, Builder().add(5).reset().size());
+}
+
+TEST(FontCollectionTest, FamilyMatchResultTest) {
+    using Builder = FontCollection::FamilyMatchResult::Builder;
+
+    auto r = Builder().build();
+    EXPECT_EQ(0u, r.size());
+    EXPECT_TRUE(r.empty());
+
+    r = Builder().add(1).build();
+    EXPECT_EQ(1u, r.size());
+    EXPECT_FALSE(r.empty());
+    EXPECT_EQ(1u, r[0]);
+
+    r = Builder().add(1).add(2).build();
+    EXPECT_EQ(2u, r.size());
+    EXPECT_FALSE(r.empty());
+    EXPECT_EQ(1u, r[0]);
+    EXPECT_EQ(2u, r[1]);
+}
+
+TEST(FontCollectionTest, FamilyMatchResultTest_BuilderHoldeFirst7) {
+    auto b = FontCollection::FamilyMatchResult::Builder();
+    for (uint8_t i = 0; i < 128; ++i) {
+        b.add(i);
+    }
+    auto r = b.build();
+    EXPECT_EQ(7u, r.size());
+    EXPECT_FALSE(r.empty());
+    EXPECT_EQ(0u, r[0]);
+    EXPECT_EQ(1u, r[1]);
+    EXPECT_EQ(2u, r[2]);
+    EXPECT_EQ(3u, r[3]);
+    EXPECT_EQ(4u, r[4]);
+    EXPECT_EQ(5u, r[5]);
+    EXPECT_EQ(6u, r[6]);
+}
+
+TEST(FontCollectionTest, FamilyMatchResultTest_iterator) {
+    auto b = FontCollection::FamilyMatchResult::Builder();
+    for (uint8_t i = 0; i < 7; ++i) {
+        b.add(i);
+    }
+    auto r = b.build();
+    EXPECT_EQ(7u, r.size());
+    EXPECT_FALSE(r.empty());
+    int i = 0;
+    for (auto v : r) {
+        EXPECT_EQ(i, v);
+        i++;
+    }
+}
+
+TEST(FontCollectionTest, FamilyMatchResultTest_intersect) {
+    using Builder = FontCollection::FamilyMatchResult::Builder;
+
+    EXPECT_EQ(Builder().add(1).add(2).add(3).build(),
+              FontCollection::FamilyMatchResult::intersect(Builder().add(1).add(2).add(3).build(),
+                                                           Builder().add(1).add(2).add(3).build()));
+
+    EXPECT_EQ(Builder().build(),
+              FontCollection::FamilyMatchResult::intersect(Builder().add(1).add(2).add(3).build(),
+                                                           Builder().build()));
+
+    EXPECT_EQ(Builder().build(),
+              FontCollection::FamilyMatchResult::intersect(Builder().add(2).add(4).add(6).build(),
+                                                           Builder().add(1).add(3).add(5).build()));
+
+    EXPECT_EQ(Builder().add(1).add(3).build(),
+              FontCollection::FamilyMatchResult::intersect(Builder().add(1).add(2).add(3).build(),
+                                                           Builder().add(1).add(3).add(5).build()));
 }
 
 }  // namespace minikin

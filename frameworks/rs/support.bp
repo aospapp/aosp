@@ -6,6 +6,9 @@ cc_defaults {
             enabled: false,
         },
     },
+    cflags: [
+        "-Wno-deprecated-declarations",
+    ],
 }
 
 // Generate custom headers
@@ -40,11 +43,9 @@ gensrcs {
     ],
 }
 
-cc_library_shared {
-    name: "libRSSupport",
+cc_defaults {
+    name: "libRSSupport_defaults",
     defaults: ["rs_support_defaults"],
-    sdk_version: "9",
-
     srcs: [
         "rsAllocation.cpp",
         "rsApiAllocation.cpp",
@@ -185,10 +186,43 @@ cc_library_shared {
         // Allow implicit fallthrough in rsContext.cpp:414 until it is fixed.
         "-Wno-error=implicit-fallthrough",
     ],
+}
+
+cc_library_shared {
+    name: "libRSSupport",
+    defaults: ["libRSSupport_defaults"],
+    sdk_version: "9",
 
     target: {
         platform: {
             shared_libs: ["libnativewindow"],
         },
+    },
+}
+
+// Note: libnative_bridge_guest libraries don't support "sdk_version" - and we
+// must use libnative_bridge_guest_libnativewindow instead of libnativewindow
+// when we are doing native_bridge build.
+cc_library_shared {
+    name: "libnative_bridge_guest_libRSSupport",
+    stem: "libRSSupport",
+    defaults: ["libRSSupport_defaults"],
+
+    // Import headers not provided by libnative_bridge_guest_libnativewindow.
+    header_libs: [
+        "libarect_headers",
+        "libnativewindow_headers"
+    ],
+
+    shared_libs: [
+        "libnative_bridge_guest_libnativewindow",
+    ],
+
+    enabled: false,
+    native_bridge_supported: true,
+    target: {
+       native_bridge: {
+           enabled: true,
+       }
     },
 }

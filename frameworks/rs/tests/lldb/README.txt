@@ -42,7 +42,7 @@ Running the test suite:
                               [--run-emu]
                               [--adb-path ADB_PATH]
                               [--aosp-product-path AOSP_PRODUCT_PATH]
-                              [--blacklist BLACKLIST [BLACKLIST ...]]
+                              [--blocklist BLOCKLIST [BLOCKLIST ...]]
                               [--device-port DEVICE_PORT]
                               [--emu-cmd EMU_CMD]
                               [--host-port HOST_PORT]
@@ -75,10 +75,10 @@ Running the test suite:
           --adb-path ADB_PATH   Path to android debug bridge on the host.
           --aosp-product-path AOSP_PRODUCT_PATH
                                 The path to the "out" folder of the AOSP repository.
-          --blacklist BLACKLIST [BLACKLIST ...]
-                                Provide a test blacklist for skipping specific tests.
-                                To specify the blacklist from the command line the
-                                following can be used: --blacklist test1.py test2.py
+          --blocklist BLOCKLIST [BLOCKLIST ...]
+                                Provide a test blocklist for skipping specific tests.
+                                To specify the blocklist from the command line the
+                                following can be used: --blocklist test1.py test2.py
                                 ...
           --device-port DEVICE_PORT
                                 Specify the port number that lldb-server (on the

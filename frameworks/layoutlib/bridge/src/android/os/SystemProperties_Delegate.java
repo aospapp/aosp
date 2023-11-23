@@ -16,7 +16,7 @@
 
 package android.os;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
@@ -106,35 +106,35 @@ public class SystemProperties_Delegate {
 
     @LayoutlibDelegate
     /*package*/ static String native_get(long handle) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Layoutlib does not support SystemProperties Handle", null, null, null);
         return null;
     }
 
     @LayoutlibDelegate
     /*package*/ static int native_get_int(long handle, int def) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Layoutlib does not support SystemProperties Handle", null, null, null);
         return def;
     }
 
     @LayoutlibDelegate
     /*package*/ static long native_get_long(long handle, long def) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Layoutlib does not support SystemProperties Handle", null, null, null);
         return def;
     }
 
     @LayoutlibDelegate
     /*package*/ static boolean native_get_boolean(long handle, boolean def) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Layoutlib does not support SystemProperties Handle", null, null, null);
         return def;
     }
 
     @LayoutlibDelegate
     /*package*/ static long native_find(String name) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Layoutlib does not support SystemProperties Handle", null, null, null);
         return 0;
     }

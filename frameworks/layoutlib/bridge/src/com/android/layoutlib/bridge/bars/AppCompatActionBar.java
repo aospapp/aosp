@@ -15,7 +15,7 @@
  */
 package com.android.layoutlib.bridge.bars;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.ResourceReference;
@@ -118,7 +118,7 @@ public class AppCompatActionBar extends BridgeActionBar {
             setupActionBar();
             getContentRoot().setId(id.content);
         } catch (Exception e) {
-            Bridge.getLog().warning(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().warning(ILayoutLog.TAG_BROKEN,
                     "Failed to load AppCompat ActionBar with unknown error.", null, e);
         }
     }
@@ -201,7 +201,7 @@ public class AppCompatActionBar extends BridgeActionBar {
         if (menuIds.size() > 1) {
             // Supporting multiple menus means that we would need to instantiate our own supportlib
             // MenuInflater instances using reflection
-            Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+            Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                     "Support Toolbar does not currently support multiple menus in the preview.",
                     null, null, null);
         }

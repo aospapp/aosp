@@ -21,8 +21,11 @@ import android.util.Log;
 /**
  * Intrinsic Histogram filter.
  *
- *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class ScriptIntrinsicHistogram extends ScriptIntrinsic {
     private Allocation mOut;
     // API level for the intrinsic

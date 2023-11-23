@@ -61,4 +61,25 @@ TEST(LocaleListCacheTest, getById) {
     EXPECT_EQ(japanese, locales2[1]);
 }
 
+TEST(LocaleListCacheTest, buffer) {
+    std::string locales[] = {"en", "jp", "en,zh-Hans"};
+    // Measure
+    BufferWriter fakeWriter(nullptr);
+    for (const std::string& locale : locales) {
+        LocaleListCache::writeTo(&fakeWriter, LocaleListCache::getId(locale));
+    }
+    // Write
+    std::vector<uint8_t> buffer(fakeWriter.size());
+    BufferWriter writer(buffer.data());
+    for (const std::string& locale : locales) {
+        LocaleListCache::writeTo(&writer, LocaleListCache::getId(locale));
+    }
+    // Read
+    BufferReader reader(buffer.data());
+    for (const std::string& locale : locales) {
+        EXPECT_EQ(LocaleListCache::getId(locale), LocaleListCache::readFrom(&reader))
+                << "locale = " << locale;
+    }
+}
+
 }  // namespace minikin

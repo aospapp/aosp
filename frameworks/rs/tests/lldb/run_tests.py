@@ -173,8 +173,8 @@ class State(object):
             # use the default configuration
             config = Config()
 
-        # save the test blacklist
-        self.blacklist = _choice(args.blacklist, config.blacklist)
+        # save the test denylist
+        self.blocklist = _choice(args.blocklist, config.blocklist)
 
         # Allow any of the command line arguments to override the
         # values in the config file.
@@ -722,7 +722,7 @@ def _discover_tests(state):
                 for item in os.listdir(current_test_dir):
                     if (item.startswith('test')
                         and item.endswith('.py')
-                        and not item in state.blacklist):
+                        and not item in state.blocklist):
                         tests.append(item)
     else:
         if single_test.endswith('.py'):

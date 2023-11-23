@@ -110,17 +110,20 @@ void SimpleC2Component::WorkHandler::onMessageReceived(const sp<AMessage> &msg) 
         }
         case kWhatStop: {
             int32_t err = thiz->onStop();
+            thiz->mOutputBlockPool.reset();
             Reply(msg, &err);
             break;
         }
         case kWhatReset: {
             thiz->onReset();
+            thiz->mOutputBlockPool.reset();
             mRunning = false;
             Reply(msg);
             break;
         }
         case kWhatRelease: {
             thiz->onRelease();
+            thiz->mOutputBlockPool.reset();
             mRunning = false;
             Reply(msg);
             break;
@@ -589,18 +592,8 @@ bool SimpleC2Component::processQueue() {
 }
 
 std::shared_ptr<C2Buffer> SimpleC2Component::createLinearBuffer(
-        const std::shared_ptr<C2LinearBlock> &block) {
-    return createLinearBuffer(block, block->offset(), block->size());
-}
-
-std::shared_ptr<C2Buffer> SimpleC2Component::createLinearBuffer(
         const std::shared_ptr<C2LinearBlock> &block, size_t offset, size_t size) {
     return C2Buffer::CreateLinearBuffer(block->share(offset, size, ::C2Fence()));
-}
-
-std::shared_ptr<C2Buffer> SimpleC2Component::createGraphicBuffer(
-        const std::shared_ptr<C2GraphicBlock> &block) {
-    return createGraphicBuffer(block, C2Rect(block->width(), block->height()));
 }
 
 std::shared_ptr<C2Buffer> SimpleC2Component::createGraphicBuffer(

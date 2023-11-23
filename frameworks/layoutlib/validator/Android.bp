@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_host {
     name: "layoutlib-validator",
 
@@ -23,6 +27,7 @@ java_library_host {
     libs: [
         "tools-common-prebuilt",
         "temp_layoutlib",
+        "layoutlib_api-prebuilt",
         "layoutlib-common",
         "guava",
     ],

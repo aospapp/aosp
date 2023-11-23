@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["frameworks_av_media_libmedia_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_libmedia_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_headers {
     name: "libmedia_headers",
     vendor_available: true,
@@ -5,16 +22,40 @@ cc_library_headers {
 
     export_include_dirs: ["include"],
     header_libs: [
+        "av-headers",
         "libbase_headers",
         "libgui_headers",
         "libstagefright_headers",
         "media_plugin_headers",
     ],
     export_header_lib_headers: [
+        "av-headers",
         "libgui_headers",
         "libstagefright_headers",
         "media_plugin_headers",
     ],
+}
+
+cc_library_headers {
+    name: "libmedia_datasource_headers",
+    export_include_dirs: ["include"],
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    header_libs: [
+        "libbinder_headers",
+    ],
+    export_header_lib_headers: [
+        "libbinder_headers",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+    ],
+    min_sdk_version: "29",
 }
 
 filegroup {
@@ -31,28 +72,6 @@ filegroup {
         "aidl/android/IMediaExtractorService.aidl",
     ],
     path: "aidl",
-}
-
-filegroup {
-    name: "resourcemanager_aidl",
-    srcs: [
-        "aidl/android/media/IResourceManagerClient.aidl",
-        "aidl/android/media/IResourceManagerService.aidl",
-        "aidl/android/media/MediaResourceType.aidl",
-        "aidl/android/media/MediaResourceSubType.aidl",
-        "aidl/android/media/MediaResourceParcel.aidl",
-        "aidl/android/media/MediaResourcePolicyParcel.aidl",
-    ],
-    path: "aidl",
-}
-
-aidl_interface {
-    name: "resourcemanager_aidl_interface",
-    unstable: true,
-    local_include_dir: "aidl",
-    srcs: [
-        ":resourcemanager_aidl",
-    ],
 }
 
 cc_library_shared {
@@ -203,7 +222,7 @@ cc_library_static {
     ],
 
     header_libs: [
-        "libmedia_headers",
+        "libmedia_datasource_headers",
         "media_ndk_headers",
     ],
 
@@ -219,6 +238,14 @@ cc_library_static {
             "signed-integer-overflow",
         ],
         cfi: true,
+    },
+
+    host_supported: true,
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
     },
 }
 
@@ -309,15 +336,19 @@ cc_library {
     header_libs: [
         "libstagefright_headers",
         "media_ndk_headers",
+        "jni_headers",
     ],
 
     export_header_lib_headers: [
         "libstagefright_headers",
         "media_ndk_headers",
+        "jni_headers",
     ],
 
     shared_libs: [
         "android.hidl.token@1.0-utils",
+        "audioclient-types-aidl-cpp",
+        "av-types-aidl-cpp",
         "liblog",
         "libcutils",
         "libprocessgroup",
@@ -334,6 +365,7 @@ cc_library {
         "libaudioclient",
         "libmedia_codeclist",
         "libmedia_omx",
+        "framework-permission-aidl-cpp",
     ],
 
     export_shared_lib_headers: [
@@ -342,14 +374,17 @@ cc_library {
         "libandroidicu",
         //"libsonivox",
         "libmedia_omx",
+        "framework-permission-aidl-cpp",
     ],
 
     static_libs: [
         "resourcemanager_aidl_interface-ndk_platform",
+        "framework-permission-aidl-cpp",
     ],
 
     export_static_lib_headers: [
         "resourcemanager_aidl_interface-ndk_platform",
+        "framework-permission-aidl-cpp",
     ],
 
     export_include_dirs: [
@@ -371,4 +406,40 @@ cc_library {
         ],
         cfi: true,
     },
+}
+
+cc_library_static {
+    name: "libmedia_ndkformatpriv",
+
+    host_supported: true,
+
+    srcs: [
+        "NdkMediaFormatPriv.cpp",
+        "NdkMediaErrorPriv.cpp",
+    ],
+
+    header_libs: [
+        "libstagefright_foundation_headers",
+        "libstagefright_headers",
+        "media_ndk_headers",
+    ],
+
+    cflags: [
+        "-DEXPORT=__attribute__((visibility(\"default\")))",
+        "-Werror",
+        "-Wall",
+    ],
+
+    export_include_dirs: ["include"],
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media"
+    ],
 }

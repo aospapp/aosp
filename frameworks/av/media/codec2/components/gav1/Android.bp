@@ -1,4 +1,13 @@
-cc_library_shared {
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
+cc_library {
     name: "libcodec2_soft_av1dec_gav1",
     defaults: [
         "libcodec2_soft-defaults",
@@ -13,8 +22,4 @@ cc_library_shared {
 
     srcs: ["C2SoftGav1Dec.cpp"],
     static_libs: ["libgav1"],
-
-    include_dirs: [
-        "external/libgav1/libgav1/",
-    ],
 }

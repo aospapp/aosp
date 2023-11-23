@@ -41,10 +41,9 @@ using namespace aaudio;   // TODO just import names needed
 
 #define BURSTS_PER_BUFFER_DEFAULT   2
 
-AAudioServiceEndpointPlay::AAudioServiceEndpointPlay(AAudioService &audioService)
-        : mStreamInternalPlay(audioService, true) {
-    mStreamInternal = &mStreamInternalPlay;
-}
+AAudioServiceEndpointPlay::AAudioServiceEndpointPlay(AAudioService& audioService)
+        : AAudioServiceEndpointShared(
+                new AudioStreamInternalPlay(audioService.asAAudioServiceInterface(), true)) {}
 
 aaudio_result_t AAudioServiceEndpointPlay::open(const aaudio::AAudioStreamRequest &request) {
     aaudio_result_t result = AAudioServiceEndpointShared::open(request);
@@ -99,10 +98,11 @@ void *AAudioServiceEndpointPlay::callbackLoop() {
 
                 {
                     // Lock the AudioFifo to protect against close.
-                    std::lock_guard <std::mutex> lock(streamShared->getAudioDataQueueLock());
-
-                    FifoBuffer *fifo = streamShared->getAudioDataFifoBuffer_l();
-                    if (fifo != nullptr) {
+                    std::lock_guard <std::mutex> lock(streamShared->audioDataQueueLock);
+                    std::shared_ptr<SharedRingBuffer> audioDataQueue
+                            = streamShared->getAudioDataQueue_l();
+                    std::shared_ptr<FifoBuffer> fifo;
+                    if (audioDataQueue && (fifo = audioDataQueue->getFifoBuffer())) {
 
                         // Determine offset between framePosition in client's stream
                         // vs the underlying MMAP stream.
@@ -145,7 +145,9 @@ void *AAudioServiceEndpointPlay::callbackLoop() {
         result = getStreamInternal()->write(mMixer.getOutputBuffer(),
                                             getFramesPerBurst(), timeoutNanos);
         if (result == AAUDIO_ERROR_DISCONNECTED) {
-            AAudioServiceEndpointShared::disconnectRegisteredStreams();
+            ALOGD("%s() write() returned AAUDIO_ERROR_DISCONNECTED", __func__);
+            // We do not need the returned vector.
+            (void) AAudioServiceEndpointShared::disconnectRegisteredStreams();
             break;
         } else if (result != getFramesPerBurst()) {
             ALOGW("callbackLoop() wrote %d / %d",

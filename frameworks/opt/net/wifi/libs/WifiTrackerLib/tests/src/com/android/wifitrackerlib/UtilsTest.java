@@ -16,8 +16,7 @@
 
 package com.android.wifitrackerlib;
 
-import static com.android.wifitrackerlib.StandardWifiEntry.ssidAndSecurityToStandardWifiEntryKey;
-import static com.android.wifitrackerlib.StandardWifiEntry.wifiConfigToStandardWifiEntryKey;
+import static com.android.wifitrackerlib.StandardWifiEntry.StandardWifiEntryKey;
 import static com.android.wifitrackerlib.TestUtils.buildScanResult;
 import static com.android.wifitrackerlib.Utils.getAutoConnectDescription;
 import static com.android.wifitrackerlib.Utils.getBestScanResultByLevel;
@@ -25,17 +24,19 @@ import static com.android.wifitrackerlib.Utils.getCarrierNameForSubId;
 import static com.android.wifitrackerlib.Utils.getImsiProtectionDescription;
 import static com.android.wifitrackerlib.Utils.getMeteredDescription;
 import static com.android.wifitrackerlib.Utils.getNetworkSelectionDescription;
+import static com.android.wifitrackerlib.Utils.getSecurityTypesFromScanResult;
+import static com.android.wifitrackerlib.Utils.getSecurityTypesFromWifiConfiguration;
 import static com.android.wifitrackerlib.Utils.getSubIdForConfig;
 import static com.android.wifitrackerlib.Utils.isImsiPrivacyProtectionProvided;
 import static com.android.wifitrackerlib.Utils.isSimPresent;
 import static com.android.wifitrackerlib.Utils.linkifyAnnotation;
-import static com.android.wifitrackerlib.Utils.mapScanResultsToKey;
-import static com.android.wifitrackerlib.WifiEntry.SECURITY_NONE;
-import static com.android.wifitrackerlib.WifiEntry.SECURITY_PSK;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -76,8 +77,8 @@ import org.robolectric.annotation.Config;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @Config(shadows = {ShadowSystem.class})
 public class UtilsTest {
@@ -145,57 +146,12 @@ public class UtilsTest {
     }
 
     @Test
-    public void testMapScanResultsToKey_filtersUnsupportedCapabilities() {
-        final ScanResult wpa3SaeScan = new ScanResult();
-        final ScanResult wpa3SuiteBScan = new ScanResult();
-        final ScanResult oweScan = new ScanResult();
-        wpa3SaeScan.SSID = "wpa3Sae";
-        wpa3SaeScan.capabilities = "[SAE]";
-        wpa3SuiteBScan.SSID = "wpa3SuiteB";
-        wpa3SuiteBScan.capabilities = "[EAP_SUITE_B_192]";
-        oweScan.SSID = "owe";
-        oweScan.capabilities = "[OWE]";
-
-        final Map<String, List<ScanResult>> scanResultsByKey = mapScanResultsToKey(
-                Arrays.asList(wpa3SaeScan, wpa3SuiteBScan, oweScan),
-                false /* chooseSingleSecurity */,
-                null /* wifiConfigsByKey */,
-                false /* isWpa3SaeSupported */,
-                false /* isWpa3SuiteBSupported */,
-                false /* isEnhancedOpenSupported */);
-
-        assertThat(scanResultsByKey).isEmpty();
-    }
-
-    @Test
-    public void testMapScanResultsToKey_convertsTransitionModeScansToSupportedSecurity() {
-        final ScanResult wpa3TransitionScan = new ScanResult();
-        final ScanResult oweTransitionScan = new ScanResult();
-        wpa3TransitionScan.SSID = "wpa3Transition";
-        wpa3TransitionScan.capabilities = "[PSK+SAE]";
-        oweTransitionScan.SSID = "owe";
-        oweTransitionScan.capabilities = "[OWE_TRANSITION]";
-
-        final Map<String, List<ScanResult>> scanResultsByKey = mapScanResultsToKey(
-                Arrays.asList(wpa3TransitionScan, oweTransitionScan),
-                false /* chooseSingleSecurity */,
-                null /* wifiConfigsByKey */,
-                false /* isWpa3SaeSupported */,
-                false /* isWpa3SuiteBSupported */,
-                false /* isEnhancedOpenSupported */);
-
-        assertThat(scanResultsByKey.keySet()).containsExactly(
-                ssidAndSecurityToStandardWifiEntryKey(wpa3TransitionScan.SSID, SECURITY_PSK),
-                ssidAndSecurityToStandardWifiEntryKey(oweTransitionScan.SSID, SECURITY_NONE));
-    }
-
-    @Test
     public void testGetAutoConnectDescription_autoJoinEnabled_returnEmptyString() {
         final WifiConfiguration config = new WifiConfiguration();
         config.SSID = "\"ssid\"";
         config.allowAutojoin = true;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.auto_connect_disable))
+        when(mMockResources.getString(R.string.wifitrackerlib_auto_connect_disable))
                 .thenReturn(LABEL_AUTO_CONNECTION_DISABLED);
 
         final String autoConnectDescription = getAutoConnectDescription(mMockContext, entry);
@@ -209,7 +165,7 @@ public class UtilsTest {
         config.SSID = "\"ssid\"";
         config.allowAutojoin = false;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.auto_connect_disable))
+        when(mMockResources.getString(R.string.wifitrackerlib_auto_connect_disable))
                 .thenReturn(LABEL_AUTO_CONNECTION_DISABLED);
 
         final String autoConnectDescription = getAutoConnectDescription(mMockContext, entry);
@@ -236,7 +192,8 @@ public class UtilsTest {
         config.SSID = "\"ssid\"";
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_METERED;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifi_metered_label)).thenReturn(LABEL_METERED);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_metered_label))
+                .thenReturn(LABEL_METERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
 
@@ -251,7 +208,8 @@ public class UtilsTest {
         config.meteredHint = true;
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_NONE;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifi_metered_label)).thenReturn(LABEL_METERED);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_metered_label))
+                .thenReturn(LABEL_METERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
 
@@ -265,7 +223,8 @@ public class UtilsTest {
         config.meteredHint = true;
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_METERED;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifi_metered_label)).thenReturn(LABEL_METERED);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_metered_label))
+                .thenReturn(LABEL_METERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
 
@@ -279,7 +238,8 @@ public class UtilsTest {
         config.meteredHint = true;
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_NOT_METERED;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifi_unmetered_label)).thenReturn(LABEL_UNMETERED);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_unmetered_label))
+                .thenReturn(LABEL_UNMETERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
 
@@ -415,6 +375,24 @@ public class UtilsTest {
     }
 
     @Test
+    public void testLinkifyAnnotation_annotationWithEmptyUriString_returnOriginalText() {
+        final String annotationId = "url";
+        final CharSequence testText = "test text ";
+        final CharSequence testLink = "Learn More";
+        final CharSequence expectedText = "test text Learn More";
+        final SpannableStringBuilder builder = new SpannableStringBuilder(testText);
+        builder.append(testLink, new Annotation("key", annotationId),
+                Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+
+        final CharSequence output = linkifyAnnotation(mMockContext, builder, annotationId, "");
+
+        final SpannableString outputSpannableString = new SpannableString(output);
+        assertEquals(output.toString(), expectedText.toString());
+        assertEquals(outputSpannableString.getSpans(0, outputSpannableString.length(),
+                ClickableSpan.class).length, 0);
+    }
+
+    @Test
     public void testGetNetworkSelectionDescription_disabledWrongPassword_showsWrongPasswordLabel() {
         String expected = " (NETWORK_SELECTION_TEMPORARY_DISABLED 1:02:03) "
                 + "NETWORK_SELECTION_DISABLED_BY_WRONG_PASSWORD=2";
@@ -434,11 +412,90 @@ public class UtilsTest {
         assertThat(getNetworkSelectionDescription(wifiConfig)).isEqualTo(expected);
     }
 
+    @Test
+    public void testGetSecurityTypeFromWifiConfiguration_returnsCorrectSecurityTypes() {
+        for (int securityType = WifiInfo.SECURITY_TYPE_OPEN;
+                securityType <= WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE; securityType++) {
+            WifiConfiguration config = new WifiConfiguration();
+            config.setSecurityParams(securityType);
+            if (securityType == WifiInfo.SECURITY_TYPE_WEP) {
+                config.wepKeys = new String[]{"key"};
+            }
+            if (securityType == WifiInfo.SECURITY_TYPE_EAP) {
+                assertThat(getSecurityTypesFromWifiConfiguration(config))
+                        .containsExactly(
+                                WifiInfo.SECURITY_TYPE_EAP,
+                                WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
+            } else {
+                assertThat(getSecurityTypesFromWifiConfiguration(config))
+                        .containsExactly(securityType);
+            }
+        }
+    }
+
+    @Test
+    public void testGetSecurityTypesFromScanResult_returnsCorrectSecurityTypes() {
+        ScanResult scanResult = new ScanResult();
+
+        scanResult.capabilities = "";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_OPEN);
+
+        scanResult.capabilities = "OWE";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_OWE);
+
+        scanResult.capabilities = "OWE_TRANSITION";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_OPEN, WifiInfo.SECURITY_TYPE_OWE);
+
+        scanResult.capabilities = "WEP";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_WEP);
+
+        scanResult.capabilities = "PSK";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_PSK);
+
+        scanResult.capabilities = "SAE";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_SAE);
+
+        scanResult.capabilities = "[PSK][SAE]";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_PSK, WifiInfo.SECURITY_TYPE_SAE);
+
+        scanResult.capabilities = "[EAP/SHA1]";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_EAP);
+
+        scanResult.capabilities = "[RSN-EAP/SHA1+EAP/SHA256][MFPC]";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_EAP, WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
+
+        scanResult.capabilities = "[RSN-EAP/SHA256][MFPC][MFPR]";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
+
+        scanResult.capabilities = "[RSN-SUITE_B_192][MFPR]";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT);
+
+        scanResult.capabilities = "WAPI-PSK";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_WAPI_PSK);
+
+        scanResult.capabilities = "WAPI-CERT";
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_WAPI_CERT);
+    }
+
+
     private StandardWifiEntry getStandardWifiEntry(WifiConfiguration config) {
         final WifiManager mockWifiManager = mock(WifiManager.class);
         final StandardWifiEntry entry = new StandardWifiEntry(mMockContext, mTestHandler,
-                wifiConfigToStandardWifiEntryKey(config), config,
-                mockWifiManager, mMockScoreCache, false /* forSavedNetworksPage */);
+                new StandardWifiEntryKey(config), Collections.singletonList(config),
+                null, mockWifiManager, mMockScoreCache, false /* forSavedNetworksPage */);
         final WifiInfo mockWifiInfo = mock(WifiInfo.class);
         final NetworkInfo mockNetworkInfo = mock(NetworkInfo.class);
 

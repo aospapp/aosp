@@ -19,7 +19,6 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.app.RemoteInput;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -31,7 +30,6 @@ import java.lang.annotation.RetentionPolicy;
  * Information about how the user has interacted with a given notification.
  * @hide
  */
-@TestApi
 @SystemApi
 public final class NotificationStats implements Parcelable {
 
@@ -73,6 +71,11 @@ public final class NotificationStats implements Parcelable {
      * Notification has been dismissed from the notification shade.
      */
     public static final int DISMISSAL_SHADE = 3;
+    /**
+     * Notification has been dismissed as a bubble.
+     * @hide
+     */
+    public static final int DISMISSAL_BUBBLE = 3;
 
     /** @hide */
     @IntDef(prefix = { "DISMISS_SENTIMENT_" }, value = {

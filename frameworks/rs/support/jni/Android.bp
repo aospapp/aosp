@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libRSSupportIO",
     defaults: ["rs_support_defaults"],
@@ -23,6 +27,8 @@ cc_library_shared {
         "-DRS_COMPATIBILITY_LIB",
     ],
 
+    header_libs: ["jni_headers"],
+
     shared_libs: [
         "libandroid",
         "libdl",
@@ -42,6 +48,9 @@ cc_library_shared {
     sdk_version: "9",
 
     srcs: ["android_renderscript_RenderScript.cpp"],
+
+    header_libs: ["jni_headers"],
+    export_header_lib_headers: ["jni_headers"],
 
     shared_libs: [
         "libdl",

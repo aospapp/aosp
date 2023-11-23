@@ -40,7 +40,12 @@ import java.util.Map;
  * Grouping kernels together allows for more efficient execution. For example,
  * runtime and compiler optimization can be applied to reduce computation and
  * communication overhead, and to make better use of the CPU and the GPU.
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public final class ScriptGroup extends BaseObj {
     //FIXME: Change 23 to the codename when that is decided.
     private static final int MIN_API_VERSION = 23;

@@ -82,11 +82,11 @@ class Config(object):
         return 'lldb'
 
     @property
-    def blacklist(self):
-        '''Provide a test blacklist for skipping specific tests.
+    def blocklist(self):
+        '''Provide a test blocklist for skipping specific tests.
 
-        To specify the blacklist from the command line the following can be
-        used: --blacklist test1.py test2.py ...'''
+        To specify the blocklist from the command line the following can be
+        used: --blocklist test1.py test2.py ...'''
         return []
 
     @property

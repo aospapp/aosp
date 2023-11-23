@@ -1,7 +1,7 @@
 {
   "presubmit": [
     {
-      "name": "TeleServiceTests",
+      "name": "ImsCommonTests",
       "options": [
         {
           "exclude-annotation": "androidx.test.filters.FlakyTest"

@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "minikin/Buffer.h"
+#include "minikin/Font.h"
 #include "minikin/MinikinFont.h"
 
 #include <ft2build.h>
@@ -43,8 +45,7 @@ public:
     void GetFontExtent(MinikinExtent* extent, const MinikinPaint& paint,
                        const FontFakery& fakery) const override;
 
-    const std::string& fontPath() const { return mFontPath; }
-
+    const std::string& GetFontPath() const override { return mFontPath; }
     const void* GetFontData() const { return mFontData; }
     size_t GetFontSize() const { return mFontSize; }
     int GetFontIndex() const { return mFontIndex; }
@@ -62,6 +63,10 @@ private:
 
     MINIKIN_PREVENT_COPY_AND_ASSIGN(FreeTypeMinikinFontForTest);
 };
+
+void writeFreeTypeMinikinFontForTest(BufferWriter* writer, const MinikinFont* typeface);
+
+Font::TypefaceLoader* readFreeTypeMinikinFontForTest(BufferReader* reader);
 
 }  // namespace minikin
 

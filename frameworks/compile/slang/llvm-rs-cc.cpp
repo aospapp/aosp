@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "clang/Basic/AllDiagnostics.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
@@ -223,6 +224,14 @@ extern "C" const char *__asan_default_options() {
     return "detect_leaks=0";
 }
 
+static void emitDeprecationWarning(clang::DiagnosticsEngine *DiagEngine) {
+  DiagEngine->Report(clang::diag::warn_deprecated_message)
+      << "Renderscript"
+      << "Please refer to the migration guide "
+         "(https://developer.android.com/guide/topics/renderscript/migration-guide) "
+         "for the proposed alternatives.";
+}
+
 int main(int argc, const char **argv) {
   llvm::llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
   LLVMInitializeARMTargetInfo();
@@ -263,6 +272,7 @@ int main(int argc, const char **argv) {
   (void)DiagEngine.setSeverityForGroup(clang::diag::Flavor::WarningOrError,
                                        "implicit-function-declaration",
                                        clang::diag::Severity::Error);
+  emitDeprecationWarning(&DiagEngine);
 
   // Report error if no input file
   if (Inputs.empty()) {

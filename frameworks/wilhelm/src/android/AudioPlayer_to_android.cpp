@@ -49,9 +49,10 @@ template class android::KeyedVector<SLuint32,
 
 //-----------------------------------------------------------------------------
 // Inline functions to communicate with AudioService through the native AudioManager interface
-inline void audioManagerPlayerEvent(CAudioPlayer* ap, android::player_state_t event) {
+inline void audioManagerPlayerEvent(CAudioPlayer* ap, android::player_state_t event,
+        audio_port_handle_t deviceId) {
     if (ap->mObject.mEngine->mAudioManager != 0) {
-        ap->mObject.mEngine->mAudioManager->playerEvent(ap->mPIId, event);
+        ap->mObject.mEngine->mAudioManager->playerEvent(ap->mPIId, event, deviceId);
     }
 }
 
@@ -878,7 +879,7 @@ static void sfplayer_handlePrefetchEvent(int event, int data1, int data2, void* 
         if ((ap->mTrackPlayer->mAudioTrack != 0) && (!ap->mSeek.mLoopEnabled)) {
             ap->mTrackPlayer->mAudioTrack->stop();
         }
-        ap->mTrackPlayer->reportEvent(android::PLAYER_STATE_STOPPED);
+        ap->mTrackPlayer->reportEvent(android::PLAYER_STATE_STOPPED, AUDIO_PORT_HANDLE_NONE);
         }
         break;
 
@@ -1514,15 +1515,15 @@ static void checkAndSetPerformanceModePre(CAudioPlayer *pAudioPlayer)
     // no need to check the buffer queue size, application side
     // double-buffering (and more) is not a requirement for using fast tracks
 
-    // Check a blacklist of interfaces that are incompatible with fast tracks.
-    // The alternative, to check a whitelist of compatible interfaces, is
+    // Check a denylist of interfaces that are incompatible with fast tracks.
+    // The alternative, to check a allowlist of compatible interfaces, is
     // more maintainable but is too slow.  As a compromise, in a debug build
     // we use both methods and warn if they produce different results.
-    // In release builds, we only use the blacklist method.
-    // If a blacklisted interface is added after realization using
+    // In release builds, we only use the denylist method.
+    // If a denylisted interface is added after realization using
     // DynamicInterfaceManagement::AddInterface,
     // then this won't be detected but the interface will be ineffective.
-    static const unsigned blacklist[] = {
+    static const unsigned denylist[] = {
         MPH_BASSBOOST,
         MPH_EFFECTSEND,
         MPH_ENVIRONMENTALREVERB,
@@ -1532,10 +1533,10 @@ static void checkAndSetPerformanceModePre(CAudioPlayer *pAudioPlayer)
         MPH_VIRTUALIZER,
         MPH_ANDROIDEFFECT,
         MPH_ANDROIDEFFECTSEND,
-        // FIXME The problem with a blacklist is remembering to add new interfaces here
+        // FIXME The problem with a denylist is remembering to add new interfaces here
     };
-    for (unsigned i = 0; i < sizeof(blacklist)/sizeof(blacklist[0]); ++i) {
-        if (IsInterfaceInitialized(&pAudioPlayer->mObject, blacklist[i])) {
+    for (unsigned i = 0; i < sizeof(denylist)/sizeof(denylist[0]); ++i) {
+        if (IsInterfaceInitialized(&pAudioPlayer->mObject, denylist[i])) {
             //TODO: query effect for EFFECT_FLAG_HW_ACC_xx flag to refine mode
             allowedModes &=
                     ~(ANDROID_PERFORMANCE_MODE_LATENCY|ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS);
@@ -1543,11 +1544,11 @@ static void checkAndSetPerformanceModePre(CAudioPlayer *pAudioPlayer)
         }
     }
 #if LOG_NDEBUG == 0
-    bool blacklistResult = (
+    bool denylistResult = (
             (allowedModes &
                 (ANDROID_PERFORMANCE_MODE_LATENCY|ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS)) != 0);
-    bool whitelistResult = true;
-    static const unsigned whitelist[] = {
+    bool allowlistResult = true;
+    static const unsigned allowlist[] = {
         MPH_BUFFERQUEUE,
         MPH_DYNAMICINTERFACEMANAGEMENT,
         MPH_METADATAEXTRACTION,
@@ -1561,19 +1562,19 @@ static void checkAndSetPerformanceModePre(CAudioPlayer *pAudioPlayer)
         MPH_ANDROIDBUFFERQUEUESOURCE,
     };
     for (unsigned mph = MPH_MIN; mph < MPH_MAX; ++mph) {
-        for (unsigned i = 0; i < sizeof(whitelist)/sizeof(whitelist[0]); ++i) {
-            if (mph == whitelist[i]) {
+        for (unsigned i = 0; i < sizeof(allowlist)/sizeof(allowlist[0]); ++i) {
+            if (mph == allowlist[i]) {
                 goto compatible;
             }
         }
         if (IsInterfaceInitialized(&pAudioPlayer->mObject, mph)) {
-            whitelistResult = false;
+            allowlistResult = false;
             break;
         }
 compatible: ;
     }
-    if (whitelistResult != blacklistResult) {
-        SL_LOGW("whitelistResult != blacklistResult");
+    if (allowlistResult != denylistResult) {
+        SL_LOGW("allowlistResult != denylistResult");
     }
 #endif
     if (pAudioPlayer->mPerformanceMode == ANDROID_PERFORMANCE_MODE_LATENCY) {
@@ -1711,7 +1712,7 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
         }
 
         pAudioPlayer->mTrackPlayer->init(pat, android::PLAYER_TYPE_SLES_AUDIOPLAYER_BUFFERQUEUE,
-                usageForStreamType(pAudioPlayer->mStreamType));
+                usageForStreamType(pAudioPlayer->mStreamType), pAudioPlayer->mSessionId);
 
         // update performance mode according to actual flags granted to AudioTrack
         checkAndSetPerformanceModePost(pAudioPlayer);
@@ -1812,7 +1813,7 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
             pAudioPlayer->mPIId = pAudioPlayer->mObject.mEngine->mAudioManager->trackPlayer(
                     android::PLAYER_TYPE_SLES_AUDIOPLAYER_URI_FD,
                     usageForStreamType(pAudioPlayer->mStreamType), AUDIO_CONTENT_TYPE_UNKNOWN,
-                    pAudioPlayer->mTrackPlayer);
+                    pAudioPlayer->mTrackPlayer, pAudioPlayer->mSessionId);
         }
         }
         break;
@@ -2232,6 +2233,11 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
 
     SLuint32 playState = ap->mPlay.mState;
 
+    audio_port_handle_t deviceId = AUDIO_PORT_HANDLE_NONE;
+    if (ap->mTrackPlayer != 0 && ap->mTrackPlayer->mAudioTrack != 0) {
+        deviceId = ap->mTrackPlayer->mAudioTrack->getRoutedDeviceId();
+    }
+
     switch (ap->mAndroidObjType) {
     case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:
         switch (playState) {
@@ -2249,7 +2255,7 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
                 // instead of ap->mTrackPlayer->mAudioTrack->start();
                 if (!ap->mDeferredStart) {
                     // state change
-                    ap->mTrackPlayer->reportEvent(android::PLAYER_STATE_STARTED);
+                    ap->mTrackPlayer->reportEvent(android::PLAYER_STATE_STARTED, deviceId);
                 }
                 ap->mDeferredStart = true;
             }
@@ -2264,14 +2270,14 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
         switch (playState) {
         case SL_PLAYSTATE_STOPPED:
             aplayer_setPlayState(ap->mAPlayer, playState, &ap->mAndroidObjState);
-            audioManagerPlayerEvent(ap, android::PLAYER_STATE_STOPPED);
+            audioManagerPlayerEvent(ap, android::PLAYER_STATE_STOPPED, AUDIO_PORT_HANDLE_NONE);
             break;
         case SL_PLAYSTATE_PAUSED:
             aplayer_setPlayState(ap->mAPlayer, playState, &ap->mAndroidObjState);
-            audioManagerPlayerEvent(ap, android::PLAYER_STATE_PAUSED);
+            audioManagerPlayerEvent(ap, android::PLAYER_STATE_PAUSED, AUDIO_PORT_HANDLE_NONE);
             break;
         case SL_PLAYSTATE_PLAYING:
-            audioManagerPlayerEvent(ap, android::PLAYER_STATE_STARTED);
+            audioManagerPlayerEvent(ap, android::PLAYER_STATE_STARTED, deviceId);
             aplayer_setPlayState(ap->mAPlayer, playState, &ap->mAndroidObjState);
             break;
         }
@@ -2481,7 +2487,8 @@ void android_audioPlayer_bufferQueue_onRefilled_l(CAudioPlayer *ap) {
     // queue was stopped when the queue become empty, we restart as soon as a new buffer
     // has been enqueued since we're in playing state
     if (ap->mTrackPlayer->mAudioTrack != 0) {
-        ap->mTrackPlayer->reportEvent(android::PLAYER_STATE_STARTED);
+        ap->mTrackPlayer->reportEvent(android::PLAYER_STATE_STARTED,
+                            ap->mTrackPlayer->mAudioTrack->getRoutedDeviceId());
         // instead of ap->mTrackPlayer->mAudioTrack->start();
         ap->mDeferredStart = true;
     }

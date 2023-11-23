@@ -258,7 +258,11 @@ struct Swapchain {
     bool shared;
 
     struct Image {
-        Image() : image(VK_NULL_HANDLE), dequeue_fence(-1), dequeued(false) {}
+        Image()
+            : image(VK_NULL_HANDLE),
+              dequeue_fence(-1),
+              release_fence(-1),
+              dequeued(false) {}
         VkImage image;
         android::sp<ANativeWindowBuffer> buffer;
         // The fence is only valid when the buffer is dequeued, and should be
@@ -266,6 +270,10 @@ struct Swapchain {
         // closed: either by closing it explicitly when queueing the buffer,
         // or by passing ownership e.g. to ANativeWindow::cancelBuffer().
         int dequeue_fence;
+        // This fence is a dup of the sync fd returned from the driver via
+        // vkQueueSignalReleaseImageANDROID upon vkQueuePresentKHR. We must
+        // ensure it is closed upon re-presenting or releasing the image.
+        int release_fence;
         bool dequeued;
     } images[android::BufferQueueDefs::NUM_BUFFER_SLOTS];
 
@@ -280,10 +288,19 @@ Swapchain* SwapchainFromHandle(VkSwapchainKHR handle) {
     return reinterpret_cast<Swapchain*>(handle);
 }
 
+static bool IsFencePending(int fd) {
+    if (fd < 0)
+        return false;
+
+    errno = 0;
+    return sync_wait(fd, 0 /* timeout */) == -1 && errno == ETIME;
+}
+
 void ReleaseSwapchainImage(VkDevice device,
                            ANativeWindow* window,
                            int release_fence,
-                           Swapchain::Image& image) {
+                           Swapchain::Image& image,
+                           bool defer_if_pending) {
     ATRACE_CALL();
 
     ALOG_ASSERT(release_fence == -1 || image.dequeued,
@@ -319,8 +336,16 @@ void ReleaseSwapchainImage(VkDevice device,
                 close(release_fence);
             }
         }
-
+        release_fence = -1;
         image.dequeued = false;
+    }
+
+    if (defer_if_pending && IsFencePending(image.release_fence))
+        return;
+
+    if (image.release_fence >= 0) {
+        close(image.release_fence);
+        image.release_fence = -1;
     }
 
     if (image.image) {
@@ -338,7 +363,8 @@ void OrphanSwapchain(VkDevice device, Swapchain* swapchain) {
         return;
     for (uint32_t i = 0; i < swapchain->num_images; i++) {
         if (!swapchain->images[i].dequeued)
-            ReleaseSwapchainImage(device, nullptr, -1, swapchain->images[i]);
+            ReleaseSwapchainImage(device, nullptr, -1, swapchain->images[i],
+                                  true);
     }
     swapchain->surface.swapchain_handle = VK_NULL_HANDLE;
     swapchain->timing.clear();
@@ -511,6 +537,30 @@ android_dataspace GetNativeDataspace(VkColorSpaceKHR colorspace) {
     }
 }
 
+int get_min_buffer_count(ANativeWindow* window,
+                         uint32_t* out_min_buffer_count) {
+    constexpr int kExtraBuffers = 2;
+
+    int err;
+    int min_undequeued_buffers;
+    err = window->query(window, NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS,
+                        &min_undequeued_buffers);
+    if (err != android::OK || min_undequeued_buffers < 0) {
+        ALOGE(
+            "NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS query failed: %s (%d) "
+            "value=%d",
+            strerror(-err), err, min_undequeued_buffers);
+        if (err == android::OK) {
+            err = android::UNKNOWN_ERROR;
+        }
+        return err;
+    }
+
+    *out_min_buffer_count =
+        static_cast<uint32_t>(min_undequeued_buffers + kExtraBuffers);
+    return android::OK;
+}
+
 }  // anonymous namespace
 
 VKAPI_ATTR
@@ -580,44 +630,9 @@ void DestroySurfaceKHR(VkInstance instance,
 VKAPI_ATTR
 VkResult GetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice /*pdev*/,
                                             uint32_t /*queue_family*/,
-                                            VkSurfaceKHR surface_handle,
+                                            VkSurfaceKHR /*surface_handle*/,
                                             VkBool32* supported) {
-    ATRACE_CALL();
-
-    const Surface* surface = SurfaceFromHandle(surface_handle);
-    if (!surface) {
-        return VK_ERROR_SURFACE_LOST_KHR;
-    }
-    const ANativeWindow* window = surface->window.get();
-
-    int query_value;
-    int err = window->query(window, NATIVE_WINDOW_FORMAT, &query_value);
-    if (err != android::OK || query_value < 0) {
-        ALOGE("NATIVE_WINDOW_FORMAT query failed: %s (%d) value=%d",
-              strerror(-err), err, query_value);
-        return VK_ERROR_SURFACE_LOST_KHR;
-    }
-
-    android_pixel_format native_format =
-        static_cast<android_pixel_format>(query_value);
-
-    bool format_supported = false;
-    switch (native_format) {
-        case HAL_PIXEL_FORMAT_RGBA_8888:
-        case HAL_PIXEL_FORMAT_RGB_565:
-        case HAL_PIXEL_FORMAT_RGBA_FP16:
-        case HAL_PIXEL_FORMAT_RGBA_1010102:
-            format_supported = true;
-            break;
-        default:
-            break;
-    }
-
-    *supported = static_cast<VkBool32>(
-        format_supported || (surface->consumer_usage &
-                             (AHARDWAREBUFFER_USAGE_CPU_READ_MASK |
-                              AHARDWAREBUFFER_USAGE_CPU_WRITE_MASK)) == 0);
-
+    *supported = VK_TRUE;
     return VK_SUCCESS;
 }
 
@@ -857,15 +872,13 @@ VkResult GetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice pdev,
 
     int err;
     int query_value;
+    uint32_t min_buffer_count;
     ANativeWindow* window = SurfaceFromHandle(surface)->window.get();
 
-    err = window->query(window, NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS, &query_value);
-    if (err != android::OK || query_value < 0) {
-        ALOGE("NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS query failed: %s (%d) value=%d",
-              strerror(-err), err, query_value);
+    err = get_min_buffer_count(window, &min_buffer_count);
+    if (err != android::OK) {
         return VK_ERROR_SURFACE_LOST_KHR;
     }
-    uint32_t min_undequeued_buffers = static_cast<uint32_t>(query_value);
 
     err = window->query(window, NATIVE_WINDOW_MAX_BUFFER_COUNT, &query_value);
     if (err != android::OK || query_value < 0) {
@@ -876,16 +889,15 @@ VkResult GetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice pdev,
     uint32_t max_buffer_count = static_cast<uint32_t>(query_value);
 
     std::vector<VkPresentModeKHR> present_modes;
-    if (min_undequeued_buffers + 1 < max_buffer_count)
+    if (min_buffer_count < max_buffer_count)
         present_modes.push_back(VK_PRESENT_MODE_MAILBOX_KHR);
     present_modes.push_back(VK_PRESENT_MODE_FIFO_KHR);
 
     VkPhysicalDevicePresentationPropertiesANDROID present_properties;
-    if (QueryPresentationProperties(pdev, &present_properties)) {
-        if (present_properties.sharedImage) {
-            present_modes.push_back(VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR);
-            present_modes.push_back(VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR);
-        }
+    QueryPresentationProperties(pdev, &present_properties);
+    if (present_properties.sharedImage) {
+        present_modes.push_back(VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR);
+        present_modes.push_back(VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR);
     }
 
     uint32_t num_modes = uint32_t(present_modes.size());
@@ -970,7 +982,6 @@ VkResult GetPhysicalDevicePresentRectanglesKHR(VkPhysicalDevice,
                   strerror(-err), err);
         }
 
-        // TODO(b/143294545): Return something better than "whole window"
         pRects[0].offset.x = 0;
         pRects[0].offset.y = 0;
         pRects[0].extent = VkExtent2D{static_cast<uint32_t>(width),
@@ -998,7 +1009,7 @@ static void DestroySwapchainInternal(VkDevice device,
     }
 
     for (uint32_t i = 0; i < swapchain->num_images; i++) {
-        ReleaseSwapchainImage(device, window, -1, swapchain->images[i]);
+        ReleaseSwapchainImage(device, window, -1, swapchain->images[i], false);
     }
 
     if (active) {
@@ -1097,16 +1108,10 @@ VkResult CreateSwapchainKHR(VkDevice device,
     ALOGW_IF(err != android::OK, "native_window_api_connect failed: %s (%d)",
              strerror(-err), err);
 
-    err = window->perform(window, NATIVE_WINDOW_SET_DEQUEUE_TIMEOUT, -1);
+    err =
+        window->perform(window, NATIVE_WINDOW_SET_DEQUEUE_TIMEOUT, nsecs_t{-1});
     if (err != android::OK) {
         ALOGE("window->perform(SET_DEQUEUE_TIMEOUT) failed: %s (%d)",
-              strerror(-err), err);
-        return VK_ERROR_SURFACE_LOST_KHR;
-    }
-
-    err = native_window_set_buffer_count(window, 0);
-    if (err != android::OK) {
-        ALOGE("native_window_set_buffer_count(0) failed: %s (%d)",
               strerror(-err), err);
         return VK_ERROR_SURFACE_LOST_KHR;
     }
@@ -1205,19 +1210,14 @@ VkResult CreateSwapchainKHR(VkDevice device,
         }
     }
 
-    int query_value;
-    err = window->query(window, NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS,
-                        &query_value);
-    if (err != android::OK || query_value < 0) {
-        ALOGE("window->query failed: %s (%d) value=%d", strerror(-err), err,
-              query_value);
+    uint32_t min_buffer_count;
+    err = get_min_buffer_count(window, &min_buffer_count);
+    if (err != android::OK) {
         return VK_ERROR_SURFACE_LOST_KHR;
     }
-    uint32_t min_undequeued_buffers = static_cast<uint32_t>(query_value);
+
     uint32_t num_images =
-        (swap_interval ? create_info->minImageCount
-                       : std::max(3u, create_info->minImageCount)) -
-        1 + min_undequeued_buffers;
+        std::max(min_buffer_count, create_info->minImageCount);
 
     // Lower layer insists that we have at least two buffers. This is wasteful
     // and we'd like to relax it in the shared case, but not all the pieces are
@@ -1630,6 +1630,9 @@ VkResult QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* present_info) {
             ALOGE("QueueSignalReleaseImageANDROID failed: %d", result);
             swapchain_result = result;
         }
+        if (img.release_fence >= 0)
+            close(img.release_fence);
+        img.release_fence = fence < 0 ? -1 : dup(fence);
 
         if (swapchain.surface.swapchain_handle ==
             present_info->pSwapchains[sc]) {
@@ -1715,7 +1718,7 @@ VkResult QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* present_info) {
                 if (err != android::OK) {
                     ALOGE("queueBuffer failed: %s (%d)", strerror(-err), err);
                     swapchain_result = WorstPresentResult(
-                        swapchain_result, VK_ERROR_OUT_OF_DATE_KHR);
+                        swapchain_result, VK_ERROR_SURFACE_LOST_KHR);
                 } else {
                     if (img.dequeue_fence >= 0) {
                         close(img.dequeue_fence);
@@ -1763,7 +1766,7 @@ VkResult QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* present_info) {
                     WorstPresentResult(swapchain_result, VK_SUBOPTIMAL_KHR);
             }
         } else {
-            ReleaseSwapchainImage(device, nullptr, fence, img);
+            ReleaseSwapchainImage(device, nullptr, fence, img, true);
             swapchain_result = VK_ERROR_OUT_OF_DATE_KHR;
         }
 

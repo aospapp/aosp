@@ -15,11 +15,57 @@
  */
 
 #include <media/AudioDeviceTypeAddr.h>
+#include <arpa/inet.h>
+#include <iostream>
+#include <regex>
+#include <set>
+#include <sstream>
+
+#include <media/AidlConversion.h>
 
 namespace android {
 
+namespace {
+
+static const std::string SUPPRESSED = "SUPPRESSED";
+static const std::regex MAC_ADDRESS_REGEX("([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}");
+
+bool isSenstiveAddress(const std::string &address) {
+    if (std::regex_match(address, MAC_ADDRESS_REGEX)) {
+        return true;
+    }
+
+    sockaddr_storage ss4;
+    if (inet_pton(AF_INET, address.c_str(), &ss4) > 0) {
+        return true;
+    }
+
+    sockaddr_storage ss6;
+    if (inet_pton(AF_INET6, address.c_str(), &ss6) > 0) {
+        return true;
+    }
+
+    return false;
+}
+
+} // namespace
+
+AudioDeviceTypeAddr::AudioDeviceTypeAddr(audio_devices_t type, const std::string &address) :
+        mType(type), mAddress(address) {
+    mIsAddressSensitive = isSenstiveAddress(mAddress);
+}
+
 const char* AudioDeviceTypeAddr::getAddress() const {
     return mAddress.c_str();
+}
+
+const std::string& AudioDeviceTypeAddr::address() const {
+    return mAddress;
+}
+
+void AudioDeviceTypeAddr::setAddress(const std::string& address) {
+    mAddress = address;
+    mIsAddressSensitive = isSenstiveAddress(mAddress);
 }
 
 bool AudioDeviceTypeAddr::equals(const AudioDeviceTypeAddr& other) const {
@@ -36,14 +82,34 @@ bool AudioDeviceTypeAddr::operator<(const AudioDeviceTypeAddr& other) const {
     return false;
 }
 
+bool AudioDeviceTypeAddr::operator==(const AudioDeviceTypeAddr &rhs) const {
+    return equals(rhs);
+}
+
+bool AudioDeviceTypeAddr::operator!=(const AudioDeviceTypeAddr &rhs) const {
+    return !operator==(rhs);
+}
+
 void AudioDeviceTypeAddr::reset() {
     mType = AUDIO_DEVICE_NONE;
-    mAddress = "";
+    setAddress("");
+}
+
+std::string AudioDeviceTypeAddr::toString(bool includeSensitiveInfo) const {
+    std::stringstream sstream;
+    sstream << "type:0x" << std::hex << mType;
+    // IP and MAC address are sensitive information. The sensitive information will be suppressed
+    // is `includeSensitiveInfo` is false.
+    sstream << ",@:"
+            << (!includeSensitiveInfo && mIsAddressSensitive ? SUPPRESSED : mAddress);
+    return sstream.str();
 }
 
 status_t AudioDeviceTypeAddr::readFromParcel(const Parcel *parcel) {
     status_t status;
-    if ((status = parcel->readUint32(&mType)) != NO_ERROR) return status;
+    uint32_t rawDeviceType;
+    if ((status = parcel->readUint32(&rawDeviceType)) != NO_ERROR) return status;
+    mType = static_cast<audio_devices_t>(rawDeviceType);
     status = parcel->readUtf8FromUtf16(&mAddress);
     return status;
 }
@@ -64,4 +130,44 @@ DeviceTypeSet getAudioDeviceTypes(const AudioDeviceTypeAddrVector& deviceTypeAdd
     return deviceTypes;
 }
 
+AudioDeviceTypeAddrVector excludeDeviceTypeAddrsFrom(
+        const AudioDeviceTypeAddrVector& devices,
+        const AudioDeviceTypeAddrVector& devicesToExclude) {
+    std::set<AudioDeviceTypeAddr> devicesToExcludeSet(
+            devicesToExclude.begin(), devicesToExclude.end());
+    AudioDeviceTypeAddrVector remainedDevices;
+    for (const auto& device : devices) {
+        if (devicesToExcludeSet.count(device) == 0) {
+            remainedDevices.push_back(device);
+        }
+    }
+    return remainedDevices;
 }
+
+std::string dumpAudioDeviceTypeAddrVector(const AudioDeviceTypeAddrVector& deviceTypeAddrs,
+                                          bool includeSensitiveInfo) {
+    std::stringstream stream;
+    for (auto it = deviceTypeAddrs.begin(); it != deviceTypeAddrs.end(); ++it) {
+        if (it != deviceTypeAddrs.begin()) {
+            stream << " ";
+        }
+        stream << it->toString(includeSensitiveInfo);
+    }
+    return stream.str();
+}
+
+ConversionResult<AudioDeviceTypeAddr>
+aidl2legacy_AudioDeviceTypeAddress(const media::AudioDevice& aidl) {
+    audio_devices_t type = VALUE_OR_RETURN(aidl2legacy_int32_t_audio_devices_t(aidl.type));
+    return AudioDeviceTypeAddr(type, aidl.address);
+}
+
+ConversionResult<media::AudioDevice>
+legacy2aidl_AudioDeviceTypeAddress(const AudioDeviceTypeAddr& legacy) {
+    media::AudioDevice aidl;
+    aidl.type = VALUE_OR_RETURN(legacy2aidl_audio_devices_t_int32_t(legacy.mType));
+    aidl.address = legacy.getAddress();
+    return aidl;
+}
+
+} // namespace android

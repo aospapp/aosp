@@ -18,9 +18,6 @@ package libcore.icu;
 
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 
-import android.icu.text.DateTimePatternGenerator;
-import android.icu.util.ULocale;
-
 import java.util.Locale;
 
 /**
@@ -34,19 +31,8 @@ public class ICU_Delegate {
     // --- Native methods accessing ICU's database.
 
     @LayoutlibDelegate
-    /*package*/ static String getBestDateTimePatternNative(String skeleton, String localeName) {
-        return DateTimePatternGenerator.getInstance(new ULocale(localeName))
-                .getBestPattern(skeleton);
-    }
-
-    @LayoutlibDelegate
     /*package*/ static String[] getAvailableLocalesNative() {
         return new String[0];
-    }
-
-    @LayoutlibDelegate
-    /*package*/ static String getCurrencyCode(String locale) {
-        return "";
     }
 
     @LayoutlibDelegate
@@ -75,78 +61,22 @@ public class ICU_Delegate {
     }
 
     @LayoutlibDelegate
-    /*package*/ static boolean initLocaleDataNative(String locale, LocaleData result) {
-
-        // Used by Calendar.
-        result.firstDayOfWeek = 1;
-        result.minimalDaysInFirstWeek = 1;
-
-        // Used by DateFormatSymbols.
-        result.amPm = new String[] { "AM", "PM" };
-        result.eras = new String[] { "BC", "AD" };
-
-        result.longMonthNames = new String[] { "January", "February", "March", "April", "May",
-                "June", "July", "August", "September", "October", "November", "December" };
-        result.shortMonthNames = new String[] { "Jan", "Feb", "Mar", "Apr", "May",
-                "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-        result.longStandAloneMonthNames = result.longMonthNames;
-        result.shortStandAloneMonthNames = result.shortMonthNames;
-
-        // The platform code expects this to begin at index 1, rather than 0. It maps it directly to
-        // the constants from java.util.Calendar.<weekday>
-        result.longWeekdayNames = new String[] {
-                "", "Sunday", "Monday" ,"Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-        result.shortWeekdayNames = new String[] {
-                "", "Sun", "Mon" ,"Tue", "Wed", "Thu", "Fri", "Sat" };
-        result.tinyWeekdayNames = new String[] {
-                "", "S", "M", "T", "W", "T", "F", "S" };
-
-        result.longStandAloneWeekdayNames = result.longWeekdayNames;
-        result.shortStandAloneWeekdayNames = result.shortWeekdayNames;
-        result.tinyStandAloneWeekdayNames = result.tinyWeekdayNames;
-
-        result.fullTimeFormat = "";
-        result.longTimeFormat = "";
-        result.mediumTimeFormat = "";
-        result.shortTimeFormat = "";
-
-        result.fullDateFormat = "";
-        result.longDateFormat = "";
-        result.mediumDateFormat = "";
-        result.shortDateFormat = "";
-
-        // Used by DecimalFormatSymbols.
-        result.zeroDigit = '0';
-        result.decimalSeparator = '.';
-        result.groupingSeparator = ',';
-        result.patternSeparator = ' ';
-        result.percent = "%";
-        result.perMill = "\u2030";
-        result.monetarySeparator = ' ';
-        result.minusSign = "-";
-        result.exponentSeparator = "e";
-        result.infinity = "\u221E";
-        result.NaN = "NaN";
-        // Also used by Currency.
-        result.currencySymbol = "$";
-        result.internationalCurrencySymbol = "USD";
-
-        // Used by DecimalFormat and NumberFormat.
-        result.numberPattern = "%f";
-        result.integerPattern = "%d";
-        result.currencyPattern = "%s";
-        result.percentPattern = "%f";
-
-        return true;
-    }
-
-    @LayoutlibDelegate
-    /*package*/ static void setDefaultLocale(String locale) {
-        ICU.setDefaultLocale(locale);
-    }
-
-    @LayoutlibDelegate
     /*package*/ static String getDefaultLocale() {
-        return ICU.getDefaultLocale();
+        return Locale.getDefault().toString();
+    }
+
+    @LayoutlibDelegate
+    /*package*/ static String getCldrVersion() {
+        return "";
+    }
+
+    @LayoutlibDelegate
+    /*package*/ static String getIcuVersion() {
+        return "";
+    }
+
+    @LayoutlibDelegate
+    /*package*/ static String getUnicodeVersion() {
+        return "";
     }
 }

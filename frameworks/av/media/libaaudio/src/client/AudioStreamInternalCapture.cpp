@@ -14,20 +14,27 @@
  * limitations under the License.
  */
 
-#define LOG_TAG (mInService ? "AudioStreamInternalCapture_Service" \
-                          : "AudioStreamInternalCapture_Client")
 //#define LOG_NDEBUG 0
 #include <utils/Log.h>
 
 #include <algorithm>
-#include <audio_utils/primitives.h>
+#include <audio_utils/format.h>
 #include <aaudio/AAudio.h>
+#include <media/MediaMetricsItem.h>
 
 #include "client/AudioStreamInternalCapture.h"
 #include "utility/AudioClock.h"
 
 #define ATRACE_TAG ATRACE_TAG_AUDIO
 #include <utils/Trace.h>
+
+// We do this after the #includes because if a header uses ALOG.
+// it would fail on the reference to mInService.
+#undef LOG_TAG
+// This file is used in both client and server processes.
+// This is needed to make sense of the logs more easily.
+#define LOG_TAG (mInService ? "AudioStreamInternalCapture_Service" \
+                          : "AudioStreamInternalCapture_Client")
 
 using android::WrappingBuffer;
 
@@ -41,9 +48,9 @@ AudioStreamInternalCapture::AudioStreamInternalCapture(AAudioServiceInterface  &
 
 AudioStreamInternalCapture::~AudioStreamInternalCapture() {}
 
-void AudioStreamInternalCapture::advanceClientToMatchServerPosition() {
+void AudioStreamInternalCapture::advanceClientToMatchServerPosition(int32_t serverMargin) {
     int64_t readCounter = mAudioEndpoint->getDataReadCounter();
-    int64_t writeCounter = mAudioEndpoint->getDataWriteCounter();
+    int64_t writeCounter = mAudioEndpoint->getDataWriteCounter() + serverMargin;
 
     // Bump offset so caller does not see the retrograde motion in getFramesRead().
     int64_t offset = readCounter - writeCounter;
@@ -143,7 +150,7 @@ aaudio_result_t AudioStreamInternalCapture::processDataNow(void *buffer, int32_t
                 // Calculate frame position based off of the readCounter because
                 // the writeCounter might have just advanced in the background,
                 // causing us to sleep until a later burst.
-                int64_t nextPosition = mAudioEndpoint->getDataReadCounter() + mFramesPerBurst;
+                int64_t nextPosition = mAudioEndpoint->getDataReadCounter() + getFramesPerBurst();
                 wakeTime = mClockModel.convertPositionToLatestTime(nextPosition);
             }
                 break;
@@ -183,26 +190,10 @@ aaudio_result_t AudioStreamInternalCapture::readNowWithConversion(void *buffer,
 
         const audio_format_t sourceFormat = getDeviceFormat();
         const audio_format_t destinationFormat = getFormat();
-        // TODO factor this out into a utility function
-        if (sourceFormat == destinationFormat) {
-            memcpy(destination, wrappingBuffer.data[partIndex], numBytes);
-        } else if (sourceFormat == AUDIO_FORMAT_PCM_16_BIT
-                   && destinationFormat == AUDIO_FORMAT_PCM_FLOAT) {
-            memcpy_to_float_from_i16(
-                    (float *) destination,
-                    (const int16_t *) wrappingBuffer.data[partIndex],
-                    numSamples);
-        } else if (sourceFormat == AUDIO_FORMAT_PCM_FLOAT
-                   && destinationFormat == AUDIO_FORMAT_PCM_16_BIT) {
-            memcpy_to_i16_from_float(
-                    (int16_t *) destination,
-                    (const float *) wrappingBuffer.data[partIndex],
-                    numSamples);
-        } else {
-            ALOGE("%s() - Format conversion not supported! audio_format_t source = %u, dest = %u",
-                __func__, sourceFormat, destinationFormat);
-            return AAUDIO_ERROR_INVALID_FORMAT;
-        }
+
+        memcpy_by_audio_format(destination, destinationFormat,
+                wrappingBuffer.data[partIndex], sourceFormat, numSamples);
+
         destination += numBytes;
         framesLeft -= framesToProcess;
     }
@@ -262,7 +253,7 @@ void *AudioStreamInternalCapture::callbackLoop() {
 
         if (callbackResult == AAUDIO_CALLBACK_RESULT_STOP) {
             ALOGD("%s(): callback returned AAUDIO_CALLBACK_RESULT_STOP", __func__);
-            result = systemStopFromCallback();
+            result = systemStopInternal();
             break;
         }
     }

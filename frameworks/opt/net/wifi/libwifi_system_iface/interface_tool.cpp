@@ -16,9 +16,13 @@
 
 #include "wifi_system/interface_tool.h"
 
+#include <net/if.h>
 #include <net/if_arp.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+
+#include <linux/if_bridge.h>
+#include <string.h>
 
 #include <linux/ethtool.h>
 /* We need linux/if.h for flags like IFF_UP.  Sadly, it forward declares
@@ -27,6 +31,8 @@
 
 #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
+
+#define IFNAMSIZ    16
 
 namespace android {
 namespace wifi_system {
@@ -169,5 +175,70 @@ std::array<uint8_t, ETH_ALEN> InterfaceTool::GetFactoryMacAddress(const char* if
   return paddr;
 }
 
+bool InterfaceTool::createBridge(const std::string& br_name) {
+    base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+
+    if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCBRADDBR, br_name.c_str())) != 0) {
+        LOG(ERROR) << "Could not add bridge " << br_name.c_str()
+                   << " (" << strerror(errno) << ")";
+        return false;
+    }
+
+    return true;
+}
+
+bool InterfaceTool::deleteBridge(const std::string& br_name) {
+    base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+
+    if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCBRDELBR, br_name.c_str())) != 0) {
+        LOG(ERROR) << "Could not remove bridge " << br_name.c_str()
+                   << " (" << strerror(errno) << ")";
+        return false;
+    }
+    return true;
+}
+
+bool InterfaceTool::addIfaceToBridge(const std::string& br_name, const std::string& if_name) {
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+
+    ifr.ifr_ifindex = if_nametoindex(if_name.c_str());
+    if (ifr.ifr_ifindex == 0) {
+        LOG(ERROR) << "Interface is not exist: " << if_name.c_str();
+        return false;
+    }
+    strlcpy(ifr.ifr_name, br_name.c_str(), IFNAMSIZ);
+
+    base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+    if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCBRADDIF, &ifr)) != 0) {
+        LOG(ERROR) << "Could not add interface " << if_name.c_str()
+                   << " into bridge " << ifr.ifr_name
+                   << " (" << strerror(errno) << ")";
+        return false;
+    }
+    return true;
+}
+
+bool InterfaceTool::removeIfaceFromBridge(const std::string& br_name, const std::string& if_name) {
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+
+    ifr.ifr_ifindex = if_nametoindex(if_name.c_str());
+    if (ifr.ifr_ifindex == 0) {
+        LOG(ERROR) << "Interface is not exist: " << if_name.c_str();
+        return false;
+    }
+    strlcpy(ifr.ifr_name, br_name.c_str(), IFNAMSIZ);
+
+    base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+    if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCBRDELIF, &ifr)) != 0) {
+        LOG(ERROR) << "Could not remove interface " << if_name.c_str()
+                   << " from bridge " << ifr.ifr_name
+                   << " (" << strerror(errno) << ")";
+        return false;
+    }
+
+    return true;
+}
 }  // namespace wifi_system
 }  // namespace android

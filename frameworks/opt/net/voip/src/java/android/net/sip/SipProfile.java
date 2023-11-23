@@ -45,6 +45,8 @@ import javax.sip.address.URI;
  * <a href="{@docRoot}guide/topics/network/sip.html">Session Initiation Protocol</a>
  * developer guide.</p>
  * </div>
+ * @deprecated {@link android.net.sip.SipManager} and associated classes are no longer supported and
+ * should not be used as the basis of future VOIP apps.
  */
 public class SipProfile implements Parcelable, Serializable, Cloneable {
     private static final long serialVersionUID = 1L;

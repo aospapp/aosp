@@ -16,7 +16,7 @@
 
 package android.graphics.fonts;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
@@ -83,7 +83,7 @@ public class Font_Builder_Delegate {
 
     @LayoutlibDelegate
     /*package*/ static void nAddAxis(long builderPtr, int tag, float value) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Font$Builder.nAddAxis is not supported.", null, null, null);
     }
 

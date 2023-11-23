@@ -42,6 +42,7 @@ void expect_message(int32_t action) {
 void show_help() {
     std::cout << "Stats HAL client\n";
     std::cout << " arguments:\n";
+    std::cout << " -h or --help - shows help information\n";
     std::cout << " -S or --SpeakerImpedance\n";
     std::cout << " -f or --HardwareFailed\n";
     std::cout << " -p or --PhysicalDropDetected\n";
@@ -74,12 +75,17 @@ int main(int argc, char* argv[]) {
         {"UsbPortOverheatEvent", no_argument, 0, 'u'},
         {"SpeechDspStat", no_argument, 0, 'd'},
         {"VendorAtom", no_argument, 0, 'v'},
+        {"help", no_argument, 0, 'h'},
     };
 
     int c;
     int hal_calls = 0;
-    while ((c = getopt_long(argc, argv, "Sfpynisudv", opts, nullptr)) != -1) {
+    while ((c = getopt_long(argc, argv, "hSfpynisudv", opts, nullptr)) != -1) {
         switch (c) {
+            case 'h': {
+                show_help();
+                break;
+            }
             case 'S': {
                 SpeakerImpedance left_obj = {.speakerLocation = 0,
                                              .milliOhms = static_cast<int32_t>(1234 * 1000)};
@@ -180,12 +186,14 @@ int main(int argc, char* argv[]) {
                 ++hal_calls;
                 break;
             }
+            default: {
+                show_help();
+                return 1;
+            }
         }
     }
 
-    if (hal_calls == 0) {
-        show_help();
-    } else {
+    if (hal_calls > 0) {
         std::cout << hal_calls << " HAL methods called.\n";
         std::cout << "try: logcat | grep \"statsd.*0x1000\"\n";
     }

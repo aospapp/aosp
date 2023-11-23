@@ -613,6 +613,35 @@ android_dataspace ColorUtils::getDataSpaceForColorAspects(ColorAspects &aspects,
 }
 
 // static
+void ColorUtils::getColorConfigFromDataSpace(
+        const android_dataspace &dataspace, int32_t *range, int32_t *standard, int32_t *transfer) {
+    uint32_t gfxRange =
+        (dataspace & HAL_DATASPACE_RANGE_MASK) >> HAL_DATASPACE_RANGE_SHIFT;
+    uint32_t gfxStandard =
+        (dataspace & HAL_DATASPACE_STANDARD_MASK) >> HAL_DATASPACE_STANDARD_SHIFT;
+    uint32_t gfxTransfer =
+        (dataspace & HAL_DATASPACE_TRANSFER_MASK) >> HAL_DATASPACE_TRANSFER_SHIFT;
+
+    // assume 1-to-1 mapping to HAL values (to deal with potential vendor extensions)
+    CU::ColorRange    cuRange    = CU::kColorRangeUnspecified;
+    CU::ColorStandard cuStandard = CU::kColorStandardUnspecified;
+    CU::ColorTransfer cuTransfer = CU::kColorTransferUnspecified;
+    // TRICKY: use & to ensure all three mappings are completed
+    if (!(sGfxRanges.map(gfxRange, &cuRange) & sGfxStandards.map(gfxStandard, &cuStandard)
+            & sGfxTransfers.map(gfxTransfer, &cuTransfer))) {
+        ALOGW("could not safely map graphics dataspace (R:%u S:%u T:%u) to "
+              "platform color aspects (R:%u(%s) S:%u(%s) T:%u(%s)",
+              gfxRange, gfxStandard, gfxTransfer,
+              cuRange,    asString(cuRange),
+              cuStandard, asString(cuStandard),
+              cuTransfer, asString(cuTransfer));
+    }
+    *range    = cuRange;
+    *standard = cuStandard;
+    *transfer = cuTransfer;
+}
+
+// static
 void ColorUtils::getColorConfigFromFormat(
         const sp<AMessage> &format, int32_t *range, int32_t *standard, int32_t *transfer) {
     if (!format->findInt32("color-range", range)) {
@@ -693,13 +722,6 @@ void ColorUtils::setColorAspectsIntoFormat(
             transfer, asString((ColorTransfer)transfer));
 }
 
-
-// static
-void ColorUtils::setHDRStaticInfoIntoAMediaFormat(
-        const HDRStaticInfo &info, AMediaFormat *format) {
-    setHDRStaticInfoIntoFormat(info, format->mFormat);
-}
-
 // static
 void ColorUtils::setHDRStaticInfoIntoFormat(
         const HDRStaticInfo &info, sp<AMessage> &format) {
@@ -707,48 +729,7 @@ void ColorUtils::setHDRStaticInfoIntoFormat(
 
     // Convert the data in infoBuffer to little endian format as defined by CTA-861-3
     uint8_t *data = infoBuffer->data();
-    // Static_Metadata_Descriptor_ID
-    data[0] = info.mID;
-
-    // display primary 0
-    data[1] = LO_UINT16(info.sType1.mR.x);
-    data[2] = HI_UINT16(info.sType1.mR.x);
-    data[3] = LO_UINT16(info.sType1.mR.y);
-    data[4] = HI_UINT16(info.sType1.mR.y);
-
-    // display primary 1
-    data[5] = LO_UINT16(info.sType1.mG.x);
-    data[6] = HI_UINT16(info.sType1.mG.x);
-    data[7] = LO_UINT16(info.sType1.mG.y);
-    data[8] = HI_UINT16(info.sType1.mG.y);
-
-    // display primary 2
-    data[9] = LO_UINT16(info.sType1.mB.x);
-    data[10] = HI_UINT16(info.sType1.mB.x);
-    data[11] = LO_UINT16(info.sType1.mB.y);
-    data[12] = HI_UINT16(info.sType1.mB.y);
-
-    // white point
-    data[13] = LO_UINT16(info.sType1.mW.x);
-    data[14] = HI_UINT16(info.sType1.mW.x);
-    data[15] = LO_UINT16(info.sType1.mW.y);
-    data[16] = HI_UINT16(info.sType1.mW.y);
-
-    // MaxDisplayLuminance
-    data[17] = LO_UINT16(info.sType1.mMaxDisplayLuminance);
-    data[18] = HI_UINT16(info.sType1.mMaxDisplayLuminance);
-
-    // MinDisplayLuminance
-    data[19] = LO_UINT16(info.sType1.mMinDisplayLuminance);
-    data[20] = HI_UINT16(info.sType1.mMinDisplayLuminance);
-
-    // MaxContentLightLevel
-    data[21] = LO_UINT16(info.sType1.mMaxContentLightLevel);
-    data[22] = HI_UINT16(info.sType1.mMaxContentLightLevel);
-
-    // MaxFrameAverageLightLevel
-    data[23] = LO_UINT16(info.sType1.mMaxFrameAverageLightLevel);
-    data[24] = HI_UINT16(info.sType1.mMaxFrameAverageLightLevel);
+    fillHdrStaticInfoBuffer(info, data);
 
     format->setBuffer("hdr-static-info", infoBuffer);
 }

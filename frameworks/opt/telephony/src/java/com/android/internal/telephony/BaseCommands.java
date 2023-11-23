@@ -20,6 +20,7 @@ package com.android.internal.telephony;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.AsyncResult;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
@@ -27,6 +28,8 @@ import android.os.RegistrantList;
 import android.telephony.Annotation.RadioPowerState;
 import android.telephony.TelephonyManager;
 import android.telephony.emergency.EmergencyNumber;
+
+import com.android.internal.telephony.uicc.SimPhonebookRecord;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +54,7 @@ public abstract class BaseCommands implements CommandsInterface {
     protected RegistrantList mCallStateRegistrants = new RegistrantList();
     protected RegistrantList mNetworkStateRegistrants = new RegistrantList();
     protected RegistrantList mDataCallListChangedRegistrants = new RegistrantList();
+    protected RegistrantList mApnUnthrottledRegistrants = new RegistrantList();
     @UnsupportedAppUsage
     protected RegistrantList mVoiceRadioTechChangedRegistrants = new RegistrantList();
     @UnsupportedAppUsage
@@ -107,6 +111,8 @@ public abstract class BaseCommands implements CommandsInterface {
     protected RegistrantList mEmergencyNumberListRegistrants = new RegistrantList();
     protected RegistrantList mUiccApplicationsEnablementRegistrants = new RegistrantList();
     protected RegistrantList mBarringInfoChangedRegistrants = new RegistrantList();
+    protected RegistrantList mSimPhonebookChangedRegistrants = new RegistrantList();
+    protected RegistrantList mSimPhonebookRecordsReceivedRegistrants = new RegistrantList();
 
     @UnsupportedAppUsage
     protected Registrant mGsmSmsRegistrant;
@@ -156,8 +162,8 @@ public abstract class BaseCommands implements CommandsInterface {
     // Preferred network type received from PhoneFactory.
     // This is used when establishing a connection to the
     // vendor ril so it starts up in the correct mode.
-    @UnsupportedAppUsage
-    protected int mPreferredNetworkType;
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
+    protected int mAllowedNetworkTypesBitmask;
     // CDMA subscription received from PhoneFactory
     protected int mCdmaSubscription;
     // Type of Phone, GSM or CDMA. Set by GsmCdmaPhone.
@@ -300,6 +306,16 @@ public abstract class BaseCommands implements CommandsInterface {
     @Override
     public void unregisterForDataCallListChanged(Handler h) {
         mDataCallListChangedRegistrants.remove(h);
+    }
+
+    @Override
+    public void registerForApnUnthrottled(Handler h, int what, Object obj) {
+        mApnUnthrottledRegistrants.addUnique(h, what, obj);
+    }
+
+    @Override
+    public void unregisterForApnUnthrottled(Handler h) {
+        mApnUnthrottledRegistrants.remove(h);
     }
 
     @Override
@@ -895,14 +911,6 @@ public abstract class BaseCommands implements CommandsInterface {
      * {@inheritDoc}
      */
     @Override
-    public int getLteOnCdmaMode() {
-        return TelephonyManager.getLteOnCdmaModeStatic();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public void registerForCellInfoList(Handler h, int what, Object obj) {
         mRilCellInfoListRegistrants.addUnique(h, what, obj);
     }
@@ -1080,5 +1088,37 @@ public abstract class BaseCommands implements CommandsInterface {
     @Override
     public void unregisterForBarringInfoChanged(Handler h) {
         mBarringInfoChangedRegistrants.remove(h);
+    }
+
+    @Override
+    public void registerForSimPhonebookChanged(Handler h, int what, Object obj) {
+        mSimPhonebookChangedRegistrants.addUnique(h, what, obj);
+    }
+
+    @Override
+    public void unregisterForSimPhonebookChanged(Handler h) {
+        mSimPhonebookChangedRegistrants.remove(h);
+    }
+
+    @Override
+    public void registerForSimPhonebookRecordsReceived(Handler h, int what, Object obj) {
+        mSimPhonebookRecordsReceivedRegistrants.addUnique(h, what, obj);
+    }
+
+    @Override
+    public void unregisterForSimPhonebookRecordsReceived(Handler h) {
+        mSimPhonebookRecordsReceivedRegistrants.remove(h);
+    }
+
+    @Override
+    public void getSimPhonebookRecords(Message result) {
+    }
+
+    @Override
+    public void getSimPhonebookCapacity(Message result) {
+    }
+
+    @Override
+    public void updateSimPhonebookRecord(SimPhonebookRecord phonebookRecord, Message result) {
     }
 }

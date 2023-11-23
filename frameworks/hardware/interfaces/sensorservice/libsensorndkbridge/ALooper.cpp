@@ -23,12 +23,14 @@
 #include <android-base/logging.h>
 
 using android::Mutex;
+using android::sp;
+using android::wp;
 
 ALooper::ALooper()
     : mAwoken(false) {
 }
 
-void ALooper::signalSensorEvents(ASensorEventQueue *queue) {
+void ALooper::signalSensorEvents(wp<ASensorEventQueue> queue) {
     Mutex::Autolock autoLock(mLock);
     mReadyQueues.insert(queue);
     mCondition.signal();
@@ -71,8 +73,11 @@ int ALooper::pollOnce(
     if (!mReadyQueues.empty()) {
         result = ALOOPER_POLL_CALLBACK;
 
-        for (auto queue : mReadyQueues) {
-            queue->dispatchCallback();
+        for (auto& queue : mReadyQueues) {
+            sp<ASensorEventQueue> promotedQueue = queue.promote();
+            if (promotedQueue != nullptr) {
+                promotedQueue->dispatchCallback();
+            }
         }
 
         mReadyQueues.clear();
@@ -86,8 +91,7 @@ int ALooper::pollOnce(
     return result;
 }
 
-void ALooper::invalidateSensorQueue(ASensorEventQueue *queue) {
+void ALooper::invalidateSensorQueue(wp<ASensorEventQueue> queue) {
     Mutex::Autolock autoLock(mLock);
     mReadyQueues.erase(queue);
 }
-

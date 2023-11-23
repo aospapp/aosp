@@ -16,7 +16,7 @@
 
 package android.view.shadow;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 
 /**
@@ -43,11 +43,11 @@ class AmbientShadowTriangulator {
             mCalculator.generateVertex();
             mValid = true;
         } catch (IndexOutOfBoundsException|ArithmeticException mathError) {
-            Bridge.getLog().warning(LayoutLog.TAG_INFO,  "Arithmetic error while drawing " +
+            Bridge.getLog().warning(ILayoutLog.TAG_INFO,  "Arithmetic error while drawing " +
                             "ambient shadow",
                     null, mathError);
         } catch (Exception ex) {
-            Bridge.getLog().warning(LayoutLog.TAG_INFO,  "Error while drawing shadow",
+            Bridge.getLog().warning(ILayoutLog.TAG_INFO,  "Error while drawing shadow",
                     null, ex);
         }
     }

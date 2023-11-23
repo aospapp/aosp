@@ -21,6 +21,11 @@ import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSIO
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_UNKNOWN;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__DIRECTION__CALL_DIRECTION_MO;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__DIRECTION__CALL_DIRECTION_MT;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_FULLBAND;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_SUPER_WIDEBAND;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_UNKNOWN;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_WIDEBAND;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_EXTREMELY_FAST;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_EXTREMELY_SLOW;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_FAST;
@@ -31,19 +36,25 @@ import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSIO
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_UNKNOWN;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_VERY_FAST;
 import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_VERY_SLOW;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SIGNAL_STRENGTH_AT_END__SIGNAL_STRENGTH_GREAT;
+import static com.android.internal.telephony.TelephonyStatsLog.VOICE_CALL_SESSION__SIGNAL_STRENGTH_AT_END__SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
 
 import android.annotation.Nullable;
+import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.SystemClock;
+import android.telecom.VideoProfile;
+import android.telecom.VideoProfile.VideoState;
 import android.telephony.Annotation.NetworkType;
 import android.telephony.DisconnectCause;
 import android.telephony.ServiceState;
-import android.telephony.SubscriptionInfo;
 import android.telephony.TelephonyManager;
 import android.telephony.ims.ImsReasonInfo;
 import android.telephony.ims.ImsStreamMediaProfile;
+import android.util.LongSparseArray;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
-import android.util.SparseLongArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Call;
@@ -58,10 +69,10 @@ import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 import com.android.internal.telephony.nano.PersistAtomsProto.VoiceCallSession;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyCallSession.Event.AudioCodec;
 import com.android.internal.telephony.uicc.UiccController;
-import com.android.internal.telephony.uicc.UiccSlot;
 import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -71,23 +82,36 @@ import java.util.stream.Collectors;
 public class VoiceCallSessionStats {
     private static final String TAG = VoiceCallSessionStats.class.getSimpleName();
 
-    /** Bitmask value of unknown audio codecs. */
-    private static final long AUDIO_CODEC_UNKNOWN = 1L << AudioCodec.AUDIO_CODEC_UNKNOWN;
+    /** Upper bounds of each call setup duration category in milliseconds. */
+    private static final int CALL_SETUP_DURATION_UNKNOWN = 0;
+    private static final int CALL_SETUP_DURATION_EXTREMELY_FAST = 400;
+    private static final int CALL_SETUP_DURATION_ULTRA_FAST = 700;
+    private static final int CALL_SETUP_DURATION_VERY_FAST = 1000;
+    private static final int CALL_SETUP_DURATION_FAST = 1500;
+    private static final int CALL_SETUP_DURATION_NORMAL = 2500;
+    private static final int CALL_SETUP_DURATION_SLOW = 4000;
+    private static final int CALL_SETUP_DURATION_VERY_SLOW = 6000;
+    private static final int CALL_SETUP_DURATION_ULTRA_SLOW = 10000;
+    // CALL_SETUP_DURATION_EXTREMELY_SLOW has no upper bound (it includes everything above 10000)
+
+    /** Number of buckets for codec quality, from UNKNOWN to FULLBAND. */
+    private static final int CODEC_QUALITY_COUNT = 5;
 
     /**
-     * Value denoting the carrier ID being unknown.
+     * Threshold to calculate the main audio codec quality of the call.
      *
-     * <p>NOTE: 0 is unused in {@code carrier_list.textpb} (it starts from 1).
+     * The audio codec quality was equal to or greater than the main audio codec quality for
+     * at least 70% of the call.
      */
-    private static final int CARRIER_ID_UNKNOWN = 0;
+    private static final int MAIN_CODEC_QUALITY_THRESHOLD = 70;
 
-    /** Holds the audio codec bitmask value for CS calls. */
-    private static final SparseLongArray CS_CODEC_MAP = buildGsmCdmaCodecMap();
+    /** Holds the audio codec value for CS calls. */
+    private static final SparseIntArray CS_CODEC_MAP = buildGsmCdmaCodecMap();
 
-    /** Holds the audio codec bitmask value for IMS calls. */
-    private static final SparseLongArray IMS_CODEC_MAP = buildImsCodecMap();
+    /** Holds the audio codec value for IMS calls. */
+    private static final SparseIntArray IMS_CODEC_MAP = buildImsCodecMap();
 
-    /** Holds setup duration buckets with keys as their lower bounds in milliseconds. */
+    /** Holds setup duration buckets with values as their upper bounds in milliseconds. */
     private static final SparseIntArray CALL_SETUP_DURATION_MAP = buildCallSetupDurationMap();
 
     /**
@@ -95,6 +119,13 @@ public class VoiceCallSessionStats {
      * #getConnectionId}.
      */
     private final SparseArray<VoiceCallSession> mCallProtos = new SparseArray<>();
+
+    /**
+     * Tracks usage of codecs for each call. The outer array is used to map each connection id to
+     * the corresponding codec usage. The inner array is used to map timestamp (key) with the
+     * codec in use (value).
+     */
+    private final SparseArray<LongSparseArray<Integer>> mCodecUsage = new SparseArray<>();
 
     /**
      * Tracks call RAT usage.
@@ -106,7 +137,6 @@ public class VoiceCallSessionStats {
 
     private final int mPhoneId;
     private final Phone mPhone;
-    private int mCarrierId = CARRIER_ID_UNKNOWN;
 
     private final PersistAtomsStorage mAtomsStorage =
             PhoneFactory.getMetricsCollector().getAtomsStorage();
@@ -219,26 +249,53 @@ public class VoiceCallSessionStats {
 
     /* general & misc. */
 
-    /** Updates internal states when carrier changes. */
-    public synchronized void onActiveSubscriptionInfoChanged(List<SubscriptionInfo> subInfos) {
-        int slotId = getSimSlotId();
-        if (subInfos != null) {
-            for (SubscriptionInfo subInfo : subInfos) {
-                if (subInfo.getSimSlotIndex() == slotId) {
-                    mCarrierId = subInfo.getCarrierId();
-                }
-            }
-        }
-    }
-
     /** Updates internal states when audio codec for a call is changed. */
     public synchronized void onAudioCodecChanged(Connection conn, int audioQuality) {
-        VoiceCallSession proto = mCallProtos.get(getConnectionId(conn));
+        int id = getConnectionId(conn);
+        VoiceCallSession proto = mCallProtos.get(id);
         if (proto == null) {
             loge("onAudioCodecChanged: untracked connection");
             return;
         }
-        proto.codecBitmask |= audioQualityToCodecBitmask(proto.bearerAtEnd, audioQuality);
+        int codec = audioQualityToCodec(proto.bearerAtEnd, audioQuality);
+        proto.codecBitmask |= (1L << codec);
+
+        if (mCodecUsage.contains(id)) {
+            mCodecUsage.get(id).append(getTimeMillis(), codec);
+        } else {
+            LongSparseArray<Integer> arr = new LongSparseArray<>();
+            arr.append(getTimeMillis(), codec);
+            mCodecUsage.put(id, arr);
+        }
+    }
+
+    /** Updates internal states when video state changes. */
+    public synchronized void onVideoStateChange(
+            ImsPhoneConnection conn, @VideoState int videoState) {
+        int id = getConnectionId(conn);
+        VoiceCallSession proto = mCallProtos.get(id);
+        if (proto == null) {
+            loge("onVideoStateChange: untracked connection");
+            return;
+        }
+        logd("Video state = " + videoState);
+        if (videoState != VideoProfile.STATE_AUDIO_ONLY) {
+            proto.videoEnabled = true;
+        }
+    }
+
+    /** Updates internal states when multiparty state changes. */
+    public synchronized void onMultipartyChange(ImsPhoneConnection conn, boolean isMultiParty) {
+        int id = getConnectionId(conn);
+        VoiceCallSession proto = mCallProtos.get(id);
+        if (proto == null) {
+            loge("onMultipartyChange: untracked connection");
+            return;
+        }
+        logd("Multiparty = " + isMultiParty);
+        if (isMultiParty) {
+            proto.isMultiparty = true;
+        }
     }
 
     /**
@@ -325,7 +382,7 @@ public class VoiceCallSessionStats {
         } else {
             int bearer = getBearer(conn);
             ServiceState serviceState = getServiceState();
-            int rat = getRat(serviceState);
+            @NetworkType int rat = getRat(serviceState);
 
             VoiceCallSession proto = new VoiceCallSession();
 
@@ -338,19 +395,21 @@ public class VoiceCallSessionStats {
             proto.disconnectExtraCode = conn.getPreciseDisconnectCause();
             proto.disconnectExtraMessage = conn.getVendorDisconnectCause();
             proto.ratAtStart = rat;
+            proto.ratAtConnected = TelephonyManager.NETWORK_TYPE_UNKNOWN;
             proto.ratAtEnd = rat;
             proto.ratSwitchCount = 0L;
             proto.codecBitmask = 0L;
-            proto.simSlotIndex = getSimSlotId();
-            proto.isMultiSim = SimSlotState.getCurrentState().numActiveSims > 1;
-            proto.isEsim = isEsim();
-            proto.carrierId = mCarrierId;
+            proto.simSlotIndex = mPhoneId;
+            proto.isMultiSim = SimSlotState.isMultiSim();
+            proto.isEsim = SimSlotState.isEsim(mPhoneId);
+            proto.carrierId = mPhone.getCarrierId();
             proto.srvccCompleted = false;
             proto.srvccFailureCount = 0L;
             proto.srvccCancellationCount = 0L;
             proto.rttEnabled = false;
             proto.isEmergency = conn.isEmergencyCall();
             proto.isRoaming = serviceState != null ? serviceState.getVoiceRoaming() : false;
+            proto.isMultiparty = conn.isMultiparty();
 
             // internal fields for tracking
             proto.setupBeginMillis = getTimeMillis();
@@ -373,12 +432,23 @@ public class VoiceCallSessionStats {
         mCallProtos.delete(connectionId);
         proto.concurrentCallCountAtEnd = mCallProtos.size();
 
+        // Calculate signal strength at the end of the call
+        proto.signalStrengthAtEnd = getSignalStrength(proto.ratAtEnd);
+
+        // Calculate main codec quality
+        proto.mainCodecQuality = finalizeMainCodecQuality(connectionId);
+
         // ensure internal fields are cleared
         proto.setupBeginMillis = 0L;
 
         // sanitize for javanano & StatsEvent
         if (proto.disconnectExtraMessage == null) {
             proto.disconnectExtraMessage = "";
+        }
+
+        // Retry populating carrier ID if it was invalid
+        if (proto.carrierId <= 0) {
+            proto.carrierId = mPhone.getCarrierId();
         }
 
         mAtomsStorage.addVoiceCallSession(proto);
@@ -430,24 +500,35 @@ public class VoiceCallSessionStats {
 
     private void checkCallSetup(Connection conn, VoiceCallSession proto) {
         if (proto.setupBeginMillis != 0L && isSetupFinished(conn.getCall())) {
-            proto.setupDuration = classifySetupDuration(getTimeMillis() - proto.setupBeginMillis);
+            proto.setupDurationMillis = (int) (getTimeMillis() - proto.setupBeginMillis);
+            proto.setupDuration = classifySetupDuration(proto.setupDurationMillis);
             proto.setupBeginMillis = 0L;
         }
-        // clear setupFailed if call now active, but otherwise leave it unchanged
-        if (conn.getState() == Call.State.ACTIVE) {
+        // Clear setupFailed if call now active, but otherwise leave it unchanged
+        // This block is executed only once, when call becomes active for the first time.
+        if (proto.setupFailed && conn.getState() == Call.State.ACTIVE) {
             proto.setupFailed = false;
+            // Track RAT when voice call is connected.
+            ServiceState serviceState = getServiceState();
+            proto.ratAtConnected = getRat(serviceState);
+            // Reset list of codecs with the last codec at the present time. In this way, we
+            // track codec quality only after call is connected and not while ringing.
+            resetCodecList(conn);
         }
     }
 
     private void updateRatTracker(ServiceState state) {
-        int rat = getRat(state);
-        mRatUsage.add(mCarrierId, rat, getTimeMillis(), getConnectionIds());
+        @NetworkType int rat = getRat(state);
+        int band = ServiceStateStats.getBand(state, rat);
+
+        mRatUsage.add(mPhone.getCarrierId(), rat, getTimeMillis(), getConnectionIds());
         for (int i = 0; i < mCallProtos.size(); i++) {
             VoiceCallSession proto = mCallProtos.valueAt(i);
             if (proto.ratAtEnd != rat) {
                 proto.ratSwitchCount++;
                 proto.ratAtEnd = rat;
             }
+            proto.bandAtEnd = band;
             // assuming that SIM carrier ID does not change during the call
         }
     }
@@ -457,25 +538,8 @@ public class VoiceCallSessionStats {
         proto.bearerAtEnd = VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_IMS;
         proto.disconnectReasonCode = reasonInfo.mCode;
         proto.disconnectExtraCode = reasonInfo.mExtraCode;
-        proto.disconnectExtraMessage = reasonInfo.mExtraMessage;
+        proto.disconnectExtraMessage = ImsStats.filterExtraMessage(reasonInfo.mExtraMessage);
         finishCall(id);
-    }
-
-    private boolean isEsim() {
-        int slotId = getSimSlotId();
-        UiccSlot slot = mUiccController.getUiccSlot(slotId);
-        if (slot != null) {
-            return slot.isEuicc();
-        } else {
-            // should not happen, but assume we are not using eSIM
-            loge("isEsim: slot %d is null", slotId);
-            return false;
-        }
-    }
-
-    private int getSimSlotId() {
-        // NOTE: UiccController's mapping hasn't be initialized when Phone was created
-        return mUiccController.getSlotIdFromPhoneId(mPhoneId);
     }
 
     private @Nullable ServiceState getServiceState() {
@@ -509,13 +573,124 @@ public class VoiceCallSessionStats {
         }
         boolean isWifiCall =
                 mPhone.getImsPhone() != null
-                && mPhone.getImsPhone().isWifiCallingEnabled()
-                && state.getDataNetworkType() == TelephonyManager.NETWORK_TYPE_IWLAN;
+                        && mPhone.getImsPhone().isWifiCallingEnabled()
+                        && state.getDataNetworkType() == TelephonyManager.NETWORK_TYPE_IWLAN;
         return isWifiCall ? TelephonyManager.NETWORK_TYPE_IWLAN : state.getVoiceNetworkType();
     }
 
-    // NOTE: when setup is finished for MO calls, it is not successful yet.
+    /** Returns the signal strength. */
+    private int getSignalStrength(@NetworkType int rat) {
+        if (rat == TelephonyManager.NETWORK_TYPE_IWLAN) {
+            return getSignalStrengthWifi();
+        } else {
+            return getSignalStrengthCellular();
+        }
+    }
+
+    /** Returns the signal strength of WiFi. */
+    private int getSignalStrengthWifi() {
+        WifiManager wifiManager =
+                (WifiManager) mPhone.getContext().getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        int result = VOICE_CALL_SESSION__SIGNAL_STRENGTH_AT_END__SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
+        if (wifiInfo != null) {
+            int level = wifiManager.calculateSignalLevel(wifiInfo.getRssi());
+            int max = wifiManager.getMaxSignalLevel();
+            // Scale result into 0 to 4 range.
+            result = VOICE_CALL_SESSION__SIGNAL_STRENGTH_AT_END__SIGNAL_STRENGTH_GREAT
+                    * level / max;
+            logd("WiFi level: " + result + " (" + level + "/" + max + ")");
+        }
+        return result;
+    }
+
+    /** Returns the signal strength of cellular RAT. */
+    private int getSignalStrengthCellular() {
+        return mPhone.getSignalStrength().getLevel();
+    }
+
+    /** Resets the list of codecs used for the connection with only the codec currently in use. */
+    private void resetCodecList(Connection conn) {
+        int id = getConnectionId(conn);
+        LongSparseArray<Integer> codecUsage = mCodecUsage.get(id);
+        if (codecUsage != null) {
+            int lastCodec = codecUsage.valueAt(codecUsage.size() - 1);
+            LongSparseArray<Integer> arr = new LongSparseArray<>();
+            arr.append(getTimeMillis(), lastCodec);
+            mCodecUsage.put(id, arr);
+        }
+    }
+
+    /** Returns the main codec quality used during the call. */
+    private int finalizeMainCodecQuality(int connectionId) {
+        // Retrieve information about codec usage for this call and remove it from main array.
+        if (!mCodecUsage.contains(connectionId)) {
+            return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_UNKNOWN;
+        }
+        LongSparseArray<Integer> codecUsage = mCodecUsage.get(connectionId);
+        mCodecUsage.delete(connectionId);
+
+        // Append fake entry at the end, to facilitate the calculation of time for each codec.
+        codecUsage.put(getTimeMillis(), AudioCodec.AUDIO_CODEC_UNKNOWN);
+
+        // Calculate array with time for each quality
+        int totalTime = 0;
+        long[] timePerQuality = new long[CODEC_QUALITY_COUNT];
+        for (int i = 0; i < codecUsage.size() - 1; i++) {
+            long time = codecUsage.keyAt(i + 1) - codecUsage.keyAt(i);
+            int quality = getCodecQuality(codecUsage.valueAt(i));
+            timePerQuality[quality] += time;
+            totalTime += time;
+        }
+        logd("Time per codec quality = " + Arrays.toString(timePerQuality));
+
+        // We calculate 70% duration of the call as the threshold for the main audio codec quality
+        // and iterate on all codec qualities. As soon as the sum of codec duration is greater than
+        // the threshold, we have identified the main codec quality.
+        long timeAtMinimumQuality = 0;
+        long timeThreshold = totalTime * MAIN_CODEC_QUALITY_THRESHOLD / 100;
+        for (int i = CODEC_QUALITY_COUNT - 1; i >= 0; i--) {
+            timeAtMinimumQuality += timePerQuality[i];
+            if (timeAtMinimumQuality >= timeThreshold) {
+                return i;
+            }
+        }
+        return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_UNKNOWN;
+    }
+
+    private int getCodecQuality(int codec) {
+        switch(codec) {
+            case AudioCodec.AUDIO_CODEC_AMR:
+            case AudioCodec.AUDIO_CODEC_QCELP13K:
+            case AudioCodec.AUDIO_CODEC_EVRC:
+            case AudioCodec.AUDIO_CODEC_EVRC_B:
+            case AudioCodec.AUDIO_CODEC_EVRC_NW:
+            case AudioCodec.AUDIO_CODEC_GSM_EFR:
+            case AudioCodec.AUDIO_CODEC_GSM_FR:
+            case AudioCodec.AUDIO_CODEC_GSM_HR:
+            case AudioCodec.AUDIO_CODEC_G711U:
+            case AudioCodec.AUDIO_CODEC_G723:
+            case AudioCodec.AUDIO_CODEC_G711A:
+            case AudioCodec.AUDIO_CODEC_G722:
+            case AudioCodec.AUDIO_CODEC_G711AB:
+            case AudioCodec.AUDIO_CODEC_G729:
+            case AudioCodec.AUDIO_CODEC_EVS_NB:
+                return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_NARROWBAND;
+            case AudioCodec.AUDIO_CODEC_AMR_WB:
+            case AudioCodec.AUDIO_CODEC_EVS_WB:
+            case AudioCodec.AUDIO_CODEC_EVRC_WB:
+                return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_WIDEBAND;
+            case AudioCodec.AUDIO_CODEC_EVS_SWB:
+                return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_SUPER_WIDEBAND;
+            case AudioCodec.AUDIO_CODEC_EVS_FB:
+                return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_FULLBAND;
+            default:
+                return VOICE_CALL_SESSION__MAIN_CODEC_QUALITY__CODEC_QUALITY_UNKNOWN;
+        }
+    }
+
     private static boolean isSetupFinished(@Nullable Call call) {
+        // NOTE: when setup is finished for MO calls, it is not successful yet.
         if (call != null) {
             switch (call.getState()) {
                 case ACTIVE: // MT setup: accepted to ACTIVE
@@ -527,19 +702,20 @@ public class VoiceCallSessionStats {
         return false;
     }
 
-    private static long audioQualityToCodecBitmask(int bearer, int audioQuality) {
+    private static int audioQualityToCodec(int bearer, int audioQuality) {
         switch (bearer) {
             case VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_CS:
-                return CS_CODEC_MAP.get(audioQuality, AUDIO_CODEC_UNKNOWN);
+                return CS_CODEC_MAP.get(audioQuality, AudioCodec.AUDIO_CODEC_UNKNOWN);
             case VOICE_CALL_SESSION__BEARER_AT_END__CALL_BEARER_IMS:
-                return IMS_CODEC_MAP.get(audioQuality, AUDIO_CODEC_UNKNOWN);
+                return IMS_CODEC_MAP.get(audioQuality, AudioCodec.AUDIO_CODEC_UNKNOWN);
             default:
-                loge("audioQualityToCodecBitmask: unknown bearer %d", bearer);
-                return AUDIO_CODEC_UNKNOWN;
+                loge("audioQualityToCodec: unknown bearer %d", bearer);
+                return AudioCodec.AUDIO_CODEC_UNKNOWN;
         }
     }
 
-    private static int classifySetupDuration(long durationMillis) {
+    private static int classifySetupDuration(int durationMillis) {
+        // keys in CALL_SETUP_DURATION_MAP are upper bounds in ascending order
         for (int i = 0; i < CALL_SETUP_DURATION_MAP.size(); i++) {
             if (durationMillis < CALL_SETUP_DURATION_MAP.keyAt(i)) {
                 return CALL_SETUP_DURATION_MAP.valueAt(i);
@@ -574,63 +750,75 @@ public class VoiceCallSessionStats {
         Rlog.e(TAG, String.format(format, args));
     }
 
-    private static SparseLongArray buildGsmCdmaCodecMap() {
-        SparseLongArray map = new SparseLongArray();
-
-        map.put(DriverCall.AUDIO_QUALITY_AMR, 1L << AudioCodec.AUDIO_CODEC_AMR);
-        map.put(DriverCall.AUDIO_QUALITY_AMR_WB, 1L << AudioCodec.AUDIO_CODEC_AMR_WB);
-        map.put(DriverCall.AUDIO_QUALITY_GSM_EFR, 1L << AudioCodec.AUDIO_CODEC_GSM_EFR);
-        map.put(DriverCall.AUDIO_QUALITY_GSM_FR, 1L << AudioCodec.AUDIO_CODEC_GSM_FR);
-        map.put(DriverCall.AUDIO_QUALITY_GSM_HR, 1L << AudioCodec.AUDIO_CODEC_GSM_HR);
-        map.put(DriverCall.AUDIO_QUALITY_EVRC, 1L << AudioCodec.AUDIO_CODEC_EVRC);
-        map.put(DriverCall.AUDIO_QUALITY_EVRC_B, 1L << AudioCodec.AUDIO_CODEC_EVRC_B);
-        map.put(DriverCall.AUDIO_QUALITY_EVRC_WB, 1L << AudioCodec.AUDIO_CODEC_EVRC_WB);
-        map.put(DriverCall.AUDIO_QUALITY_EVRC_NW, 1L << AudioCodec.AUDIO_CODEC_EVRC_NW);
-
+    private static SparseIntArray buildGsmCdmaCodecMap() {
+        SparseIntArray map = new SparseIntArray();
+        map.put(DriverCall.AUDIO_QUALITY_AMR, AudioCodec.AUDIO_CODEC_AMR);
+        map.put(DriverCall.AUDIO_QUALITY_AMR_WB, AudioCodec.AUDIO_CODEC_AMR_WB);
+        map.put(DriverCall.AUDIO_QUALITY_GSM_EFR, AudioCodec.AUDIO_CODEC_GSM_EFR);
+        map.put(DriverCall.AUDIO_QUALITY_GSM_FR, AudioCodec.AUDIO_CODEC_GSM_FR);
+        map.put(DriverCall.AUDIO_QUALITY_GSM_HR, AudioCodec.AUDIO_CODEC_GSM_HR);
+        map.put(DriverCall.AUDIO_QUALITY_EVRC, AudioCodec.AUDIO_CODEC_EVRC);
+        map.put(DriverCall.AUDIO_QUALITY_EVRC_B, AudioCodec.AUDIO_CODEC_EVRC_B);
+        map.put(DriverCall.AUDIO_QUALITY_EVRC_WB, AudioCodec.AUDIO_CODEC_EVRC_WB);
+        map.put(DriverCall.AUDIO_QUALITY_EVRC_NW, AudioCodec.AUDIO_CODEC_EVRC_NW);
         return map;
     }
 
-    private static SparseLongArray buildImsCodecMap() {
-        SparseLongArray map = new SparseLongArray();
-
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_AMR, 1L << AudioCodec.AUDIO_CODEC_AMR);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB, 1L << AudioCodec.AUDIO_CODEC_AMR_WB);
-        map.put(
-                ImsStreamMediaProfile.AUDIO_QUALITY_QCELP13K,
-                1L << AudioCodec.AUDIO_CODEC_QCELP13K);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC, 1L << AudioCodec.AUDIO_CODEC_EVRC);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_B, 1L << AudioCodec.AUDIO_CODEC_EVRC_B);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_WB, 1L << AudioCodec.AUDIO_CODEC_EVRC_WB);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_NW, 1L << AudioCodec.AUDIO_CODEC_EVRC_NW);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_GSM_EFR, 1L << AudioCodec.AUDIO_CODEC_GSM_EFR);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_GSM_FR, 1L << AudioCodec.AUDIO_CODEC_GSM_FR);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_GSM_HR, 1L << AudioCodec.AUDIO_CODEC_GSM_HR);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G711U, 1L << AudioCodec.AUDIO_CODEC_G711U);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G723, 1L << AudioCodec.AUDIO_CODEC_G723);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G711A, 1L << AudioCodec.AUDIO_CODEC_G711A);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G722, 1L << AudioCodec.AUDIO_CODEC_G722);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G711AB, 1L << AudioCodec.AUDIO_CODEC_G711AB);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G729, 1L << AudioCodec.AUDIO_CODEC_G729);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_NB, 1L << AudioCodec.AUDIO_CODEC_EVS_NB);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_WB, 1L << AudioCodec.AUDIO_CODEC_EVS_WB);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_SWB, 1L << AudioCodec.AUDIO_CODEC_EVS_SWB);
-        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_FB, 1L << AudioCodec.AUDIO_CODEC_EVS_FB);
-
+    private static SparseIntArray buildImsCodecMap() {
+        SparseIntArray map = new SparseIntArray();
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_AMR, AudioCodec.AUDIO_CODEC_AMR);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB, AudioCodec.AUDIO_CODEC_AMR_WB);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_QCELP13K, AudioCodec.AUDIO_CODEC_QCELP13K);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC, AudioCodec.AUDIO_CODEC_EVRC);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_B, AudioCodec.AUDIO_CODEC_EVRC_B);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_WB, AudioCodec.AUDIO_CODEC_EVRC_WB);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_NW, AudioCodec.AUDIO_CODEC_EVRC_NW);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_GSM_EFR, AudioCodec.AUDIO_CODEC_GSM_EFR);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_GSM_FR, AudioCodec.AUDIO_CODEC_GSM_FR);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_GSM_HR, AudioCodec.AUDIO_CODEC_GSM_HR);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G711U, AudioCodec.AUDIO_CODEC_G711U);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G723, AudioCodec.AUDIO_CODEC_G723);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G711A, AudioCodec.AUDIO_CODEC_G711A);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G722, AudioCodec.AUDIO_CODEC_G722);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G711AB, AudioCodec.AUDIO_CODEC_G711AB);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_G729, AudioCodec.AUDIO_CODEC_G729);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_NB, AudioCodec.AUDIO_CODEC_EVS_NB);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_WB, AudioCodec.AUDIO_CODEC_EVS_WB);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_SWB, AudioCodec.AUDIO_CODEC_EVS_SWB);
+        map.put(ImsStreamMediaProfile.AUDIO_QUALITY_EVS_FB, AudioCodec.AUDIO_CODEC_EVS_FB);
         return map;
     }
 
     private static SparseIntArray buildCallSetupDurationMap() {
         SparseIntArray map = new SparseIntArray();
 
-        map.put(0, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_UNKNOWN);
-        map.put(60, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_EXTREMELY_FAST);
-        map.put(100, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_ULTRA_FAST);
-        map.put(300, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_VERY_FAST);
-        map.put(600, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_FAST);
-        map.put(1000, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_NORMAL);
-        map.put(3000, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_SLOW);
-        map.put(6000, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_VERY_SLOW);
-        map.put(10000, VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_ULTRA_SLOW);
+        map.put(
+                CALL_SETUP_DURATION_UNKNOWN,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_UNKNOWN);
+        map.put(
+                CALL_SETUP_DURATION_EXTREMELY_FAST,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_EXTREMELY_FAST);
+        map.put(
+                CALL_SETUP_DURATION_ULTRA_FAST,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_ULTRA_FAST);
+        map.put(
+                CALL_SETUP_DURATION_VERY_FAST,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_VERY_FAST);
+        map.put(
+                CALL_SETUP_DURATION_FAST,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_FAST);
+        map.put(
+                CALL_SETUP_DURATION_NORMAL,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_NORMAL);
+        map.put(
+                CALL_SETUP_DURATION_SLOW,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_SLOW);
+        map.put(
+                CALL_SETUP_DURATION_VERY_SLOW,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_VERY_SLOW);
+        map.put(
+                CALL_SETUP_DURATION_ULTRA_SLOW,
+                VOICE_CALL_SESSION__SETUP_DURATION__CALL_SETUP_DURATION_ULTRA_SLOW);
         // anything above would be CALL_SETUP_DURATION_EXTREMELY_SLOW
 
         return map;

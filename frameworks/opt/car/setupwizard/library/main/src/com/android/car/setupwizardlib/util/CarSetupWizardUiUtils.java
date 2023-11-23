@@ -31,8 +31,12 @@ import androidx.core.util.Preconditions;
 public final class CarSetupWizardUiUtils {
     private static final String TAG = CarSetupWizardUiUtils.class.getSimpleName();
 
-    /** Key for immersive mode value pased to 1P apps */
+    /** Key for immersive mode value passed to 1P apps */
     public static final String IMMERSIVE_MODE_TYPE = "immersiveModeType";
+
+    /** Key indicating whether 1P apps should switch to the new landscape design */
+    public static final String EXTRA_NEW_LANDSCAPE_LAYOUT_SUPPORTED =
+            "extra_new_landscape_layout_supported";
 
     /** Hide system UI */
     public static void hideSystemUI(Activity activity) {

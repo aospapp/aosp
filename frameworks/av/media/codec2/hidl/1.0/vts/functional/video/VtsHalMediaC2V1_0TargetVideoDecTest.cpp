@@ -24,7 +24,6 @@
 
 #include <openssl/md5.h>
 
-#include <C2AllocatorIon.h>
 #include <C2Buffer.h>
 #include <C2BufferPriv.h>
 #include <C2Config.h>
@@ -34,19 +33,57 @@
 #include <gui/IConsumerListener.h>
 #include <gui/IProducerListener.h>
 #include <system/window.h>
-
-using android::C2AllocatorIon;
+#include <gui/GLConsumer.h>
+#include <gui/Surface.h>
+#include <gui/SurfaceComposerClient.h>
 
 #include "media_c2_hidl_test_common.h"
 #include "media_c2_video_hidl_test_common.h"
 
-static std::vector<std::tuple<std::string, std::string, std::string, std::string>>
-        kDecodeTestParameters;
+constexpr size_t kSmoothnessFactor = 4;
+constexpr size_t kRenderingDepth = 3;
+enum surfaceMode_t { NO_SURFACE, NULL_SURFACE, SURFACE };
 
-static std::vector<std::tuple<std::string, std::string, std::string>> kCsdFlushTestParameters;
+using DecodeTestParameters = std::tuple<std::string, std::string, uint32_t, bool, surfaceMode_t>;
+static std::vector<DecodeTestParameters> gDecodeTestParameters;
 
-// Resource directory
-static std::string sResourceDir = "";
+using CsdFlushTestParameters = std::tuple<std::string, std::string, bool>;
+static std::vector<CsdFlushTestParameters> gCsdFlushTestParameters;
+
+struct CompToFiles {
+    std::string mime;
+    std::string inputFile;
+    std::string infoFile;
+    std::string chksumFile;
+};
+std::vector<CompToFiles> gCompToFiles = {
+        {"avc", "bbb_avc_176x144_300kbps_60fps.h264", "bbb_avc_176x144_300kbps_60fps.info",
+         "bbb_avc_176x144_300kbps_60fps_chksum.md5"},
+        {"avc", "bbb_avc_640x360_768kbps_30fps.h264", "bbb_avc_640x360_768kbps_30fps.info",
+         "bbb_avc_640x360_768kbps_30fps_chksum.md5"},
+        {"hevc", "bbb_hevc_176x144_176kbps_60fps.hevc", "bbb_hevc_176x144_176kbps_60fps.info",
+         "bbb_hevc_176x144_176kbps_60fps_chksum.md5"},
+        {"hevc", "bbb_hevc_640x360_1600kbps_30fps.hevc", "bbb_hevc_640x360_1600kbps_30fps.info",
+         "bbb_hevc_640x360_1600kbps_30fps_chksum.md5"},
+        {"mpeg2", "bbb_mpeg2_176x144_105kbps_25fps.m2v", "bbb_mpeg2_176x144_105kbps_25fps.info",
+         ""},
+        {"mpeg2", "bbb_mpeg2_352x288_1mbps_60fps.m2v", "bbb_mpeg2_352x288_1mbps_60fps.info", ""},
+        {"3gpp", "bbb_h263_352x288_300kbps_12fps.h263", "bbb_h263_352x288_300kbps_12fps.info", ""},
+        {"mp4v-es", "bbb_mpeg4_352x288_512kbps_30fps.m4v", "bbb_mpeg4_352x288_512kbps_30fps.info",
+         ""},
+        {"x-vnd.on2.vp8", "bbb_vp8_176x144_240kbps_60fps.vp8", "bbb_vp8_176x144_240kbps_60fps.info",
+         ""},
+        {"x-vnd.on2.vp8", "bbb_vp8_640x360_2mbps_30fps.vp8", "bbb_vp8_640x360_2mbps_30fps.info",
+         "bbb_vp8_640x360_2mbps_30fps_chksm.md5"},
+        {"x-vnd.on2.vp9", "bbb_vp9_176x144_285kbps_60fps.vp9", "bbb_vp9_176x144_285kbps_60fps.info",
+         ""},
+        {"x-vnd.on2.vp9", "bbb_vp9_640x360_1600kbps_30fps.vp9",
+         "bbb_vp9_640x360_1600kbps_30fps.info", "bbb_vp9_640x360_1600kbps_30fps_chksm.md5"},
+        {"x-vnd.on2.vp9", "bbb_vp9_704x480_280kbps_24fps_altref_2.vp9",
+         "bbb_vp9_704x480_280kbps_24fps_altref_2.info", ""},
+        {"av01", "bbb_av1_640_360.av1", "bbb_av1_640_360.info", "bbb_av1_640_360_chksum.md5"},
+        {"av01", "bbb_av1_176_144.av1", "bbb_av1_176_144.info", "bbb_av1_176_144_chksm.md5"},
+};
 
 class LinearBuffer : public C2Buffer {
   public:
@@ -64,8 +101,8 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
     // google.codec2 Video test setup
     virtual void SetUp() override {
         getParams();
+
         mDisableTest = false;
-        ALOGV("Codec2VideoDecHidlTest SetUp");
         mClient = android::Codec2Client::CreateFromService(
                 mInstanceName.c_str(),
                 !bool(android::Codec2Client::CreateFromService("default", true)));
@@ -85,26 +122,11 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
         mLinearPool = std::make_shared<C2PooledBlockPool>(mLinearAllocator, mBlockPoolId++);
         ASSERT_NE(mLinearPool, nullptr);
 
-        mCompName = unknown_comp;
-        struct StringToName {
-            const char* Name;
-            standardComp CompName;
-        };
+        std::vector<std::unique_ptr<C2Param>> queried;
+        mComponent->query({}, {C2PortMediaTypeSetting::input::PARAM_TYPE}, C2_DONT_BLOCK, &queried);
+        ASSERT_GT(queried.size(), 0);
 
-        const StringToName kStringToName[] = {
-                {"h263", h263}, {"avc", avc}, {"mpeg2", mpeg2}, {"mpeg4", mpeg4},
-                {"hevc", hevc}, {"vp8", vp8}, {"vp9", vp9},     {"av1", av1},
-        };
-
-        const size_t kNumStringToName = sizeof(kStringToName) / sizeof(kStringToName[0]);
-
-        // Find the component type
-        for (size_t i = 0; i < kNumStringToName; ++i) {
-            if (strcasestr(mComponentName.c_str(), kStringToName[i].Name)) {
-                mCompName = kStringToName[i].CompName;
-                break;
-            }
-        }
+        mMime = ((C2PortMediaTypeSetting::input*)queried[0].get())->m.value;
         mEos = false;
         mFramesReceived = 0;
         mTimestampUs = 0u;
@@ -114,13 +136,22 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
         mMd5Offset = 0;
         mMd5Enable = false;
         mRefMd5 = nullptr;
-        if (mCompName == unknown_comp) mDisableTest = true;
 
         C2SecureModeTuning secureModeTuning{};
         mComponent->query({&secureModeTuning}, {}, C2_MAY_BLOCK, nullptr);
-        if (secureModeTuning.value == C2Config::SM_READ_PROTECTED) {
+        if (secureModeTuning.value == C2Config::SM_READ_PROTECTED ||
+            secureModeTuning.value == C2Config::SM_READ_PROTECTED_WITH_ENCRYPTED) {
             mDisableTest = true;
         }
+
+        bool valid = getFileNames(mStreamIndex);
+        if (!valid) {
+            GTEST_SKIP() << "No test file for  mime " << mMime << " index: " << mStreamIndex;
+        }
+        ALOGV("mStreamIndex : %zu", mStreamIndex);
+        ALOGV("mInputFile : %s", mInputFile.c_str());
+        ALOGV("mInfoFile : %s", mInfoFile.c_str());
+        ALOGV("mChksumFile : %s", mChksumFile.c_str());
 
         if (mDisableTest) std::cout << "[   WARN   ] Test Disabled \n";
     }
@@ -135,6 +166,8 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
 
     // Get the test parameters from GetParam call.
     virtual void getParams() {}
+
+    bool getFileNames(size_t streamIndex = 0);
 
     /* Calculate the CKSUM for the data in inbuf */
     void calc_md5_cksum(uint8_t* pu1_inbuf, uint32_t u4_stride, uint32_t u4_width,
@@ -220,8 +253,7 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
                 if (!codecConfig && !work->worklets.front()->output.buffers.empty()) {
                     if (mReorderDepth < 0) {
                         C2PortReorderBufferDepthTuning::output reorderBufferDepth;
-                        mComponent->query({&reorderBufferDepth}, {}, C2_MAY_BLOCK,
-                                          nullptr);
+                        mComponent->query({&reorderBufferDepth}, {}, C2_MAY_BLOCK, nullptr);
                         mReorderDepth = reorderBufferDepth.value;
                         if (mReorderDepth > 0) {
                             // TODO: Add validation for reordered output
@@ -267,18 +299,7 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
         }
     }
 
-    enum standardComp {
-        h263,
-        avc,
-        mpeg2,
-        mpeg4,
-        hevc,
-        vp8,
-        vp9,
-        av1,
-        unknown_comp,
-    };
-
+    std::string mMime;
     std::string mInstanceName;
     std::string mComponentName;
 
@@ -291,7 +312,6 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
     char* mRefMd5;
     std::list<uint64_t> mTimestampUslist;
     std::list<uint64_t> mFlushedIndices;
-    standardComp mCompName;
 
     int32_t mWorkResult;
     int32_t mReorderDepth;
@@ -308,23 +328,28 @@ class Codec2VideoDecHidlTestBase : public ::testing::Test {
     std::shared_ptr<android::Codec2Client::Listener> mListener;
     std::shared_ptr<android::Codec2Client::Component> mComponent;
 
+    std::string mInputFile;
+    std::string mInfoFile;
+    std::string mChksumFile;
+    size_t mStreamIndex = 0;
+
   protected:
     static void description(const std::string& description) {
         RecordProperty("description", description);
     }
 };
 
-class Codec2VideoDecHidlTest
-    : public Codec2VideoDecHidlTestBase,
-      public ::testing::WithParamInterface<std::tuple<std::string, std::string>> {
+class Codec2VideoDecHidlTest : public Codec2VideoDecHidlTestBase,
+                               public ::testing::WithParamInterface<TestParameters> {
     void getParams() {
         mInstanceName = std::get<0>(GetParam());
         mComponentName = std::get<1>(GetParam());
+        mStreamIndex = 0;
     }
 };
 
 void validateComponent(const std::shared_ptr<android::Codec2Client::Component>& component,
-                       Codec2VideoDecHidlTest::standardComp compName, bool& disableTest) {
+                       bool& disableTest) {
     // Validate its a C2 Component
     if (component->getName().find("c2") == std::string::npos) {
         ALOGE("Not a c2 component");
@@ -351,83 +376,59 @@ void validateComponent(const std::shared_ptr<android::Codec2Client::Component>& 
             return;
         }
     }
-
-    // Validates component name
-    if (compName == Codec2VideoDecHidlTest::unknown_comp) {
-        ALOGE("Component InValid");
-        disableTest = true;
-        return;
-    }
     ALOGV("Component Valid");
 }
 
 // number of elementary streams per component
 #define STREAM_COUNT 3
-// LookUpTable of clips, metadata and chksum for component testing
-void GetURLChksmForComponent(Codec2VideoDecHidlTest::standardComp comp, char* mURL, char* info,
-                             char* chksum, size_t streamIndex = 1) {
-    struct CompToURL {
-        Codec2VideoDecHidlTest::standardComp comp;
-        const char mURL[STREAM_COUNT][512];
-        const char info[STREAM_COUNT][512];
-        const char chksum[STREAM_COUNT][512];
-    };
-    ASSERT_TRUE(streamIndex < STREAM_COUNT);
+// number of elementary streams required for adaptive testing
+#define ADAPTIVE_STREAM_COUNT 2
+// LookUpTable of clips, metadata and mChksumFile for component testing
+bool Codec2VideoDecHidlTestBase::getFileNames(size_t streamIndex) {
+    int streamCount = 0;
 
-    static const CompToURL kCompToURL[] = {
-            {Codec2VideoDecHidlTest::standardComp::avc,
-             {"bbb_avc_176x144_300kbps_60fps.h264", "bbb_avc_640x360_768kbps_30fps.h264", ""},
-             {"bbb_avc_176x144_300kbps_60fps.info", "bbb_avc_640x360_768kbps_30fps.info", ""},
-             {"bbb_avc_176x144_300kbps_60fps_chksum.md5",
-              "bbb_avc_640x360_768kbps_30fps_chksum.md5", ""}},
-            {Codec2VideoDecHidlTest::standardComp::hevc,
-             {"bbb_hevc_176x144_176kbps_60fps.hevc", "bbb_hevc_640x360_1600kbps_30fps.hevc", ""},
-             {"bbb_hevc_176x144_176kbps_60fps.info", "bbb_hevc_640x360_1600kbps_30fps.info", ""},
-             {"bbb_hevc_176x144_176kbps_60fps_chksum.md5",
-              "bbb_hevc_640x360_1600kbps_30fps_chksum.md5", ""}},
-            {Codec2VideoDecHidlTest::standardComp::mpeg2,
-             {"bbb_mpeg2_176x144_105kbps_25fps.m2v", "bbb_mpeg2_352x288_1mbps_60fps.m2v", ""},
-             {"bbb_mpeg2_176x144_105kbps_25fps.info", "bbb_mpeg2_352x288_1mbps_60fps.info", ""},
-             {"", "", ""}},
-            {Codec2VideoDecHidlTest::standardComp::h263,
-             {"", "bbb_h263_352x288_300kbps_12fps.h263", ""},
-             {"", "bbb_h263_352x288_300kbps_12fps.info", ""},
-             {"", "", ""}},
-            {Codec2VideoDecHidlTest::standardComp::mpeg4,
-             {"", "bbb_mpeg4_352x288_512kbps_30fps.m4v", ""},
-             {"", "bbb_mpeg4_352x288_512kbps_30fps.info", ""},
-             {"", "", ""}},
-            {Codec2VideoDecHidlTest::standardComp::vp8,
-             {"bbb_vp8_176x144_240kbps_60fps.vp8", "bbb_vp8_640x360_2mbps_30fps.vp8", ""},
-             {"bbb_vp8_176x144_240kbps_60fps.info", "bbb_vp8_640x360_2mbps_30fps.info", ""},
-             {"", "bbb_vp8_640x360_2mbps_30fps_chksm.md5", ""}},
-            {Codec2VideoDecHidlTest::standardComp::vp9,
-             {"bbb_vp9_176x144_285kbps_60fps.vp9", "bbb_vp9_640x360_1600kbps_30fps.vp9",
-              "bbb_vp9_704x480_280kbps_24fps_altref_2.vp9"},
-             {"bbb_vp9_176x144_285kbps_60fps.info", "bbb_vp9_640x360_1600kbps_30fps.info",
-              "bbb_vp9_704x480_280kbps_24fps_altref_2.info"},
-             {"", "bbb_vp9_640x360_1600kbps_30fps_chksm.md5", ""}},
-            {Codec2VideoDecHidlTest::standardComp::av1,
-             {"bbb_av1_640_360.av1", "bbb_av1_176_144.av1", ""},
-             {"bbb_av1_640_360.info", "bbb_av1_176_144.info", ""},
-             {"bbb_av1_640_360_chksum.md5", "bbb_av1_176_144_chksm.md5", ""}},
-    };
-
-    for (size_t i = 0; i < sizeof(kCompToURL) / sizeof(kCompToURL[0]); ++i) {
-        if (kCompToURL[i].comp == comp) {
-            strcat(mURL, kCompToURL[i].mURL[streamIndex]);
-            strcat(info, kCompToURL[i].info[streamIndex]);
-            strcat(chksum, kCompToURL[i].chksum[streamIndex]);
-            return;
+    for (size_t i = 0; i < gCompToFiles.size(); ++i) {
+        if (!mMime.compare("video/" + gCompToFiles[i].mime)) {
+            if (streamCount == streamIndex) {
+                mInputFile = sResourceDir + gCompToFiles[i].inputFile;
+                mInfoFile = sResourceDir + gCompToFiles[i].infoFile;
+                mChksumFile = sResourceDir + gCompToFiles[i].chksumFile;
+                return true;
+            }
+            streamCount++;
         }
     }
+    return false;
 }
 
-void GetURLForComponent(Codec2VideoDecHidlTest::standardComp comp, char* mURL, char* info,
-                        size_t streamIndex = 1) {
-    char chksum[512];
-    strcpy(chksum, sResourceDir.c_str());
-    GetURLChksmForComponent(comp, mURL, info, chksum, streamIndex);
+void setOutputSurface(const std::shared_ptr<android::Codec2Client::Component>& component,
+                      surfaceMode_t surfMode) {
+    using namespace android;
+    sp<IGraphicBufferProducer> producer = nullptr;
+    static std::atomic_uint32_t surfaceGeneration{0};
+    uint32_t generation =
+            (getpid() << 10) |
+            ((surfaceGeneration.fetch_add(1, std::memory_order_relaxed) + 1) & ((1 << 10) - 1));
+    int32_t maxDequeueBuffers = kSmoothnessFactor + kRenderingDepth;
+    if (surfMode == SURFACE) {
+        sp<IGraphicBufferConsumer> consumer = nullptr;
+        BufferQueue::createBufferQueue(&producer, &consumer);
+        ASSERT_NE(producer, nullptr) << "createBufferQueue returned invalid producer";
+        ASSERT_NE(consumer, nullptr) << "createBufferQueue returned invalid consumer";
+
+        sp<GLConsumer> texture =
+                new GLConsumer(consumer, 0 /* tex */, GLConsumer::TEXTURE_EXTERNAL,
+                               true /* useFenceSync */, false /* isControlledByApp */);
+
+        sp<ANativeWindow> gSurface = new Surface(producer);
+        ASSERT_NE(gSurface, nullptr) << "getSurface failed";
+
+        producer->setGenerationNumber(generation);
+    }
+
+    c2_status_t err = component->setOutputSurface(C2BlockPool::BASIC_GRAPHIC, producer, generation,
+                                                  maxDequeueBuffers);
+    ASSERT_EQ(err, C2_OK) << "setOutputSurface failed";
 }
 
 void decodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& component,
@@ -517,7 +518,7 @@ void decodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& comp
 TEST_P(Codec2VideoDecHidlTest, validateCompName) {
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
     ALOGV("Checks if the given component is a valid video component");
-    validateComponent(mComponent, mCompName, mDisableTest);
+    validateComponent(mComponent, mDisableTest);
     ASSERT_EQ(mDisableTest, false);
 }
 
@@ -573,13 +574,12 @@ bool Codec2VideoDecHidlTestBase::configPixelFormat(uint32_t format) {
     return false;
 }
 
-class Codec2VideoDecDecodeTest
-    : public Codec2VideoDecHidlTestBase,
-      public ::testing::WithParamInterface<
-              std::tuple<std::string, std::string, std::string, std::string>> {
+class Codec2VideoDecDecodeTest : public Codec2VideoDecHidlTestBase,
+                                 public ::testing::WithParamInterface<DecodeTestParameters> {
     void getParams() {
         mInstanceName = std::get<0>(GetParam());
         mComponentName = std::get<1>(GetParam());
+        mStreamIndex = std::get<2>(GetParam());
     }
 };
 
@@ -588,24 +588,14 @@ TEST_P(Codec2VideoDecDecodeTest, DecodeTest) {
     description("Decodes input file");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    uint32_t streamIndex = std::stoi(std::get<2>(GetParam()));
-    bool signalEOS = !std::get<2>(GetParam()).compare("true");
+    bool signalEOS = std::get<3>(GetParam());
+    surfaceMode_t surfMode = std::get<4>(GetParam());
     mTimestampDevTest = true;
 
-    char mURL[512], info[512], chksum[512];
     android::Vector<FrameInfo> Info;
 
-    strcpy(mURL, sResourceDir.c_str());
-    strcpy(info, sResourceDir.c_str());
-    strcpy(chksum, sResourceDir.c_str());
-
-    GetURLChksmForComponent(mCompName, mURL, info, chksum, streamIndex);
-    if (!(strcmp(mURL, sResourceDir.c_str())) || !(strcmp(info, sResourceDir.c_str()))) {
-        ALOGV("Skipping Test, Stream not available");
-        return;
-    }
     mMd5Enable = true;
-    if (!strcmp(chksum, sResourceDir.c_str())) mMd5Enable = false;
+    if (!mChksumFile.compare(sResourceDir)) mMd5Enable = false;
 
     uint32_t format = HAL_PIXEL_FORMAT_YCBCR_420_888;
     if (!configPixelFormat(format)) {
@@ -616,23 +606,22 @@ TEST_P(Codec2VideoDecDecodeTest, DecodeTest) {
     mFlushedIndices.clear();
     mTimestampUslist.clear();
 
-    int32_t numCsds = populateInfoVector(info, &Info, mTimestampDevTest, &mTimestampUslist);
-    ASSERT_GE(numCsds, 0) << "Error in parsing input info file: " << info;
+    int32_t numCsds = populateInfoVector(mInfoFile, &Info, mTimestampDevTest, &mTimestampUslist);
+    ASSERT_GE(numCsds, 0) << "Error in parsing input info file: " << mInfoFile;
 
     ASSERT_EQ(mComponent->start(), C2_OK);
     // Reset total no of frames received
     mFramesReceived = 0;
     mTimestampUs = 0;
-    ALOGV("mURL : %s", mURL);
+
     std::ifstream eleStream;
-    eleStream.open(mURL, std::ifstream::binary);
+    eleStream.open(mInputFile, std::ifstream::binary);
     ASSERT_EQ(eleStream.is_open(), true);
 
     size_t refChksmSize = 0;
     std::ifstream refChksum;
     if (mMd5Enable) {
-        ALOGV("chksum file name: %s", chksum);
-        refChksum.open(chksum, std::ifstream::binary | std::ifstream::ate);
+        refChksum.open(mChksumFile, std::ifstream::binary | std::ifstream::ate);
         ASSERT_EQ(refChksum.is_open(), true);
         refChksmSize = refChksum.tellg();
         refChksum.seekg(0, std::ifstream::beg);
@@ -643,6 +632,10 @@ TEST_P(Codec2VideoDecDecodeTest, DecodeTest) {
         refChksum.read(mRefMd5, refChksmSize);
         ASSERT_EQ(refChksum.gcount(), refChksmSize);
         refChksum.close();
+    }
+
+    if (surfMode != NO_SURFACE) {
+        ASSERT_NO_FATAL_FAILURE(setOutputSurface(mComponent, surfMode));
     }
 
     ASSERT_NO_FATAL_FAILURE(decodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
@@ -688,9 +681,11 @@ TEST_P(Codec2VideoDecDecodeTest, DecodeTest) {
 TEST_P(Codec2VideoDecHidlTest, AdaptiveDecodeTest) {
     description("Adaptive Decode Test");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
-    if (!(mCompName == avc || mCompName == hevc || mCompName == vp8 || mCompName == vp9 ||
-          mCompName == mpeg2))
+    if (!(strcasestr(mMime.c_str(), "avc") || strcasestr(mMime.c_str(), "hevc") ||
+          strcasestr(mMime.c_str(), "vp8") || strcasestr(mMime.c_str(), "vp9") ||
+          strcasestr(mMime.c_str(), "mpeg2"))) {
         return;
+    }
 
     typedef std::unique_lock<std::mutex> ULock;
     ASSERT_EQ(mComponent->start(), C2_OK);
@@ -699,20 +694,17 @@ TEST_P(Codec2VideoDecHidlTest, AdaptiveDecodeTest) {
     uint32_t timestampOffset = 0;
     uint32_t offset = 0;
     android::Vector<FrameInfo> Info;
-    for (uint32_t i = 0; i < STREAM_COUNT * 2; i++) {
-        char mURL[512], info[512];
+    for (uint32_t i = 0; i < ADAPTIVE_STREAM_COUNT * 2; i++) {
         std::ifstream eleStream, eleInfo;
 
-        strcpy(mURL, sResourceDir.c_str());
-        strcpy(info, sResourceDir.c_str());
-        GetURLForComponent(mCompName, mURL, info, i % STREAM_COUNT);
-        if (!(strcmp(mURL, sResourceDir.c_str())) || !(strcmp(info, sResourceDir.c_str()))) {
+        bool valid = getFileNames(i % ADAPTIVE_STREAM_COUNT);
+        if (!valid) {
             ALOGV("Stream not available, skipping this index");
             continue;
         }
 
-        eleInfo.open(info);
-        ASSERT_EQ(eleInfo.is_open(), true) << mURL << " - file not found";
+        eleInfo.open(mInfoFile);
+        ASSERT_EQ(eleInfo.is_open(), true) << mInputFile << " - file not found";
         int bytesCount = 0;
         uint32_t flags = 0;
         uint32_t timestamp = 0;
@@ -734,13 +726,12 @@ TEST_P(Codec2VideoDecHidlTest, AdaptiveDecodeTest) {
             }
             if (timestampMax < timestamp) timestampMax = timestamp;
         }
-        timestampOffset = timestampMax;
+        timestampOffset = timestampMax + 33333;
         eleInfo.close();
 
         // Reset Total frames before second decode loop
         // mFramesReceived = 0;
-        ALOGV("mURL : %s", mURL);
-        eleStream.open(mURL, std::ifstream::binary);
+        eleStream.open(mInputFile, std::ifstream::binary);
         ASSERT_EQ(eleStream.is_open(), true);
         ASSERT_NO_FATAL_FAILURE(decodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                               mFlushedIndices, mLinearPool, eleStream, &Info,
@@ -796,15 +787,9 @@ TEST_P(Codec2VideoDecHidlTest, ThumbnailTest) {
     description("Test Request for thumbnail");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    char mURL[512], info[512];
     android::Vector<FrameInfo> Info;
-
-    strcpy(mURL, sResourceDir.c_str());
-    strcpy(info, sResourceDir.c_str());
-    GetURLForComponent(mCompName, mURL, info);
-
-    int32_t numCsds = populateInfoVector(info, &Info, mTimestampDevTest, &mTimestampUslist);
-    ASSERT_GE(numCsds, 0) << "Error in parsing input info file: " << info;
+    int32_t numCsds = populateInfoVector(mInfoFile, &Info, mTimestampDevTest, &mTimestampUslist);
+    ASSERT_GE(numCsds, 0) << "Error in parsing input info file: " << mInfoFile;
 
     uint32_t flags = 0;
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
@@ -821,7 +806,7 @@ TEST_P(Codec2VideoDecHidlTest, ThumbnailTest) {
         } while (!(flags & SYNC_FRAME));
 
         std::ifstream eleStream;
-        eleStream.open(mURL, std::ifstream::binary);
+        eleStream.open(mInputFile, std::ifstream::binary);
         ASSERT_EQ(eleStream.is_open(), true);
         ASSERT_NO_FATAL_FAILURE(decodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                               mFlushedIndices, mLinearPool, eleStream, &Info, 0,
@@ -883,19 +868,12 @@ TEST_P(Codec2VideoDecHidlTest, FlushTest) {
 
     ASSERT_EQ(mComponent->start(), C2_OK);
 
-    char mURL[512], info[512];
     android::Vector<FrameInfo> Info;
-
-    strcpy(mURL, sResourceDir.c_str());
-    strcpy(info, sResourceDir.c_str());
-    GetURLForComponent(mCompName, mURL, info);
 
     mFlushedIndices.clear();
 
-    int32_t numCsds = populateInfoVector(info, &Info, mTimestampDevTest, &mTimestampUslist);
-    ASSERT_GE(numCsds, 0) << "Error in parsing input info file: " << info;
-
-    ALOGV("mURL : %s", mURL);
+    int32_t numCsds = populateInfoVector(mInfoFile, &Info, mTimestampDevTest, &mTimestampUslist);
+    ASSERT_GE(numCsds, 0) << "Error in parsing input info file: " << mInfoFile;
 
     // flush
     std::list<std::unique_ptr<C2Work>> flushedWork;
@@ -906,7 +884,7 @@ TEST_P(Codec2VideoDecHidlTest, FlushTest) {
     ASSERT_EQ(mWorkQueue.size(), MAX_INPUT_BUFFERS);
 
     std::ifstream eleStream;
-    eleStream.open(mURL, std::ifstream::binary);
+    eleStream.open(mInputFile, std::ifstream::binary);
     ASSERT_EQ(eleStream.is_open(), true);
     // Decode 30 frames and flush. here 30 is chosen to ensure there is a key
     // frame after this so that the below section can be covered for all
@@ -959,15 +937,10 @@ TEST_P(Codec2VideoDecHidlTest, DecodeTestEmptyBuffersInserted) {
     description("Decode with multiple empty input frames");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    char mURL[512], info[512];
     std::ifstream eleStream, eleInfo;
 
-    strcpy(mURL, sResourceDir.c_str());
-    strcpy(info, sResourceDir.c_str());
-    GetURLForComponent(mCompName, mURL, info);
-
-    eleInfo.open(info);
-    ASSERT_EQ(eleInfo.is_open(), true) << mURL << " - file not found";
+    eleInfo.open(mInfoFile);
+    ASSERT_EQ(eleInfo.is_open(), true) << mInputFile << " - file not found";
     android::Vector<FrameInfo> Info;
     int bytesCount = 0;
     uint32_t frameId = 0;
@@ -995,8 +968,7 @@ TEST_P(Codec2VideoDecHidlTest, DecodeTestEmptyBuffersInserted) {
     eleInfo.close();
 
     ASSERT_EQ(mComponent->start(), C2_OK);
-    ALOGV("mURL : %s", mURL);
-    eleStream.open(mURL, std::ifstream::binary);
+    eleStream.open(mInputFile, std::ifstream::binary);
     ASSERT_EQ(eleStream.is_open(), true);
     ASSERT_NO_FATAL_FAILURE(decodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                           mFlushedIndices, mLinearPool, eleStream, &Info, 0,
@@ -1017,12 +989,12 @@ TEST_P(Codec2VideoDecHidlTest, DecodeTestEmptyBuffersInserted) {
     }
 }
 
-class Codec2VideoDecCsdInputTests
-    : public Codec2VideoDecHidlTestBase,
-      public ::testing::WithParamInterface<std::tuple<std::string, std::string, std::string>> {
+class Codec2VideoDecCsdInputTests : public Codec2VideoDecHidlTestBase,
+                                    public ::testing::WithParamInterface<CsdFlushTestParameters> {
     void getParams() {
         mInstanceName = std::get<0>(GetParam());
         mComponentName = std::get<1>(GetParam());
+        mStreamIndex = 0;
     }
 };
 
@@ -1032,27 +1004,20 @@ TEST_P(Codec2VideoDecCsdInputTests, CSDFlushTest) {
     description("Tests codecs for flush at different states");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    char mURL[512], info[512];
-
     android::Vector<FrameInfo> Info;
 
-    strcpy(mURL, sResourceDir.c_str());
-    strcpy(info, sResourceDir.c_str());
-    GetURLForComponent(mCompName, mURL, info);
-
-    int32_t numCsds = populateInfoVector(info, &Info, mTimestampDevTest, &mTimestampUslist);
+    int32_t numCsds = populateInfoVector(mInfoFile, &Info, mTimestampDevTest, &mTimestampUslist);
     ASSERT_GE(numCsds, 0) << "Error in parsing input info file";
 
     ASSERT_EQ(mComponent->start(), C2_OK);
 
-    ALOGV("mURL : %s", mURL);
     std::ifstream eleStream;
-    eleStream.open(mURL, std::ifstream::binary);
+    eleStream.open(mInputFile, std::ifstream::binary);
     ASSERT_EQ(eleStream.is_open(), true);
     bool flushedDecoder = false;
     bool signalEOS = false;
     bool keyFrame = false;
-    bool flushCsd = !std::get<2>(GetParam()).compare("true");
+    bool flushCsd = std::get<2>(GetParam());
 
     ALOGV("sending %d csd data ", numCsds);
     int framesToDecode = numCsds;
@@ -1121,50 +1086,47 @@ TEST_P(Codec2VideoDecCsdInputTests, CSDFlushTest) {
     ASSERT_EQ(mComponent->stop(), C2_OK);
 }
 
-INSTANTIATE_TEST_SUITE_P(PerInstance, Codec2VideoDecHidlTest, testing::ValuesIn(kTestParameters),
-                         android::hardware::PrintInstanceTupleNameToString<>);
+INSTANTIATE_TEST_SUITE_P(PerInstance, Codec2VideoDecHidlTest, testing::ValuesIn(gTestParameters),
+                         PrintInstanceTupleNameToString<>);
 
 // DecodeTest with StreamIndex and EOS / No EOS
 INSTANTIATE_TEST_SUITE_P(StreamIndexAndEOS, Codec2VideoDecDecodeTest,
-                         testing::ValuesIn(kDecodeTestParameters),
-                         android::hardware::PrintInstanceTupleNameToString<>);
+                         testing::ValuesIn(gDecodeTestParameters),
+                         PrintInstanceTupleNameToString<>);
 
 INSTANTIATE_TEST_SUITE_P(CsdInputs, Codec2VideoDecCsdInputTests,
-                         testing::ValuesIn(kCsdFlushTestParameters),
-                         android::hardware::PrintInstanceTupleNameToString<>);
+                         testing::ValuesIn(gCsdFlushTestParameters),
+                         PrintInstanceTupleNameToString<>);
 
 }  // anonymous namespace
 
 // TODO : Video specific configuration Test
 int main(int argc, char** argv) {
-    kTestParameters = getTestParameters(C2Component::DOMAIN_VIDEO, C2Component::KIND_DECODER);
-    for (auto params : kTestParameters) {
-        kDecodeTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "0", "false"));
-        kDecodeTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "0", "true"));
-        kDecodeTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "1", "false"));
-        kDecodeTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "1", "true"));
-        kDecodeTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "2", "false"));
-        kDecodeTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "2", "true"));
-
-        kCsdFlushTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "true"));
-        kCsdFlushTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "false"));
-    }
-
-    // Set the resource directory based on command line args.
-    // Test will fail to set up if the argument is not set.
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-P") == 0 && i < argc - 1) {
-            sResourceDir = argv[i + 1];
-            break;
+    parseArgs(argc, argv);
+    gTestParameters = getTestParameters(C2Component::DOMAIN_VIDEO, C2Component::KIND_DECODER);
+    for (auto params : gTestParameters) {
+        // mOutputBufferQueue->configure() crashes when surface is NULL
+        std::initializer_list<surfaceMode_t> surfaceMode = {
+                surfaceMode_t::NO_SURFACE, surfaceMode_t::NULL_SURFACE, surfaceMode_t::SURFACE};
+        for (surfaceMode_t mode : surfaceMode) {
+            gDecodeTestParameters.push_back(
+                    std::make_tuple(std::get<0>(params), std::get<1>(params), 0, false, mode));
+            gDecodeTestParameters.push_back(
+                    std::make_tuple(std::get<0>(params), std::get<1>(params), 0, true, mode));
         }
+        gDecodeTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 1, false, NO_SURFACE));
+        gDecodeTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 1, true, NO_SURFACE));
+        gDecodeTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 2, false, NO_SURFACE));
+        gDecodeTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 2, true, NO_SURFACE));
+
+        gCsdFlushTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), true));
+        gCsdFlushTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), false));
     }
 
     ::testing::InitGoogleTest(&argc, argv);

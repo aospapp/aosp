@@ -82,6 +82,7 @@ LDFileFormat::Kind GetELFSectionKind(uint32_t pType,
       return LDFileFormat::NamePool;
     case llvm::ELF::SHT_RELA:
     case llvm::ELF::SHT_REL:
+    case 19 /*llvm::ELF::SHT_RELR*/:
       return LDFileFormat::Relocation;
     case llvm::ELF::SHT_NOBITS:
       return LDFileFormat::BSS;

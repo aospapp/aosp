@@ -81,4 +81,13 @@ public class InitialLockSetupHelper {
         }
         return charSequence;
     }
+
+    /** Return an ASCII-equivalent array of character digits for a numeric byte input. */
+    public static byte[] getNumericEquivalentByteArray(byte[] input) {
+        byte[] output = new byte[input.length];
+        for (int i = 0; i < input.length; i++) {
+            output[i] = (byte) (input[i] + 48);
+        }
+        return output;
+    }
 }

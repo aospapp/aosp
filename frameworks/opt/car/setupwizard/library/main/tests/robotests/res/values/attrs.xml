@@ -19,6 +19,8 @@
     <declare-styleable name="CarSetupWizardBaseLayout">
         <!-- Attributes related to the visibility of the back button -->
         <attr name="showBackButton" format="boolean"/>
+        <!-- Attributes related to the visibility of the close button -->
+        <attr name="showCloseButton" format="boolean"/>
 
         <!-- Attributes related to the visibility and text of the toolbar title -->
         <attr name="showToolbarTitle" format="boolean"/>

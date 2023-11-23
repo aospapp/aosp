@@ -156,6 +156,9 @@ public final class AccessibilityManager {
 
                 public void setRelevantEventTypes(int eventTypes) {
                 }
+
+                public void setFocusAppearance(int strokeWidth, int color) {
+                }
             };
 
     /**

@@ -16,7 +16,7 @@
 
 package com.android.layoutlib.bridge.bars;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.ResourceNamespace;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
@@ -90,7 +90,7 @@ public class StatusBar extends CustomBar {
         }
 
         if (icons.size() != 2 || clockView == null) {
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to initialize statusbar", null,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "Unable to initialize statusbar", null,
                     null, null);
             return;
         }
@@ -126,10 +126,10 @@ public class StatusBar extends CustomBar {
                 imageView.setImageDrawable(
                         Drawable.createFromXml(mContext.getResources(), parser));
             } catch (XmlPullParserException e) {
-                Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
+                Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
                         null, null);
             } catch (IOException e) {
-                Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
+                Bridge.getLog().error(ILayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
                         null, null);
             }
         }

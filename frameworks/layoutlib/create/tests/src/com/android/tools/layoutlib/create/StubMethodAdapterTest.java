@@ -38,7 +38,7 @@ public class StubMethodAdapterTest {
     private static final String STUB_CLASS_NAME = StubClass.class.getName();
 
     /**
-     * Load a dummy class, stub one of its method and ensure that the modified class works as
+     * Load a mock class, stub one of its method and ensure that the modified class works as
      * intended.
      */
     @Test

@@ -2,13 +2,18 @@
 package com.android.libraries.tv.tvsystem.display {
 
   public final class DeviceProductInfo {
-    ctor public DeviceProductInfo(String, String, String, Integer, com.android.libraries.tv.tvsystem.display.DeviceProductInfo.ManufactureDate, int[]);
+    ctor @Deprecated public DeviceProductInfo(String, String, String, Integer, com.android.libraries.tv.tvsystem.display.DeviceProductInfo.ManufactureDate, int[]);
+    method public int getConnectionToSinkType();
     method public com.android.libraries.tv.tvsystem.display.DeviceProductInfo.ManufactureDate getManufactureDate();
     method public String getManufacturerPnpId();
     method public Integer getModelYear();
     method public String getName();
     method public String getProductId();
-    method public int[] getRelativeAddress();
+    method @Deprecated public int[] getRelativeAddress();
+    field public static final int CONNECTION_TO_SINK_BUILT_IN = 1; // 0x1
+    field public static final int CONNECTION_TO_SINK_DIRECT = 2; // 0x2
+    field public static final int CONNECTION_TO_SINK_TRANSITIVE = 3; // 0x3
+    field public static final int CONNECTION_TO_SINK_UNKNOWN = 0; // 0x0
   }
 
   public static class DeviceProductInfo.ManufactureDate {

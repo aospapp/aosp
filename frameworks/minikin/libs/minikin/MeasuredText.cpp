@@ -213,10 +213,20 @@ class BoundsCompositor {
 public:
     BoundsCompositor() : mAdvance(0) {}
 
-    void operator()(const LayoutPiece& layoutPiece, const MinikinPaint& /* paint */) {
-        MinikinRect tmpBounds = layoutPiece.bounds();
-        tmpBounds.offset(mAdvance, 0);
-        mBounds.join(tmpBounds);
+    void operator()(const LayoutPiece& layoutPiece, const MinikinPaint& paint) {
+        MinikinRect pieceBounds;
+        MinikinRect tmpRect;
+        for (uint32_t i = 0; i < layoutPiece.glyphCount(); ++i) {
+            const FakedFont& font = layoutPiece.fontAt(i);
+            const Point& point = layoutPiece.pointAt(i);
+
+            MinikinFont* minikinFont = font.font->typeface().get();
+            minikinFont->GetBounds(&tmpRect, layoutPiece.glyphIdAt(i), paint, font.fakery);
+            tmpRect.offset(point.x, point.y);
+            pieceBounds.join(tmpRect);
+        }
+        pieceBounds.offset(mAdvance, 0);
+        mBounds.join(pieceBounds);
         mAdvance += layoutPiece.advance();
     }
 

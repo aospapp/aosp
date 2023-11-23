@@ -80,6 +80,9 @@ include frameworks/compile/slang/rs_version.mk
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_base_files)
 LOCAL_SRC_FILES_32 := $(clcore_files_32)
@@ -99,6 +102,9 @@ include $(LOCAL_PATH)/build_bc_lib.mk
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_debug.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 rs_debug_runtime := 1
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_base_files)
@@ -121,6 +127,9 @@ ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_x86.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_CFLAGS += $(clcore_cflags) -DARCH_X86_HAVE_SSSE3
 LOCAL_SRC_FILES := $(clcore_x86_files)
 LOCAL_SRC_FILES_32 := $(clcore_base_files_32)
@@ -136,6 +145,9 @@ include $(CLEAR_VARS)
 LOCAL_32_BIT_ONLY := true
 
 LOCAL_MODULE := libclcore_neon.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_neon_files)
 LOCAL_CFLAGS += -DARCH_ARM_HAVE_NEON
@@ -146,6 +158,9 @@ include $(LOCAL_PATH)/build_bc_lib.mk
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_g.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 rs_g_runtime := 1
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_CFLAGS += -g -O0
@@ -163,6 +178,9 @@ include $(LOCAL_PATH)/build_bc_lib.mk
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_debug_g.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 rs_debug_runtime := 1
 rs_g_runtime := 1
 LOCAL_CFLAGS += $(clcore_cflags)
@@ -195,6 +213,9 @@ LOCAL_32_BIT_ONLY := true
 BCC_RS_TRIPLE := renderscript32-linux-androideabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_IS_HOST_MODULE := true
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_32)
@@ -209,6 +230,9 @@ LOCAL_32_BIT_ONLY := true
 BCC_RS_TRIPLE := renderscript32-linux-androideabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_mips.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_IS_HOST_MODULE := true
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_32)
@@ -223,6 +247,9 @@ LOCAL_32_BIT_ONLY := true
 BCC_RS_TRIPLE := renderscript32-linux-androideabi
 RS_TRIPLE_CFLAGS := -D__i386__
 LOCAL_MODULE := librsrt_x86.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_IS_HOST_MODULE := true
 LOCAL_CFLAGS += $(clcore_cflags) -DARCH_X86_HAVE_SSSE3
 LOCAL_SRC_FILES := $(clcore_x86_files) $(clcore_base_files_32)
@@ -233,6 +260,9 @@ include $(CLEAR_VARS)
 BCC_RS_TRIPLE := renderscript64-linux-android
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm64.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_IS_HOST_MODULE := true
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_64)
@@ -244,6 +274,9 @@ include $(CLEAR_VARS)
 BCC_RS_TRIPLE := renderscript64-linux-android
 RS_TRIPLE_CFLAGS := -D__x86_64__
 LOCAL_MODULE := librsrt_x86_64.bc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_IS_HOST_MODULE := true
 LOCAL_CFLAGS += $(clcore_cflags) -DARCH_X86_HAVE_SSSE3
 LOCAL_SRC_FILES := $(clcore_x86_files) $(clcore_base_files_64)

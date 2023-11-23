@@ -27,13 +27,19 @@
 
 #include <media/stagefright/MediaAdapter.h>
 
-using namespace android;
-using namespace std;
+#include "WriterListener.h"
 
 #define CODEC_CONFIG_FLAG 32
 
+constexpr uint32_t kMaxTrackCount = 2;
 constexpr uint32_t kMaxCSDStrlen = 16;
 constexpr uint32_t kMaxCount = 20;
+constexpr int32_t kMimeSize = 128;
+constexpr int32_t kDefaultInterleaveDuration = 0;
+// Geodata is set according to ISO-6709 standard.
+constexpr int32_t kDefaultLatitudex10000 = 500000;
+constexpr int32_t kDefaultLongitudex10000 = 1000000;
+constexpr float kDefaultFPS = 30.0f;
 
 struct BufferInfo {
     int32_t size;
@@ -41,9 +47,18 @@ struct BufferInfo {
     int64_t timeUs;
 };
 
+struct configFormat {
+    char mime[kMimeSize];
+    int32_t width;
+    int32_t height;
+    int32_t sampleRate;
+    int32_t channelCount;
+};
+
 int32_t sendBuffersToWriter(ifstream &inputStream, vector<BufferInfo> &bufferInfo,
                             int32_t &inputFrameId, sp<MediaAdapter> &currentTrack, int32_t offset,
-                            int32_t range, bool isPaused = false);
+                            int32_t range, bool isPaused = false,
+                            sp<WriterListener> listener = nullptr);
 
 int32_t writeHeaderBuffers(ifstream &inputStream, vector<BufferInfo> &bufferInfo,
                            int32_t &inputFrameId, sp<AMessage> &format, int32_t numCsds);

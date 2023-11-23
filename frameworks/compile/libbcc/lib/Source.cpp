@@ -45,11 +45,12 @@ namespace {
 // return nullptr and will NOT take the ownership of pInput.
 static inline std::unique_ptr<llvm::Module> helper_load_bitcode(llvm::LLVMContext &pContext,
                                                 std::unique_ptr<llvm::MemoryBuffer> &&pInput) {
+  auto bufferId = pInput->getBufferIdentifier();
   llvm::ErrorOr<std::unique_ptr<llvm::Module> > moduleOrError
       = llvm::getLazyBitcodeModule(std::move(pInput), pContext);
   if (std::error_code ec = moduleOrError.getError()) {
     ALOGE("Unable to parse the given bitcode file `%s'! (%s)",
-          pInput->getBufferIdentifier(), ec.message().c_str());
+          bufferId, ec.message().c_str());
   }
 
   return std::move(moduleOrError.get());

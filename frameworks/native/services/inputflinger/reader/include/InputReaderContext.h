@@ -46,7 +46,7 @@ public:
     virtual bool shouldDropVirtualKey(nsecs_t now, int32_t keyCode, int32_t scanCode) = 0;
 
     virtual void fadePointer() = 0;
-    virtual sp<PointerControllerInterface> getPointerController(int32_t deviceId) = 0;
+    virtual std::shared_ptr<PointerControllerInterface> getPointerController(int32_t deviceId) = 0;
 
     virtual void requestTimeoutAtTime(nsecs_t when) = 0;
     virtual int32_t bumpGeneration() = 0;
@@ -59,6 +59,9 @@ public:
     virtual EventHubInterface* getEventHub() = 0;
 
     virtual int32_t getNextId() = 0;
+
+    virtual void updateLedMetaState(int32_t metaState) = 0;
+    virtual int32_t getLedMetaState() = 0;
 };
 
 } // namespace android

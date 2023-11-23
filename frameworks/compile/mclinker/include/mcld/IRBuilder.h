@@ -417,8 +417,7 @@ class IRBuilder {
   ///
   ///   - Unresolve
   ///      - Forcefully override the symbol in mcld::Module.  With this
-  ///        argument, AddSymbol function turns a blind eye to symbol
-  ///        resolution rules.
+  ///        argument, AddSymbol function ignores symbol resolution rules.
   ///
   /// @param [in] pName    The name of the symbol
   /// @param [in] pType    The type of the symbol

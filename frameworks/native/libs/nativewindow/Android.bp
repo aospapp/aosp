@@ -12,6 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: [
+        "frameworks_native_libs_nativewindow_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_native_libs_nativewindow_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 ndk_headers {
     name: "libnativewindow_ndk_headers",
     from: "include/android",
@@ -28,6 +47,7 @@ cc_library_headers {
     // TODO(b/153609531): remove when no longer needed.
     native_bridge_supported: true,
     min_sdk_version: "29",
+    host_supported: true,
 }
 
 ndk_library {
@@ -40,6 +60,13 @@ ndk_library {
 
 cc_library {
     name: "libnativewindow",
+    llndk: {
+        symbol_file: "libnativewindow.map.txt",
+        unversioned: true,
+        override_export_include_dirs: [
+            "include"
+        ],
+    },
     export_include_dirs: [
         "include",
         "include-private",
@@ -92,13 +119,6 @@ cc_library {
         symbol_file: "libnativewindow.map.txt",
         versions: ["29"],
     },
-}
-
-llndk_library {
-    name: "libnativewindow",
-    symbol_file: "libnativewindow.map.txt",
-    unversioned: true,
-    export_include_dirs: ["include"],
 }
 
 subdirs = ["tests"]

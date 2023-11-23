@@ -23,7 +23,7 @@
 
     <!-- Match this with the order of NetworkInfo.DetailedState. --> <skip />
     <!-- Wi-Fi settings. The status messages when the network is unknown. -->
-    <string-array name="wifi_status">
+    <string-array name="wifitrackerlib_wifi_status">
         <!-- Status message of Wi-Fi when it is idle. -->
         <item></item>
         <!-- Status message of Wi-Fi when it is scanning. -->

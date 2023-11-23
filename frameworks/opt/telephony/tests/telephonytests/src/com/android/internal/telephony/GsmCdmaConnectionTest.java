@@ -30,11 +30,16 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
+import com.android.internal.telephony.PhoneInternalInterface.DialArgs;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
@@ -57,7 +62,10 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
 
     @After
     public void tearDown() throws Exception {
-        connection = null;
+        if (connection != null) {
+            connection.dispose();
+            connection = null;
+        }
         super.tearDown();
     }
 
@@ -65,7 +73,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     public void testFormatDialString(){
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
        /* case 1: If PAUSE/WAIT sequence at the end, ignore them */
         String formattedDialStr = connection.formatDialString(
                 String.format("+1 (700).555-41NN1234%c", PhoneNumberUtils.PAUSE));
@@ -81,12 +89,12 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     public void testOriginalDialString(){
         doReturn(PhoneConstants.PHONE_TYPE_CDMA).when(mPhone).getPhoneType();
         connection = new GsmCdmaConnection(mPhone, "+8610000", mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         assertEquals("+8610000", connection.getOrigDialString());
 
         doReturn(PhoneConstants.PHONE_TYPE_GSM).when(mPhone).getPhoneType();
         connection = new GsmCdmaConnection(mPhone, "+8610000", mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         assertEquals("+8610000", connection.getOrigDialString());
     }
 
@@ -94,7 +102,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     public void testSanityGSM() {
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         logd("Testing initial state of GsmCdmaConnection");
         assertEquals(GsmCdmaCall.State.IDLE, connection.getState());
         assertEquals(Connection.PostDialState.NOT_STARTED, connection.getPostDialState());
@@ -112,7 +120,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
         doReturn(PhoneConstants.PHONE_TYPE_CDMA).when(mPhone).getPhoneType();
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         logd("Testing initial state of GsmCdmaConnection");
         assertEquals(GsmCdmaCall.State.IDLE, connection.getState());
         assertEquals(Connection.PostDialState.NOT_STARTED, connection.getPostDialState());
@@ -129,7 +137,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     public void testConnectionStateUpdate() {
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         logd("Update the connection state from idle to active");
         mDC.state = DriverCall.State.ACTIVE;
         connection.update(mDC);
@@ -149,7 +157,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
         doReturn(PhoneConstants.PHONE_TYPE_CDMA).when(mPhone).getPhoneType();
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         logd("Mock connection state from alerting to active ");
         mDC.state = DriverCall.State.ALERTING;
         connection.update(mDC);
@@ -167,7 +175,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     public void testGSMPostDialPause() {
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         logd("Mock connection state from alerting to active ");
         mDC.state = DriverCall.State.ALERTING;
         connection.update(mDC);
@@ -187,7 +195,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
         doReturn(PhoneConstants.PHONE_TYPE_CDMA).when(mPhone).getPhoneType();
         connection = new GsmCdmaConnection(mPhone,
                 String.format("+1 (700).555-41NN%c1234", PhoneNumberUtils.WAIT),mCT,null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         logd("Mock connection state transition from alerting to active ");
         mDC.state = DriverCall.State.ALERTING;
         connection.update(mDC);
@@ -204,7 +212,7 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     public void testHangUpConnection() {
         connection = new GsmCdmaConnection(mPhone, String.format(
                 "+1 (700).555-41NN%c1234", PhoneNumberUtils.PAUSE), mCT, null,
-                false /*isEmergencyCall*/);
+                new DialArgs.Builder().build());
         mDC.state = DriverCall.State.ACTIVE;
         connection.update(mDC);
         logd("Hangup the connection locally");
@@ -229,7 +237,8 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
                 {"+8112345*00000", "+8112345", "+8112345*00000"}};
         mDC.state = DriverCall.State.ALERTING;
         for (String[] testAddress : testAddressMappingSet) {
-            connection = new GsmCdmaConnection(mPhone, testAddress[0], mCT, null, false);
+            connection = new GsmCdmaConnection(mPhone, testAddress[0], mCT, null,
+                    new DialArgs.Builder().build());
             connection.setIsIncoming(true);
             mDC.number = testAddress[1];
             connection.update(mDC);
@@ -243,10 +252,30 @@ public class GsmCdmaConnectionTest extends TelephonyTest {
     @Test @SmallTest
     public void testAddressUpdateOutgoing() {
         mDC.state = DriverCall.State.ALERTING;
-        connection = new GsmCdmaConnection(mPhone, "12345", mCT, null, false);
+        connection = new GsmCdmaConnection(mPhone, "12345", mCT, null,
+                new DialArgs.Builder().build());
         connection.setIsIncoming(false);
         mDC.number = "678";
         connection.update(mDC);
         assertEquals("12345", connection.getAddress());
+    }
+
+    @Test @SmallTest
+    public void testRedirectingAddressUpdate() {
+        String forwardedNumber = "11111";
+
+        connection = new GsmCdmaConnection(mPhone, "12345", mCT, null,
+                new DialArgs.Builder().build());
+        connection.setIsIncoming(true);
+        assertEquals(null, connection.getForwardedNumber());
+        mDC.state = DriverCall.State.ALERTING;
+        mDC.forwardedNumber = forwardedNumber;
+        connection.update(mDC);
+        assertEquals(new ArrayList<String>(Arrays.asList(forwardedNumber)),
+                connection.getForwardedNumber());
+
+        connection = new GsmCdmaConnection(mPhone, mDC, mCT, 0);
+        assertEquals(new ArrayList<String>(Arrays.asList(forwardedNumber)),
+                connection.getForwardedNumber());
     }
 }

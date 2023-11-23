@@ -45,7 +45,7 @@ public abstract class BridgeActionBar {
     private final View mDecorContent;
     private final ActionBarCallback mCallback;
 
-    @SuppressWarnings("NullableProblems")  // Should be initialized by subclasses.
+    @SuppressWarnings("NotNullFieldNotInitialized") // Should be initialized by subclasses.
     @NonNull private FrameLayout mContentRoot;
 
     public BridgeActionBar(@NonNull BridgeContext context, @NonNull SessionParams params) {

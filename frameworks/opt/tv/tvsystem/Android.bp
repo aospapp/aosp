@@ -12,18 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_sdk_library {
     name: "com.android.libraries.tv.tvsystem",
     srcs: ["java/**/*.java"],
     api_packages: [
         "com.android.libraries.tv.tvsystem",
         "com.android.libraries.tv.tvsystem.display",
+        "com.android.libraries.tv.tvsystem.media",
         "com.android.libraries.tv.tvsystem.pm",
         "com.android.libraries.tv.tvsystem.user",
         "com.android.libraries.tv.tvsystem.wifi"
     ],
     dex_preopt: {
         enabled: false,
-    }
+    },
+    system_ext_specific: true,
+    no_dist: true,
+    unsafe_ignore_missing_latest_api: true
 }
-

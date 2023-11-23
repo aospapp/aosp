@@ -26,9 +26,11 @@ import android.os.RegistrantList;
 import android.os.SystemProperties;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.AccessNetworkConstants.AccessNetworkType;
+import android.telephony.AccessNetworkConstants.TransportType;
 import android.telephony.Annotation.ApnType;
 import android.telephony.CarrierConfigManager;
 import android.telephony.data.ApnSetting;
+import android.util.IndentingPrintWriter;
 import android.util.LocalLog;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
@@ -38,16 +40,16 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.RIL;
 import com.android.internal.telephony.dataconnection.AccessNetworksManager.QualifiedNetworks;
 import com.android.internal.telephony.util.ArrayUtils;
-import com.android.internal.util.IndentingPrintWriter;
 import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -94,7 +96,7 @@ import java.util.stream.Collectors;
  *          The carrier config takes precedence over the resource overlay if both exist.
  */
 public class TransportManager extends Handler {
-    private static final String TAG = TransportManager.class.getSimpleName();
+    private final String mLogTag;
 
     // Key is the access network, value is the transport.
     private static final Map<Integer, Integer> ACCESS_NETWORK_TRANSPORT_TYPE_MAP;
@@ -168,7 +170,7 @@ public class TransportManager extends Handler {
     /**
      * The queued available networks list.
      */
-    private final LinkedList<List<QualifiedNetworks>> mAvailableNetworksList;
+    private final ArrayDeque<List<QualifiedNetworks>> mQueuedNetworksList;
 
     /**
      * The current transport of the APN type. The key is the APN type, and the value is the
@@ -225,7 +227,8 @@ public class TransportManager extends Handler {
         mCurrentTransports = new ConcurrentHashMap<>();
         mPendingHandoverApns = new SparseIntArray();
         mHandoverNeededEventRegistrants = new RegistrantList();
-        mAvailableNetworksList = new LinkedList<>();
+        mQueuedNetworksList = new ArrayDeque<>();
+        mLogTag = TransportManager.class.getSimpleName() + "-" + mPhone.getPhoneId();
 
         if (isInLegacyMode()) {
             log("operates in legacy mode.");
@@ -248,7 +251,7 @@ public class TransportManager extends Handler {
             case EVENT_QUALIFIED_NETWORKS_CHANGED:
                 AsyncResult ar = (AsyncResult) msg.obj;
                 List<QualifiedNetworks> networks = (List<QualifiedNetworks>) ar.result;
-                mAvailableNetworksList.add(networks);
+                mQueuedNetworksList.add(networks);
                 sendEmptyMessage(EVENT_UPDATE_AVAILABLE_NETWORKS);
                 break;
             case EVENT_UPDATE_AVAILABLE_NETWORKS:
@@ -317,9 +320,11 @@ public class TransportManager extends Handler {
      * @param transport The transport. Must be WWAN or WLAN.
      */
     private synchronized void setCurrentTransport(@ApnType int apnType, int transport) {
-        mCurrentTransports.put(apnType, transport);
-        logl("setCurrentTransport: apnType=" + ApnSetting.getApnTypeString(apnType)
-                + ", transport=" + AccessNetworkConstants.transportTypeToString(transport));
+        Integer previousTransport = mCurrentTransports.put(apnType, transport);
+        if (previousTransport == null || previousTransport != transport) {
+            logl("setCurrentTransport: apnType=" + ApnSetting.getApnTypeString(apnType)
+                    + ", transport=" + AccessNetworkConstants.transportTypeToString(transport));
+        }
     }
 
     private boolean isHandoverPending() {
@@ -332,12 +337,12 @@ public class TransportManager extends Handler {
             return;
         }
 
-        if (mAvailableNetworksList.size() == 0) {
+        if (mQueuedNetworksList.size() == 0) {
             log("Nothing in the available network list queue.");
             return;
         }
 
-        List<QualifiedNetworks> networksList = mAvailableNetworksList.remove();
+        List<QualifiedNetworks> networksList = mQueuedNetworksList.remove();
         logl("updateAvailableNetworks: " + networksList);
         for (QualifiedNetworks networks : networksList) {
             if (areNetworksValid(networks)) {
@@ -349,7 +354,8 @@ public class TransportManager extends Handler {
                     int targetTransport = ACCESS_NETWORK_TRANSPORT_TYPE_MAP.get(
                             networks.qualifiedNetworks[0]);
                     logl("Handover needed for APN type: "
-                            + ApnSetting.getApnTypeString(networks.apnType) + ", target transport: "
+                            + ApnSetting.getApnTypeString(networks.apnType)
+                            + ", target transport: "
                             + AccessNetworkConstants.transportTypeToString(targetTransport));
                     mPendingHandoverApns.put(networks.apnType, targetTransport);
                     mHandoverNeededEventRegistrants.notifyResult(
@@ -376,7 +382,7 @@ public class TransportManager extends Handler {
 
                                         // If there are still pending available network changes, we
                                         // need to process the rest.
-                                        if (mAvailableNetworksList.size() > 0) {
+                                        if (mQueuedNetworksList.size() > 0) {
                                             sendEmptyMessage(EVENT_UPDATE_AVAILABLE_NETWORKS);
                                         }
                                     }));
@@ -388,7 +394,7 @@ public class TransportManager extends Handler {
         }
 
         // If there are still pending available network changes, we need to process the rest.
-        if (mAvailableNetworksList.size() > 0) {
+        if (mQueuedNetworksList.size() > 0) {
             sendEmptyMessage(EVENT_UPDATE_AVAILABLE_NETWORKS);
         }
     }
@@ -407,14 +413,18 @@ public class TransportManager extends Handler {
      * @return {@code true} if the device operates in legacy mode, otherwise {@code false}.
      */
     public boolean isInLegacyMode() {
-        // Get IWLAN operation mode from the system property. If the system property is missing or
-        // mis-configured the default behavior is tied to the IRadio version. For 1.4 or above, it's
-        // AP-assisted mode, for 1.3 or below, it's legacy mode. For IRadio 1.3 or below, no matter
-        // what the configuration is, it will always be legacy mode.
+        // Get IWLAN operation mode from the system property. If the system property is configured
+        // to default or not configured, the mode is tied to IRadio version. For 1.4 or above, it's
+        // AP-assisted mode, for 1.3 or below, it's legacy mode.
         String mode = SystemProperties.get(SYSTEM_PROPERTIES_IWLAN_OPERATION_MODE);
 
-        return mode.equals(IWLAN_OPERATION_MODE_LEGACY)
-                || mPhone.getHalVersion().less(RIL.RADIO_HAL_VERSION_1_4);
+        if (mode.equals(IWLAN_OPERATION_MODE_AP_ASSISTED)) {
+            return false;
+        } else if (mode.equals(IWLAN_OPERATION_MODE_LEGACY)) {
+            return true;
+        }
+
+        return mPhone.getHalVersion().less(RIL.RADIO_HAL_VERSION_1_4);
     }
 
     /**
@@ -471,6 +481,60 @@ public class TransportManager extends Handler {
     }
 
     /**
+     * Registers the data throttler with DcTracker.
+     */
+    public void registerDataThrottler(DataThrottler dataThrottler) {
+        if (mAccessNetworksManager != null) {
+            mAccessNetworksManager.registerDataThrottler(dataThrottler);
+        }
+    }
+
+    /**
+     * Get the latest preferred transport. Note that the current transport only changed after
+     * handover is completed, and there might be queued update network requests not processed yet.
+     * This method is used to get the latest preference sent from qualified networks service.
+     *
+     * @param apnType APN type
+     * @return The preferred transport. {@link AccessNetworkConstants#TRANSPORT_TYPE_INVALID} if
+     * unknown, unavailable, or QNS explicitly specifies data connection of the APN type should not
+     * be brought up on either cellular or IWLAN.
+     */
+    public @TransportType int getPreferredTransport(@ApnType int apnType) {
+        // Since the latest updates from QNS is stored at the end of the queue, so if we want to
+        // check what's the latest, we should iterate the queue reversely.
+        Iterator<List<QualifiedNetworks>> it = mQueuedNetworksList.descendingIterator();
+        while (it.hasNext()) {
+            List<QualifiedNetworks> networksList = it.next();
+            for (QualifiedNetworks networks : networksList) {
+                if (networks.apnType == apnType) {
+                    if (networks.qualifiedNetworks.length > 0) {
+                        return ACCESS_NETWORK_TRANSPORT_TYPE_MAP.get(networks.qualifiedNetworks[0]);
+                    }
+                    // This is the case that QNS explicitly specifies no data allowed on neither
+                    // cellular nor IWLAN.
+                    return AccessNetworkConstants.TRANSPORT_TYPE_INVALID;
+                }
+            }
+        }
+
+        // if not found in the queue, see if it's in the current available networks.
+        int[] currentNetworkList = mCurrentAvailableNetworks.get(apnType);
+        if (currentNetworkList != null) {
+            if (currentNetworkList.length > 0) {
+                return ACCESS_NETWORK_TRANSPORT_TYPE_MAP.get(currentNetworkList[0]);
+            }
+            // This is the case that QNS explicitly specifies no data allowed on neither
+            // cellular nor IWLAN.
+            return AccessNetworkConstants.TRANSPORT_TYPE_INVALID;
+        }
+
+        // If no input from QNS, for example in legacy mode, the default preferred transport should
+        // be cellular.
+        return AccessNetworkConstants.TRANSPORT_TYPE_WWAN;
+    }
+
+
+    /**
      * Dump the state of transport manager
      *
      * @param fd File descriptor
@@ -479,15 +543,30 @@ public class TransportManager extends Handler {
      */
     public void dump(FileDescriptor fd, PrintWriter printwriter, String[] args) {
         IndentingPrintWriter pw = new IndentingPrintWriter(printwriter, "  ");
-        pw.println("TransportManager:");
+        pw.println(mLogTag);
         pw.increaseIndent();
         pw.println("mAvailableTransports=[" + Arrays.stream(mAvailableTransports)
-                .mapToObj(type -> AccessNetworkConstants.transportTypeToString(type))
+                .mapToObj(AccessNetworkConstants::transportTypeToString)
                 .collect(Collectors.joining(",")) + "]");
-        pw.println("mCurrentAvailableNetworks=" + mCurrentAvailableNetworks);
-        pw.println("mAvailableNetworksList=" + mAvailableNetworksList);
+        pw.println("mCurrentAvailableNetworks=");
+        pw.increaseIndent();
+        for (int i = 0; i < mCurrentAvailableNetworks.size(); i++) {
+            pw.println("APN type "
+                    + ApnSetting.getApnTypeString(mCurrentAvailableNetworks.keyAt(i))
+                    + ": [" + Arrays.stream(mCurrentAvailableNetworks.valueAt(i))
+                    .mapToObj(AccessNetworkType::toString)
+                    .collect(Collectors.joining(",")) + "]");
+        }
+        pw.decreaseIndent();
+        pw.println("mQueuedNetworksList=" + mQueuedNetworksList);
         pw.println("mPendingHandoverApns=" + mPendingHandoverApns);
-        pw.println("mCurrentTransports=" + mCurrentTransports);
+        pw.println("mCurrentTransports=");
+        pw.increaseIndent();
+        for (Map.Entry<Integer, Integer> entry : mCurrentTransports.entrySet()) {
+            pw.println("APN type " + ApnSetting.getApnTypeString(entry.getKey())
+                    + ": " + AccessNetworkConstants.transportTypeToString(entry.getValue()));
+        }
+        pw.decreaseIndent();
         pw.println("isInLegacy=" + isInLegacyMode());
         pw.println("IWLAN operation mode="
                 + SystemProperties.get(SYSTEM_PROPERTIES_IWLAN_OPERATION_MODE));
@@ -508,10 +587,10 @@ public class TransportManager extends Handler {
     }
 
     private void log(String s) {
-        Rlog.d(TAG, s);
+        Rlog.d(mLogTag, s);
     }
 
     private void loge(String s) {
-        Rlog.e(TAG, s);
+        Rlog.e(mLogTag, s);
     }
 }

@@ -20,6 +20,7 @@ import android.annotation.NonNull;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.net.KeepalivePacketData;
 import android.net.LinkProperties;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.os.WorkSource;
@@ -30,13 +31,18 @@ import android.telephony.ImsiEncryptionInfo;
 import android.telephony.NetworkScanRequest;
 import android.telephony.RadioAccessSpecifier;
 import android.telephony.SignalThresholdInfo;
+import android.telephony.TelephonyManager;
+import android.telephony.data.DataCallResponse;
 import android.telephony.data.DataProfile;
+import android.telephony.data.NetworkSliceInfo;
+import android.telephony.data.TrafficDescriptor;
 import android.telephony.emergency.EmergencyNumber;
 
 import com.android.internal.telephony.cdma.CdmaSmsBroadcastConfigInfo;
 import com.android.internal.telephony.gsm.SmsBroadcastConfigInfo;
-import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
+import com.android.internal.telephony.uicc.IccCardStatus;
+import com.android.internal.telephony.uicc.SimPhonebookRecord;
 
 import java.util.List;
 
@@ -52,6 +58,8 @@ public interface CommandsInterface {
     static final int CLIR_INVOCATION = 1;   // (restrict CLI presentation)
     static final int CLIR_SUPPRESSION = 2;  // (allow CLI presentation)
 
+    // Used as return value for CDMA SS query
+    static final int SS_STATUS_UNKNOWN          = 0xff;
 
     // Used as parameters for call forward methods below
     static final int CF_ACTION_DISABLE          = 0;
@@ -147,9 +155,9 @@ public interface CommandsInterface {
     void unregisterForRadioStateChanged(Handler h);
 
     void registerForVoiceRadioTechChanged(Handler h, int what, Object obj);
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     void unregisterForVoiceRadioTechChanged(Handler h);
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     void registerForImsNetworkStateChanged(Handler h, int what, Object obj);
     void unregisterForImsNetworkStateChanged(Handler h);
 
@@ -216,6 +224,10 @@ public interface CommandsInterface {
     void registerForDataCallListChanged(Handler h, int what, Object obj);
     /** Unregister from data call list changed event */
     void unregisterForDataCallListChanged(Handler h);
+    /** Register for the apn unthrottled event */
+    void registerForApnUnthrottled(Handler h, int what, Object obj);
+    /** Unregister for apn unthrottled event */
+    void unregisterForApnUnthrottled(Handler h);
 
     /** InCall voice privacy notifications */
     void registerForInCallVoicePrivacyOn(Handler h, int what, Object obj);
@@ -668,9 +680,9 @@ public interface CommandsInterface {
       * @param what User-defined message code.
       * @param obj User object.
       */
-     @UnsupportedAppUsage
+     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
      void registerForRilConnected(Handler h, int what, Object obj);
-     @UnsupportedAppUsage
+     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
      void unregisterForRilConnected(Handler h);
 
     /**
@@ -1111,7 +1123,7 @@ public interface CommandsInterface {
      * Please note that registration state 4 ("unknown") is treated
      * as "out of service" above
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     void getVoiceRegistrationState (Message response);
 
     /**
@@ -1321,7 +1333,7 @@ public interface CommandsInterface {
      * response.obj will be an AsyncResult
      * response.obj.userObj will be a IccIoResult on success
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     void iccIOForApp (int command, int fileid, String path, int p1, int p2, int p3,
             String data, String pin2, String aid, Message response);
 
@@ -1552,13 +1564,54 @@ public interface CommandsInterface {
     void getPreferredNetworkType(Message response);
 
     /**
+     * Requests to set the allowed network types for searching and registering.
+     *
+     * @param networkTypeBitmask {@link TelephonyManager.NetworkTypeBitMask}
+     * @param response is callback message
+     */
+    void setAllowedNetworkTypesBitmap(
+            @TelephonyManager.NetworkTypeBitMask int networkTypeBitmask, Message response);
+
+     /**
+     *  Query the allowed network types setting.
+     *
+     * @param response is callback message to report allowed network types bitmask
+     */
+    void getAllowedNetworkTypesBitmap(Message response);
+
+    /**
+     * Enable/Disable E-UTRA-NR Dual Connectivity
+     * @param nrDualConnectivityState expected NR dual connectivity state
+     * This can be passed following states
+     * <ol>
+     * <li>Enable NR dual connectivity {@link TelephonyManager#NR_DUAL_CONNECTIVITY_ENABLE}
+     * <li>Disable NR dual connectivity {@link TelephonyManager#NR_DUAL_CONNECTIVITY_DISABLE}
+     * <li>Disable NR dual connectivity and force secondary cell to be released
+     * {@link TelephonyManager#NR_DUAL_CONNECTIVITY_DISABLE_IMMEDIATE}
+     * </ol>
+     */
+    default void setNrDualConnectivityState(int nrDualConnectivityState,
+            Message message, WorkSource workSource) {}
+
+    /**
+     * Is E-UTRA-NR Dual Connectivity enabled
+     */
+    default void isNrDualConnectivityEnabled(Message message, WorkSource workSource) {}
+
+    /**
      * Request to enable/disable network state change notifications when
      * location information (lac and/or cid) has changed.
      *
      * @param enable true to enable, false to disable
+     * @param workSource calling WorkSource
      * @param response callback message
      */
-    void setLocationUpdates(boolean enable, Message response);
+    default void setLocationUpdates(boolean enable, WorkSource workSource, Message response) {}
+
+    /**
+     * To be deleted
+     */
+    default void setLocationUpdates(boolean enable, Message response) {}
 
     /**
      * Gets the default SMSC address.
@@ -1797,12 +1850,33 @@ public interface CommandsInterface {
      * @param linkProperties
      *            If the reason is for handover, this indicates the link properties of the existing
      *            data connection
+     * @param pduSessionId the pdu session id to be used for this data call.
+     *            The standard range of values are 1-15 while 0 means no pdu session id was attached
+     *            to this call. Reference: 3GPP TS 24.007 section 11.2.3.1b.
+     * @param sliceInfo used within the data connection when a handover occurs from EPDG to 5G.
+     *            The value is null unless the access network is
+     *            {@link android.telephony.AccessNetworkConstants.AccessNetworkType#NGRAN} and a
+     *            handover is occurring from EPDG to 5G.  If the slice passed is rejected, then
+     *            {@link DataCallResponse#getCause()} is
+     *            {@link android.telephony.DataFailCause#SLICE_REJECTED}.
+     * @param trafficDescriptor TrafficDescriptor for which data connection needs to be established.
+     *            It is used for URSP traffic matching as described in 3GPP TS 24.526 Section 4.2.2.
+     *            It includes an optional DNN which, if present, must be used for traffic matching;
+     *            it does not specify the end point to be used for the data call.
+     * @param matchAllRuleAllowed indicates if using default match-all URSP rule for this request is
+     *            allowed. If false, this request must not use the match-all URSP rule and if a
+     *            non-match-all rule is not found (or if URSP rules are not available) then
+     *            {@link DataCallResponse#getCause()} is
+     *            {@link android.telephony.DataFailCause#MATCH_ALL_RULE_NOT_ALLOWED}. This is needed
+     *            as some requests need to have a hard failure if the intention cannot be met,
+     *            for example, a zero-rating slice.
      * @param result
      *            Callback message
      */
     void setupDataCall(int accessNetworkType, DataProfile dataProfile, boolean isRoaming,
-                       boolean allowRoaming, int reason, LinkProperties linkProperties,
-                       Message result);
+            boolean allowRoaming, int reason, LinkProperties linkProperties, int pduSessionId,
+            NetworkSliceInfo sliceInfo, TrafficDescriptor trafficDescriptor,
+            boolean matchAllRuleAllowed, Message result);
 
     /**
      * Deactivate packet data connection
@@ -1879,16 +1953,6 @@ public interface CommandsInterface {
     void setLogicalToPhysicalSlotMapping(int[] physicalSlots, Message result);
 
     /**
-     * Return if the current radio is LTE on CDMA. This
-     * is a tri-state return value as for a period of time
-     * the mode may be unknown.
-     *
-     * @return {@link PhoneConstants#LTE_ON_CDMA_UNKNOWN}, {@link PhoneConstants#LTE_ON_CDMA_FALSE}
-     * or {@link PhoneConstants#LTE_ON_CDMA_TRUE}
-     */
-    public int getLteOnCdmaMode();
-
-    /**
      * Request the SIM application on the UICC to perform authentication
      * challenge/response algorithm. The data string and challenge response are
      * Base64 encoded Strings.
@@ -1901,7 +1965,7 @@ public interface CommandsInterface {
      *            102.221 8.1 and 101.220 4
      * @param response a callback message with the String response in the obj field
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public void requestIccSimAuthentication(int authContext, String data, String aid, Message response);
 
     /**
@@ -1945,7 +2009,7 @@ public interface CommandsInterface {
     /**
      * Fires when RIL_UNSOL_CELL_INFO_LIST is received from the RIL.
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     void registerForCellInfoList(Handler h, int what, Object obj);
     void unregisterForCellInfoList(Handler h);
 
@@ -2104,6 +2168,13 @@ public interface CommandsInterface {
      */
     int getRilVersion();
 
+    /**
+     * @return the radio hal version
+     */
+    default HalVersion getHalVersion() {
+        return HalVersion.UNKNOWN;
+    }
+
    /**
      * Sets user selected subscription at Modem.
      *
@@ -2132,7 +2203,7 @@ public interface CommandsInterface {
      *          Callback message contains the information of SUCCESS/FAILURE.
      */
     // FIXME We may need to pass AID and slotid also
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public void setDataAllowed(boolean allowed, Message result);
 
     /**
@@ -2140,7 +2211,7 @@ public interface CommandsInterface {
      *
      * @param result Callback message contains the information of SUCCESS/FAILURE
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public void requestShutdown(Message result);
 
     /**
@@ -2483,6 +2554,13 @@ public interface CommandsInterface {
             Message onComplete) {}
 
     /**
+     * Get which bands the modem's background scan is acting on.
+     *
+     * @param onComplete a message to send when complete.
+     */
+    default void getSystemSelectionChannels(Message onComplete) {}
+
+    /**
      * Whether uicc applications are enabled or not.
      *
      * @param onCompleteMessage a Message to return to the requester
@@ -2524,4 +2602,113 @@ public interface CommandsInterface {
      * @param result Message will be sent back to handler and result.obj will be the AsycResult.
      */
     default void getBarringInfo(Message result) {};
+
+    /**
+     * Allocates a pdu session id
+     *
+     * AsyncResult.result is the allocated pdu session id
+     *
+     * @param result Message will be sent back to handler and result.obj will be the AsycResult.
+     *
+     */
+    default void allocatePduSessionId(Message result) {};
+
+    /**
+     * Release the pdu session id
+     *
+     * @param result Message that will be sent back to handler.
+     * @param pduSessionId The id that was allocated and should now be released.
+     *
+     */
+    default void releasePduSessionId(Message result, int pduSessionId) {};
+
+    /**
+     * Indicates that a handover has started
+     *
+     * @param result Message that will be sent back to handler.
+     * @param callId Identifier associated with the data call
+     */
+    default void startHandover(Message result, int callId) {};
+
+    /**
+     * Indicates that a handover has been cancelled
+     *
+     * @param result Message that will be sent back to handler.
+     * @param callId Identifier associated with the data call
+     */
+    default void cancelHandover(Message result, int callId) {};
+
+    /**
+     * Control the data throttling at modem.
+     *
+     * @param result Message that will be sent back to the requester
+     * @param workSource calling Worksource
+     * @param dataThrottlingAction the DataThrottlingAction that is being requested.
+     *      Defined in android.hardware.radio@1.6.types.
+     * @param completionWindowMillis milliseconds in which data throttling action has to be
+     *      achieved.
+     */
+    default void setDataThrottling(Message result, WorkSource workSource,
+            int dataThrottlingAction, long completionWindowMillis) {};
+
+    /**
+     * Request to get the current slicing configuration including URSP rules and
+     * NSSAIs (configured, allowed and rejected).
+     *
+     * @param result Message that will be sent back to handler.
+     */
+    default void getSlicingConfig(Message result) {};
+
+   /**
+     * Request the SIM phonebook records of all activated UICC applications
+     *
+     * @param result Callback message containing the count of ADN valid record.
+     */
+    public void getSimPhonebookRecords(Message result);
+
+   /**
+     * Request the SIM phonebook Capacity of all activated UICC applications
+     *
+     */
+    public void getSimPhonebookCapacity(Message result);
+
+    /**
+     * Request to insert/delete/update the SIM phonebook record
+     *
+     * @param phonebookRecordInfo adn record information to be updated
+     * @param result Callback message containing the SIM phonebook record index.
+     */
+    public void updateSimPhonebookRecord(SimPhonebookRecord phonebookRecordInfo, Message result);
+
+    /**
+     * Registers the handler when the SIM phonebook is changed.
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object .
+     */
+    public void registerForSimPhonebookChanged(Handler h, int what, Object obj);
+
+    /**
+     * Unregister for notifications when SIM phonebook has already init done.
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForSimPhonebookChanged(Handler h);
+
+    /**
+     * Registers the handler when a group of SIM phonebook records received.
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForSimPhonebookRecordsReceived(Handler h, int what, Object obj);
+
+    /**
+     * Unregister for notifications when a group of SIM phonebook records received.
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+     public void unregisterForSimPhonebookRecordsReceived(Handler h);
 }

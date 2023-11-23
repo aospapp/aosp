@@ -17,7 +17,7 @@
 package android.graphics;
 
 import com.android.SdkConstants;
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.ResourceNamespace;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
@@ -142,7 +142,7 @@ public final class Typeface_Delegate {
         long newInstance = nativeCreateFromTypeface(native_instance, 0);
 
         if (newInstance != 0) {
-            Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+            Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                     "nativeCreateFromTypefaceWithVariation is not supported", null, null, null);
         }
         return newInstance;
@@ -272,7 +272,7 @@ public final class Typeface_Delegate {
                     blockParser.ensurePopped();
                 }
             } else {
-                Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+                Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                         String.format("File %s does not exist (or is not a file)", path),
                         null, null /*data*/);
             }

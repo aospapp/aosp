@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_defaults {
     name: "installd_defaults",
 
@@ -17,14 +26,14 @@ cc_defaults {
         "InstalldNativeService.cpp",
         "QuotaUtils.cpp",
         "dexopt.cpp",
+        "execv_helper.cpp",
         "globals.cpp",
+        "run_dex2oat.cpp",
+        "unique_file.cpp",
         "utils.cpp",
         "utils_default.cpp",
         "view_compiler.cpp",
         ":installd_aidl",
-    ],
-    header_libs: [
-        "dex2oat_headers",
     ],
     shared_libs: [
         "libbase",
@@ -37,6 +46,12 @@ cc_defaults {
         "libselinux",
         "libutils",
         "server_configurable_flags",
+    ],
+    static_libs: [
+        "libasync_safe",
+    ],
+    export_shared_lib_headers: [
+        "libbinder",
     ],
 
     product_variables: {
@@ -103,6 +118,28 @@ cc_library_headers {
 }
 
 //
+// Unit tests
+//
+
+cc_test_host {
+    name: "run_dex2oat_test",
+    test_suites: ["general-tests"],
+    clang: true,
+    srcs: [
+        "run_dex2oat_test.cpp",
+        "run_dex2oat.cpp",
+        "unique_file.cpp",
+        "execv_helper.cpp",
+    ],
+    cflags: ["-Wall", "-Werror"],
+    shared_libs: [
+        "libbase",
+        "server_configurable_flags",
+    ],
+    test_config: "run_dex2oat_test.xml",
+}
+
+//
 // Executable
 //
 
@@ -155,16 +192,15 @@ cc_binary {
         "liblog",
         "libutils",
     ],
-    static_libs: [
-        "libapexd",
+    required: [
+      "apexd"
     ],
 }
 
 filegroup {
     name: "installd_aidl",
     srcs: [
-        "binder/android/os/IInstalld.aidl",
-        "binder/android/os/storage/CrateMetadata.aidl",
+        "binder/**/*.aidl",
     ],
     path: "binder",
 }
@@ -205,18 +241,19 @@ cc_binary {
 
     srcs: [
         "dexopt.cpp",
+        "execv_helper.cpp",
         "globals.cpp",
         "otapreopt.cpp",
         "otapreopt_utils.cpp",
+        "run_dex2oat.cpp",
+        "unique_file.cpp",
         "utils.cpp",
         "utils_default.cpp",
         "view_compiler.cpp",
     ],
 
-    header_libs: ["dex2oat_headers"],
-
     static_libs: [
-        "libartimagevalues",
+        "libasync_safe",
         "libdiskusage",
         "libotapreoptparameters",
     ],

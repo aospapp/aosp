@@ -1,10 +1,25 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_library_shared {
     name: "libpowermanager",
 
     srcs: [
-        "IPowerManager.cpp",
-        "Temperature.cpp",
+        "BatterySaverPolicyConfig.cpp",
         "CoolingDevice.cpp",
+        "ParcelDuration.cpp",
+        "PowerHalController.cpp",
+        "PowerHalLoader.cpp",
+        "PowerHalWrapper.cpp",
+        "PowerSaveState.cpp",
+        "Temperature.cpp",
+        "WorkSource.cpp",
         ":libpowermanager_aidl",
     ],
 
@@ -17,9 +32,13 @@ cc_library_shared {
     },
 
     shared_libs: [
-        "libutils",
         "libbinder",
-        "liblog"
+        "libhidlbase",
+        "liblog",
+        "libutils",
+        "android.hardware.power@1.0",
+        "android.hardware.power@1.1",
+        "android.hardware.power-V2-cpp",
     ],
 
     cflags: [
@@ -32,24 +51,5 @@ cc_library_shared {
     local_include_dirs: ["include"],
     export_include_dirs: [
          "include",
-    ],
-}
-
-cc_test {
-    name: "thermalmanager-test",
-    srcs: ["IThermalManagerTest.cpp",
-          ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wextra",
-    ],
-    shared_libs: [
-        "libbase",
-        "libhidlbase",
-        "liblog",
-        "libpowermanager",
-        "libbinder",
-        "libutils",
     ],
 }

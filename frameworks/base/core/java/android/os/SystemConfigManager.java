@@ -20,7 +20,6 @@ import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
-import android.annotation.TestApi;
 import android.content.Context;
 import android.util.ArraySet;
 import android.util.Log;
@@ -40,7 +39,6 @@ import java.util.Set;
  * @hide
  */
 @SystemApi
-@TestApi
 @SystemService(Context.SYSTEM_CONFIG_SERVICE)
 public class SystemConfigManager {
     private static final String TAG = SystemConfigManager.class.getSimpleName();
@@ -111,6 +109,24 @@ public class SystemConfigManager {
         } catch (RemoteException e) {
             Log.e(TAG, "Caught remote exception", e);
             return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * Get uids which have been granted given permission in system configuration.
+     *
+     * The uids and assigning permissions are defined on data/etc/platform.xml
+     *
+     * @param permissionName The target permission.
+     * @return The uids have been granted given permission in system configuration.
+     */
+    @RequiresPermission(Manifest.permission.GET_RUNTIME_PERMISSIONS)
+    @NonNull
+    public int[] getSystemPermissionUids(@NonNull String permissionName) {
+        try {
+            return mInterface.getSystemPermissionUids(permissionName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
         }
     }
 }

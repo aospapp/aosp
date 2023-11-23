@@ -17,4 +17,7 @@
 <resources>
     <!-- Content description of the back button for accessibility services like Tallback [CHAR LIMIT=120] -->
     <string name="back_button_content_description">Navigate back</string>
+
+    <!-- Content description of the close button for accessibility services like Tallback [CHAR LIMIT=120] -->
+    <string name="close_button_content_description">Close</string>
 </resources>

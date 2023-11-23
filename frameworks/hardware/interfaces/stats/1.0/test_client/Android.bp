@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary {
     name: "stats_client",
     srcs: [
@@ -11,4 +15,3 @@ cc_binary {
         "android.frameworks.stats@1.0",
     ],
 }
-

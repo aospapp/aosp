@@ -38,6 +38,7 @@
 #include "binder_test_utils.h"
 #include "dexopt.h"
 #include "InstalldNativeService.h"
+#include "installd_constants.h"
 #include "globals.h"
 #include "tests/test_utils.h"
 #include "utils.h"
@@ -193,7 +194,7 @@ protected:
     const uid_t kTestAppGid = multiuser_get_shared_gid(kTestUserId, kTestAppId);
 
     InstalldNativeService* service_;
-    std::unique_ptr<std::string> volume_uuid_;
+    std::optional<std::string> volume_uuid_;
     std::string package_name_;
     std::string apk_path_;
     std::string empty_dm_file_;
@@ -221,7 +222,7 @@ protected:
         ASSERT_TRUE(init_selinux());
         service_ = new InstalldNativeService();
 
-        volume_uuid_ = nullptr;
+        volume_uuid_ = std::nullopt;
         package_name_ = "com.installd.test.dexopt";
         se_info_ = "default";
         app_apk_dir_ = android_app_dir + package_name_;
@@ -294,7 +295,7 @@ protected:
         }
 
         // Create a secondary dex file on CE storage
-        const char* volume_uuid_cstr = volume_uuid_ == nullptr ? nullptr : volume_uuid_->c_str();
+        const char* volume_uuid_cstr = volume_uuid_ ? volume_uuid_->c_str() : nullptr;
         app_private_dir_ce_ = create_data_user_ce_package_path(
                 volume_uuid_cstr, kTestUserId, package_name_.c_str());
         secondary_dex_ce_ = app_private_dir_ce_ + "/secondary_ce.jar";
@@ -351,38 +352,34 @@ protected:
             uid = kTestAppUid;
         }
         if (class_loader_context == nullptr) {
-            class_loader_context = "&";
+            class_loader_context = "PCL[]";
         }
-        std::unique_ptr<std::string> package_name_ptr(new std::string(package_name_));
         int32_t dexopt_needed = 0;  // does not matter;
-        std::unique_ptr<std::string> out_path = nullptr;  // does not matter
+        std::optional<std::string> out_path; // does not matter
         int32_t dex_flags = DEXOPT_SECONDARY_DEX | dex_storage_flag;
         std::string compiler_filter = "speed-profile";
-        std::unique_ptr<std::string> class_loader_context_ptr(
-                new std::string(class_loader_context));
-        std::unique_ptr<std::string> se_info_ptr(new std::string(se_info_));
         bool downgrade = false;
         int32_t target_sdk_version = 0;  // default
-        std::unique_ptr<std::string> profile_name_ptr = nullptr;
-        std::unique_ptr<std::string> dm_path_ptr = nullptr;
-        std::unique_ptr<std::string> compilation_reason_ptr = nullptr;
+        std::optional<std::string> profile_name;
+        std::optional<std::string> dm_path;
+        std::optional<std::string> compilation_reason;
 
         binder::Status result = service_->dexopt(path,
                                                  uid,
-                                                 package_name_ptr,
+                                                 package_name_,
                                                  kRuntimeIsa,
                                                  dexopt_needed,
                                                  out_path,
                                                  dex_flags,
                                                  compiler_filter,
                                                  volume_uuid_,
-                                                 class_loader_context_ptr,
-                                                 se_info_ptr,
+                                                 class_loader_context,
+                                                 se_info_,
                                                  downgrade,
                                                  target_sdk_version,
-                                                 profile_name_ptr,
-                                                 dm_path_ptr,
-                                                 compilation_reason_ptr);
+                                                 profile_name,
+                                                 dm_path,
+                                                 compilation_reason);
         ASSERT_EQ(should_binder_call_succeed, result.isOk()) << result.toString8().c_str();
         int expected_access = should_dex_be_compiled ? 0 : -1;
         std::string odex = GetSecondaryDexArtifact(path, "odex");
@@ -481,41 +478,35 @@ protected:
                            bool downgrade,
                            bool should_binder_call_succeed,
                            /*out */ binder::Status* binder_result) {
-        std::unique_ptr<std::string> package_name_ptr(new std::string(package_name_));
-        std::unique_ptr<std::string> out_path(
-                oat_dir == nullptr ? nullptr : new std::string(oat_dir));
-        std::unique_ptr<std::string> class_loader_context_ptr(new std::string("&"));
-        std::unique_ptr<std::string> se_info_ptr(new std::string(se_info_));
+        std::optional<std::string> out_path = oat_dir ? std::make_optional<std::string>(oat_dir) : std::nullopt;
+        std::string class_loader_context = "PCL[]";
         int32_t target_sdk_version = 0;  // default
-        std::unique_ptr<std::string> profile_name_ptr(new std::string("primary.prof"));
-        std::unique_ptr<std::string> dm_path_ptr = nullptr;
-        if (dm_path != nullptr) {
-            dm_path_ptr.reset(new std::string(dm_path));
-        }
-        std::unique_ptr<std::string> compilation_reason_ptr(new std::string("test-reason"));
+        std::string profile_name = "primary.prof";
+        std::optional<std::string> dm_path_opt = dm_path ? std::make_optional<std::string>(dm_path) : std::nullopt;
+        std::string compilation_reason = "test-reason";
 
         bool prof_result;
         ASSERT_BINDER_SUCCESS(service_->prepareAppProfile(
-                package_name_, kTestUserId, kTestAppId, *profile_name_ptr, apk_path_,
-                dm_path_ptr, &prof_result));
+                package_name_, kTestUserId, kTestAppId, profile_name, apk_path_,
+                dm_path_opt, &prof_result));
         ASSERT_TRUE(prof_result);
 
         binder::Status result = service_->dexopt(apk_path_,
                                                  uid,
-                                                 package_name_ptr,
+                                                 package_name_,
                                                  kRuntimeIsa,
                                                  dexopt_needed,
                                                  out_path,
                                                  dex_flags,
                                                  compiler_filter,
                                                  volume_uuid_,
-                                                 class_loader_context_ptr,
-                                                 se_info_ptr,
+                                                 class_loader_context,
+                                                 se_info_,
                                                  downgrade,
                                                  target_sdk_version,
-                                                 profile_name_ptr,
-                                                 dm_path_ptr,
-                                                 compilation_reason_ptr);
+                                                 profile_name,
+                                                 dm_path_opt,
+                                                 compilation_reason);
         ASSERT_EQ(should_binder_call_succeed, result.isOk()) << result.toString8().c_str();
 
         if (!should_binder_call_succeed) {
@@ -527,7 +518,8 @@ protected:
         // Check the access to the compiler output.
         //  - speed-profile artifacts are not world-wide readable.
         //  - files are owned by the system uid.
-        std::string odex = GetPrimaryDexArtifact(oat_dir, apk_path_, "odex");
+        std::string odex = GetPrimaryDexArtifact(oat_dir, apk_path_,
+                oat_dir == nullptr ? "dex" : "odex");
         std::string vdex = GetPrimaryDexArtifact(oat_dir, apk_path_, "vdex");
         std::string art = GetPrimaryDexArtifact(oat_dir, apk_path_, "art");
 
@@ -555,13 +547,60 @@ protected:
                 }
             }
             return android_data_dir + DALVIK_CACHE + '/' + kRuntimeIsa + "/" + path
-                    + "@classes.dex";
+                    + "@classes." + type;
         } else {
             std::string::size_type name_end = dex_path.rfind('.');
             std::string::size_type name_start = dex_path.rfind('/');
             return std::string(oat_dir) + "/" + kRuntimeIsa + "/" +
                     dex_path.substr(name_start + 1, name_end - name_start) + type;
         }
+    }
+
+    int64_t GetSize(const std::string& path) {
+        struct stat file_stat;
+        if (stat(path.c_str(), &file_stat) == 0) {
+            return static_cast<int64_t>(file_stat.st_size);
+        }
+        PLOG(ERROR) << "Cannot stat path: " << path;
+        return -1;
+    }
+
+    void TestDeleteOdex(bool in_dalvik_cache) {
+        const char* oat_dir = in_dalvik_cache ? nullptr : app_oat_dir_.c_str();
+        CompilePrimaryDexOk(
+                "speed-profile",
+                DEXOPT_BOOTCOMPLETE | DEXOPT_PROFILE_GUIDED | DEXOPT_PUBLIC
+                        | DEXOPT_GENERATE_APP_IMAGE,
+                oat_dir,
+                kTestAppGid,
+                DEX2OAT_FROM_SCRATCH,
+                /*binder_result=*/nullptr,
+                empty_dm_file_.c_str());
+
+
+        int64_t odex_size = GetSize(GetPrimaryDexArtifact(oat_dir, apk_path_,
+                in_dalvik_cache ? "dex" : "odex"));
+        int64_t vdex_size = GetSize(GetPrimaryDexArtifact(oat_dir, apk_path_, "vdex"));
+        int64_t art_size = GetSize(GetPrimaryDexArtifact(oat_dir, apk_path_, "art"));
+
+        LOG(ERROR) << "test odex " << odex_size;
+        LOG(ERROR) << "test vdex_size " << vdex_size;
+        LOG(ERROR) << "test art_size " << art_size;
+        int64_t expected_bytes_freed = odex_size + vdex_size + art_size;
+
+        int64_t bytes_freed;
+        binder::Status result = service_->deleteOdex(
+            apk_path_,
+            kRuntimeIsa,
+            in_dalvik_cache ? std::nullopt : std::make_optional<std::string>(app_oat_dir_.c_str()),
+            &bytes_freed);
+        ASSERT_TRUE(result.isOk()) << result.toString8().c_str();
+
+        ASSERT_GE(odex_size, 0);
+        ASSERT_GE(vdex_size, 0);
+        ASSERT_GE(art_size, 0);
+
+        ASSERT_EQ(expected_bytes_freed, bytes_freed);
     }
 };
 
@@ -673,7 +712,7 @@ TEST_F(DexoptTest, DexoptPrimaryFailedInvalidFilter) {
                           &status);
     EXPECT_STREQ(status.toString8().c_str(),
                  "Status(-8, EX_SERVICE_SPECIFIC): \'256: Dex2oat invocation for "
-                 "/data/app/com.installd.test.dexopt/base.jar failed: unspecified dex2oat error'");
+                 "/data/app/com.installd.test.dexopt/base.jar failed: dex2oat error'");
 }
 
 TEST_F(DexoptTest, DexoptPrimaryProfileNonPublic) {
@@ -709,6 +748,16 @@ TEST_F(DexoptTest, DexoptPrimaryBackgroundOk) {
                         DEX2OAT_FROM_SCRATCH,
                         /*binder_result=*/nullptr,
                         empty_dm_file_.c_str());
+}
+
+TEST_F(DexoptTest, DeleteDexoptArtifactsData) {
+    LOG(INFO) << "DeleteDexoptArtifactsData";
+    TestDeleteOdex(/*in_dalvik_cache=*/ false);
+}
+
+TEST_F(DexoptTest, DeleteDexoptArtifactsDalvikCache) {
+    LOG(INFO) << "DeleteDexoptArtifactsDalvikCache";
+    TestDeleteOdex(/*in_dalvik_cache=*/ true);
 }
 
 TEST_F(DexoptTest, ResolveStartupConstStrings) {
@@ -929,7 +978,7 @@ class ProfileTest : public DexoptTest {
             return;
         }
 
-        // Check that the snapshot was created witht he expected acess flags.
+        // Check that the snapshot was created with the expected access flags.
         CheckFileAccess(snap_profile_, kSystemUid, kSystemGid, 0600 | S_IFREG);
 
         // The snapshot should be equivalent to the merge of profiles.
@@ -961,19 +1010,19 @@ class ProfileTest : public DexoptTest {
 
     void mergePackageProfiles(const std::string& package_name,
                               const std::string& code_path,
-                              bool expected_result) {
-        bool result;
+                              int expected_result) {
+        int result;
         ASSERT_BINDER_SUCCESS(service_->mergeProfiles(
                 kTestAppUid, package_name, code_path, &result));
         ASSERT_EQ(expected_result, result);
 
-        if (!expected_result) {
-            // Do not check the files if we expect to fail.
+        // There's nothing to check if the files are empty.
+        if (result == PROFILES_ANALYSIS_DONT_OPTIMIZE_EMPTY_PROFILES) {
             return;
         }
 
-        // Check that the snapshot was created witht he expected acess flags.
-        CheckFileAccess(ref_profile_, kTestAppUid, kTestAppUid, 0600 | S_IFREG);
+        // Check that the snapshot was created with the expected access flags.
+        CheckFileAccess(ref_profile_, kTestAppUid, kTestAppUid, 0640 | S_IFREG);
 
         // The snapshot should be equivalent to the merge of profiles.
         std::string ref_profile_content = ref_profile_ + ".expected";
@@ -992,7 +1041,7 @@ class ProfileTest : public DexoptTest {
         bool result;
         ASSERT_BINDER_SUCCESS(service_->prepareAppProfile(
                 package_name, kTestUserId, kTestAppId, profile_name, apk_path_,
-                /*dex_metadata*/ nullptr, &result));
+                /*dex_metadata*/ {}, &result));
         ASSERT_EQ(expected_result, result);
 
         if (!expected_result) {
@@ -1087,7 +1136,7 @@ TEST_F(ProfileTest, ProfileMergeOk) {
     LOG(INFO) << "ProfileMergeOk";
 
     SetupProfiles(/*setup_ref*/ true);
-    mergePackageProfiles(package_name_, "primary.prof", /*expected_result*/ true);
+    mergePackageProfiles(package_name_, "primary.prof", PROFILES_ANALYSIS_OPTIMIZE);
 }
 
 // The reference profile is created on the fly. We need to be able to
@@ -1096,14 +1145,15 @@ TEST_F(ProfileTest, ProfileMergeOkNoReference) {
     LOG(INFO) << "ProfileMergeOkNoReference";
 
     SetupProfiles(/*setup_ref*/ false);
-    mergePackageProfiles(package_name_, "primary.prof", /*expected_result*/ true);
+    mergePackageProfiles(package_name_, "primary.prof", PROFILES_ANALYSIS_OPTIMIZE);
 }
 
 TEST_F(ProfileTest, ProfileMergeFailWrongPackage) {
     LOG(INFO) << "ProfileMergeFailWrongPackage";
 
     SetupProfiles(/*setup_ref*/ true);
-    mergePackageProfiles("not.there", "primary.prof", /*expected_result*/ false);
+    mergePackageProfiles("not.there", "primary.prof",
+            PROFILES_ANALYSIS_DONT_OPTIMIZE_EMPTY_PROFILES);
 }
 
 TEST_F(ProfileTest, ProfileDirOk) {

@@ -58,6 +58,7 @@ struct NuPlayer::Source : public AHandler {
         kWhatInstantiateSecureDecoders,
         // Modular DRM
         kWhatDrmInfo,
+        kWhatIMSRxNotice,
     };
 
     // The provides message is used to notify the player about various
@@ -130,6 +131,8 @@ struct NuPlayer::Source : public AHandler {
     }
 
     virtual void setOffloadAudio(bool /* offload */) {}
+
+    virtual void setTargetBitrate(int32_t) {}
 
     // Modular DRM
     virtual status_t prepareDrm(

@@ -19,6 +19,8 @@
 
 #include <sys/sysinfo.h>
 
+#include <pthread.h>
+#include <semaphore.h>
 #include <numeric>
 #include <unordered_map>
 #include <vector>
@@ -37,6 +39,17 @@ static constexpr uint64_t NSEC_PER_SEC = 1000000000;
 static constexpr uint64_t NSEC_PER_YEAR = NSEC_PER_SEC * 60 * 60 * 24 * 365;
 
 using std::vector;
+
+TEST(TimeInStateTest, IsTrackingSupported) {
+    isTrackingUidTimesSupported();
+    SUCCEED();
+}
+
+TEST(TimeInStateTest, TotalTimeInState) {
+    auto times = getTotalCpuFreqTimes();
+    ASSERT_TRUE(times.has_value());
+    EXPECT_FALSE(times->empty());
+}
 
 TEST(TimeInStateTest, SingleUidTimeInState) {
     auto times = getUidCpuFreqTimes(0);
@@ -184,6 +197,31 @@ TEST(TimeInStateTest, AllUidUpdatedTimeInState) {
     }
 }
 
+TEST(TimeInStateTest, TotalAndAllUidTimeInStateConsistent) {
+    auto allUid = getUidsCpuFreqTimes();
+    auto total = getTotalCpuFreqTimes();
+
+    ASSERT_TRUE(allUid.has_value() && total.has_value());
+
+    // Check the number of policies.
+    ASSERT_EQ(allUid->at(0).size(), total->size());
+
+    for (uint32_t policyIdx = 0; policyIdx < total->size(); ++policyIdx) {
+        std::vector<uint64_t> totalTimes = total->at(policyIdx);
+        uint32_t totalFreqsCount = totalTimes.size();
+        std::vector<uint64_t> allUidTimes(totalFreqsCount, 0);
+        for (auto const &[uid, uidTimes]: *allUid) {
+            for (uint32_t freqIdx = 0; freqIdx < uidTimes[policyIdx].size(); ++freqIdx) {
+                allUidTimes[std::min(freqIdx, totalFreqsCount - 1)] += uidTimes[policyIdx][freqIdx];
+            }
+        }
+
+        for (uint32_t freqIdx = 0; freqIdx < totalFreqsCount; ++freqIdx) {
+            ASSERT_LE(allUidTimes[freqIdx], totalTimes[freqIdx]);
+        }
+    }
+}
+
 TEST(TimeInStateTest, SingleAndAllUidTimeInStateConsistent) {
     uint64_t zero = 0;
     auto maps = {getUidsCpuFreqTimes(), getUidsUpdatedCpuFreqTimes(&zero)};
@@ -290,6 +328,22 @@ void TestCheckDelta(uint64_t before, uint64_t after) {
     ASSERT_LE(after - before, NSEC_PER_SEC * 2 * get_nprocs_conf());
 }
 
+TEST(TimeInStateTest, TotalTimeInStateMonotonic) {
+    auto before = getTotalCpuFreqTimes();
+    ASSERT_TRUE(before.has_value());
+    sleep(1);
+    auto after = getTotalCpuFreqTimes();
+    ASSERT_TRUE(after.has_value());
+
+    for (uint32_t policyIdx = 0; policyIdx < after->size(); ++policyIdx) {
+        auto timesBefore = before->at(policyIdx);
+        auto timesAfter = after->at(policyIdx);
+        for (uint32_t freqIdx = 0; freqIdx < timesAfter.size(); ++freqIdx) {
+            ASSERT_NO_FATAL_FAILURE(TestCheckDelta(timesBefore[freqIdx], timesAfter[freqIdx]));
+        }
+    }
+}
+
 TEST(TimeInStateTest, AllUidTimeInStateMonotonic) {
     auto map1 = getUidsCpuFreqTimes();
     ASSERT_TRUE(map1.has_value());
@@ -387,6 +441,28 @@ TEST(TimeInStateTest, AllUidConcurrentTimesSanityCheck) {
     }
 }
 
+TEST(TimeInStateTest, AllUidConcurrentTimesFailsOnInvalidBucket) {
+    uint32_t uid = 0;
+    {
+        // Find an unused UID
+        auto map = getUidsConcurrentTimes();
+        ASSERT_TRUE(map.has_value());
+        ASSERT_FALSE(map->empty());
+        for (const auto &kv : *map) uid = std::max(uid, kv.first);
+        ++uid;
+    }
+    android::base::unique_fd fd{
+        bpf_obj_get(BPF_FS_PATH "map_time_in_state_uid_concurrent_times_map")};
+    ASSERT_GE(fd, 0);
+    uint32_t nCpus = get_nprocs_conf();
+    uint32_t maxBucket = (nCpus - 1) / CPUS_PER_ENTRY;
+    time_key_t key = {.uid = uid, .bucket = maxBucket + 1};
+    std::vector<concurrent_val_t> vals(nCpus);
+    ASSERT_FALSE(writeToMapEntry(fd, &key, vals.data(), BPF_NOEXIST));
+    EXPECT_FALSE(getUidsConcurrentTimes().has_value());
+    ASSERT_FALSE(deleteMapEntry(fd, &key));
+}
+
 TEST(TimeInStateTest, AllUidTimesConsistent) {
     auto tisMap = getUidsCpuFreqTimes();
     ASSERT_TRUE(tisMap.has_value());
@@ -480,6 +556,86 @@ TEST(TimeInStateTest, GetCpuFreqs) {
 
     ASSERT_EQ(freqs->size(), times->size());
     for (size_t i = 0; i < freqs->size(); ++i) EXPECT_EQ((*freqs)[i].size(), (*times)[i].size());
+}
+
+uint64_t timeNanos() {
+    struct timespec spec;
+    clock_gettime(CLOCK_MONOTONIC, &spec);
+    return spec.tv_sec * 1000000000 + spec.tv_nsec;
+}
+
+// Keeps CPU busy with some number crunching
+void useCpu() {
+    long sum = 0;
+    for (int i = 0; i < 100000; i++) {
+        sum *= i;
+    }
+}
+
+sem_t pingsem, pongsem;
+
+void *testThread(void *) {
+    for (int i = 0; i < 10; i++) {
+        sem_wait(&pingsem);
+        useCpu();
+        sem_post(&pongsem);
+    }
+    return nullptr;
+}
+
+TEST(TimeInStateTest, GetAggregatedTaskCpuFreqTimes) {
+    uint64_t startTimeNs = timeNanos();
+
+    sem_init(&pingsem, 0, 1);
+    sem_init(&pongsem, 0, 0);
+
+    pthread_t thread;
+    ASSERT_EQ(pthread_create(&thread, NULL, &testThread, NULL), 0);
+
+    // This process may have been running for some time, so when we start tracking
+    // CPU time, the very first switch may include the accumulated time.
+    // Yield the remainder of this timeslice to the newly created thread.
+    sem_wait(&pongsem);
+    sem_post(&pingsem);
+
+    pid_t tgid = getpid();
+    startTrackingProcessCpuTimes(tgid);
+
+    pid_t tid = pthread_gettid_np(thread);
+    startAggregatingTaskCpuTimes(tid, 42);
+
+    // Play ping-pong with the other thread to ensure that both threads get
+    // some CPU time.
+    for (int i = 0; i < 9; i++) {
+        sem_wait(&pongsem);
+        useCpu();
+        sem_post(&pingsem);
+    }
+
+    pthread_join(thread, NULL);
+
+    std::optional<std::unordered_map<uint16_t, std::vector<std::vector<uint64_t>>>> optionalMap =
+            getAggregatedTaskCpuFreqTimes(tgid, {0, 42});
+    ASSERT_TRUE(optionalMap);
+
+    std::unordered_map<uint16_t, std::vector<std::vector<uint64_t>>> map = *optionalMap;
+    ASSERT_EQ(map.size(), 2u);
+
+    uint64_t testDurationNs = timeNanos() - startTimeNs;
+    for (auto pair : map) {
+        uint16_t aggregationKey = pair.first;
+        ASSERT_TRUE(aggregationKey == 0 || aggregationKey == 42);
+
+        std::vector<std::vector<uint64_t>> timesInState = pair.second;
+        uint64_t totalCpuTime = 0;
+        for (size_t i = 0; i < timesInState.size(); i++) {
+            for (size_t j = 0; j < timesInState[i].size(); j++) {
+                totalCpuTime += timesInState[i][j];
+            }
+        }
+        ASSERT_GT(totalCpuTime, 0ul);
+        ASSERT_LE(totalCpuTime, testDurationNs);
+    }
 }
 
 } // namespace bpf

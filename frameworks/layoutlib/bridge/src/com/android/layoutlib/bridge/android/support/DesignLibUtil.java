@@ -16,7 +16,7 @@
 
 package com.android.layoutlib.bridge.android.support;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.util.ReflectionUtils.ReflectionException;
 
@@ -61,7 +61,7 @@ public class DesignLibUtil {
         try {
             invoke(getMethod(view.getClass(), "setTitle", CharSequence.class), view, title);
         } catch (ReflectionException e) {
-            Bridge.getLog().warning(LayoutLog.TAG_INFO,
+            Bridge.getLog().warning(ILayoutLog.TAG_INFO,
                     "Error occurred while trying to set title.", null, e);
         }
     }

@@ -19,7 +19,6 @@ import com.android.SdkConstants;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.resources.ResourceValueMap;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.io.IAbstractFile;
 import com.android.io.IAbstractFolder;
 import com.android.io.IAbstractResource;
 import com.android.resources.ResourceFolderType;
@@ -40,7 +39,7 @@ import java.util.Map;
  */
 @Deprecated
 public abstract class ResourceRepository {
-    private final IAbstractFolder mResourceFolder;
+    private final TestFolderWrapper mResourceFolder;
 
     private Map<ResourceFolderType, List<ResourceFolder>> mFolderMap =
             new EnumMap<>(ResourceFolderType.class);
@@ -58,13 +57,13 @@ public abstract class ResourceRepository {
      * @param resFolder the resource folder of the repository.
      * @param isFrameworkRepository whether the repository is for framework resources.
      */
-    protected ResourceRepository(@NotNull IAbstractFolder resFolder,
+    protected ResourceRepository(@NotNull TestFolderWrapper resFolder,
             boolean isFrameworkRepository) {
         mResourceFolder = resFolder;
         mFrameworkRepository = isFrameworkRepository;
     }
 
-    public IAbstractFolder getResFolder() {
+    public TestFolderWrapper getResFolder() {
         return mResourceFolder;
     }
 
@@ -92,8 +91,8 @@ public abstract class ResourceRepository {
             IAbstractResource[] resources = mResourceFolder.listMembers();
 
             for (IAbstractResource res : resources) {
-                if (res instanceof IAbstractFolder) {
-                    IAbstractFolder folder = (IAbstractFolder)res;
+                if (res instanceof TestFolderWrapper) {
+                    TestFolderWrapper folder = (TestFolderWrapper)res;
                     ResourceFolder resFolder = processFolder(folder);
 
                     if (resFolder != null) {
@@ -101,8 +100,8 @@ public abstract class ResourceRepository {
                         IAbstractResource[] files = folder.listMembers();
 
                         for (IAbstractResource fileRes : files) {
-                            if (fileRes instanceof IAbstractFile) {
-                                IAbstractFile file = (IAbstractFile)fileRes;
+                            if (fileRes instanceof TestFileWrapper) {
+                                TestFileWrapper file = (TestFileWrapper) fileRes;
 
                                 resFolder.processFile(file, ResourceDeltaKind.ADDED, context);
                             }
@@ -250,7 +249,7 @@ public abstract class ResourceRepository {
      * @return the ResourceFolder created from this folder, or null if the process failed.
      */
     @Nullable
-    private ResourceFolder processFolder(@NotNull IAbstractFolder folder) {
+    private ResourceFolder processFolder(@NotNull TestFolderWrapper folder) {
         ensureInitialized();
 
         // split the name of the folder in segments.
@@ -308,7 +307,7 @@ public abstract class ResourceRepository {
         return map;
     }
 
-   /**
+    /**
      * Loads the resources.
      */
     public void loadResources() {

@@ -23,7 +23,11 @@ import android.util.Log;
 /**
  * Class for exposing the native RenderScript int4 type back to the Android system.
  *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class Int4 {
     public Int4() {
     }

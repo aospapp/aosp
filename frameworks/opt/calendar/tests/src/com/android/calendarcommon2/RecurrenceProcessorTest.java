@@ -22,9 +22,7 @@ import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.TextUtils;
-import android.text.format.Time;
 import android.util.Log;
-import android.util.TimeFormatException;
 import junit.framework.TestCase;
 
 import java.util.TreeSet;
@@ -106,8 +104,7 @@ public class RecurrenceProcessorTest extends TestCase {
         RecurrenceProcessor rp = new RecurrenceProcessor();
         RecurrenceSet recur = new RecurrenceSet(rrule, rdate, exrule, exdate);
 
-        long[] out = rp.expand(dtstart, recur, rangeStart.toMillis(false /* use isDst */),
-                rangeEnd.toMillis(false /* use isDst */));
+        long[] out = rp.expand(dtstart, recur, rangeStart.toMillis(), rangeEnd.toMillis());
 
         if (METHOD_TRACE) {
             Debug.stopMethodTracing();
@@ -150,12 +147,12 @@ public class RecurrenceProcessorTest extends TestCase {
         if (lastOccur != -1) {
             outCal.set(lastOccur);
             lastStr = outCal.format2445();
-            lastMillis = outCal.toMillis(true /* ignore isDst */);
+            lastMillis = outCal.toMillis();
         }
         if (last != null && last.length() > 0) {
             Time expectedLast = new Time(tz);
             expectedLast.parse(last);
-            expectedMillis = expectedLast.toMillis(true /* ignore isDst */);
+            expectedMillis = expectedLast.toMillis();
         }
         if (lastMillis != expectedMillis) {
             if (SPEW) {
@@ -598,7 +595,7 @@ public class RecurrenceProcessorTest extends TestCase {
                             "20060219T100000"
                     }, "20060220T020001");
             fail("Bad UNTIL string failed to throw exception");
-        } catch (TimeFormatException e) {
+        } catch (IllegalArgumentException e) {
             // expected
         }
     }
@@ -2460,8 +2457,8 @@ public class RecurrenceProcessorTest extends TestCase {
         dtstart.parse("20010101T000000");
         rangeStart.parse("20010101T000000");
         rangeEnd.parse("20090101T000000");
-        long rangeStartMillis = rangeStart.toMillis(false /* use isDst */);
-        long rangeEndMillis = rangeEnd.toMillis(false /* use isDst */);
+        long rangeStartMillis = rangeStart.toMillis();
+        long rangeEndMillis = rangeEnd.toMillis();
 
         long startTime = System.currentTimeMillis();
         for (int iterations = 0; iterations < 5; iterations++) {
@@ -2504,12 +2501,12 @@ public class RecurrenceProcessorTest extends TestCase {
         long startTime = System.currentTimeMillis();
 
         for (int i = 0; i < ITERATIONS; i++) {
-            date.month += 1;
-            date.monthDay += 100;
-            date.normalize(true);
-            date.month -= 1;
-            date.monthDay -= 100;
-            date.normalize(true);
+            date.add(Time.MONTH, 1);
+            date.add(Time.MONTH_DAY, 100);
+            date.normalize();
+            date.add(Time.MONTH, -1);
+            date.add(Time.MONTH_DAY, -100);
+            date.normalize();
         }
 
         long endTime = System.currentTimeMillis();
@@ -2521,11 +2518,11 @@ public class RecurrenceProcessorTest extends TestCase {
         date.parse("20090404T100000");
         startTime = System.currentTimeMillis();
         for (int i = 0; i < ITERATIONS; i++) {
-            date.month += 1;
-            date.monthDay += 100;
+            date.add(Time.MONTH, 1);
+            date.add(Time.MONTH_DAY, 100);
             RecurrenceProcessor.unsafeNormalize(date);
-            date.month -= 1;
-            date.monthDay -= 100;
+            date.add(Time.MONTH, -1);
+            date.add(Time.MONTH_DAY, -100);
             RecurrenceProcessor.unsafeNormalize(date);
         }
 

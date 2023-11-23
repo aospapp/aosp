@@ -36,7 +36,7 @@ TEST_P(FontFamilyHarfBuzzCompatibilityTest, CoverageTest) {
     int ttcIndex = GetParam().second;
 
     auto font = std::make_shared<FreeTypeMinikinFontForTest>(fontPath);
-    std::vector<Font> fonts;
+    std::vector<std::shared_ptr<Font>> fonts;
     fonts.push_back(Font::Builder(font).build());
     std::shared_ptr<FontFamily> family = std::make_shared<FontFamily>(std::move(fonts));
 

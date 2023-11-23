@@ -16,7 +16,6 @@
 package android.metrics;
 
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.content.ComponentName;
 import android.util.Log;
 import android.util.SparseArray;
@@ -32,14 +31,13 @@ import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
  * @hide
  */
 @SystemApi
-@TestApi
 public class LogMaker {
     private static final String TAG = "LogBuilder";
 
     /**
      * Min required eventlog line length.
      * See: android/util/cts/EventLogTest.java
-     * Size checks enforced here are intended only as sanity checks;
+     * Size limits enforced here are intended only as a precaution;
      * your logs may be truncated earlier. Please log responsibly.
      *
      * @hide

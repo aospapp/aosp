@@ -16,7 +16,6 @@
 
 package android.graphics;
 
-import android.annotation.SystemApi;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.content.Context;
@@ -100,7 +99,6 @@ public class GraphicsStatsService extends IGraphicsStats.Stub {
     private Handler mWriteOutHandler;
     private boolean mRotateIsScheduled = false;
 
-    @SystemApi
     public GraphicsStatsService(Context context) {
         mContext = context;
         mAppOps = context.getSystemService(AppOpsManager.class);
@@ -177,7 +175,7 @@ public class GraphicsStatsService extends IGraphicsStats.Stub {
         int uid = Binder.getCallingUid();
         int pid = Binder.getCallingPid();
         ParcelFileDescriptor pfd = null;
-        long callingIdentity = Binder.clearCallingIdentity();
+        final long callingIdentity = Binder.clearCallingIdentity();
         try {
             mAppOps.checkPackage(uid, packageName);
             PackageInfo info = mContext.getPackageManager().getPackageInfoAsUser(
@@ -216,7 +214,7 @@ public class GraphicsStatsService extends IGraphicsStats.Stub {
             }
         }
 
-        long callingIdentity = Binder.clearCallingIdentity();
+        final long callingIdentity = Binder.clearCallingIdentity();
         try {
             pullGraphicsStatsImpl(lastFullDay, pulledData);
         } finally {

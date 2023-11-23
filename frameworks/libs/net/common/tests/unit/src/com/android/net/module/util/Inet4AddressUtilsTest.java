@@ -26,9 +26,11 @@ import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTL
 import static com.android.net.module.util.Inet4AddressUtils.netmaskToPrefixLength;
 import static com.android.net.module.util.Inet4AddressUtils.prefixLengthToV4NetmaskIntHTH;
 import static com.android.net.module.util.Inet4AddressUtils.prefixLengthToV4NetmaskIntHTL;
+import static com.android.net.module.util.Inet4AddressUtils.trimAddressZeros;
 
 import static junit.framework.Assert.assertEquals;
 
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import android.net.InetAddresses;
@@ -202,6 +204,17 @@ public class Inet4AddressUtilsTest {
     @Test(expected = IllegalArgumentException.class)
     public void testGetPrefixMaskAsAddress_NegativePrefix() {
         getPrefixMaskAsInet4Address(-1);
+    }
+
+    @Test
+    public void testTrimAddressZeros() {
+        assertNull(trimAddressZeros(null));
+        assertEquals("$invalid&", trimAddressZeros("$invalid&"));
+        assertEquals("example.com", trimAddressZeros("example.com"));
+        assertEquals("a.b.c.d", trimAddressZeros("a.b.c.d"));
+
+        assertEquals("192.0.2.2", trimAddressZeros("192.000.02.2"));
+        assertEquals("192.0.2.2", trimAddressZeros("192.0.2.2"));
     }
 
     private Inet4Address ipv4Address(String addr) {

@@ -24,6 +24,7 @@
 #include <utils/Vector.h>
 #include <cutils/properties.h>
 #include <stdlib.h>
+#include <camera/CameraUtils.h>
 #include <camera/VendorTagDescriptor.h>
 
 using namespace android::acam;
@@ -70,12 +71,6 @@ CameraManagerGlobal::~CameraManagerGlobal() {
     mCameraService.clear();
 }
 
-static bool isCameraServiceDisabled() {
-    char value[PROPERTY_VALUE_MAX];
-    property_get("config.disable_cameraservice", value, "0");
-    return (strncmp(value, "0", 2) != 0 && strncasecmp(value, "false", 6) != 0);
-}
-
 sp<hardware::ICameraService> CameraManagerGlobal::getCameraService() {
     Mutex::Autolock _l(mLock);
     return getCameraServiceLocked();
@@ -83,7 +78,7 @@ sp<hardware::ICameraService> CameraManagerGlobal::getCameraService() {
 
 sp<hardware::ICameraService> CameraManagerGlobal::getCameraServiceLocked() {
     if (mCameraService.get() == nullptr) {
-        if (isCameraServiceDisabled()) {
+        if (CameraUtils::isCameraServiceDisabled()) {
             return mCameraService;
         }
 
@@ -694,7 +689,9 @@ camera_status_t ACameraManager::getCameraCharacteristics(
         return ACAMERA_ERROR_CAMERA_DISCONNECTED;
     }
     CameraMetadata rawMetadata;
-    binder::Status serviceRet = cs->getCameraCharacteristics(String16(cameraIdStr), &rawMetadata);
+    int targetSdkVersion = android_get_application_target_sdk_version();
+    binder::Status serviceRet = cs->getCameraCharacteristics(String16(cameraIdStr),
+            targetSdkVersion, &rawMetadata);
     if (!serviceRet.isOk()) {
         switch(serviceRet.serviceSpecificErrorCode()) {
             case hardware::ICameraService::ERROR_DISCONNECTED:
@@ -740,11 +737,13 @@ ACameraManager::openCamera(
 
     sp<hardware::camera2::ICameraDeviceCallbacks> callbacks = device->getServiceCallback();
     sp<hardware::camera2::ICameraDeviceUser> deviceRemote;
+    int targetSdkVersion = android_get_application_target_sdk_version();
     // No way to get package name from native.
     // Send a zero length package name and let camera service figure it out from UID
     binder::Status serviceRet = cs->connectDevice(
-            callbacks, String16(cameraId), String16(""), std::unique_ptr<String16>(),
-            hardware::ICameraService::USE_CALLING_UID, /*out*/&deviceRemote);
+            callbacks, String16(cameraId), String16(""), {},
+            hardware::ICameraService::USE_CALLING_UID, /*oomScoreOffset*/0,
+            targetSdkVersion, /*out*/&deviceRemote);
 
     if (!serviceRet.isOk()) {
         ALOGE("%s: connect camera device failed: %s", __FUNCTION__, serviceRet.toString8().string());

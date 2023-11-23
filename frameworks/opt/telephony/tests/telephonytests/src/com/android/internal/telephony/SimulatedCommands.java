@@ -47,9 +47,10 @@ import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SignalThresholdInfo;
 import android.telephony.TelephonyManager;
-import android.telephony.data.ApnSetting;
 import android.telephony.data.DataCallResponse;
 import android.telephony.data.DataProfile;
+import android.telephony.data.NetworkSliceInfo;
+import android.telephony.data.TrafficDescriptor;
 import android.telephony.emergency.EmergencyNumber;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -67,6 +68,9 @@ import com.android.internal.telephony.UUSInfo;
 import com.android.internal.telephony.cdma.CdmaSmsBroadcastConfigInfo;
 import com.android.internal.telephony.gsm.SmsBroadcastConfigInfo;
 import com.android.internal.telephony.gsm.SuppServiceNotification;
+import com.android.internal.telephony.uicc.AdnCapacity;
+import com.android.internal.telephony.uicc.ReceivedPhonebookRecords;
+import com.android.internal.telephony.uicc.SimPhonebookRecord;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.IccIoResult;
@@ -136,7 +140,8 @@ public class SimulatedCommands extends BaseCommands
     boolean mSimFdnEnabled;
     int mPin2UnlockAttempts;
     int mPuk2UnlockAttempts;
-    int mNetworkType;
+    int mPreferredNetworkType;
+    int mAllowedNetworkType;
     String mPin2Code;
     boolean mSsnNotifyOn = false;
     private int mVoiceRegState = NetworkRegistrationInfo.REGISTRATION_STATE_HOME;
@@ -149,6 +154,8 @@ public class SimulatedCommands extends BaseCommands
     public int mDefaultRoamingIndicator;
     public int mReasonForDenial;
     public int mMaxDataCalls;
+    public boolean mSendSetGsmBroadcastConfigResponse = true;
+    public boolean mSendGetSmscAddressResponse = true;
 
     private SignalStrength mSignalStrength;
     private List<CellInfo> mCellInfoList = null;
@@ -158,6 +165,9 @@ public class SimulatedCommands extends BaseCommands
     private IccSlotStatus mIccSlotStatus;
     private IccIoResult mIccIoResultForApduLogicalChannel;
     private int mChannelId = IccOpenLogicalChannelResponse.INVALID_CHANNEL;
+
+    private Object mDataRegStateResult;
+    private Object mVoiceRegStateResult;
 
     int mPausedResponseCount;
     ArrayList<Message> mPausedResponses = new ArrayList<Message>();
@@ -997,14 +1007,17 @@ public class SimulatedCommands extends BaseCommands
     public void getVoiceRegistrationState(Message result) {
         mGetVoiceRegistrationStateCallCount.incrementAndGet();
 
-        VoiceRegStateResult ret = new VoiceRegStateResult();
-        ret.regState = mVoiceRegState;
-        ret.rat = mVoiceRadioTech;
-        ret.cssSupported = mCssSupported;
-        ret.roamingIndicator = mRoamingIndicator;
-        ret.systemIsInPrl = mSystemIsInPrl;
-        ret.defaultRoamingIndicator = mDefaultRoamingIndicator;
-        ret.reasonForDenial = mReasonForDenial;
+        Object ret = mVoiceRegStateResult;
+        if (ret == null) {
+            ret = new VoiceRegStateResult();
+            ((VoiceRegStateResult) ret).regState = mVoiceRegState;
+            ((VoiceRegStateResult) ret).rat = mVoiceRadioTech;
+            ((VoiceRegStateResult) ret).cssSupported = mCssSupported;
+            ((VoiceRegStateResult) ret).roamingIndicator = mRoamingIndicator;
+            ((VoiceRegStateResult) ret).systemIsInPrl = mSystemIsInPrl;
+            ((VoiceRegStateResult) ret).defaultRoamingIndicator = mDefaultRoamingIndicator;
+            ((VoiceRegStateResult) ret).reasonForDenial = mReasonForDenial;
+        }
 
         resultSuccess(result, ret);
     }
@@ -1025,14 +1038,17 @@ public class SimulatedCommands extends BaseCommands
     }
 
     @Override
-    public void getDataRegistrationState (Message result) {
+    public void getDataRegistrationState(Message result) {
         mGetDataRegistrationStateCallCount.incrementAndGet();
 
-        DataRegStateResult ret = new DataRegStateResult();
-        ret.regState = mDataRegState;
-        ret.rat = mDataRadioTech;
-        ret.maxDataCalls = mMaxDataCalls;
-        ret.reasonDataDenied = mReasonForDenial;
+        Object ret = mDataRegStateResult;
+        if (ret == null) {
+            ret = new DataRegStateResult();
+            ((DataRegStateResult) ret).regState = mDataRegState;
+            ((DataRegStateResult) ret).rat = mDataRadioTech;
+            ((DataRegStateResult) ret).maxDataCalls = mMaxDataCalls;
+            ((DataRegStateResult) ret).reasonDataDenied = mReasonForDenial;
+        }
 
         resultSuccess(result, ret);
     }
@@ -1133,7 +1149,8 @@ public class SimulatedCommands extends BaseCommands
      */
     @Override
     public void sendSMSExpectMore (String smscPDU, String pdu, Message result) {
-        unimplemented(result);
+        SimulatedCommandsVerifier.getInstance().sendSMSExpectMore(smscPDU, pdu, result);
+        resultSuccess(result, new SmsResponse(0 /*messageRef*/, null, SmsResponse.NO_ERROR_CODE));
     }
 
     @Override
@@ -1174,11 +1191,13 @@ public class SimulatedCommands extends BaseCommands
 
     @Override
     public void setupDataCall(int accessNetworkType, DataProfile dataProfile, boolean isRoaming,
-                              boolean allowRoaming, int reason, LinkProperties linkProperties,
-                              Message result) {
+            boolean allowRoaming, int reason, LinkProperties linkProperties, int pduSessionId,
+            NetworkSliceInfo sliceInfo, TrafficDescriptor trafficDescriptor,
+            boolean matchAllRuleAllowed, Message result) {
 
         SimulatedCommandsVerifier.getInstance().setupDataCall(accessNetworkType, dataProfile,
-                isRoaming, allowRoaming, reason, linkProperties, result);
+                isRoaming, allowRoaming, reason, linkProperties, pduSessionId, sliceInfo,
+                trafficDescriptor, matchAllRuleAllowed, result);
 
         if (mSetupDataCallResult == null) {
             try {
@@ -1200,14 +1219,6 @@ public class SimulatedCommands extends BaseCommands
             }
         }
 
-        // Store different cids to simulate concurrent IMS and default data calls
-        if ((dataProfile.getSupportedApnTypesBitmask() & ApnSetting.TYPE_IMS)
-            == ApnSetting.TYPE_IMS) {
-            mSetupDataCallResult.cid = 0;
-        } else {
-            mSetupDataCallResult.cid = 1;
-        }
-
         DataCallResponse response = RIL.convertDataCallResult(mSetupDataCallResult);
         if (mDcSuccess) {
             resultSuccess(result, response);
@@ -1225,7 +1236,7 @@ public class SimulatedCommands extends BaseCommands
     @Override
     public void setPreferredNetworkType(int networkType , Message result) {
         SimulatedCommandsVerifier.getInstance().setPreferredNetworkType(networkType, result);
-        mNetworkType = networkType;
+        mPreferredNetworkType = networkType;
         resultSuccess(result, null);
     }
 
@@ -1234,8 +1245,26 @@ public class SimulatedCommands extends BaseCommands
         SimulatedCommandsVerifier.getInstance().getPreferredNetworkType(result);
         int ret[] = new int[1];
 
-        ret[0] = mNetworkType;
+        ret[0] = mPreferredNetworkType;
         resultSuccess(result, ret);
+    }
+
+    @Override
+    public void setAllowedNetworkTypesBitmap(
+            @TelephonyManager.NetworkTypeBitMask int networkTypeBitmask, Message response) {
+        SimulatedCommandsVerifier.getInstance()
+            .setAllowedNetworkTypesBitmap(networkTypeBitmask, response);
+        mAllowedNetworkType = networkTypeBitmask;
+        resultSuccess(response, null);
+    }
+
+    @Override
+    public void getAllowedNetworkTypesBitmap(Message response) {
+        SimulatedCommandsVerifier.getInstance().getAllowedNetworkTypesBitmap(response);
+        int[] ret = new int[1];
+
+        ret[0] = mAllowedNetworkType;
+        resultSuccess(response, ret);
     }
 
     @Override
@@ -1246,7 +1275,10 @@ public class SimulatedCommands extends BaseCommands
 
     @Override
     public void getSmscAddress(Message result) {
-        unimplemented(result);
+        SimulatedCommandsVerifier.getInstance().getSmscAddress(result);
+        if (mSendGetSmscAddressResponse) {
+            unimplemented(result);
+        }
     }
 
     @Override
@@ -1708,7 +1740,7 @@ public class SimulatedCommands extends BaseCommands
     }
 
     @UnsupportedAppUsage
-    private void resultSuccess(Message result, Object ret) {
+    protected void resultSuccess(Message result, Object ret) {
         if (result != null) {
             AsyncResult.forMessage(result).result = ret;
             if (mPausedResponseCount > 0) {
@@ -1867,7 +1899,10 @@ public class SimulatedCommands extends BaseCommands
 
     @Override
     public void setGsmBroadcastConfig(SmsBroadcastConfigInfo[] config, Message response) {
-        unimplemented(response);
+        SimulatedCommandsVerifier.getInstance().setGsmBroadcastConfig(config, response);
+        if (mSendSetGsmBroadcastConfigResponse) {
+            unimplemented(response);
+        }
     }
 
     @Override
@@ -2391,5 +2426,60 @@ public class SimulatedCommands extends BaseCommands
     public void getBarringInfo(Message result) {
         SimulatedCommandsVerifier.getInstance().getBarringInfo(result);
         resultSuccess(result, null);
+    }
+
+    @Override
+    public void allocatePduSessionId(Message message) {
+        SimulatedCommandsVerifier.getInstance().allocatePduSessionId(message);
+        resultSuccess(message, 1);
+    }
+
+    @Override
+    public void releasePduSessionId(Message message, int pduSessionId) {
+        SimulatedCommandsVerifier.getInstance().releasePduSessionId(message, pduSessionId);
+        resultSuccess(message, null);
+    }
+
+    @Override
+    public void getSlicingConfig(Message result) {
+        SimulatedCommandsVerifier.getInstance().getSlicingConfig(result);
+        resultSuccess(result, null);
+    }
+
+    @VisibleForTesting
+    public void setDataRegStateResult(Object regStateResult) {
+        mDataRegStateResult = regStateResult;
+    }
+
+    @VisibleForTesting
+    public void setVoiceRegStateResult(Object regStateResult) {
+        mVoiceRegStateResult = regStateResult;
+    }
+
+    @Override
+    public void getSimPhonebookRecords(Message result) {
+        resultSuccess(result, null);
+
+        // send a fake result
+        List<SimPhonebookRecord> phonebookRecordInfoGroup = new ArrayList<SimPhonebookRecord>();
+        mSimPhonebookRecordsReceivedRegistrants.notifyRegistrants(
+                new AsyncResult(null,
+                new ReceivedPhonebookRecords(4, phonebookRecordInfoGroup), null));
+    }
+
+    @Override
+    public void getSimPhonebookCapacity(Message result) {
+        resultSuccess(result, new AdnCapacity(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+    }
+
+    @Override
+    public void updateSimPhonebookRecord(SimPhonebookRecord phonebookRecord, Message result) {
+        resultSuccess(result, new int[]{phonebookRecord.getRecordIndex()});
+        notifySimPhonebookChanged();
+    }
+
+    @VisibleForTesting
+    public void notifySimPhonebookChanged() {
+        mSimPhonebookChangedRegistrants.notifyRegistrants();
     }
 }

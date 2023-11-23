@@ -33,6 +33,7 @@
 
 #include <media/nbaio/Pipe.h>
 #include <media/nbaio/PipeReader.h>
+#include <media/AudioValidator.h>
 #include <media/RecordBufferConverter.h>
 #include <mediautils/ServiceUtilities.h>
 #include <audio_utils/minifloat.h>
@@ -52,8 +53,19 @@
 #define ALOGVV(a...) do { } while(0)
 #endif
 
+// TODO: Remove when this is put into AidlConversionUtil.h
+#define VALUE_OR_RETURN_BINDER_STATUS(x)    \
+    ({                                      \
+       auto _tmp = (x);                     \
+       if (!_tmp.ok()) return ::android::aidl_utils::binderStatusFromStatusT(_tmp.error()); \
+       std::move(_tmp.value());             \
+     })
+
 namespace android {
 
+using ::android::aidl_utils::binderStatusFromStatusT;
+using binder::Status;
+using content::AttributionSourceState;
 using media::VolumeShaper;
 // ----------------------------------------------------------------------------
 //      TrackBase
@@ -226,6 +238,15 @@ AudioFlinger::ThreadBase::TrackBase::TrackBase(
     }
 }
 
+// TODO b/182392769: use attribution source util
+static AttributionSourceState audioServerAttributionSource(pid_t pid) {
+   AttributionSourceState attributionSource{};
+   attributionSource.uid = AID_AUDIOSERVER;
+   attributionSource.pid = pid;
+   attributionSource.token = sp<BBinder>::make();
+   return attributionSource;
+}
+
 status_t AudioFlinger::ThreadBase::TrackBase::initCheck() const
 {
     status_t status;
@@ -319,64 +340,156 @@ AudioFlinger::TrackHandle::~TrackHandle() {
     mTrack->destroy();
 }
 
-sp<IMemory> AudioFlinger::TrackHandle::getCblk() const {
-    return mTrack->getCblk();
+Status AudioFlinger::TrackHandle::getCblk(
+        std::optional<media::SharedFileRegion>* _aidl_return) {
+    *_aidl_return = legacy2aidl_NullableIMemory_SharedFileRegion(mTrack->getCblk()).value();
+    return Status::ok();
 }
 
-status_t AudioFlinger::TrackHandle::start() {
-    return mTrack->start();
+Status AudioFlinger::TrackHandle::start(int32_t* _aidl_return) {
+    *_aidl_return = mTrack->start();
+    return Status::ok();
 }
 
-void AudioFlinger::TrackHandle::stop() {
+Status AudioFlinger::TrackHandle::stop() {
     mTrack->stop();
+    return Status::ok();
 }
 
-void AudioFlinger::TrackHandle::flush() {
+Status AudioFlinger::TrackHandle::flush() {
     mTrack->flush();
+    return Status::ok();
 }
 
-void AudioFlinger::TrackHandle::pause() {
+Status AudioFlinger::TrackHandle::pause() {
     mTrack->pause();
+    return Status::ok();
 }
 
-status_t AudioFlinger::TrackHandle::attachAuxEffect(int EffectId)
+Status AudioFlinger::TrackHandle::attachAuxEffect(int32_t effectId,
+                                                  int32_t* _aidl_return) {
+    *_aidl_return = mTrack->attachAuxEffect(effectId);
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::setParameters(const std::string& keyValuePairs,
+                                                int32_t* _aidl_return) {
+    *_aidl_return = mTrack->setParameters(String8(keyValuePairs.c_str()));
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::selectPresentation(int32_t presentationId, int32_t programId,
+                                                     int32_t* _aidl_return) {
+    *_aidl_return = mTrack->selectPresentation(presentationId, programId);
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::getTimestamp(media::AudioTimestampInternal* timestamp,
+                                               int32_t* _aidl_return) {
+    AudioTimestamp legacy;
+    *_aidl_return = mTrack->getTimestamp(legacy);
+    if (*_aidl_return != OK) {
+        return Status::ok();
+    }
+    *timestamp = legacy2aidl_AudioTimestamp_AudioTimestampInternal(legacy).value();
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::signal() {
+    mTrack->signal();
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::applyVolumeShaper(
+        const media::VolumeShaperConfiguration& configuration,
+        const media::VolumeShaperOperation& operation,
+        int32_t* _aidl_return) {
+    sp<VolumeShaper::Configuration> conf = new VolumeShaper::Configuration();
+    *_aidl_return = conf->readFromParcelable(configuration);
+    if (*_aidl_return != OK) {
+        return Status::ok();
+    }
+
+    sp<VolumeShaper::Operation> op = new VolumeShaper::Operation();
+    *_aidl_return = op->readFromParcelable(operation);
+    if (*_aidl_return != OK) {
+        return Status::ok();
+    }
+
+    *_aidl_return = mTrack->applyVolumeShaper(conf, op);
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::getVolumeShaperState(
+        int32_t id,
+        std::optional<media::VolumeShaperState>* _aidl_return) {
+    sp<VolumeShaper::State> legacy = mTrack->getVolumeShaperState(id);
+    if (legacy == nullptr) {
+        _aidl_return->reset();
+        return Status::ok();
+    }
+    media::VolumeShaperState aidl;
+    legacy->writeToParcelable(&aidl);
+    *_aidl_return = aidl;
+    return Status::ok();
+}
+
+Status AudioFlinger::TrackHandle::getDualMonoMode(media::AudioDualMonoMode* _aidl_return)
 {
-    return mTrack->attachAuxEffect(EffectId);
+    audio_dual_mono_mode_t mode = AUDIO_DUAL_MONO_MODE_OFF;
+    const status_t status = mTrack->getDualMonoMode(&mode)
+            ?: AudioValidator::validateDualMonoMode(mode);
+    if (status == OK) {
+        *_aidl_return = VALUE_OR_RETURN_BINDER_STATUS(
+                legacy2aidl_audio_dual_mono_mode_t_AudioDualMonoMode(mode));
+    }
+    return binderStatusFromStatusT(status);
 }
 
-status_t AudioFlinger::TrackHandle::setParameters(const String8& keyValuePairs) {
-    return mTrack->setParameters(keyValuePairs);
-}
-
-status_t AudioFlinger::TrackHandle::selectPresentation(int presentationId, int programId) {
-    return mTrack->selectPresentation(presentationId, programId);
-}
-
-VolumeShaper::Status AudioFlinger::TrackHandle::applyVolumeShaper(
-        const sp<VolumeShaper::Configuration>& configuration,
-        const sp<VolumeShaper::Operation>& operation) {
-    return mTrack->applyVolumeShaper(configuration, operation);
-}
-
-sp<VolumeShaper::State> AudioFlinger::TrackHandle::getVolumeShaperState(int id) {
-    return mTrack->getVolumeShaperState(id);
-}
-
-status_t AudioFlinger::TrackHandle::getTimestamp(AudioTimestamp& timestamp)
+Status AudioFlinger::TrackHandle::setDualMonoMode(
+        media::AudioDualMonoMode mode)
 {
-    return mTrack->getTimestamp(timestamp);
+    const auto localMonoMode = VALUE_OR_RETURN_BINDER_STATUS(
+            aidl2legacy_AudioDualMonoMode_audio_dual_mono_mode_t(mode));
+    return binderStatusFromStatusT(AudioValidator::validateDualMonoMode(localMonoMode)
+            ?: mTrack->setDualMonoMode(localMonoMode));
 }
 
-
-void AudioFlinger::TrackHandle::signal()
+Status AudioFlinger::TrackHandle::getAudioDescriptionMixLevel(float* _aidl_return)
 {
-    return mTrack->signal();
+    float leveldB = -std::numeric_limits<float>::infinity();
+    const status_t status = mTrack->getAudioDescriptionMixLevel(&leveldB)
+            ?: AudioValidator::validateAudioDescriptionMixLevel(leveldB);
+    if (status == OK) *_aidl_return = leveldB;
+    return binderStatusFromStatusT(status);
 }
 
-status_t AudioFlinger::TrackHandle::onTransact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+Status AudioFlinger::TrackHandle::setAudioDescriptionMixLevel(float leveldB)
 {
-    return BnAudioTrack::onTransact(code, data, reply, flags);
+    return binderStatusFromStatusT(AudioValidator::validateAudioDescriptionMixLevel(leveldB)
+             ?: mTrack->setAudioDescriptionMixLevel(leveldB));
+}
+
+Status AudioFlinger::TrackHandle::getPlaybackRateParameters(
+        media::AudioPlaybackRate* _aidl_return)
+{
+    audio_playback_rate_t localPlaybackRate{};
+    status_t status = mTrack->getPlaybackRateParameters(&localPlaybackRate)
+            ?: AudioValidator::validatePlaybackRate(localPlaybackRate);
+    if (status == NO_ERROR) {
+        *_aidl_return = VALUE_OR_RETURN_BINDER_STATUS(
+                legacy2aidl_audio_playback_rate_t_AudioPlaybackRate(localPlaybackRate));
+    }
+    return binderStatusFromStatusT(status);
+}
+
+Status AudioFlinger::TrackHandle::setPlaybackRateParameters(
+        const media::AudioPlaybackRate& playbackRate)
+{
+    const audio_playback_rate_t localPlaybackRate = VALUE_OR_RETURN_BINDER_STATUS(
+            aidl2legacy_AudioPlaybackRate_audio_playback_rate_t(playbackRate));
+    return binderStatusFromStatusT(AudioValidator::validatePlaybackRate(localPlaybackRate)
+            ?: mTrack->setPlaybackRateParameters(localPlaybackRate));
 }
 
 // ----------------------------------------------------------------------------
@@ -386,11 +499,13 @@ status_t AudioFlinger::TrackHandle::onTransact(
 // static
 sp<AudioFlinger::PlaybackThread::OpPlayAudioMonitor>
 AudioFlinger::PlaybackThread::OpPlayAudioMonitor::createIfNeeded(
-            uid_t uid, const audio_attributes_t& attr, int id, audio_stream_type_t streamType)
+            const AttributionSourceState& attributionSource, const audio_attributes_t& attr, int id,
+            audio_stream_type_t streamType)
 {
+    Vector <String16> packages;
+    uid_t uid = VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(attributionSource.uid));
+    getPackagesForUid(uid, packages);
     if (isServiceUid(uid)) {
-        Vector <String16> packages;
-        getPackagesForUid(uid, packages);
         if (packages.isEmpty()) {
             ALOGD("OpPlayAudio: not muting track:%d usage:%d for service UID %d",
                   id,
@@ -410,12 +525,16 @@ AudioFlinger::PlaybackThread::OpPlayAudioMonitor::createIfNeeded(
             id, attr.flags);
         return nullptr;
     }
-    return new OpPlayAudioMonitor(uid, attr.usage, id);
+
+    AttributionSourceState checkedAttributionSource = AudioFlinger::checkAttributionSourcePackage(
+            attributionSource);
+    return new OpPlayAudioMonitor(checkedAttributionSource, attr.usage, id);
 }
 
 AudioFlinger::PlaybackThread::OpPlayAudioMonitor::OpPlayAudioMonitor(
-        uid_t uid, audio_usage_t usage, int id)
-        : mHasOpPlayAudio(true), mUid(uid), mUsage((int32_t) usage), mId(id)
+        const AttributionSourceState& attributionSource, audio_usage_t usage, int id)
+        : mHasOpPlayAudio(true), mAttributionSource(attributionSource), mUsage((int32_t) usage),
+        mId(id)
 {
 }
 
@@ -429,11 +548,13 @@ AudioFlinger::PlaybackThread::OpPlayAudioMonitor::~OpPlayAudioMonitor()
 
 void AudioFlinger::PlaybackThread::OpPlayAudioMonitor::onFirstRef()
 {
-    getPackagesForUid(mUid, mPackages);
     checkPlayAudioForUsage();
-    if (!mPackages.isEmpty()) {
+    if (mAttributionSource.packageName.has_value()) {
         mOpCallback = new PlayAudioOpCallback(this);
-        mAppOpsManager.startWatchingMode(AppOpsManager::OP_PLAY_AUDIO, mPackages[0], mOpCallback);
+        mAppOpsManager.startWatchingMode(AppOpsManager::OP_PLAY_AUDIO,
+            VALUE_OR_FATAL(aidl2legacy_string_view_String16(
+            mAttributionSource.packageName.value_or("")))
+            , mOpCallback);
     }
 }
 
@@ -446,18 +567,14 @@ bool AudioFlinger::PlaybackThread::OpPlayAudioMonitor::hasOpPlayAudio() const {
 // - not called from PlayAudioOpCallback because the callback is not installed in this case
 void AudioFlinger::PlaybackThread::OpPlayAudioMonitor::checkPlayAudioForUsage()
 {
-    if (mPackages.isEmpty()) {
+    if (!mAttributionSource.packageName.has_value()) {
         mHasOpPlayAudio.store(false);
     } else {
-        bool hasIt = true;
-        for (const String16& packageName : mPackages) {
-            const int32_t mode = mAppOpsManager.checkAudioOpNoThrow(AppOpsManager::OP_PLAY_AUDIO,
-                    mUsage, mUid, packageName);
-            if (mode != AppOpsManager::MODE_ALLOWED) {
-                hasIt = false;
-                break;
-            }
-        }
+        uid_t uid = VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(mAttributionSource.uid));
+        String16 packageName = VALUE_OR_FATAL(
+            aidl2legacy_string_view_String16(mAttributionSource.packageName.value_or("")));
+        bool hasIt = mAppOpsManager.checkAudioOpNoThrow(AppOpsManager::OP_PLAY_AUDIO,
+                    mUsage, uid, packageName) == AppOpsManager::MODE_ALLOWED;
         ALOGD("OpPlayAudio: track:%d usage:%d %smuted", mId, mUsage, hasIt ? "not " : "");
         mHasOpPlayAudio.store(hasIt);
     }
@@ -507,11 +624,12 @@ AudioFlinger::PlaybackThread::Track::Track(
             const sp<IMemory>& sharedBuffer,
             audio_session_t sessionId,
             pid_t creatorPid,
-            uid_t uid,
+            const AttributionSourceState& attributionSource,
             audio_output_flags_t flags,
             track_type type,
             audio_port_handle_t portId,
-            size_t frameCountToBeReady)
+            size_t frameCountToBeReady,
+            float speed)
     :   TrackBase(thread, client, attr, sampleRate, format, channelMask, frameCount,
                   // TODO: Using unsecurePointer() has some associated security pitfalls
                   //       (see declaration for details).
@@ -519,7 +637,8 @@ AudioFlinger::PlaybackThread::Track::Track(
                   //       issue (e.g. by copying).
                   (sharedBuffer != 0) ? sharedBuffer->unsecurePointer() : buffer,
                   (sharedBuffer != 0) ? sharedBuffer->size() : bufferSize,
-                  sessionId, creatorPid, uid, true /*isOut*/,
+                  sessionId, creatorPid,
+                  VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(attributionSource.uid)), true /*isOut*/,
                   (type == TYPE_PATCH) ? ( buffer == NULL ? ALLOC_LOCAL : ALLOC_NONE) : ALLOC_CBLK,
                   type,
                   portId,
@@ -531,12 +650,11 @@ AudioFlinger::PlaybackThread::Track::Track(
     mMainBuffer(thread->sinkBuffer()),
     mAuxBuffer(NULL),
     mAuxEffectId(0), mHasVolumeController(false),
-    mPresentationCompleteFrames(0),
     mFrameMap(16 /* sink-frame-to-track-frame map memory */),
     mVolumeHandler(new media::VolumeHandler(sampleRate)),
-    mOpPlayAudioMonitor(OpPlayAudioMonitor::createIfNeeded(uid, attr, id(), streamType)),
+    mOpPlayAudioMonitor(OpPlayAudioMonitor::createIfNeeded(attributionSource, attr, id(),
+        streamType)),
     // mSinkTimestamp
-    mFrameCountToBeReady(frameCountToBeReady),
     mFastIndex(-1),
     mCachedVolume(1.0),
     /* The track might not play immediately after being active, similarly as if its volume was 0.
@@ -544,7 +662,8 @@ AudioFlinger::PlaybackThread::Track::Track(
     mFinalVolume(0.f),
     mResumeToStopping(false),
     mFlushHwPending(false),
-    mFlags(flags)
+    mFlags(flags),
+    mSpeed(speed)
 {
     // client == 0 implies sharedBuffer == 0
     ALOG_ASSERT(!(client == 0 && sharedBuffer != 0));
@@ -556,6 +675,7 @@ AudioFlinger::PlaybackThread::Track::Track(
         return;
     }
 
+    uid_t uid = VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(attributionSource.uid));
     if (!thread->isTrackAllowed_l(channelMask, format, sessionId, uid)) {
         ALOGE("%s(%d): no more tracks available", __func__, mId);
         releaseCblk(); // this makes the track invalid.
@@ -570,6 +690,7 @@ AudioFlinger::PlaybackThread::Track::Track(
                 mFrameSize, sampleRate);
     }
     mServerProxy = mAudioTrackServerProxy;
+    mServerProxy->setStartThresholdInFrames(frameCountToBeReady); // update the Cblk value
 
     // only allocate a fast track index if we were able to allocate a normal track name
     if (flags & AUDIO_OUTPUT_FLAG_FAST) {
@@ -595,15 +716,20 @@ AudioFlinger::PlaybackThread::Track::Track(
             + "_" + std::to_string(mId) + "_T");
 #endif
 
-    if (channelMask & AUDIO_CHANNEL_HAPTIC_ALL) {
+    if (thread->supportsHapticPlayback()) {
+        // If the track is attached to haptic playback thread, it is potentially to have
+        // HapticGenerator effect, which will generate haptic data, on the track. In that case,
+        // external vibration is always created for all tracks attached to haptic playback thread.
         mAudioVibrationController = new AudioVibrationController(this);
+        std::string packageName = attributionSource.packageName.has_value() ?
+            attributionSource.packageName.value() : "";
         mExternalVibration = new os::ExternalVibration(
-                mUid, "" /* pkg */, mAttr, mAudioVibrationController);
+                mUid, packageName, mAttr, mAudioVibrationController);
     }
 
     // Once this item is logged by the server, the client can add properties.
     const char * const traits = sharedBuffer == 0 ? "" : "static";
-    mTrackMetrics.logConstructor(creatorPid, uid, traits, streamType);
+    mTrackMetrics.logConstructor(creatorPid, uid, id(), traits, streamType);
 }
 
 AudioFlinger::PlaybackThread::Track::~Track()
@@ -897,7 +1023,10 @@ bool AudioFlinger::PlaybackThread::Track::isReady() const {
     }
 
     size_t bufferSizeInFrames = mServerProxy->getBufferSizeInFrames();
-    size_t framesToBeReady = std::min(mFrameCountToBeReady, bufferSizeInFrames);
+    // Note: mServerProxy->getStartThresholdInFrames() is clamped.
+    const size_t startThresholdInFrames = mServerProxy->getStartThresholdInFrames();
+    const size_t framesToBeReady = std::clamp(  // clamp again to validate client values.
+            std::min(startThresholdInFrames, bufferSizeInFrames), size_t(1), mFrameCount);
 
     if (framesReady() >= framesToBeReady || (mCblk->mFlags & CBLK_FORCEREADY)) {
         ALOGV("%s(%d): consider track ready with %zu/%zu, target was %zu)",
@@ -936,6 +1065,13 @@ status_t AudioFlinger::PlaybackThread::Track::start(AudioSystem::sync_event_t ev
         // initial state-stopping. next state-pausing.
         // What if resume is called ?
 
+        if (state == FLUSHED) {
+            // avoid underrun glitches when starting after flush
+            reset();
+        }
+
+        // clear mPauseHwPending because of pause (and possibly flush) during underrun.
+        mPauseHwPending = false;
         if (state == PAUSED || state == PAUSING) {
             if (mResumeToStopping) {
                 // happened we need to resume to STOPPING_1
@@ -1067,6 +1203,9 @@ void AudioFlinger::PlaybackThread::Track::pause()
             mState = PAUSING;
             ALOGV("%s(%d): ACTIVE/RESUMING => PAUSING on thread %d",
                     __func__, mId, (int)mThreadIoHandle);
+            if (isOffloadedOrDirect()) {
+                mPauseHwPending = true;
+            }
             playbackThread->broadcast_l();
             break;
 
@@ -1152,6 +1291,11 @@ void AudioFlinger::PlaybackThread::Track::flushAck()
     mServerProxy->flushBufferIfNeeded();
 
     mFlushHwPending = false;
+}
+
+void AudioFlinger::PlaybackThread::Track::pauseAck()
+{
+    mPauseHwPending = false;
 }
 
 void AudioFlinger::PlaybackThread::Track::reset()
@@ -1251,16 +1395,24 @@ void AudioFlinger::PlaybackThread::Track::setFinalVolume(float volume)
 
 void AudioFlinger::PlaybackThread::Track::copyMetadataTo(MetadataInserter& backInserter) const
 {
-    *backInserter++ = {
+    playback_track_metadata_v7_t metadata;
+    metadata.base = {
             .usage = mAttr.usage,
             .content_type = mAttr.content_type,
             .gain = mFinalVolume,
     };
+    metadata.channel_mask = mChannelMask,
+    strncpy(metadata.tags, mAttr.tags, AUDIO_ATTRIBUTES_TAGS_MAX_SIZE);
+    *backInserter++ = metadata;
 }
 
 void AudioFlinger::PlaybackThread::Track::setTeePatches(TeePatches teePatches) {
     forEachTeePatchTrack([](auto patchTrack) { patchTrack->destroy(); });
     mTeePatches = std::move(teePatches);
+    if (mState == TrackBase::ACTIVE || mState == TrackBase::RESUMING ||
+            mState == TrackBase::STOPPING_1) {
+        forEachTeePatchTrack([](auto patchTrack) { patchTrack->start(); });
+    }
 }
 
 status_t AudioFlinger::PlaybackThread::Track::getTimestamp(AudioTimestamp& timestamp)
@@ -1309,6 +1461,7 @@ void AudioFlinger::PlaybackThread::Track::setAuxBuffer(int EffectId, int32_t *bu
     mAuxBuffer = buffer;
 }
 
+// presentationComplete verified by frames, used by Mixed tracks.
 bool AudioFlinger::PlaybackThread::Track::presentationComplete(
         int64_t framesWritten, size_t audioHalFrames)
 {
@@ -1327,28 +1480,68 @@ bool AudioFlinger::PlaybackThread::Track::presentationComplete(
             (long long)mPresentationCompleteFrames, (long long)framesWritten);
     if (mPresentationCompleteFrames == 0) {
         mPresentationCompleteFrames = framesWritten + audioHalFrames;
-        ALOGV("%s(%d): presentationComplete() reset:"
+        ALOGV("%s(%d): set:"
                 " mPresentationCompleteFrames %lld audioHalFrames %zu",
                 __func__, mId,
                 (long long)mPresentationCompleteFrames, audioHalFrames);
     }
 
     bool complete;
-    if (isOffloaded()) {
-        complete = true;
-    } else if (isDirect() || isFastTrack()) { // these do not go through linear map
+    if (isFastTrack()) { // does not go through linear map
         complete = framesWritten >= (int64_t) mPresentationCompleteFrames;
+        ALOGV("%s(%d): %s framesWritten:%lld  mPresentationCompleteFrames:%lld",
+                __func__, mId, (complete ? "complete" : "waiting"),
+                (long long) framesWritten, (long long) mPresentationCompleteFrames);
     } else {  // Normal tracks, OutputTracks, and PatchTracks
         complete = framesWritten >= (int64_t) mPresentationCompleteFrames
                 && mAudioTrackServerProxy->isDrained();
     }
 
     if (complete) {
-        triggerEvents(AudioSystem::SYNC_EVENT_PRESENTATION_COMPLETE);
-        mAudioTrackServerProxy->setStreamEndDone();
+        notifyPresentationComplete();
         return true;
     }
     return false;
+}
+
+// presentationComplete checked by time, used by DirectTracks.
+bool AudioFlinger::PlaybackThread::Track::presentationComplete(uint32_t latencyMs)
+{
+    // For Offloaded or Direct tracks.
+
+    // For a direct track, we incorporated time based testing for presentationComplete.
+
+    // For an offloaded track the HAL+h/w delay is variable so a HAL drain() is used
+    // to detect when all frames have been played. In this case latencyMs isn't
+    // useful because it doesn't always reflect whether there is data in the h/w
+    // buffers, particularly if a track has been paused and resumed during draining
+
+    constexpr float MIN_SPEED = 0.125f; // min speed scaling allowed for timely response.
+    if (mPresentationCompleteTimeNs == 0) {
+        mPresentationCompleteTimeNs = systemTime() + latencyMs * 1e6 / fmax(mSpeed, MIN_SPEED);
+        ALOGV("%s(%d): set: latencyMs %u  mPresentationCompleteTimeNs:%lld",
+                __func__, mId, latencyMs, (long long) mPresentationCompleteTimeNs);
+    }
+
+    bool complete;
+    if (isOffloaded()) {
+        complete = true;
+    } else { // Direct
+        complete = systemTime() >= mPresentationCompleteTimeNs;
+        ALOGV("%s(%d): %s", __func__, mId, (complete ? "complete" : "waiting"));
+    }
+    if (complete) {
+        notifyPresentationComplete();
+        return true;
+    }
+    return false;
+}
+
+void AudioFlinger::PlaybackThread::Track::notifyPresentationComplete()
+{
+    // This only triggers once. TODO: should we enforce this?
+    triggerEvents(AudioSystem::SYNC_EVENT_PRESENTATION_COMPLETE);
+    mAudioTrackServerProxy->setStreamEndDone();
 }
 
 void AudioFlinger::PlaybackThread::Track::triggerEvents(AudioSystem::sync_event_t type)
@@ -1435,6 +1628,108 @@ void AudioFlinger::PlaybackThread::Track::signal()
         Mutex::Autolock _l(t->mLock);
         t->broadcast_l();
     }
+}
+
+status_t AudioFlinger::PlaybackThread::Track::getDualMonoMode(audio_dual_mono_mode_t* mode)
+{
+    status_t status = INVALID_OPERATION;
+    if (isOffloadedOrDirect()) {
+        sp<ThreadBase> thread = mThread.promote();
+        if (thread != nullptr) {
+            PlaybackThread *t = (PlaybackThread *)thread.get();
+            Mutex::Autolock _l(t->mLock);
+            status = t->mOutput->stream->getDualMonoMode(mode);
+            ALOGD_IF((status == NO_ERROR) && (mDualMonoMode != *mode),
+                    "%s: mode %d inconsistent", __func__, mDualMonoMode);
+        }
+    }
+    return status;
+}
+
+status_t AudioFlinger::PlaybackThread::Track::setDualMonoMode(audio_dual_mono_mode_t mode)
+{
+    status_t status = INVALID_OPERATION;
+    if (isOffloadedOrDirect()) {
+        sp<ThreadBase> thread = mThread.promote();
+        if (thread != nullptr) {
+            auto t = static_cast<PlaybackThread *>(thread.get());
+            Mutex::Autolock lock(t->mLock);
+            status = t->mOutput->stream->setDualMonoMode(mode);
+            if (status == NO_ERROR) {
+                mDualMonoMode = mode;
+            }
+        }
+    }
+    return status;
+}
+
+status_t AudioFlinger::PlaybackThread::Track::getAudioDescriptionMixLevel(float* leveldB)
+{
+    status_t status = INVALID_OPERATION;
+    if (isOffloadedOrDirect()) {
+        sp<ThreadBase> thread = mThread.promote();
+        if (thread != nullptr) {
+            auto t = static_cast<PlaybackThread *>(thread.get());
+            Mutex::Autolock lock(t->mLock);
+            status = t->mOutput->stream->getAudioDescriptionMixLevel(leveldB);
+            ALOGD_IF((status == NO_ERROR) && (mAudioDescriptionMixLevel != *leveldB),
+                    "%s: level %.3f inconsistent", __func__, mAudioDescriptionMixLevel);
+        }
+    }
+    return status;
+}
+
+status_t AudioFlinger::PlaybackThread::Track::setAudioDescriptionMixLevel(float leveldB)
+{
+    status_t status = INVALID_OPERATION;
+    if (isOffloadedOrDirect()) {
+        sp<ThreadBase> thread = mThread.promote();
+        if (thread != nullptr) {
+            auto t = static_cast<PlaybackThread *>(thread.get());
+            Mutex::Autolock lock(t->mLock);
+            status = t->mOutput->stream->setAudioDescriptionMixLevel(leveldB);
+            if (status == NO_ERROR) {
+                mAudioDescriptionMixLevel = leveldB;
+            }
+        }
+    }
+    return status;
+}
+
+status_t AudioFlinger::PlaybackThread::Track::getPlaybackRateParameters(
+        audio_playback_rate_t* playbackRate)
+{
+    status_t status = INVALID_OPERATION;
+    if (isOffloadedOrDirect()) {
+        sp<ThreadBase> thread = mThread.promote();
+        if (thread != nullptr) {
+            auto t = static_cast<PlaybackThread *>(thread.get());
+            Mutex::Autolock lock(t->mLock);
+            status = t->mOutput->stream->getPlaybackRateParameters(playbackRate);
+            ALOGD_IF((status == NO_ERROR) &&
+                    !isAudioPlaybackRateEqual(mPlaybackRateParameters, *playbackRate),
+                    "%s: playbackRate inconsistent", __func__);
+        }
+    }
+    return status;
+}
+
+status_t AudioFlinger::PlaybackThread::Track::setPlaybackRateParameters(
+        const audio_playback_rate_t& playbackRate)
+{
+    status_t status = INVALID_OPERATION;
+    if (isOffloadedOrDirect()) {
+        sp<ThreadBase> thread = mThread.promote();
+        if (thread != nullptr) {
+            auto t = static_cast<PlaybackThread *>(thread.get());
+            Mutex::Autolock lock(t->mLock);
+            status = t->mOutput->stream->setPlaybackRateParameters(playbackRate);
+            if (status == NO_ERROR) {
+                mPlaybackRateParameters = playbackRate;
+            }
+        }
+    }
+    return status;
 }
 
 //To be called with thread lock held
@@ -1589,12 +1884,12 @@ AudioFlinger::PlaybackThread::OutputTrack::OutputTrack(
             audio_format_t format,
             audio_channel_mask_t channelMask,
             size_t frameCount,
-            uid_t uid)
+            const AttributionSourceState& attributionSource)
     :   Track(playbackThread, NULL, AUDIO_STREAM_PATCH,
               audio_attributes_t{} /* currently unused for output track */,
               sampleRate, format, channelMask, frameCount,
               nullptr /* buffer */, (size_t)0 /* bufferSize */, nullptr /* sharedBuffer */,
-              AUDIO_SESSION_NONE, getpid(), uid, AUDIO_OUTPUT_FLAG_NONE,
+              AUDIO_SESSION_NONE, getpid(), attributionSource, AUDIO_OUTPUT_FLAG_NONE,
               TYPE_OUTPUT),
     mActive(false), mSourceThread(sourceThread)
 {
@@ -1824,8 +2119,8 @@ AudioFlinger::PlaybackThread::PatchTrack::PatchTrack(PlaybackThread *playbackThr
               audio_attributes_t{} /* currently unused for patch track */,
               sampleRate, format, channelMask, frameCount,
               buffer, bufferSize, nullptr /* sharedBuffer */,
-              AUDIO_SESSION_NONE, getpid(), AID_AUDIOSERVER, flags, TYPE_PATCH,
-              AUDIO_PORT_HANDLE_NONE, frameCountToBeReady),
+              AUDIO_SESSION_NONE, getpid(), audioServerAttributionSource(getpid()), flags,
+              TYPE_PATCH, AUDIO_PORT_HANDLE_NONE, frameCountToBeReady),
         PatchTrackBase(new ClientProxy(mCblk, mBuffer, frameCount, mFrameSize, true, true),
                        *playbackThread, timeout)
 {
@@ -1918,6 +2213,25 @@ void AudioFlinger::PlaybackThread::PatchTrack::releaseBuffer(Proxy::Buffer* buff
 {
     mProxy->releaseBuffer(buffer);
     restartIfDisabled();
+
+    // Check if the PatchTrack has enough data to write once in releaseBuffer().
+    // If not, prevent an underrun from occurring by moving the track into FS_FILLING;
+    // this logic avoids glitches when suspending A2DP with AudioPlaybackCapture.
+    // TODO: perhaps underrun avoidance could be a track property checked in isReady() instead.
+    if (mFillingUpStatus == FS_ACTIVE
+            && audio_is_linear_pcm(mFormat)
+            && !isOffloadedOrDirect()) {
+        if (sp<ThreadBase> thread = mThread.promote();
+            thread != 0) {
+            PlaybackThread *playbackThread = (PlaybackThread *)thread.get();
+            const size_t frameCount = playbackThread->frameCount() * sampleRate()
+                    / playbackThread->sampleRate();
+            if (framesReady() < frameCount) {
+                ALOGD("%s(%d) Not enough data, wait for buffer to fill", __func__, mId);
+                mFillingUpStatus = FS_FILLING;
+            }
+        }
+    }
 }
 
 void AudioFlinger::PlaybackThread::PatchTrack::restartIfDisabled()
@@ -1931,110 +2245,6 @@ void AudioFlinger::PlaybackThread::PatchTrack::restartIfDisabled()
 // ----------------------------------------------------------------------------
 //      Record
 // ----------------------------------------------------------------------------
-
-
-// ----------------------------------------------------------------------------
-//      AppOp for audio recording
-// -------------------------------
-
-#undef LOG_TAG
-#define LOG_TAG "AF::OpRecordAudioMonitor"
-
-// static
-sp<AudioFlinger::RecordThread::OpRecordAudioMonitor>
-AudioFlinger::RecordThread::OpRecordAudioMonitor::createIfNeeded(
-            uid_t uid, const audio_attributes_t& attr, const String16& opPackageName)
-{
-    if (isServiceUid(uid)) {
-        ALOGV("not silencing record for service uid:%d pack:%s",
-                uid, String8(opPackageName).string());
-        return nullptr;
-    }
-
-    // Capturing from FM TUNER output is not controlled by OP_RECORD_AUDIO
-    // because it does not affect users privacy as does capturing from an actual microphone.
-    if (attr.source == AUDIO_SOURCE_FM_TUNER) {
-        ALOGV("not muting FM TUNER capture for uid %d", uid);
-        return nullptr;
-    }
-
-    if (opPackageName.size() == 0) {
-        Vector<String16> packages;
-        // no package name, happens with SL ES clients
-        // query package manager to find one
-        PermissionController permissionController;
-        permissionController.getPackagesForUid(uid, packages);
-        if (packages.isEmpty()) {
-            return nullptr;
-        } else {
-            ALOGV("using pack:%s for uid:%d", String8(packages[0]).string(), uid);
-            return new OpRecordAudioMonitor(uid, packages[0]);
-        }
-    }
-
-    return new OpRecordAudioMonitor(uid, opPackageName);
-}
-
-AudioFlinger::RecordThread::OpRecordAudioMonitor::OpRecordAudioMonitor(
-        uid_t uid, const String16& opPackageName)
-        : mHasOpRecordAudio(true), mUid(uid), mPackage(opPackageName)
-{
-}
-
-AudioFlinger::RecordThread::OpRecordAudioMonitor::~OpRecordAudioMonitor()
-{
-    if (mOpCallback != 0) {
-        mAppOpsManager.stopWatchingMode(mOpCallback);
-    }
-    mOpCallback.clear();
-}
-
-void AudioFlinger::RecordThread::OpRecordAudioMonitor::onFirstRef()
-{
-    checkRecordAudio();
-    mOpCallback = new RecordAudioOpCallback(this);
-    ALOGV("start watching OP_RECORD_AUDIO for pack:%s", String8(mPackage).string());
-    mAppOpsManager.startWatchingMode(AppOpsManager::OP_RECORD_AUDIO, mPackage, mOpCallback);
-}
-
-bool AudioFlinger::RecordThread::OpRecordAudioMonitor::hasOpRecordAudio() const {
-    return mHasOpRecordAudio.load();
-}
-
-// Called by RecordAudioOpCallback when OP_RECORD_AUDIO is updated in AppOp callback
-// and in onFirstRef()
-// Note this method is never called (and never to be) for audio server / root track
-// due to the UID in createIfNeeded(). As a result for those record track, it's:
-// - not called from constructor,
-// - not called from RecordAudioOpCallback because the callback is not installed in this case
-void AudioFlinger::RecordThread::OpRecordAudioMonitor::checkRecordAudio()
-{
-    const int32_t mode = mAppOpsManager.checkOp(AppOpsManager::OP_RECORD_AUDIO,
-            mUid, mPackage);
-    const bool hasIt =  (mode == AppOpsManager::MODE_ALLOWED);
-    // verbose logging only log when appOp changed
-    ALOGI_IF(hasIt != mHasOpRecordAudio.load(),
-            "OP_RECORD_AUDIO missing, %ssilencing record uid%d pack:%s",
-            hasIt ? "un" : "", mUid, String8(mPackage).string());
-    mHasOpRecordAudio.store(hasIt);
-}
-
-AudioFlinger::RecordThread::OpRecordAudioMonitor::RecordAudioOpCallback::RecordAudioOpCallback(
-        const wp<OpRecordAudioMonitor>& monitor) : mMonitor(monitor)
-{ }
-
-void AudioFlinger::RecordThread::OpRecordAudioMonitor::RecordAudioOpCallback::opChanged(int32_t op,
-            const String16& packageName) {
-    UNUSED(packageName);
-    if (op != AppOpsManager::OP_RECORD_AUDIO) {
-        return;
-    }
-    sp<OpRecordAudioMonitor> monitor = mMonitor.promote();
-    if (monitor != NULL) {
-        monitor->checkRecordAudio();
-    }
-}
-
 
 
 #undef LOG_TAG
@@ -2055,7 +2265,7 @@ AudioFlinger::RecordHandle::~RecordHandle() {
 binder::Status AudioFlinger::RecordHandle::start(int /*AudioSystem::sync_event_t*/ event,
         int /*audio_session_t*/ triggerSession) {
     ALOGV("%s()", __func__);
-    return binder::Status::fromStatusT(
+    return binderStatusFromStatusT(
         mRecordTrack->start((AudioSystem::sync_event_t)event, (audio_session_t) triggerSession));
 }
 
@@ -2070,22 +2280,33 @@ void AudioFlinger::RecordHandle::stop_nonvirtual() {
 }
 
 binder::Status AudioFlinger::RecordHandle::getActiveMicrophones(
-        std::vector<media::MicrophoneInfo>* activeMicrophones) {
+        std::vector<media::MicrophoneInfoData>* activeMicrophones) {
     ALOGV("%s()", __func__);
-    return binder::Status::fromStatusT(
-            mRecordTrack->getActiveMicrophones(activeMicrophones));
+    std::vector<media::MicrophoneInfo> mics;
+    status_t status = mRecordTrack->getActiveMicrophones(&mics);
+    activeMicrophones->resize(mics.size());
+    for (size_t i = 0; status == OK && i < mics.size(); ++i) {
+       status = mics[i].writeToParcelable(&activeMicrophones->at(i));
+    }
+    return binderStatusFromStatusT(status);
 }
 
 binder::Status AudioFlinger::RecordHandle::setPreferredMicrophoneDirection(
         int /*audio_microphone_direction_t*/ direction) {
     ALOGV("%s()", __func__);
-    return binder::Status::fromStatusT(mRecordTrack->setPreferredMicrophoneDirection(
+    return binderStatusFromStatusT(mRecordTrack->setPreferredMicrophoneDirection(
             static_cast<audio_microphone_direction_t>(direction)));
 }
 
 binder::Status AudioFlinger::RecordHandle::setPreferredMicrophoneFieldDimension(float zoom) {
     ALOGV("%s()", __func__);
-    return binder::Status::fromStatusT(mRecordTrack->setPreferredMicrophoneFieldDimension(zoom));
+    return binderStatusFromStatusT(mRecordTrack->setPreferredMicrophoneFieldDimension(zoom));
+}
+
+binder::Status AudioFlinger::RecordHandle::shareAudioHistory(
+        const std::string& sharedAudioPackageName, int64_t sharedAudioStartMs) {
+    return binderStatusFromStatusT(
+            mRecordTrack->shareAudioHistory(sharedAudioPackageName, sharedAudioStartMs));
 }
 
 // ----------------------------------------------------------------------------
@@ -2105,14 +2326,16 @@ AudioFlinger::RecordThread::RecordTrack::RecordTrack(
             size_t bufferSize,
             audio_session_t sessionId,
             pid_t creatorPid,
-            uid_t uid,
+            const AttributionSourceState& attributionSource,
             audio_input_flags_t flags,
             track_type type,
-            const String16& opPackageName,
-            audio_port_handle_t portId)
+            audio_port_handle_t portId,
+            int32_t startFrames)
     :   TrackBase(thread, client, attr, sampleRate, format,
                   channelMask, frameCount, buffer, bufferSize, sessionId,
-                  creatorPid, uid, false /*isOut*/,
+                  creatorPid,
+                  VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(attributionSource.uid)),
+                  false /*isOut*/,
                   (type == TYPE_DEFAULT) ?
                           ((flags & AUDIO_INPUT_FLAG_FAST) ? ALLOC_PIPE : ALLOC_CBLK) :
                           ((buffer == NULL) ? ALLOC_LOCAL : ALLOC_NONE),
@@ -2124,7 +2347,7 @@ AudioFlinger::RecordThread::RecordTrack::RecordTrack(
         mRecordBufferConverter(NULL),
         mFlags(flags),
         mSilenced(false),
-        mOpRecordAudioMonitor(OpRecordAudioMonitor::createIfNeeded(uid, attr, opPackageName))
+        mStartFrames(startFrames)
 {
     if (mCblk == NULL) {
         return;
@@ -2165,7 +2388,7 @@ AudioFlinger::RecordThread::RecordTrack::RecordTrack(
 #endif
 
     // Once this item is logged by the server, the client can add properties.
-    mTrackMetrics.logConstructor(creatorPid, uid);
+    mTrackMetrics.logConstructor(creatorPid, uid(), id());
 }
 
 AudioFlinger::RecordThread::RecordTrack::~RecordTrack()
@@ -2207,7 +2430,8 @@ status_t AudioFlinger::RecordThread::RecordTrack::start(AudioSystem::sync_event_
         RecordThread *recordThread = (RecordThread *)thread.get();
         return recordThread->start(this, event, triggerSession);
     } else {
-        return BAD_VALUE;
+        ALOGW("%s track %d: thread was destroyed", __func__, portId());
+        return DEAD_OBJECT;
     }
 }
 
@@ -2233,6 +2457,9 @@ void AudioFlinger::RecordThread::RecordTrack::destroy()
             Mutex::Autolock _l(thread->mLock);
             RecordThread *recordThread = (RecordThread *) thread.get();
             priorState = mState;
+            if (!mSharedAudioPackageName.empty()) {
+                recordThread->resetAudioHistory_l();
+            }
             recordThread->destroyTrack_l(this); // move mState to STOPPED, terminate
         }
         // APM portid/client management done outside of lock.
@@ -2378,14 +2605,6 @@ void AudioFlinger::RecordThread::RecordTrack::updateTrackFrameInfo(
     mServerLatencyMs.store(latencyMs);
 }
 
-bool AudioFlinger::RecordThread::RecordTrack::isSilenced() const {
-    if (mSilenced) {
-        return true;
-    }
-    // The monitor is only created for record tracks that can be silenced.
-    return mOpRecordAudioMonitor ? !mOpRecordAudioMonitor->hasOpRecordAudio() : false;
-}
-
 status_t AudioFlinger::RecordThread::RecordTrack::getActiveMicrophones(
         std::vector<media::MicrophoneInfo>* activeMicrophones)
 {
@@ -2419,6 +2638,38 @@ status_t AudioFlinger::RecordThread::RecordTrack::setPreferredMicrophoneFieldDim
     }
 }
 
+status_t AudioFlinger::RecordThread::RecordTrack::shareAudioHistory(
+        const std::string& sharedAudioPackageName, int64_t sharedAudioStartMs) {
+
+    const uid_t callingUid = IPCThreadState::self()->getCallingUid();
+    const pid_t callingPid = IPCThreadState::self()->getCallingPid();
+    if (callingUid != mUid || callingPid != mCreatorPid) {
+        return PERMISSION_DENIED;
+    }
+
+    AttributionSourceState attributionSource{};
+    attributionSource.uid = VALUE_OR_RETURN_STATUS(legacy2aidl_uid_t_int32_t(callingUid));
+    attributionSource.pid = VALUE_OR_RETURN_STATUS(legacy2aidl_uid_t_int32_t(callingPid));
+    attributionSource.token = sp<BBinder>::make();
+    if (!captureHotwordAllowed(attributionSource)) {
+        return PERMISSION_DENIED;
+    }
+
+    sp<ThreadBase> thread = mThread.promote();
+    if (thread != 0) {
+        RecordThread *recordThread = (RecordThread *)thread.get();
+        status_t status = recordThread->shareAudioHistory(
+                sharedAudioPackageName, mSessionId, sharedAudioStartMs);
+        if (status == NO_ERROR) {
+            mSharedAudioPackageName = sharedAudioPackageName;
+        }
+        return status;
+    } else {
+        return BAD_VALUE;
+    }
+}
+
+
 // ----------------------------------------------------------------------------
 #undef LOG_TAG
 #define LOG_TAG "AF::PatchRecord"
@@ -2435,8 +2686,8 @@ AudioFlinger::RecordThread::PatchRecord::PatchRecord(RecordThread *recordThread,
     :   RecordTrack(recordThread, NULL,
                 audio_attributes_t{} /* currently unused for patch track */,
                 sampleRate, format, channelMask, frameCount,
-                buffer, bufferSize, AUDIO_SESSION_NONE, getpid(), AID_AUDIOSERVER,
-                flags, TYPE_PATCH, String16()),
+                buffer, bufferSize, AUDIO_SESSION_NONE, getpid(),
+                audioServerAttributionSource(getpid()), flags, TYPE_PATCH),
         PatchTrackBase(new ClientProxy(mCblk, mBuffer, frameCount, mFrameSize, false, true),
                        *recordThread, timeout)
 {
@@ -2713,21 +2964,23 @@ AudioFlinger::MmapThread::MmapTrack::MmapTrack(ThreadBase *thread,
         audio_channel_mask_t channelMask,
         audio_session_t sessionId,
         bool isOut,
-        uid_t uid,
-        pid_t pid,
+        const AttributionSourceState& attributionSource,
         pid_t creatorPid,
         audio_port_handle_t portId)
     :   TrackBase(thread, NULL, attr, sampleRate, format,
                   channelMask, (size_t)0 /* frameCount */,
                   nullptr /* buffer */, (size_t)0 /* bufferSize */,
-                  sessionId, creatorPid, uid, isOut,
+                  sessionId, creatorPid,
+                  VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(attributionSource.uid)),
+                  isOut,
                   ALLOC_NONE,
                   TYPE_DEFAULT, portId,
                   std::string(AMEDIAMETRICS_KEY_PREFIX_AUDIO_MMAP) + std::to_string(portId)),
-        mPid(pid), mSilenced(false), mSilencedNotified(false)
+        mPid(VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(attributionSource.pid))),
+            mSilenced(false), mSilencedNotified(false)
 {
     // Once this item is logged by the server, the client can add properties.
-    mTrackMetrics.logConstructor(creatorPid, uid);
+    mTrackMetrics.logConstructor(creatorPid, uid(), id());
 }
 
 AudioFlinger::MmapThread::MmapTrack::~MmapTrack()

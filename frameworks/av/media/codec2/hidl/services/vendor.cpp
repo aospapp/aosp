@@ -15,11 +15,11 @@
  */
 
 //#define LOG_NDEBUG 0
-#define LOG_TAG "android.hardware.media.c2@1.1-service"
+#define LOG_TAG "android.hardware.media.c2@1.2-service"
 
 #include <android-base/logging.h>
 #include <binder/ProcessState.h>
-#include <codec2/hidl/1.1/ComponentStore.h>
+#include <codec2/hidl/1.2/ComponentStore.h>
 #include <hidl/HidlTransportSupport.h>
 #include <minijail.h>
 
@@ -31,13 +31,13 @@
 // "android.hardware.media.c2@1.1-default-seccomp_policy" in Android.bp.
 static constexpr char kBaseSeccompPolicyPath[] =
         "/vendor/etc/seccomp_policy/"
-        "android.hardware.media.c2@1.1-default-seccomp-policy";
+        "android.hardware.media.c2@1.2-default-seccomp-policy";
 
 // Additional seccomp permissions can be added in this file.
 // This file does not exist by default.
 static constexpr char kExtSeccompPolicyPath[] =
         "/vendor/etc/seccomp_policy/"
-        "android.hardware.media.c2@1.1-extended-seccomp-policy";
+        "android.hardware.media.c2@1.2-extended-seccomp-policy";
 
 class StoreImpl : public C2ComponentStore {
 public:
@@ -122,6 +122,18 @@ private:
                 })
                 .withSetter(SetIonUsage)
                 .build());
+
+            addParameter(
+                DefineParam(mDmaBufUsageInfo, "dmabuf-usage")
+                .withDefault(new C2StoreDmaBufUsageInfo())
+                .withFields({
+                    C2F(mDmaBufUsageInfo, usage).flags({C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE}),
+                    C2F(mDmaBufUsageInfo, capacity).inRange(0, UINT32_MAX, 1024),
+                    C2F(mDmaBufUsageInfo, heapName).any(),
+                    C2F(mDmaBufUsageInfo, allocFlags).flags({}),
+                })
+                .withSetter(SetDmaBufUsage)
+                .build());
         }
 
         virtual ~Interface() = default;
@@ -135,7 +147,16 @@ private:
             return C2R::Ok();
         }
 
+        static C2R SetDmaBufUsage(bool /* mayBlock */, C2P<C2StoreDmaBufUsageInfo> &me) {
+            // Vendor's TODO: put appropriate mapping logic
+            strncpy(me.set().m.heapName, "system", me.v.flexCount());
+            me.set().m.allocFlags = 0;
+            return C2R::Ok();
+        }
+
+
         std::shared_ptr<C2StoreIonUsageInfo> mIonUsageInfo;
+        std::shared_ptr<C2StoreDmaBufUsageInfo> mDmaBufUsageInfo;
     };
     std::shared_ptr<C2ReflectorHelper> mReflectorHelper;
     Interface mInterface;
@@ -143,7 +164,7 @@ private:
 
 int main(int /* argc */, char** /* argv */) {
     using namespace ::android;
-    LOG(DEBUG) << "android.hardware.media.c2@1.1-service starting...";
+    LOG(DEBUG) << "android.hardware.media.c2@1.2-service starting...";
 
     // Set up minijail to limit system calls.
     signal(SIGPIPE, SIG_IGN);
@@ -159,7 +180,7 @@ int main(int /* argc */, char** /* argv */) {
 
     // Create IComponentStore service.
     {
-        using namespace ::android::hardware::media::c2::V1_1;
+        using namespace ::android::hardware::media::c2::V1_2;
         sp<IComponentStore> store;
 
         // TODO: Replace this with

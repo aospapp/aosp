@@ -25,6 +25,7 @@
 #include <media/IMediaRecorderClient.h>
 #include <media/IMediaDeathNotifier.h>
 #include <media/MicrophoneInfo.h>
+#include <android/content/AttributionSourceState.h>
 
 namespace android {
 
@@ -226,7 +227,7 @@ class MediaRecorder : public BnMediaRecorderClient,
                       public virtual IMediaDeathNotifier
 {
 public:
-    MediaRecorder(const String16& opPackageName);
+    explicit MediaRecorder(const android::content::AttributionSourceState& attributionSource);
     ~MediaRecorder();
 
     void        died();
@@ -270,6 +271,7 @@ public:
     status_t    setPreferredMicrophoneFieldDimension(float zoom);
 
     status_t    getPortId(audio_port_handle_t *portId) const;
+    status_t    getRtpDataUsage(uint64_t *bytes);
 
 private:
     void                    doCleanUp();
@@ -291,6 +293,8 @@ private:
     bool                        mIsOutputFileSet;
     Mutex                       mLock;
     Mutex                       mNotifyLock;
+
+    output_format               mOutputFormat;
 };
 
 };  // namespace android

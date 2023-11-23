@@ -20,6 +20,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncResult;
+import android.os.Build;
 import android.os.Message;
 import android.telephony.SubscriptionManager;
 
@@ -45,25 +46,19 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
                                                         // STOPSHIP if true
     public static final String INTENT_ISIM_REFRESH = "com.android.intent.isim_refresh";
 
-    private static final int EVENT_APP_READY = 1;
-    private static final int EVENT_ISIM_AUTHENTICATE_DONE          = 91;
-
     // ISIM EF records (see 3GPP TS 31.103)
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String mIsimImpi;               // IMS private user identity
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String mIsimDomain;             // IMS home network domain name
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String[] mIsimImpu;             // IMS public user identity(s)
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String mIsimIst;                // IMS Service Table
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String[] mIsimPcscf;            // IMS Proxy Call Session Control Function
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String auth_rsp;
-
-    @UnsupportedAppUsage
-    private final Object mLock = new Object();
 
     private static final int TAG_ISIM_VALUE = 0x80;     // From 3GPP TS 31.103
 
@@ -117,25 +112,6 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
                     super.handleMessage(msg);
                     break;
 
-                case EVENT_ISIM_AUTHENTICATE_DONE:
-                    ar = (AsyncResult)msg.obj;
-                    log("EVENT_ISIM_AUTHENTICATE_DONE");
-                    if (ar.exception != null) {
-                        log("Exception ISIM AKA: " + ar.exception);
-                    } else {
-                        try {
-                            auth_rsp = (String)ar.result;
-                            log("ISIM AKA: auth_rsp = " + auth_rsp);
-                        } catch (Exception e) {
-                            log("Failed to parse ISIM AKA contents: " + e);
-                        }
-                    }
-                    synchronized (mLock) {
-                        mLock.notifyAll();
-                    }
-
-                    break;
-
                 default:
                     super.handleMessage(msg);   // IccRecords handles generic record load responses
 
@@ -146,7 +122,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     protected void fetchIsimRecords() {
         mRecordsRequested = true;
 
@@ -259,7 +235,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
      * @param record the byte array containing the IMS data string
      * @return the decoded String value, or null if the record can't be decoded
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private static String isimTlvToString(byte[] record) {
         SimTlv tlv = new SimTlv(record, 0, record.length);
         do {
@@ -432,7 +408,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         // Not applicable to Isim
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     protected void log(String s) {
         if (mParentApp != null) {

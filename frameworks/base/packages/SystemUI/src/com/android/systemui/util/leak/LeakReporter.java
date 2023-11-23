@@ -34,6 +34,8 @@ import android.util.Log;
 
 import androidx.core.content.FileProvider;
 
+import com.android.systemui.dagger.SysUISingleton;
+
 import com.google.android.collect.Lists;
 
 import java.io.File;
@@ -44,12 +46,11 @@ import java.util.ArrayList;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.inject.Singleton;
 
 /**
  * Dumps data to debug leaks and posts a notification to share the data.
  */
-@Singleton
+@SysUISingleton
 public class LeakReporter {
 
     static final String TAG = "LeakReporter";
@@ -104,9 +105,13 @@ public class LeakReporter {
                     .setContentText(String.format(
                             "SystemUI has detected %d leaked objects. Tap to send", garbageCount))
                     .setSmallIcon(com.android.internal.R.drawable.stat_sys_adb)
-                    .setContentIntent(PendingIntent.getActivityAsUser(mContext, 0,
+                    .setContentIntent(PendingIntent.getActivityAsUser(
+                            mContext,
+                            0,
                             getIntent(hprofFile, dumpFile),
-                            PendingIntent.FLAG_UPDATE_CURRENT, null, UserHandle.CURRENT));
+                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE,
+                            null,
+                            UserHandle.CURRENT));
             notiMan.notify(TAG, 0, builder.build());
         } catch (IOException e) {
             Log.e(TAG, "Couldn't dump heap for leak", e);

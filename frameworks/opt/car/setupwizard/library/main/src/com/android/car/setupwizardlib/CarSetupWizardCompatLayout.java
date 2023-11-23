@@ -16,9 +16,10 @@
 
 package com.android.car.setupwizardlib;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.util.AttributeSet;
+
+import androidx.annotation.Nullable;
 
 /**
  * This layout applies light theming attributes from the partner overlay.  It's functionally

@@ -56,6 +56,8 @@ import java.net.UnknownHostException;
  * <a href="{@docRoot}guide/topics/network/sip.html">Session Initiation Protocol</a>
  * developer guide.</p>
  * </div>
+ * @deprecated {@link android.net.sip.SipManager} and associated classes are no longer supported and
+ * should not be used as the basis of future VOIP apps.
  */
 public class SipAudioCall {
     private static final String LOG_TAG = SipAudioCall.class.getSimpleName();

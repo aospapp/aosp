@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-//
-#ifndef ANDROID_ISERVICE_MANAGER_H
-#define ANDROID_ISERVICE_MANAGER_H
+#pragma once
 
 #include <binder/IInterface.h>
 #include <utils/Vector.h>
 #include <utils/String16.h>
+
+#include <optional>
 
 namespace android {
 
@@ -96,6 +96,17 @@ public:
      * service.
      */
     virtual bool isDeclared(const String16& name) = 0;
+
+    /**
+     * Get all instances of a service as declared in the VINTF manifest
+     */
+    virtual Vector<String16> getDeclaredInstances(const String16& interface) = 0;
+
+    /**
+     * If this instance is updatable via an APEX, returns the APEX with which
+     * this can be updated.
+     */
+    virtual std::optional<String16> updatableViaApex(const String16& name) = 0;
 };
 
 sp<IServiceManager> defaultServiceManager();
@@ -159,6 +170,3 @@ bool checkCallingPermission(const String16& permission,
 bool checkPermission(const String16& permission, pid_t pid, uid_t uid);
 
 } // namespace android
-
-#endif // ANDROID_ISERVICE_MANAGER_H
-

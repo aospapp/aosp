@@ -95,9 +95,9 @@ private:
     AMediaFormat *mMeta;
     uint16_t mWaveFormat;
     const bool mOutputFloat;
-    int32_t mSampleRate;
-    int32_t mNumChannels;
-    int32_t mBitsPerSample;
+    uint32_t mSampleRate;
+    uint32_t mNumChannels;
+    uint32_t mBitsPerSample;
     off64_t mOffset;
     size_t mSize;
     bool mStarted;
@@ -379,9 +379,9 @@ WAVSource::WAVSource(
       mOffset(offset),
       mSize(size),
       mStarted(false) {
-    CHECK(AMediaFormat_getInt32(mMeta, AMEDIAFORMAT_KEY_SAMPLE_RATE, &mSampleRate));
-    CHECK(AMediaFormat_getInt32(mMeta, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &mNumChannels));
-    CHECK(AMediaFormat_getInt32(mMeta, AMEDIAFORMAT_KEY_BITS_PER_SAMPLE, &mBitsPerSample));
+    CHECK(AMediaFormat_getInt32(mMeta, AMEDIAFORMAT_KEY_SAMPLE_RATE, (int32_t*) &mSampleRate));
+    CHECK(AMediaFormat_getInt32(mMeta, AMEDIAFORMAT_KEY_CHANNEL_COUNT, (int32_t*) &mNumChannels));
+    CHECK(AMediaFormat_getInt32(mMeta, AMEDIAFORMAT_KEY_BITS_PER_SAMPLE, (int32_t*) &mBitsPerSample));
 }
 
 WAVSource::~WAVSource() {
@@ -440,19 +440,22 @@ media_status_t WAVSource::read(
     int64_t seekTimeUs;
     ReadOptions::SeekMode mode;
     if (options != NULL && options->getSeekTo(&seekTimeUs, &mode)) {
-        int64_t pos = 0;
-
+        int64_t pos;
+        int64_t sampleNumber;
+        bool overflowed = __builtin_mul_overflow(seekTimeUs, mSampleRate, &sampleNumber);
+        sampleNumber /= 1000000;
         if (mWaveFormat == WAVE_FORMAT_MSGSM) {
             // 65 bytes decode to 320 8kHz samples
-            int64_t samplenumber = (seekTimeUs * mSampleRate) / 1000000;
-            int64_t framenumber = samplenumber / 320;
-            pos = framenumber * 65;
+            pos = sampleNumber / 320 * 65;
         } else {
-            pos = (seekTimeUs * mSampleRate) / 1000000 * mNumChannels * (mBitsPerSample >> 3);
+            int64_t bytesPerFrame;
+            overflowed |= __builtin_mul_overflow(mNumChannels, mBitsPerSample >> 3, &bytesPerFrame);
+            overflowed |= __builtin_mul_overflow(bytesPerFrame, sampleNumber, &pos);
         }
-        if (pos > (off64_t)mSize) {
-            pos = mSize;
+        if (overflowed) {
+          return AMEDIA_ERROR_MALFORMED;
         }
+        pos = std::clamp(pos, (int64_t) 0, (int64_t) mSize);
         mCurrentPos = pos + mOffset;
     }
 
@@ -472,7 +475,7 @@ media_status_t WAVSource::read(
     }
 
     const size_t maxBytesAvailable =
-        (mCurrentPos - mOffset >= (off64_t)mSize)
+        (mCurrentPos < mOffset || mCurrentPos - mOffset >= (off64_t)mSize)
             ? 0 : mSize - (mCurrentPos - mOffset);
 
     if (maxBytesToRead > maxBytesAvailable) {

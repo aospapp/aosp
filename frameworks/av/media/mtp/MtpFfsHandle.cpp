@@ -74,6 +74,7 @@ int MtpFfsHandle::getPacketSize(int ffs_fd) {
 
 MtpFfsHandle::MtpFfsHandle(int controlFd) {
     mControl.reset(controlFd);
+    mBatchCancel = android::base::GetBoolProperty("sys.usb.mtp.batchcancel", false);
 }
 
 MtpFfsHandle::~MtpFfsHandle() {}
@@ -114,11 +115,11 @@ bool MtpFfsHandle::openEndpoints(bool ptp) {
 void MtpFfsHandle::advise(int fd) {
     for (unsigned i = 0; i < NUM_IO_BUFS; i++) {
         if (posix_madvise(mIobuf[i].bufs.data(), MAX_FILE_CHUNK_SIZE,
-                POSIX_MADV_SEQUENTIAL | POSIX_MADV_WILLNEED) < 0)
+                POSIX_MADV_SEQUENTIAL | POSIX_MADV_WILLNEED) != 0)
             PLOG(ERROR) << "Failed to madvise";
     }
     if (posix_fadvise(fd, 0, 0,
-                POSIX_FADV_SEQUENTIAL | POSIX_FADV_NOREUSE | POSIX_FADV_WILLNEED) < 0)
+                POSIX_FADV_SEQUENTIAL | POSIX_FADV_NOREUSE | POSIX_FADV_WILLNEED) != 0)
         PLOG(ERROR) << "Failed to fadvise";
 }
 
@@ -370,7 +371,7 @@ void MtpFfsHandle::cancelTransaction() {
 }
 
 int MtpFfsHandle::cancelEvents(struct iocb **iocb, struct io_event *events, unsigned start,
-        unsigned end) {
+        unsigned end, bool is_batch_cancel) {
     // Some manpages for io_cancel are out of date and incorrect.
     // io_cancel will return -EINPROGRESS on success and does
     // not place the event in the given memory. We have to use
@@ -385,6 +386,10 @@ int MtpFfsHandle::cancelEvents(struct iocb **iocb, struct io_event *events, unsi
             PLOG(ERROR) << "Mtp couldn't cancel request " << j;
         } else {
             num_events++;
+        }
+        if (is_batch_cancel && num_events == 1) {
+            num_events = end - start;
+            break;
         }
     }
     if (num_events != end - start) {
@@ -495,7 +500,8 @@ int MtpFfsHandle::receiveFile(mtp_file_range mfr, bool zero_packet) {
                 num_events += this_events;
 
                 if (event_ret == -1) {
-                    cancelEvents(mIobuf[i].iocb.data(), ioevs, num_events, mIobuf[i].actual);
+                    cancelEvents(mIobuf[i].iocb.data(), ioevs, num_events, mIobuf[i].actual,
+                            mBatchCancel);
                     return -1;
                 }
                 ret += event_ret;
@@ -512,7 +518,8 @@ int MtpFfsHandle::receiveFile(mtp_file_range mfr, bool zero_packet) {
                 }
             }
             if (short_packet) {
-                if (cancelEvents(mIobuf[i].iocb.data(), ioevs, short_i, mIobuf[i].actual)) {
+                if (cancelEvents(mIobuf[i].iocb.data(), ioevs, short_i, mIobuf[i].actual,
+                        mBatchCancel)) {
                     write_error = true;
                 }
             }
@@ -613,7 +620,7 @@ int MtpFfsHandle::sendFile(mtp_file_range mfr) {
                         &num_events) != ret) {
                 error = true;
                 cancelEvents(mIobuf[(i-1)%NUM_IO_BUFS].iocb.data(), ioevs, num_events,
-                        mIobuf[(i-1)%NUM_IO_BUFS].actual);
+                        mIobuf[(i-1)%NUM_IO_BUFS].actual, false);
             }
             has_write = false;
         }

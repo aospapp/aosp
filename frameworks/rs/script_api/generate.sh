@@ -63,5 +63,5 @@ for ((i=11; i<=RS_API_LEVEL; i++))
 done
 rm -rf slangtest
 
-mv RSStubsWhiteList.cpp ../../compile/libbcc/lib/
-mv RSStubsWhiteList.h ../../compile/libbcc/lib/
+mv RSFunctionsList.cpp ../../compile/libbcc/lib/
+mv RsFunctionsList.h ../../compile/libbcc/lib/

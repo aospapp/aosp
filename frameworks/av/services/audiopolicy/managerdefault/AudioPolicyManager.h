@@ -52,6 +52,8 @@
 
 namespace android {
 
+using content::AttributionSourceState;
+
 // ----------------------------------------------------------------------------
 
 // Attenuation applied to STRATEGY_SONIFICATION streams when a headset is connected: 6dB
@@ -116,7 +118,7 @@ public:
                                   audio_io_handle_t *output,
                                   audio_session_t session,
                                   audio_stream_type_t *stream,
-                                  uid_t uid,
+                                  const AttributionSourceState& attributionSource,
                                   const audio_config_t *config,
                                   audio_output_flags_t *flags,
                                   audio_port_handle_t *selectedDeviceId,
@@ -125,12 +127,12 @@ public:
                                   output_type_t *outputType) override;
         virtual status_t startOutput(audio_port_handle_t portId);
         virtual status_t stopOutput(audio_port_handle_t portId);
-        virtual void releaseOutput(audio_port_handle_t portId);
+        virtual bool releaseOutput(audio_port_handle_t portId);
         virtual status_t getInputForAttr(const audio_attributes_t *attr,
                                          audio_io_handle_t *input,
                                          audio_unique_id_t riid,
                                          audio_session_t session,
-                                         uid_t uid,
+                                         const AttributionSourceState& attributionSource,
                                          const audio_config_base_t *config,
                                          audio_input_flags_t flags,
                                          audio_port_handle_t *selectedDeviceId,
@@ -180,7 +182,7 @@ public:
                                 const DeviceTypeSet& deviceTypes) const;
 
         // return the strategy corresponding to a given stream type
-        virtual uint32_t getStrategyForStream(audio_stream_type_t stream)
+        virtual product_strategy_t getStrategyForStream(audio_stream_type_t stream)
         {
             return streamToStrategy(stream);
         }
@@ -200,7 +202,7 @@ public:
         virtual audio_io_handle_t getOutputForEffect(const effect_descriptor_t *desc = NULL);
         virtual status_t registerEffect(const effect_descriptor_t *desc,
                                         audio_io_handle_t io,
-                                        uint32_t strategy,
+                                        product_strategy_t strategy,
                                         int session,
                                         int id);
         virtual status_t unregisterEffect(int id);
@@ -225,7 +227,7 @@ public:
         status_t dump(int fd) override;
 
         status_t setAllowedCapturePolicy(uid_t uid, audio_flags_mask_t capturePolicy) override;
-        virtual bool isOffloadSupported(const audio_offload_info_t& offloadInfo);
+        virtual audio_offload_mode_t getOffloadSupport(const audio_offload_info_t& offloadInfo);
 
         virtual bool isDirectOutputSupported(const audio_config_base_t& config,
                                              const audio_attributes_t& attributes);
@@ -233,9 +235,9 @@ public:
         virtual status_t listAudioPorts(audio_port_role_t role,
                                         audio_port_type_t type,
                                         unsigned int *num_ports,
-                                        struct audio_port *ports,
+                                        struct audio_port_v7 *ports,
                                         unsigned int *generation);
-        virtual status_t getAudioPort(struct audio_port *port);
+        virtual status_t getAudioPort(struct audio_port_v7 *port);
         virtual status_t createAudioPatch(const struct audio_patch *patch,
                                            audio_patch_handle_t *handle,
                                            uid_t uid) {
@@ -263,17 +265,42 @@ public:
         virtual status_t registerPolicyMixes(const Vector<AudioMix>& mixes);
         virtual status_t unregisterPolicyMixes(Vector<AudioMix> mixes);
         virtual status_t setUidDeviceAffinities(uid_t uid,
-                const Vector<AudioDeviceTypeAddr>& devices);
+                const AudioDeviceTypeAddrVector& devices);
         virtual status_t removeUidDeviceAffinities(uid_t uid);
         virtual status_t setUserIdDeviceAffinities(int userId,
-                const Vector<AudioDeviceTypeAddr>& devices);
+                const AudioDeviceTypeAddrVector& devices);
         virtual status_t removeUserIdDeviceAffinities(int userId);
 
-        virtual status_t setPreferredDeviceForStrategy(product_strategy_t strategy,
-                                                   const AudioDeviceTypeAddr &device);
-        virtual status_t removePreferredDeviceForStrategy(product_strategy_t strategy);
-        virtual status_t getPreferredDeviceForStrategy(product_strategy_t strategy,
-                                                   AudioDeviceTypeAddr &device);
+        virtual status_t setDevicesRoleForStrategy(product_strategy_t strategy,
+                                                   device_role_t role,
+                                                   const AudioDeviceTypeAddrVector &devices);
+
+        virtual status_t removeDevicesRoleForStrategy(product_strategy_t strategy,
+                                                      device_role_t role);
+
+
+        virtual status_t getDevicesForRoleAndStrategy(product_strategy_t strategy,
+                                                      device_role_t role,
+                                                      AudioDeviceTypeAddrVector &devices);
+
+        virtual status_t setDevicesRoleForCapturePreset(audio_source_t audioSource,
+                                                        device_role_t role,
+                                                        const AudioDeviceTypeAddrVector &devices);
+
+        virtual status_t addDevicesRoleForCapturePreset(audio_source_t audioSource,
+                                                        device_role_t role,
+                                                        const AudioDeviceTypeAddrVector &devices);
+
+        virtual status_t removeDevicesRoleForCapturePreset(
+                audio_source_t audioSource, device_role_t role,
+                const AudioDeviceTypeAddrVector& devices);
+
+        virtual status_t clearDevicesRoleForCapturePreset(audio_source_t audioSource,
+                                                          device_role_t role);
+
+        virtual status_t getDevicesForRoleAndCapturePreset(audio_source_t audioSource,
+                                                           device_role_t role,
+                                                           AudioDeviceTypeAddrVector &devices);
 
         virtual status_t startAudioSource(const struct audio_port_config *source,
                                           const audio_attributes_t *attributes,
@@ -288,8 +315,9 @@ public:
 
         virtual status_t getSurroundFormats(unsigned int *numSurroundFormats,
                                             audio_format_t *surroundFormats,
-                                            bool *surroundFormatsEnabled,
-                                            bool reported);
+                                            bool *surroundFormatsEnabled);
+        virtual status_t getReportedSurroundFormats(unsigned int *numSurroundFormats,
+                                                    audio_format_t *surroundFormats);
         virtual status_t setSurroundFormatEnabled(audio_format_t audioFormat, bool enabled);
 
         virtual status_t getHwOffloadEncodingFormatsSupportedForA2DP(
@@ -304,11 +332,14 @@ public:
             return mEngine->listAudioProductStrategies(strategies);
         }
 
-        virtual status_t getProductStrategyFromAudioAttributes(const AudioAttributes &aa,
-                                                               product_strategy_t &productStrategy)
+        virtual status_t getProductStrategyFromAudioAttributes(
+                const AudioAttributes &aa, product_strategy_t &productStrategy,
+                bool fallbackOnDefault)
         {
-            productStrategy = mEngine->getProductStrategyForAttributes(aa.getAttributes());
-            return productStrategy != PRODUCT_STRATEGY_NONE ? NO_ERROR : BAD_VALUE;
+            productStrategy = mEngine->getProductStrategyForAttributes(
+                    aa.getAttributes(), fallbackOnDefault);
+            return (fallbackOnDefault && productStrategy == PRODUCT_STRATEGY_NONE) ?
+                    BAD_VALUE : NO_ERROR;
         }
 
         virtual status_t listAudioVolumeGroups(AudioVolumeGroupVector &groups)
@@ -316,11 +347,13 @@ public:
             return mEngine->listAudioVolumeGroups(groups);
         }
 
-        virtual status_t getVolumeGroupFromAudioAttributes(const AudioAttributes &aa,
-                                                           volume_group_t &volumeGroup)
+        virtual status_t getVolumeGroupFromAudioAttributes(
+                const AudioAttributes &aa, volume_group_t &volumeGroup, bool fallbackOnDefault)
         {
-            volumeGroup = mEngine->getVolumeGroupForAttributes(aa.getAttributes());
-            return volumeGroup != VOLUME_GROUP_NONE ? NO_ERROR : BAD_VALUE;
+            volumeGroup = mEngine->getVolumeGroupForAttributes(
+                        aa.getAttributes(), fallbackOnDefault);
+            return (fallbackOnDefault && volumeGroup == VOLUME_GROUP_NONE) ?
+                    BAD_VALUE : NO_ERROR;
         }
 
         bool isCallScreenModeSupported() override;
@@ -531,6 +564,20 @@ protected:
          */
         void updateCallAndOutputRouting(bool forceVolumeReeval = true, uint32_t delayMs = 0);
 
+        bool isCallRxAudioSource(const sp<SourceClientDescriptor> &source) {
+            return mCallRxSourceClientPort != AUDIO_PORT_HANDLE_NONE
+                && source == mAudioSources.valueFor(mCallRxSourceClientPort);
+        }
+
+        void connectTelephonyRxAudioSource();
+
+        void disconnectTelephonyRxAudioSource();
+
+        /**
+         * @brief updates routing for all inputs.
+         */
+        void updateInputRouting();
+
         /**
          * @brief checkOutputForAttributes checks and if necessary changes outputs used for the
          * given audio attributes.
@@ -540,6 +587,16 @@ protected:
          * @param attr to be considered
          */
         void checkOutputForAttributes(const audio_attributes_t &attr);
+
+        /**
+         * @brief checkAudioSourceForAttributes checks if any AudioSource following the same routing
+         * as the given audio attributes is not routed and try to connect it.
+         * It must be called once checkOutputForAttributes has been called for orphans AudioSource,
+         * aka AudioSource not attached to any Audio Output (e.g. AudioSource connected to direct
+         * Output which has been disconnected (and output closed) due to sink device unavailable).
+         * @param attr to be considered
+         */
+        void checkAudioSourceForAttributes(const audio_attributes_t &attr);
 
         bool followsSameRouting(const audio_attributes_t &lAttr,
                                 const audio_attributes_t &rAttr) const;
@@ -608,7 +665,8 @@ protected:
                                        audio_output_flags_t flags = AUDIO_OUTPUT_FLAG_NONE,
                                        audio_format_t format = AUDIO_FORMAT_INVALID,
                                        audio_channel_mask_t channelMask = AUDIO_CHANNEL_NONE,
-                                       uint32_t samplingRate = 0);
+                                       uint32_t samplingRate = 0,
+                                       audio_session_t sessionId = AUDIO_SESSION_NONE);
         // samplingRate, format, channelMask are in/out and so may be modified
         sp<IOProfile> getInputProfile(const sp<DeviceDescriptor> & device,
                                       uint32_t& samplingRate,
@@ -680,9 +738,22 @@ protected:
                     String8(devices.itemAt(0)->address().c_str()) : String8("");
         }
 
-        uint32_t updateCallRouting(const DeviceVector &rxDevices, uint32_t delayMs = 0);
+        status_t updateCallRouting(
+                bool fromCache, uint32_t delayMs = 0, uint32_t *waitMs = nullptr);
+        status_t updateCallRoutingInternal(
+                const DeviceVector &rxDevices, uint32_t delayMs, uint32_t *waitMs);
         sp<AudioPatch> createTelephonyPatch(bool isRx, const sp<DeviceDescriptor> &device,
                                             uint32_t delayMs);
+        /**
+         * @brief selectBestRxSinkDevicesForCall: if the primary module host both Telephony Rx/Tx
+         * devices, and it declares also supporting a HW bridge between the Telephony Rx and the
+         * given sink device for Voice Call audio attributes, select this device in prio.
+         * Otherwise, getNewOutputDevices() is called on the primary output to select sink device.
+         * @param fromCache true to prevent engine reconsidering all product strategies and retrieve
+         * from engine cache.
+         * @return vector of devices, empty if none is found.
+         */
+        DeviceVector selectBestRxSinkDevicesForCall(bool fromCache);
         bool isDeviceOfModule(const sp<DeviceDescriptor>& devDesc, const char *moduleId) const;
 
         status_t startSource(const sp<SwAudioOutputDescriptor>& outputDesc,
@@ -709,6 +780,7 @@ protected:
 
         sp<SourceClientDescriptor> getSourceForAttributesOnOutput(audio_io_handle_t output,
                                                                   const audio_attributes_t &attr);
+        void clearAudioSourcesForOutput(audio_io_handle_t output);
 
         void cleanUpForDevice(const sp<DeviceDescriptor>& deviceDesc);
 
@@ -755,7 +827,6 @@ protected:
         SoundTriggerSessionCollection mSoundTriggerSessions;
 
         sp<AudioPatch> mCallTxPatch;
-        sp<AudioPatch> mCallRxPatch;
 
         HwAudioOutputCollection mHwOutputs;
         SourceClientCollection mAudioSources;
@@ -787,23 +858,42 @@ protected:
         std::unordered_set<audio_format_t> mManualSurroundFormats;
 
         std::unordered_map<uid_t, audio_flags_mask_t> mAllowedCapturePolicies;
+
+        // The map of device descriptor and formats reported by the device.
+        std::map<wp<DeviceDescriptor>, FormatVector> mReportedFormatsMap;
+
+        // Cached product strategy ID corresponding to legacy strategy STRATEGY_PHONE
+        product_strategy_t mCommunnicationStrategy;
+
+        // The port handle of the hardware audio source created internally for the Call RX audio
+        // end point.
+        audio_port_handle_t mCallRxSourceClientPort = AUDIO_PORT_HANDLE_NONE;
+
+        // Support for Multi-Stream Decoder (MSD) module
+        sp<DeviceDescriptor> getMsdAudioInDevice() const;
+        DeviceVector getMsdAudioOutDevices() const;
+        const AudioPatchCollection getMsdOutputPatches() const;
+        status_t getMsdProfiles(bool hwAvSync,
+                const InputProfileCollection &inputProfiles,
+                const OutputProfileCollection &outputProfiles,
+                const sp<DeviceDescriptor> &sourceDevice,
+                const sp<DeviceDescriptor> &sinkDevice,
+                AudioProfileVector &sourceProfiles,
+                AudioProfileVector &sinkProfiles) const;
+        status_t getBestMsdConfig(bool hwAvSync,
+                const AudioProfileVector &sourceProfiles,
+                const AudioProfileVector &sinkProfiles,
+                audio_port_config *sourceConfig,
+                audio_port_config *sinkConfig) const;
+        PatchBuilder buildMsdPatch(bool msdIsSource, const sp<DeviceDescriptor> &device) const;
+        status_t setMsdOutputPatches(const DeviceVector *outputDevices = nullptr);
+        void releaseMsdOutputPatches(const DeviceVector& devices);
 private:
         void onNewAudioModulesAvailableInt(DeviceVector *newDevices);
 
         // Add or remove AC3 DTS encodings based on user preferences.
         void modifySurroundFormats(const sp<DeviceDescriptor>& devDesc, FormatVector *formatsPtr);
         void modifySurroundChannelMasks(ChannelMaskSet *channelMasksPtr);
-
-        // Support for Multi-Stream Decoder (MSD) module
-        sp<DeviceDescriptor> getMsdAudioInDevice() const;
-        DeviceVector getMsdAudioOutDevices() const;
-        const AudioPatchCollection getMsdPatches() const;
-        status_t getBestMsdAudioProfileFor(const sp<DeviceDescriptor> &outputDevice,
-                                           bool hwAvSync,
-                                           audio_port_config *sourceConfig,
-                                           audio_port_config *sinkConfig) const;
-        PatchBuilder buildMsdPatch(const sp<DeviceDescriptor> &outputDevice) const;
-        status_t setMsdPatch(const sp<DeviceDescriptor> &outputDevice = nullptr);
 
         // If any, resolve any "dynamic" fields of an Audio Profiles collection
         void updateAudioProfiles(const sp<DeviceDescriptor>& devDesc, audio_io_handle_t ioHandle,
@@ -938,9 +1028,16 @@ private:
                 sp<AudioPatch> *patchDescPtr);
 
         bool areAllDevicesSupported(
-                const Vector<AudioDeviceTypeAddr>& devices,
+                const AudioDeviceTypeAddrVector& devices,
                 std::function<bool(audio_devices_t)> predicate,
                 const char* context);
+
+        bool isScoRequestedForComm() const;
+
+        bool areAllActiveTracksRerouted(const sp<SwAudioOutputDescriptor>& output);
+
+        sp<SwAudioOutputDescriptor> openOutputWithProfileAndDevice(const sp<IOProfile>& profile,
+                                                                   const DeviceVector& devices);
 
 };
 

@@ -16,7 +16,7 @@
 
 package com.android.layoutlib.bridge.remote.server.adapters;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.ide.common.rendering.api.ResourceValue;
@@ -37,7 +37,7 @@ public class RemoteRenderResourcesAdapter extends RenderResources {
     }
 
     @Override
-    public void setLogger(LayoutLog logger) {
+    public void setLogger(ILayoutLog logger) {
         // Ignored for remote operations.
     }
 

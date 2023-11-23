@@ -21,11 +21,9 @@ interface IInstalld {
     void createUserData(@nullable @utf8InCpp String uuid, int userId, int userSerial, int flags);
     void destroyUserData(@nullable @utf8InCpp String uuid, int userId, int flags);
 
-    long createAppData(@nullable @utf8InCpp String uuid, in @utf8InCpp String packageName,
-            int userId, int flags, int appId, in @utf8InCpp String seInfo, int targetSdkVersion);
-    long createAppDataBatched(in @nullable @utf8InCpp String[] uuids,
-        in @nullable @utf8InCpp String[] packageNames, in int userId, int flags, in int[] appIds,
-        in @utf8InCpp String[] seInfos, in int[] targetSdkVersions);
+    android.os.CreateAppDataResult createAppData(in android.os.CreateAppDataArgs args);
+    android.os.CreateAppDataResult[] createAppDataBatched(in android.os.CreateAppDataArgs[] args);
+
     void restoreconAppData(@nullable @utf8InCpp String uuid, @utf8InCpp String packageName,
             int userId, int flags, int appId, @utf8InCpp String seInfo);
     void migrateAppData(@nullable @utf8InCpp String uuid, @utf8InCpp String packageName,
@@ -71,7 +69,7 @@ interface IInstalld {
 
     void rmdex(@utf8InCpp String codePath, @utf8InCpp String instructionSet);
 
-    boolean mergeProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String profileName);
+    int mergeProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String profileName);
     boolean dumpProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String  profileName,
             @utf8InCpp String codePath);
     boolean copySystemProfile(@utf8InCpp String systemProfile, int uid,
@@ -93,7 +91,7 @@ interface IInstalld {
             @utf8InCpp String toBase);
     void moveAb(@utf8InCpp String apkPath, @utf8InCpp String instructionSet,
             @utf8InCpp String outputPath);
-    void deleteOdex(@utf8InCpp String apkPath, @utf8InCpp String instructionSet,
+    long deleteOdex(@utf8InCpp String apkPath, @utf8InCpp String instructionSet,
             @nullable @utf8InCpp String outputPath);
     void installApkVerity(@utf8InCpp String filePath, in FileDescriptor verityInput,
             int contentSize);

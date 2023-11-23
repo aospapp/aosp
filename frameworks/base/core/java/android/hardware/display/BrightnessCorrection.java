@@ -20,16 +20,15 @@ import android.annotation.FloatRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.MathUtils;
+import android.util.TypedXmlPullParser;
+import android.util.TypedXmlSerializer;
 
 import com.android.internal.util.XmlUtils;
 
-import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlSerializer;
 
 import java.io.IOException;
 
@@ -44,7 +43,6 @@ import java.io.IOException;
  * @hide
  */
 @SystemApi
-@TestApi
 public final class BrightnessCorrection implements Parcelable {
 
     private static final int SCALE_AND_TRANSLATE_LOG = 1;
@@ -155,7 +153,7 @@ public final class BrightnessCorrection implements Parcelable {
      *
      * @hide
      */
-    public void saveToXml(XmlSerializer serializer) throws IOException {
+    public void saveToXml(TypedXmlSerializer serializer) throws IOException {
         mImplementation.saveToXml(serializer);
     }
 
@@ -172,7 +170,7 @@ public final class BrightnessCorrection implements Parcelable {
      *
      * @hide
      */
-    public static BrightnessCorrection loadFromXml(XmlPullParser parser) throws IOException,
+    public static BrightnessCorrection loadFromXml(TypedXmlPullParser parser) throws IOException,
             XmlPullParserException {
         final int depth = parser.getDepth();
         while (XmlUtils.nextElementWithin(parser, depth)) {
@@ -183,20 +181,15 @@ public final class BrightnessCorrection implements Parcelable {
         return null;
     }
 
-    private static float loadFloatFromXml(XmlPullParser parser, String attribute) {
-        final String string = parser.getAttributeValue(null, attribute);
-        try {
-            return Float.parseFloat(string);
-        } catch (NullPointerException | NumberFormatException e) {
-            return Float.NaN;
-        }
+    private static float loadFloatFromXml(TypedXmlPullParser parser, String attribute) {
+        return parser.getAttributeFloat(null, attribute, Float.NaN);
     }
 
     private interface BrightnessCorrectionImplementation {
         float apply(float brightness);
         String toString();
         void writeToParcel(Parcel dest);
-        void saveToXml(XmlSerializer serializer) throws IOException;
+        void saveToXml(TypedXmlSerializer serializer) throws IOException;
         // Package-private static methods:
         // static BrightnessCorrection readFromParcel(Parcel in);
         // static BrightnessCorrection loadFromXml(XmlPullParser parser) throws IOException,
@@ -238,7 +231,7 @@ public final class BrightnessCorrection implements Parcelable {
         }
 
         @Override
-        public boolean equals(Object o) {
+        public boolean equals(@Nullable Object o) {
             if (o == this) {
                 return true;
             }
@@ -265,10 +258,10 @@ public final class BrightnessCorrection implements Parcelable {
         }
 
         @Override
-        public void saveToXml(XmlSerializer serializer) throws IOException {
+        public void saveToXml(TypedXmlSerializer serializer) throws IOException {
             serializer.startTag(null, TAG_SCALE_AND_TRANSLATE_LOG);
-            serializer.attribute(null, ATTR_SCALE, Float.toString(mScale));
-            serializer.attribute(null, ATTR_TRANSLATE, Float.toString(mTranslate));
+            serializer.attributeFloat(null, ATTR_SCALE, mScale);
+            serializer.attributeFloat(null, ATTR_TRANSLATE, mTranslate);
             serializer.endTag(null, TAG_SCALE_AND_TRANSLATE_LOG);
         }
 
@@ -278,7 +271,7 @@ public final class BrightnessCorrection implements Parcelable {
             return BrightnessCorrection.createScaleAndTranslateLog(scale, translate);
         }
 
-        static BrightnessCorrection loadFromXml(XmlPullParser parser) throws IOException,
+        static BrightnessCorrection loadFromXml(TypedXmlPullParser parser) throws IOException,
                 XmlPullParserException {
             final float scale = loadFloatFromXml(parser, ATTR_SCALE);
             final float translate = loadFloatFromXml(parser, ATTR_TRANSLATE);

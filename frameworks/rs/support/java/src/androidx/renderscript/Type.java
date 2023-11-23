@@ -50,7 +50,12 @@ import android.util.Log;
  * <a href="{@docRoot}guide/topics/renderscript/index.html">RenderScript</a>
  * developer guide.</p>
  * </div>
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class Type extends BaseObj {
     int mDimX;
     int mDimY;
@@ -190,7 +195,7 @@ public class Type extends BaseObj {
     }
 
     /*
-     * Get an identical dummy Type for Compat Context
+     * Get an identical placeholder Type for Compat Context
      *
      */
     public long getDummyType(RenderScript mRS, long eid) {

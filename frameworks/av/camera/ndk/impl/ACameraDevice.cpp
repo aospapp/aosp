@@ -186,6 +186,7 @@ CameraDevice::createCaptureSession(
         const ACaptureRequest* sessionParameters,
         const ACameraCaptureSession_stateCallbacks* callbacks,
         /*out*/ACameraCaptureSession** session) {
+    nsecs_t startTimeNs = systemTime();
     sp<ACameraCaptureSession> currentSession = mCurrentSession.promote();
     Mutex::Autolock _l(mDeviceLock);
     camera_status_t ret = checkCameraClosedOrErrorLocked();
@@ -199,7 +200,7 @@ CameraDevice::createCaptureSession(
     }
 
     // Create new session
-    ret = configureStreamsLocked(outputs, sessionParameters);
+    ret = configureStreamsLocked(outputs, sessionParameters, startTimeNs);
     if (ret != ACAMERA_OK) {
         ALOGE("Fail to create new session. cannot configure streams");
         return ret;
@@ -450,7 +451,11 @@ CameraDevice::notifySessionEndOfLifeLocked(ACameraCaptureSession* session) {
     }
 
     // No new session, unconfigure now
-    camera_status_t ret = configureStreamsLocked(nullptr, nullptr);
+    // Note: The unconfiguration of session won't be accounted for session
+    // latency because a stream configuration with 0 streams won't ever become
+    // active.
+    nsecs_t startTimeNs = systemTime();
+    camera_status_t ret = configureStreamsLocked(nullptr, nullptr, startTimeNs);
     if (ret != ACAMERA_OK) {
         ALOGE("Unconfigure stream failed. Device might still be configured! ret %d", ret);
     }
@@ -609,7 +614,7 @@ CameraDevice::getSurfaceFromANativeWindow(
 
 camera_status_t
 CameraDevice::configureStreamsLocked(const ACaptureSessionOutputContainer* outputs,
-        const ACaptureRequest* sessionParameters) {
+        const ACaptureRequest* sessionParameters, nsecs_t startTimeNs) {
     ACaptureSessionOutputContainer emptyOutput;
     if (outputs == nullptr) {
         outputs = &emptyOutput;
@@ -711,7 +716,8 @@ CameraDevice::configureStreamsLocked(const ACaptureSessionOutputContainer* outpu
         params.append(sessionParameters->settings->getInternalData());
     }
     std::vector<int> offlineStreamIds;
-    remoteRet = mRemote->endConfigure(/*isConstrainedHighSpeed*/ false, params, &offlineStreamIds);
+    remoteRet = mRemote->endConfigure(/*isConstrainedHighSpeed*/ false, params,
+            ns2ms(startTimeNs), &offlineStreamIds);
     if (remoteRet.serviceSpecificErrorCode() == hardware::ICameraService::ERROR_ILLEGAL_ARGUMENT) {
         ALOGE("Camera device %s cannnot support app output configuration: %s", getId(),
                 remoteRet.toString8().string());
@@ -1361,31 +1367,11 @@ CameraDevice::checkAndFireSequenceCompleteLocked() {
                 it->second.isSequenceCompleted = true;
             }
 
-            if (it->second.isSequenceCompleted && hasCallback) {
-                auto cbIt = mSequenceCallbackMap.find(sequenceId);
-                CallbackHolder cbh = cbIt->second;
-
-                // send seq complete callback
-                sp<AMessage> msg = new AMessage(kWhatCaptureSeqEnd, mHandler);
-                msg->setPointer(kContextKey, cbh.mContext);
-                msg->setObject(kSessionSpKey, cbh.mSession);
-                msg->setPointer(kCallbackFpKey, (void*) cbh.mOnCaptureSequenceCompleted);
-                msg->setInt32(kSequenceIdKey, sequenceId);
-                msg->setInt64(kFrameNumberKey, lastFrameNumber);
-
-                // Clear the session sp before we send out the message
-                // This will guarantee the rare case where the message is processed
-                // before cbh goes out of scope and causing we call the session
-                // destructor while holding device lock
-                cbh.mSession.clear();
-                postSessionMsgAndCleanup(msg);
-            }
         }
 
         if (it->second.isSequenceCompleted && it->second.isInflightCompleted) {
-            if (mSequenceCallbackMap.find(sequenceId) != mSequenceCallbackMap.end()) {
-                mSequenceCallbackMap.erase(sequenceId);
-            }
+            sendCaptureSequenceCompletedLocked(sequenceId, lastFrameNumber);
+
             it = mSequenceLastFrameNumberMap.erase(it);
             ALOGV("%s: Remove holder for sequenceId %d", __FUNCTION__, sequenceId);
         } else {
@@ -1412,13 +1398,7 @@ CameraDevice::removeCompletedCallbackHolderLocked(int64_t lastCompletedRegularFr
                 lastCompletedRegularFrameNumber);
         if (lastFrameNumber <= lastCompletedRegularFrameNumber) {
             if (it->second.isSequenceCompleted) {
-                // Check if there is callback for this sequence
-                // This should not happen because we always register callback (with nullptr inside)
-                if (mSequenceCallbackMap.count(sequenceId) == 0) {
-                    ALOGW("No callback found for sequenceId %d", sequenceId);
-                } else {
-                    mSequenceCallbackMap.erase(sequenceId);
-                }
+                sendCaptureSequenceCompletedLocked(sequenceId, lastFrameNumber);
 
                 it = mSequenceLastFrameNumberMap.erase(it);
                 ALOGV("%s: Remove holder for sequenceId %d", __FUNCTION__, sequenceId);
@@ -1707,6 +1687,34 @@ CameraDevice::ServiceCallback::onRepeatingRequestError(
     dev->checkRepeatingSequenceCompleteLocked(repeatingSequenceId, lastFrameNumber);
 
     return ret;
+}
+
+void
+CameraDevice::sendCaptureSequenceCompletedLocked(int sequenceId, int64_t lastFrameNumber) {
+    auto cbIt = mSequenceCallbackMap.find(sequenceId);
+    if (cbIt != mSequenceCallbackMap.end()) {
+        CallbackHolder cbh = cbIt->second;
+        mSequenceCallbackMap.erase(cbIt);
+
+        // send seq complete callback
+        sp<AMessage> msg = new AMessage(kWhatCaptureSeqEnd, mHandler);
+        msg->setPointer(kContextKey, cbh.mContext);
+        msg->setObject(kSessionSpKey, cbh.mSession);
+        msg->setPointer(kCallbackFpKey, (void*) cbh.mOnCaptureSequenceCompleted);
+        msg->setInt32(kSequenceIdKey, sequenceId);
+        msg->setInt64(kFrameNumberKey, lastFrameNumber);
+
+        // Clear the session sp before we send out the message
+        // This will guarantee the rare case where the message is processed
+        // before cbh goes out of scope and causing we call the session
+        // destructor while holding device lock
+        cbh.mSession.clear();
+        postSessionMsgAndCleanup(msg);
+    } else {
+        // Check if there is callback for this sequence
+        // This should not happen because we always register callback (with nullptr inside)
+        ALOGW("No callback found for sequenceId %d", sequenceId);
+    }
 }
 
 } // namespace acam

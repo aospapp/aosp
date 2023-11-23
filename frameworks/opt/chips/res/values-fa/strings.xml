@@ -20,7 +20,7 @@
     <string name="copy_email" msgid="1084563757174121331">"کپی نشانی ایمیل"</string>
     <string name="copy_number" msgid="8860802152973030914">"کپی شماره تلفن"</string>
     <string name="action_label" msgid="7172664623795021857">"بازگشت"</string>
-    <string name="accessbility_suggestion_dropdown_opened" msgid="9015267358421989409">"پیشنهادات مخاطب باز شد"</string>
+    <string name="accessbility_suggestion_dropdown_opened" msgid="9015267358421989409">"پیشنهاد مخاطب باز شد"</string>
     <string name="accessbility_suggestion_dropdown_closed" msgid="91481373431329121">"هیچ پیشنهادی موجود نیست"</string>
     <string name="dropdown_delete_button_desc" msgid="4359394656487762022">"برداشتن <xliff:g id="CONTACT">%s</xliff:g> از گیرندگان"</string>
     <string name="chips_action_copy" msgid="6984158516334578792">"کپی"</string>

@@ -12,8 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 cc_library {
     name: "libwatchdog",
+    host_supported: true,
     srcs: [
         "Watchdog.cpp",
     ],
@@ -28,6 +38,11 @@ cc_library {
         },
         darwin: {
             enabled: false,
+        },
+        linux_glibc: {
+            cflags: [
+                "-Dsigev_notify_thread_id=_sigev_un._tid",
+            ],
         },
     },
     apex_available: ["com.android.media"],

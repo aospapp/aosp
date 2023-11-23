@@ -80,6 +80,7 @@ class CommandOptions {
 
         int64_t timeout_ms_;
         bool always_;
+        bool close_all_fds_on_exec_;
         PrivilegeMode account_mode_;
         OutputMode output_mode_;
         std::string logging_message_;
@@ -112,6 +113,13 @@ class CommandOptions {
         CommandOptionsBuilder& DropRoot();
         /* Sets the command's OutputMode as `REDIRECT_TO_STDERR` */
         CommandOptionsBuilder& RedirectStderr();
+        /* Closes all file descriptors before exec-ing the target process. This
+         * includes also stdio pipes, which are dup-ed on /dev/null. It prevents
+         * leaking opened FDs to the target process, which in turn can hit
+         * selinux denials in presence of auto_trans rules.
+         */
+        CommandOptionsBuilder& CloseAllFileDescriptorsOnExec();
+
         /* When not empty, logs a message before executing the command.
          * Must contain a `%s`, which will be replaced by the full command line, and end on `\n`. */
         CommandOptionsBuilder& Log(const std::string& message);
@@ -130,6 +138,8 @@ class CommandOptions {
     int64_t TimeoutInMs() const;
     /* Checks whether the command should always be run, even on dry-run mode. */
     bool Always() const;
+    /* Checks whether all FDs should be closed prior to the exec() calls. */
+    bool ShouldCloseAllFileDescriptorsOnExec() const;
     /** Gets the PrivilegeMode of the command. */
     PrivilegeMode PrivilegeMode() const;
     /** Gets the OutputMode of the command. */
@@ -176,10 +186,18 @@ class PropertiesHelper {
      */
     static bool IsUnroot();
 
+    /*
+     * Whether or not the parallel run is enabled. Setting the system property
+     * 'dumpstate.parallel_run' to false to disable it, otherwise it returns
+     * true by default.
+     */
+    static bool IsParallelRun();
+
   private:
     static std::string build_type_;
     static int dry_run_;
     static int unroot_;
+    static int parallel_run_;
 };
 
 /*

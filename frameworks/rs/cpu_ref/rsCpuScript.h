@@ -155,18 +155,32 @@ uint32_t constructBuildChecksum(uint8_t const *bitcode, size_t bitcodeSize,
 
 } // namespace renderscript
 
+#ifndef __ANDROID_NATIVE_BRIDGE__
+
 #ifdef __LP64__
 #define SYSLIBPATH "/system/lib64"
 #define SYSLIBPATH_BC "/system/lib64"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib64"
-#elif defined(BUILD_ARM_FOR_X86) && defined(__arm__)
-#define SYSLIBPATH "/system/lib/arm"
-#define SYSLIBPATH_BC "/system/lib"
-#define SYSLIBPATH_VENDOR "/system/vendor/lib/arm"
 #else
 #define SYSLIBPATH "/system/lib"
 #define SYSLIBPATH_BC "/system/lib"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib"
+#endif
+
+#else
+
+#if defined(__arm__)
+#define SYSLIBPATH "/system/lib/arm"
+#define SYSLIBPATH_BC "/system/lib"
+#define SYSLIBPATH_VENDOR "/system/vendor/lib/arm"
+#elif defined(__aarch64__)
+#define SYSLIBPATH "/system/lib64/arm64"
+#define SYSLIBPATH_BC "/system/lib64"
+#define SYSLIBPATH_VENDOR "/system/vendor/lib64/arm64"
+#else
+#error Unknown architecture
+#endif
+
 #endif
 
 } // namespace android

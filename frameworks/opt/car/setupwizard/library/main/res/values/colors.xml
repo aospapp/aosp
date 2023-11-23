@@ -23,4 +23,17 @@
 
     <color name="blue_400">#6BA5ED</color>
     <color name="car_suw_tint">@color/blue_400</color>
+
+    <!-- White -->
+    <color name="suw_color_primary">@android:color/white</color>
+    <!-- Material grey500 -->
+    <color name="suw_color_secondary">#9AA0A6</color>
+    <!-- Material blue300 -->
+    <color name="suw_color_accent">#8AB4F8</color>
+    <!-- Material grey200 -->
+    <color name="suw_color_list_icon">#E8EAED</color>
+    <!-- Material grey800 -->
+    <color name="suw_color_divider">#3C4043</color>
+    <!-- Material grey900 -->
+    <color name="suw_color_background">#202124</color>
 </resources>

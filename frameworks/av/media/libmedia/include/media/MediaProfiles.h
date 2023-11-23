@@ -21,6 +21,8 @@
 #include <utils/threads.h>
 #include <media/mediarecorder.h>
 
+#include <vector>
+
 namespace android {
 
 enum camcorder_quality {
@@ -37,8 +39,9 @@ enum camcorder_quality {
     CAMCORDER_QUALITY_VGA = 9,
     CAMCORDER_QUALITY_4KDCI = 10,
     CAMCORDER_QUALITY_QHD = 11,
-    CAMCORDER_QUALITY_2k = 12,
-    CAMCORDER_QUALITY_LIST_END = 12,
+    CAMCORDER_QUALITY_2K = 12,
+    CAMCORDER_QUALITY_8KUHD = 13,
+    CAMCORDER_QUALITY_LIST_END = 13,
 
     CAMCORDER_QUALITY_TIME_LAPSE_LIST_START = 1000,
     CAMCORDER_QUALITY_TIME_LAPSE_LOW  = 1000,
@@ -53,8 +56,9 @@ enum camcorder_quality {
     CAMCORDER_QUALITY_TIME_LAPSE_VGA = 1009,
     CAMCORDER_QUALITY_TIME_LAPSE_4KDCI = 1010,
     CAMCORDER_QUALITY_TIME_LAPSE_QHD = 1011,
-    CAMCORDER_QUALITY_TIME_LAPSE_2k = 1012,
-    CAMCORDER_QUALITY_TIME_LAPSE_LIST_END = 1012,
+    CAMCORDER_QUALITY_TIME_LAPSE_2K = 1012,
+    CAMCORDER_QUALITY_TIME_LAPSE_8KUHD = 1013,
+    CAMCORDER_QUALITY_TIME_LAPSE_LIST_END = 1013,
 
     CAMCORDER_QUALITY_HIGH_SPEED_LIST_START = 2000,
     CAMCORDER_QUALITY_HIGH_SPEED_LOW  = 2000,
@@ -96,6 +100,193 @@ public:
      * failure properly.
      */
     static MediaProfiles* getInstance();
+
+    /**
+     * Configuration for a video encoder.
+     */
+    struct VideoCodec {
+    public:
+        /**
+         * Constructs a video encoder configuration.
+         *
+         * @param codec codec type
+         * @param bitrate bitrate in bps
+         * @param frameWidth frame width in pixels
+         * @param frameHeight frame height in pixels
+         * @param frameRate frame rate in fps
+         * @param profile codec profile (for MediaCodec) or -1 for none
+         */
+        VideoCodec(video_encoder codec, int bitrate, int frameWidth, int frameHeight, int frameRate,
+                   int profile = -1)
+            : mCodec(codec),
+              mBitRate(bitrate),
+              mFrameWidth(frameWidth),
+              mFrameHeight(frameHeight),
+              mFrameRate(frameRate),
+              mProfile(profile) {
+        }
+
+        VideoCodec(const VideoCodec&) = default;
+
+        ~VideoCodec() {}
+
+        /** Returns the codec type. */
+        video_encoder getCodec() const {
+            return mCodec;
+        }
+
+        /** Returns the bitrate in bps. */
+        int getBitrate() const {
+            return mBitRate;
+        }
+
+        /** Returns the frame width in pixels. */
+        int getFrameWidth() const {
+            return mFrameWidth;
+        }
+
+        /** Returns the frame height in pixels. */
+        int getFrameHeight() const {
+            return mFrameHeight;
+        }
+
+        /** Returns the frame rate in fps. */
+        int getFrameRate() const {
+            return mFrameRate;
+        }
+
+        /** Returns the codec profile (or -1 for no profile). */
+        int getProfile() const {
+            return mProfile;
+        }
+
+    private:
+        video_encoder mCodec;
+        int mBitRate;
+        int mFrameWidth;
+        int mFrameHeight;
+        int mFrameRate;
+        int mProfile;
+        friend class MediaProfiles;
+    };
+
+    /**
+     * Configuration for an audio encoder.
+     */
+    struct AudioCodec {
+    public:
+        /**
+         * Constructs an audio encoder configuration.
+         *
+         * @param codec codec type
+         * @param bitrate bitrate in bps
+         * @param sampleRate sample rate in Hz
+         * @param channels number of channels
+         * @param profile codec profile (for MediaCodec) or -1 for none
+         */
+        AudioCodec(audio_encoder codec, int bitrate, int sampleRate, int channels, int profile = -1)
+            : mCodec(codec),
+              mBitRate(bitrate),
+              mSampleRate(sampleRate),
+              mChannels(channels),
+              mProfile(profile) {
+        }
+
+        AudioCodec(const AudioCodec&) = default;
+
+        ~AudioCodec() {}
+
+        /** Returns the codec type. */
+        audio_encoder getCodec() const {
+            return mCodec;
+        }
+
+        /** Returns the bitrate in bps. */
+        int getBitrate() const {
+            return mBitRate;
+        }
+
+        /** Returns the sample rate in Hz. */
+        int getSampleRate() const {
+            return mSampleRate;
+        }
+
+        /** Returns the number of channels. */
+        int getChannels() const {
+            return mChannels;
+        }
+
+        /** Returns the codec profile (or -1 for no profile). */
+        int getProfile() const {
+            return mProfile;
+        }
+
+    private:
+        audio_encoder mCodec;
+        int mBitRate;
+        int mSampleRate;
+        int mChannels;
+        int mProfile;
+        friend class MediaProfiles;
+    };
+
+    /**
+     * Configuration for a camcorder profile/encoder profiles object.
+     */
+    struct CamcorderProfile {
+        /**
+         *  Returns on ordered list of the video codec configurations in
+         *  decreasing preference. The returned object is only valid
+         *  during the lifetime of this object.
+         */
+        std::vector<const VideoCodec *> getVideoCodecs() const;
+
+        /**
+         *  Returns on ordered list of the audio codec configurations in
+         *  decreasing preference. The returned object is only valid
+         *  during the lifetime of this object.
+         */
+        std::vector<const AudioCodec *> getAudioCodecs() const;
+
+        /** Returns the default duration in seconds. */
+        int getDuration() const {
+            return mDuration;
+        }
+
+        /** Returns the preferred file format. */
+        int getFileFormat() const {
+            return mFileFormat;
+        }
+
+        CamcorderProfile(const CamcorderProfile& copy) = default;
+
+        ~CamcorderProfile() = default;
+
+    private:
+        /**
+         * Constructs an empty object with no audio/video profiles.
+         */
+        CamcorderProfile()
+            : mCameraId(0),
+              mFileFormat(OUTPUT_FORMAT_THREE_GPP),
+              mQuality(CAMCORDER_QUALITY_HIGH),
+              mDuration(0) {}
+
+        int mCameraId;
+        output_format mFileFormat;
+        camcorder_quality mQuality;
+        int mDuration;
+        std::vector<VideoCodec> mVideoCodecs;
+        std::vector<AudioCodec> mAudioCodecs;
+        friend class MediaProfiles;
+    };
+
+    /**
+     * Returns the CamcorderProfile object for the given camera at
+     * the given quality level, or null if it does not exist.
+     */
+    const CamcorderProfile *getCamcorderProfile(
+            int cameraId, camcorder_quality quality) const;
 
     /**
      * Returns the value for the given param name for the given camera at
@@ -200,84 +391,6 @@ private:
     MediaProfiles() {}                               // Dummy default constructor
     ~MediaProfiles();                                // Don't delete me
 
-    struct VideoCodec {
-        VideoCodec(video_encoder codec, int bitRate, int frameWidth, int frameHeight, int frameRate)
-            : mCodec(codec),
-              mBitRate(bitRate),
-              mFrameWidth(frameWidth),
-              mFrameHeight(frameHeight),
-              mFrameRate(frameRate) {}
-
-        VideoCodec(const VideoCodec& copy) {
-            mCodec = copy.mCodec;
-            mBitRate = copy.mBitRate;
-            mFrameWidth = copy.mFrameWidth;
-            mFrameHeight = copy.mFrameHeight;
-            mFrameRate = copy.mFrameRate;
-        }
-
-        ~VideoCodec() {}
-
-        video_encoder mCodec;
-        int mBitRate;
-        int mFrameWidth;
-        int mFrameHeight;
-        int mFrameRate;
-    };
-
-    struct AudioCodec {
-        AudioCodec(audio_encoder codec, int bitRate, int sampleRate, int channels)
-            : mCodec(codec),
-              mBitRate(bitRate),
-              mSampleRate(sampleRate),
-              mChannels(channels) {}
-
-        AudioCodec(const AudioCodec& copy) {
-            mCodec = copy.mCodec;
-            mBitRate = copy.mBitRate;
-            mSampleRate = copy.mSampleRate;
-            mChannels = copy.mChannels;
-        }
-
-        ~AudioCodec() {}
-
-        audio_encoder mCodec;
-        int mBitRate;
-        int mSampleRate;
-        int mChannels;
-    };
-
-    struct CamcorderProfile {
-        CamcorderProfile()
-            : mCameraId(0),
-              mFileFormat(OUTPUT_FORMAT_THREE_GPP),
-              mQuality(CAMCORDER_QUALITY_HIGH),
-              mDuration(0),
-              mVideoCodec(0),
-              mAudioCodec(0) {}
-
-        CamcorderProfile(const CamcorderProfile& copy) {
-            mCameraId = copy.mCameraId;
-            mFileFormat = copy.mFileFormat;
-            mQuality = copy.mQuality;
-            mDuration = copy.mDuration;
-            mVideoCodec = new VideoCodec(*copy.mVideoCodec);
-            mAudioCodec = new AudioCodec(*copy.mAudioCodec);
-        }
-
-        ~CamcorderProfile() {
-            delete mVideoCodec;
-            delete mAudioCodec;
-        }
-
-        int mCameraId;
-        output_format mFileFormat;
-        camcorder_quality mQuality;
-        int mDuration;
-        VideoCodec *mVideoCodec;
-        AudioCodec *mAudioCodec;
-    };
-
     struct VideoEncoderCap {
         // Ugly constructor
         VideoEncoderCap(video_encoder codec,
@@ -362,23 +475,23 @@ private:
     // If the xml configuration file does exist, use the settings
     // from the xml
     static MediaProfiles* createInstanceFromXmlFile(const char *xml);
-    static output_format createEncoderOutputFileFormat(const char **atts);
-    static VideoCodec* createVideoCodec(const char **atts, MediaProfiles *profiles);
-    static AudioCodec* createAudioCodec(const char **atts, MediaProfiles *profiles);
-    static AudioDecoderCap* createAudioDecoderCap(const char **atts);
-    static VideoDecoderCap* createVideoDecoderCap(const char **atts);
-    static VideoEncoderCap* createVideoEncoderCap(const char **atts);
-    static AudioEncoderCap* createAudioEncoderCap(const char **atts);
+    static output_format createEncoderOutputFileFormat(const char **atts, size_t natts);
+    static void createVideoCodec(const char **atts, size_t natts, MediaProfiles *profiles);
+    static void createAudioCodec(const char **atts, size_t natts, MediaProfiles *profiles);
+    static AudioDecoderCap* createAudioDecoderCap(const char **atts, size_t natts);
+    static VideoDecoderCap* createVideoDecoderCap(const char **atts, size_t natts);
+    static VideoEncoderCap* createVideoEncoderCap(const char **atts, size_t natts);
+    static AudioEncoderCap* createAudioEncoderCap(const char **atts, size_t natts);
 
     static CamcorderProfile* createCamcorderProfile(
-                int cameraId, const char **atts, Vector<int>& cameraIds);
+                int cameraId, const char **atts, size_t natts, Vector<int>& cameraIds);
 
-    static int getCameraId(const char **atts);
+    static int getCameraId(const char **atts, size_t natts);
 
-    void addStartTimeOffset(int cameraId, const char **atts);
+    void addStartTimeOffset(int cameraId, const char **atts, size_t natts);
 
     ImageEncodingQualityLevels* findImageEncodingQualityLevels(int cameraId) const;
-    void addImageEncodingQualityLevel(int cameraId, const char** atts);
+    void addImageEncodingQualityLevel(int cameraId, const char** atts, size_t natts);
 
     // Customized element tag handler for parsing the xml configuration file.
     static void startElementHandler(void *userData, const char *name, const char **atts);

@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libframesequence",
 
@@ -27,6 +31,7 @@ cc_library_shared {
     //  endif
 
     static_libs: ["libgif"],
+    header_libs: ["jni_headers"],
     include_dirs: ["external/giflib"],
     srcs: [
         "BitmapDecoderJNI.cpp",

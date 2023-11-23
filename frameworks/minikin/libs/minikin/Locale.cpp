@@ -34,6 +34,18 @@ uint32_t registerLocaleList(const std::string& locales) {
     return LocaleListCache::getId(locales);
 }
 
+std::string getLocaleString(uint32_t localeId) {
+    const LocaleList& localeList = LocaleListCache::getById(localeId);
+    std::string out;
+    for (size_t i = 0; i < localeList.size(); ++i) {
+        if (i != 0) {
+            out += ",";
+        }
+        out += localeList[i].getString();
+    }
+    return out;
+}
+
 // Check if a language code supports extension such as emoji and line break etc. according to its
 // subtag
 static bool isSubtag(const char* buf, size_t bufLen, const char* subtag, size_t subtagLen) {

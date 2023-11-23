@@ -17,6 +17,7 @@
 // TODO(b/129481165): remove the #pragma below and fix conversion issues
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wconversion"
+#pragma clang diagnostic ignored "-Wextra"
 
 #undef LOG_TAG
 #define LOG_TAG "LibSurfaceFlingerUnittests"
@@ -75,6 +76,22 @@ public:
         auto tracingSession = perfetto::Tracing::NewTrace(perfetto::kInProcessBackend);
         tracingSession->Setup(cfg);
         return tracingSession;
+    }
+
+    std::vector<perfetto::protos::TracePacket> readGraphicsFramePacketsBlocking(
+            perfetto::TracingSession* tracingSession) {
+        std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
+        perfetto::protos::Trace trace;
+        EXPECT_TRUE(trace.ParseFromArray(raw_trace.data(), int(raw_trace.size())));
+
+        std::vector<perfetto::protos::TracePacket> packets;
+        for (const auto& packet : trace.packet()) {
+            if (!packet.has_graphics_frame_event()) {
+                continue;
+            }
+            packets.emplace_back(packet);
+        }
+        return packets;
     }
 
     std::unique_ptr<FrameTracer> mFrameTracer;
@@ -142,40 +159,29 @@ TEST_F(FrameTracerTest, canTraceAfterAddingLayer) {
         auto tracingSession = getTracingSessionForTest();
 
         tracingSession->StartBlocking();
-        // Clean up irrelevant traces.
-        tracingSession->ReadTraceBlocking();
-
         mFrameTracer->traceTimestamp(layerId, bufferID, frameNumber, timestamp, type, duration);
         // Create second trace packet to finalize the previous one.
         mFrameTracer->traceTimestamp(layerId, 0, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
         tracingSession->StopBlocking();
 
-        std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-        EXPECT_EQ(raw_trace.size(), 0);
+        auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+        EXPECT_EQ(packets.size(), 0);
     }
 
     {
         auto tracingSession = getTracingSessionForTest();
 
         tracingSession->StartBlocking();
-        // Clean up irrelevant traces.
-        tracingSession->ReadTraceBlocking();
-
         mFrameTracer->traceNewLayer(layerId, layerName);
         mFrameTracer->traceTimestamp(layerId, bufferID, frameNumber, timestamp, type, duration);
         // Create second trace packet to finalize the previous one.
         mFrameTracer->traceTimestamp(layerId, 0, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
         tracingSession->StopBlocking();
 
-        std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-        ASSERT_GT(raw_trace.size(), 0);
+        auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+        EXPECT_EQ(packets.size(), 1);
 
-        perfetto::protos::Trace trace;
-        ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), int(raw_trace.size())));
-        ASSERT_FALSE(trace.packet().empty());
-        EXPECT_EQ(trace.packet().size(), 1);
-
-        const auto& packet = trace.packet().Get(0);
+        const auto& packet = packets[0];
         ASSERT_TRUE(packet.has_timestamp());
         EXPECT_EQ(packet.timestamp(), timestamp);
         ASSERT_TRUE(packet.has_graphics_frame_event());
@@ -205,24 +211,21 @@ TEST_F(FrameTracerTest, traceFenceTriggersOnNextTraceAfterFenceFired) {
         fenceFactory.signalAllForTest(Fence::NO_FENCE, Fence::SIGNAL_TIME_PENDING);
         auto tracingSession = getTracingSessionForTest();
         tracingSession->StartBlocking();
-        // Clean up irrelevant traces.
-        tracingSession->ReadTraceBlocking();
         // Trace.
         mFrameTracer->traceNewLayer(layerId, layerName);
         mFrameTracer->traceFence(layerId, bufferID, frameNumber, fenceTime, type);
         // Create extra trace packet to (hopefully not) trigger and finalize the fence packet.
         mFrameTracer->traceTimestamp(layerId, bufferID, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
         tracingSession->StopBlocking();
-        std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-        EXPECT_EQ(raw_trace.size(), 0);
+
+        auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+        EXPECT_EQ(packets.size(), 0);
     }
 
     {
         auto fenceTime = fenceFactory.createFenceTimeForTest(Fence::NO_FENCE);
         auto tracingSession = getTracingSessionForTest();
         tracingSession->StartBlocking();
-        // Clean up irrelevant traces.
-        tracingSession->ReadTraceBlocking();
         mFrameTracer->traceNewLayer(layerId, layerName);
         mFrameTracer->traceFence(layerId, bufferID, frameNumber, fenceTime, type);
         const nsecs_t timestamp = systemTime();
@@ -231,15 +234,10 @@ TEST_F(FrameTracerTest, traceFenceTriggersOnNextTraceAfterFenceFired) {
         mFrameTracer->traceTimestamp(layerId, bufferID, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
         tracingSession->StopBlocking();
 
-        std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-        ASSERT_GT(raw_trace.size(), 0);
+        auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+        EXPECT_EQ(packets.size(), 2); // Two packets because of the extra trace made above.
 
-        perfetto::protos::Trace trace;
-        ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), int(raw_trace.size())));
-        ASSERT_FALSE(trace.packet().empty());
-        EXPECT_EQ(trace.packet().size(), 2); // Two packets because of the extra trace made above.
-
-        const auto& packet = trace.packet().Get(1);
+        const auto& packet = packets[1];
         ASSERT_TRUE(packet.has_timestamp());
         EXPECT_EQ(packet.timestamp(), timestamp);
         ASSERT_TRUE(packet.has_graphics_frame_event());
@@ -266,8 +264,6 @@ TEST_F(FrameTracerTest, traceFenceWithStartTimeAfterSignalTime_ShouldHaveNoDurat
     auto tracingSession = getTracingSessionForTest();
 
     tracingSession->StartBlocking();
-    // Clean up irrelevant traces.
-    tracingSession->ReadTraceBlocking();
     mFrameTracer->traceNewLayer(layerId, layerName);
 
     // traceFence called after fence signalled.
@@ -288,22 +284,17 @@ TEST_F(FrameTracerTest, traceFenceWithStartTimeAfterSignalTime_ShouldHaveNoDurat
     mFrameTracer->traceTimestamp(layerId, bufferID, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
     tracingSession->StopBlocking();
 
-    std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-    ASSERT_GT(raw_trace.size(), 0);
+    auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+    EXPECT_EQ(packets.size(), 2);
 
-    perfetto::protos::Trace trace;
-    ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), int(raw_trace.size())));
-    ASSERT_FALSE(trace.packet().empty());
-    EXPECT_EQ(trace.packet().size(), 2);
-
-    const auto& packet1 = trace.packet().Get(0);
+    const auto& packet1 = packets[0];
     ASSERT_TRUE(packet1.has_timestamp());
     EXPECT_EQ(packet1.timestamp(), signalTime1);
     ASSERT_TRUE(packet1.has_graphics_frame_event());
     ASSERT_TRUE(packet1.graphics_frame_event().has_buffer_event());
     ASSERT_FALSE(packet1.graphics_frame_event().buffer_event().has_duration_ns());
 
-    const auto& packet2 = trace.packet().Get(1);
+    const auto& packet2 = packets[1];
     ASSERT_TRUE(packet2.has_timestamp());
     EXPECT_EQ(packet2.timestamp(), signalTime2);
     ASSERT_TRUE(packet2.has_graphics_frame_event());
@@ -323,8 +314,6 @@ TEST_F(FrameTracerTest, traceFenceOlderThanDeadline_ShouldBeIgnored) {
     auto fence = fenceFactory.createFenceTimeForTest(Fence::NO_FENCE);
 
     tracingSession->StartBlocking();
-    // Clean up irrelevant traces.
-    tracingSession->ReadTraceBlocking();
     mFrameTracer->traceNewLayer(layerId, layerName);
     mFrameTracer->traceFence(layerId, bufferID, frameNumber, fence, type);
     fenceFactory.signalAllForTest(Fence::NO_FENCE, signalTime);
@@ -332,8 +321,8 @@ TEST_F(FrameTracerTest, traceFenceOlderThanDeadline_ShouldBeIgnored) {
     mFrameTracer->traceTimestamp(layerId, bufferID, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
     tracingSession->StopBlocking();
 
-    std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-    EXPECT_EQ(raw_trace.size(), 0);
+    auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+    EXPECT_EQ(packets.size(), 0);
 }
 
 TEST_F(FrameTracerTest, traceFenceWithValidStartTime_ShouldHaveCorrectDuration) {
@@ -347,8 +336,6 @@ TEST_F(FrameTracerTest, traceFenceWithValidStartTime_ShouldHaveCorrectDuration) 
     auto tracingSession = getTracingSessionForTest();
 
     tracingSession->StartBlocking();
-    // Clean up irrelevant traces.
-    tracingSession->ReadTraceBlocking();
     mFrameTracer->traceNewLayer(layerId, layerName);
 
     // traceFence called after fence signalled.
@@ -369,15 +356,10 @@ TEST_F(FrameTracerTest, traceFenceWithValidStartTime_ShouldHaveCorrectDuration) 
     mFrameTracer->traceTimestamp(layerId, bufferID, 0, 0, FrameTracer::FrameEvent::UNSPECIFIED);
     tracingSession->StopBlocking();
 
-    std::vector<char> raw_trace = tracingSession->ReadTraceBlocking();
-    ASSERT_GT(raw_trace.size(), 0);
+    auto packets = readGraphicsFramePacketsBlocking(tracingSession.get());
+    EXPECT_EQ(packets.size(), 2);
 
-    perfetto::protos::Trace trace;
-    ASSERT_TRUE(trace.ParseFromArray(raw_trace.data(), int(raw_trace.size())));
-    ASSERT_FALSE(trace.packet().empty());
-    EXPECT_EQ(trace.packet().size(), 2);
-
-    const auto& packet1 = trace.packet().Get(0);
+    const auto& packet1 = packets[0];
     ASSERT_TRUE(packet1.has_timestamp());
     EXPECT_EQ(packet1.timestamp(), startTime1);
     ASSERT_TRUE(packet1.has_graphics_frame_event());
@@ -386,7 +368,7 @@ TEST_F(FrameTracerTest, traceFenceWithValidStartTime_ShouldHaveCorrectDuration) 
     const auto& buffer_event1 = packet1.graphics_frame_event().buffer_event();
     EXPECT_EQ(buffer_event1.duration_ns(), duration);
 
-    const auto& packet2 = trace.packet().Get(1);
+    const auto& packet2 = packets[1];
     ASSERT_TRUE(packet2.has_timestamp());
     EXPECT_EQ(packet2.timestamp(), startTime2);
     ASSERT_TRUE(packet2.has_graphics_frame_event());
@@ -400,4 +382,4 @@ TEST_F(FrameTracerTest, traceFenceWithValidStartTime_ShouldHaveCorrectDuration) 
 } // namespace android
 
 // TODO(b/129481165): remove the #pragma below and fix conversion issues
-#pragma clang diagnostic pop // ignored "-Wconversion"
+#pragma clang diagnostic pop // ignored "-Wconversion -Wextra"
